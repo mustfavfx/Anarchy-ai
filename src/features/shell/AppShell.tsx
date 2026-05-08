@@ -51,22 +51,31 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       <div className="app-body">
         <NavRail />
 
-        {isBuilderPage && isEnlargedView ? (
-          /* ── Enlarged mode: Preview fills main, canvas thumbnail in sidebar ── */
-          <div className="app-body-enlarged">
-            <div className="app-enlarged-main">
-              <EnlargedPreview />
-            </div>
-            <RightSidebar canvasChildren={children} />
-          </div>
-        ) : (
-          /* ── Normal mode ── */
+        {isBuilderPage ? (
+          /* ── Builder layout: keep children always mounted to prevent canvas wipe ── */
           <>
-            <main className="app-content">
+            <main
+              className="app-content"
+              style={isEnlargedView ? { display: 'none' } : undefined}
+            >
               {children}
             </main>
-            {isBuilderPage && <RightSidebar />}
+            {isEnlargedView ? (
+              <div className="app-body-enlarged">
+                <div className="app-enlarged-main">
+                  <EnlargedPreview />
+                </div>
+                <RightSidebar />
+              </div>
+            ) : (
+              <RightSidebar />
+            )}
           </>
+        ) : (
+          /* ── Normal mode (non-builder pages) ── */
+          <main className="app-content">
+            {children}
+          </main>
         )}
 
       </div>
