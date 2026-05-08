@@ -77,7 +77,7 @@ export const EnlargedPreview: React.FC = () => {
               className={`ep-tab ${tab === t ? 'active' : ''}`}
               onClick={() => setTab(t)}
             >
-              {t === 'draw' ? 'Draw' : t === 'compare' ? 'Compare' : 'Preview'}
+              {t === 'draw' ? 'Mask' : t === 'compare' ? 'Compare' : 'Preview'}
             </button>
           ))}
         </div>
