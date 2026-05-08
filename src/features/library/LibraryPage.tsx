@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Download, Image as ImageIcon, Loader2, Eye, X } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { downloadImage } from '../../utils/imageExport';
+import { ExportModal } from '../../components/ExportModal';
 import { getHistory } from '../../services/history/HistoryService';
 import './LibraryPage.css';
 
@@ -23,6 +23,7 @@ export const LibraryPage: React.FC = () => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<LibraryAsset | null>(null);
+  const [exportTarget, setExportTarget] = useState<LibraryAsset | null>(null);
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
@@ -121,9 +122,9 @@ export const LibraryPage: React.FC = () => {
     return true;
   });
 
-  const handleDownload = (e: React.MouseEvent, asset: LibraryAsset) => {
+  const handleExport = (e: React.MouseEvent, asset: LibraryAsset) => {
     e.stopPropagation();
-    downloadImage(asset.image, `${asset.name}.png`);
+    setExportTarget(asset);
   };
 
   const counts = {
@@ -193,7 +194,7 @@ export const LibraryPage: React.FC = () => {
                   <button className="asset-action-btn" onClick={(e) => { e.stopPropagation(); setPreview(asset); }} title="Preview">
                     <Eye size={14} />
                   </button>
-                  <button className="asset-action-btn" onClick={(e) => handleDownload(e, asset)} title="Download">
+                  <button className="asset-action-btn" onClick={(e) => handleExport(e, asset)} title="Export">
                     <Download size={14} />
                   </button>
                 </div>
@@ -222,14 +223,21 @@ export const LibraryPage: React.FC = () => {
               <p className="preview-project">{preview.project}</p>
               {preview.prompt && <p className="preview-prompt">{preview.prompt}</p>}
               <div className="preview-actions">
-                <button className="preview-download-btn" onClick={(e) => handleDownload(e, preview)}>
+                <button className="preview-download-btn" onClick={(e) => handleExport(e, preview)}>
                   <Download size={14} />
-                  <span>Download</span>
+                  <span>Export</span>
                 </button>
               </div>
             </div>
           </div>
         </div>
+      )}
+      {exportTarget && (
+        <ExportModal
+          imageUrl={exportTarget.image}
+          imageName={exportTarget.name}
+          onClose={() => setExportTarget(null)}
+        />
       )}
     </div>
   );

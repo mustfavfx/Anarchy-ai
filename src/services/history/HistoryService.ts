@@ -275,9 +275,12 @@ export function deleteHistoryEntry(id: string): void {
   saveEntries(entries);
 }
 
-/** Clear all history */
-export function clearHistory(): void {
+/** Clear all history — also purges full-res images from IndexedDB */
+export async function clearHistory(): Promise<void> {
+  const entries = loadEntries();
   localStorage.removeItem(STORAGE_KEY);
+  // Delete full-res images for all entries
+  await Promise.all(entries.map(e => deleteFullImages(e.id)));
 }
 
 /** Get stats */

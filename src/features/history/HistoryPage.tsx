@@ -4,7 +4,7 @@ import {
   Search, Clock, Star, Save, X,
   Eye, Copy, Zap, Image as ImageIcon,
   Timer, ArrowUpDown, RotateCcw, StarOff, Trash2,
-  FolderOpen, ArrowRight, Check
+  FolderOpen, Check
 } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -14,7 +14,7 @@ import {
   type HistoryEntry, type HistoryGroup
 } from '../../services/history/HistoryService';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { invoke } from '@tauri-apps/api/core';
+import { ExportModal } from '../../components/ExportModal';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import './HistoryPage.css';
 
@@ -38,11 +38,11 @@ export const HistoryPage: React.FC = () => {
   // Feedback states for button animations
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [reusedId, setReusedId] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
   // Full-resolution images loaded from IndexedDB
   const [fullOutput, setFullOutput] = useState<string | null>(null);
   const [fullInput, setFullInput] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [exportTarget, setExportTarget] = useState<{ url: string; name: string } | null>(null);
 
   const refresh = useCallback(() => {
     setGroups(getHistoryGrouped());
@@ -120,25 +120,15 @@ export const HistoryPage: React.FC = () => {
     setTimeout(() => { setReusedId(null); navigate('/builder'); }, 600);
   };
 
-  // Send image to builder canvas as a new source node
-  const handleSendToCanvas = (imageUrl: string) => {
-    sessionStorage.setItem(SESSION_KEYS.PRESET_IMAGE, imageUrl);
+  // Send image to builder canvas as a new source node — prefer full-res from IndexedDB
+  const handleSendToCanvas = (fallbackUrl: string) => {
+    const imageToSend = fullOutput || fallbackUrl;
+    sessionStorage.setItem(SESSION_KEYS.PRESET_IMAGE, imageToSend);
     navigate('/builder');
   };
 
-  // Save image to Documents/Anarchy AI via Tauri
-  const handleSaveImage = async (imageUrl: string, label: string, id: string) => {
-    setSavingId(id);
-    try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const safeName = label.replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim().slice(0, 40).replace(/\s+/g, '_') || 'image';
-      const fileName = `${timestamp}_${safeName}.png`;
-      await invoke('save_image_to_documents', { dataUri: imageUrl, fileName });
-    } catch (e) {
-      console.warn('[History] Save failed:', e);
-    } finally {
-      setTimeout(() => setSavingId(null), 1500);
-    }
+  const handleOpenExport = (url: string, name: string) => {
+    setExportTarget({ url, name });
   };
 
   // Compare slider drag
@@ -462,25 +452,25 @@ export const HistoryPage: React.FC = () => {
                   </button>
                 )}
 
-                {/* Save Output — use full-res if available */}
+                {/* Export Output — use full-res if available */}
                 {(fullOutput || preview.outputImage) && (
                   <button
-                    className={`modal-action-btn save-btn ${savingId === preview.id + '_out' ? 'saving' : ''}`}
-                    onClick={() => handleSaveImage(fullOutput || preview.outputImage!, preview.label, preview.id + '_out')}
+                    className="modal-action-btn save-btn"
+                    onClick={() => handleOpenExport(fullOutput || preview.outputImage!, preview.label || 'output')}
                   >
                     <Save size={14} />
-                    {savingId === preview.id + '_out' ? 'Saved ✓' : 'Save Output'}
+                    Export Output
                   </button>
                 )}
 
-                {/* Save Input — use full-res if available */}
+                {/* Export Input — use full-res if available */}
                 {(fullInput || preview.inputImage) && (
                   <button
-                    className={`modal-action-btn save-btn secondary ${savingId === preview.id + '_in' ? 'saving' : ''}`}
-                    onClick={() => handleSaveImage(fullInput || preview.inputImage!, preview.label + '_input', preview.id + '_in')}
+                    className="modal-action-btn save-btn secondary"
+                    onClick={() => handleOpenExport(fullInput || preview.inputImage!, (preview.label || 'input') + '_source')}
                   >
                     <Save size={14} />
-                    {savingId === preview.id + '_in' ? 'Saved ✓' : 'Save Input'}
+                    Export Input
                   </button>
                 )}
 
@@ -495,13 +485,21 @@ export const HistoryPage: React.FC = () => {
         </div>
       )}
 
+      {exportTarget && (
+        <ExportModal
+          imageUrl={exportTarget.url}
+          imageName={exportTarget.name}
+          onClose={() => setExportTarget(null)}
+        />
+      )}
+
       {confirmClear && (
         <ConfirmModal
           title="Clear All History"
           message="Are you sure you want to clear all history? This cannot be undone."
           confirmLabel="Clear All"
           danger
-          onConfirm={() => { setConfirmClear(false); clearHistory(); refresh(); }}
+          onConfirm={async () => { setConfirmClear(false); await clearHistory(); refresh(); }}
           onCancel={() => setConfirmClear(false)}
         />
       )}

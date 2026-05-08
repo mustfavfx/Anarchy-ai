@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, X, Check, Loader2, Sparkles } from 'lucide-react';
 import { loraTrainingService, type LoraTrainingRequest, type LoraTrainingStatus } from '../../services/lora/LoraTrainingService';
 import { useAuth } from '../auth/AuthContext';
@@ -10,6 +10,14 @@ export const LoraTrainingPage: React.FC = () => {
   const [datasetUrl, setDatasetUrl] = useState('');
   const [isTraining, setIsTraining] = useState(false);
   const [currentTraining, setCurrentTraining] = useState<LoraTrainingStatus | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup polling on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current !== null) clearInterval(pollingRef.current);
+    };
+  }, []);
 
   const handleStartTraining = async () => {
     if (!authUser?.id || !datasetUrl) return;
@@ -19,12 +27,13 @@ export const LoraTrainingPage: React.FC = () => {
     const status = await loraTrainingService.startTraining(authUser.id, request);
     setCurrentTraining(status);
 
-    const interval = setInterval(() => {
+    pollingRef.current = setInterval(() => {
       const updated = loraTrainingService.getTrainingStatus(status.id);
       if (updated) {
         setCurrentTraining(updated);
         if (updated.status === 'succeeded' || updated.status === 'failed') {
-          clearInterval(interval);
+          if (pollingRef.current !== null) clearInterval(pollingRef.current);
+          pollingRef.current = null;
           setIsTraining(false);
         }
       }

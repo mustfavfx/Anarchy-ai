@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Image, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download } from 'lucide-react';
-import { downloadImage } from '../../utils/imageExport';
+import { ExportModal } from '../../components/ExportModal';
 import { AIControlPanel } from '../builder/AIControlPanel';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { ReplicateImageModel, ReplicateUpscaleModel } from '../../services/replicate';
@@ -25,6 +25,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
   const [previewMode, setPreviewMode] = React.useState<'preview' | 'compare' | 'draw'>('preview');
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showExpandModal, setShowExpandModal] = React.useState(false);
+  const [showExportModal, setShowExportModal] = React.useState(false);
 
   // Zoom/Pan state for Preview mode
   const [zoom, setZoom]         = useState(1);
@@ -496,8 +497,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
                 {selectedNode?.image && (
                   <button
                     className="sidebar-icon-btn"
-                    onClick={async () => { if (selectedNode?.image) await downloadImage(selectedNode.image, selectedNode.type ?? 'image'); }}
-                    title="Save image"
+                    onClick={() => setShowExportModal(true)}
+                    title="Export image"
                   ><Download size={13} /></button>
                 )}
                 <button
@@ -879,11 +880,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
               <div className="preview-expand-actions">
                 <button
                   className="preview-expand-close"
-                  onClick={async () => {
-                    if (!selectedNode.image) return;
-                    await downloadImage(selectedNode.image, selectedNode.type ?? 'image');
-                  }}
-                  title="Download"
+                  onClick={() => { setShowExpandModal(false); setShowExportModal(true); }}
+                  title="Export image"
                 >
                   <Download size={15} />
                 </button>
@@ -917,6 +915,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
     >
       {isCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
     </button>
+
+    {showExportModal && selectedNode?.image && (
+      <ExportModal
+        imageUrl={selectedNode.image}
+        imageName={selectedNode.type ?? 'anarchy-image'}
+        onClose={() => setShowExportModal(false)}
+      />
+    )}
     </div>
   );
 };
