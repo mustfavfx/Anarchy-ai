@@ -501,9 +501,16 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const onPaneClick = useCallback((event: React.MouseEvent) => {
     if (event.button !== 0) return;
     setContextMenu(null);
-    // Delete any idle ghost nodes when clicking on canvas
+    // Only delete ghost nodes that are brand-new (within 3s) and still idle — avoids
+    // wiping ghost nodes that finished processing and are waiting for the user
+    const now = Date.now();
     nodes.forEach(node => {
-      if (node.data.type === 'ghost' && node.data.state === 'idle') {
+      if (
+        node.data.type === 'ghost' &&
+        node.data.state === 'idle' &&
+        typeof node.data.createdAt === 'number' &&
+        now - (node.data.createdAt as number) < 3000
+      ) {
         deleteNode(node.id);
       }
     });

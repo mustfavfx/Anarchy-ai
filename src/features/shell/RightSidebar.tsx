@@ -868,7 +868,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
           aria-modal="true"
           aria-label="Fullscreen image preview"
           className="preview-expand-modal"
-          onClick={() => setShowExpandModal(false)}
+          onClick={e => { e.stopPropagation(); setShowExpandModal(false); }}
           onKeyDown={e => { if (e.key === 'Escape' || e.key === 'f' || e.key === 'F') setShowExpandModal(false); }}
           tabIndex={-1}
           style={{ outline: 'none' }}
