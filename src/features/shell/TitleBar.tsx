@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Minus, Square, X, Search, Bell, Check, AlertCircle, Sparkles } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { useAIConfigStore } from '../../stores/aiConfigStore';
 import './TitleBar.css';
 
 interface TitleBarProps {
@@ -44,6 +45,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({ onCloseRequest }) => {
   const markAsRead = useNotificationStore((state) => state.markAsRead);
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
   const dismissNotification = useNotificationStore((state) => state.dismissNotification);
+  const focusNodeFn = useAIConfigStore((state) => state.focusNodeFn);
 
   useEffect(() => {
     // Close panel on outside click
@@ -146,8 +148,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({ onCloseRequest }) => {
                   notifications.map(n => (
                     <div 
                       key={n.id} 
-                      className={`notification-item ${n.read ? 'read' : 'unread'} ${n.type}`}
-                      onClick={() => { markAsRead(n.id); }}
+                      className={`notification-item ${n.read ? 'read' : 'unread'} ${n.type}${n.nodeId ? ' clickable' : ''}`}
+                      onClick={() => { markAsRead(n.id); if (n.nodeId && focusNodeFn) { focusNodeFn(n.nodeId); setShowNotifications(false); } }}
                     >
                       <div className="notification-icon">
                         {n.imageUrl ? (

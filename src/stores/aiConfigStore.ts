@@ -165,6 +165,10 @@ interface AIConfigState {
   // Workflow Snapshot
   workflowSnapshot: { nodes: Node[]; edges: Edge[] };
   setWorkflowSnapshot: (snap: { nodes: Node[]; edges: Edge[] }) => void;
+
+  // Canvas focus callback — registered by BuilderPage
+  focusNodeFn: ((nodeId: string) => void) | null;
+  setFocusNodeFn: (fn: ((nodeId: string) => void) | null) => void;
 }
 
 // ── Watermark Persistence Key ───────────────────────────────────────────────
@@ -263,6 +267,10 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   // Workflow Snapshot
   workflowSnapshot: { nodes: [], edges: [] },
   setWorkflowSnapshot: (snap) => set({ workflowSnapshot: snap }),
+
+  // Canvas focus callback
+  focusNodeFn: null,
+  setFocusNodeFn: (fn) => set({ focusNodeFn: fn }),
 }));
 
 // ── Selectors (for performance) ───────────────────────────────────────────────

@@ -109,6 +109,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const setConfig = useAIConfigStore((state) => state.setConfig);
   const isEnlargedView = useAIConfigStore((state) => state.isEnlargedView);
   const setWorkflowSnapshot = useAIConfigStore((state) => state.setWorkflowSnapshot);
+  const setFocusNodeFn = useAIConfigStore((state) => state.setFocusNodeFn);
   const addNotification = useNotificationStore((state) => state.addNotification);
   const { user: authUser } = useAuth();
   const [prompt, setPrompt] = useState('');
@@ -121,7 +122,24 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     nodeId?: string;
   } | null>(null);
   const [creditError, setCreditError] = useState<{ balance: number; needed: number } | null>(null);
-  const { fitView, getViewport } = useReactFlow();
+  const { fitView, getViewport, fitBounds, getNode: getRFNode } = useReactFlow();
+
+  // Register canvas focus callback so notifications can navigate to a node
+  useEffect(() => {
+    const focusFn = (nodeId: string) => {
+      const node = getRFNode(nodeId);
+      if (!node) return;
+      const w = (node.width ?? 240);
+      const h = (node.height ?? 200);
+      fitBounds(
+        { x: node.position.x, y: node.position.y, width: w, height: h },
+        { padding: 0.5, duration: 600 }
+      );
+      setSelectedNodeId(nodeId);
+    };
+    setFocusNodeFn(focusFn);
+    return () => setFocusNodeFn(null);
+  }, [fitBounds, getRFNode, setFocusNodeFn, setSelectedNodeId]);
 
   // Generate thumbnail from canvas for project preview
   const generateThumbnail = useCallback(async (): Promise<string | undefined> => {

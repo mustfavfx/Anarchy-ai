@@ -9,6 +9,7 @@ import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { saveWorkflowAs } from '../../services/workflow';
 import { EnlargedPreview } from './EnlargedPreview';
 import { OnboardingModal } from '../../components/OnboardingModal';
+import { ToastNotification } from './ToastNotification';
 import './AppShell.css';
 import { track } from '../../services/tracking/trackingService';
 
@@ -86,6 +87,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Onboarding for new users */}
       <OnboardingModal />
+
+      {/* Global toast notifications */}
+      <ToastNotification />
     </div>
   );
 };
