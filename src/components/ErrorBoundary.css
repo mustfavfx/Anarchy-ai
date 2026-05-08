@@ -1,0 +1,139 @@
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg-app, #0a0a0b);
+  padding: 24px;
+}
+
+.error-boundary-content {
+  max-width: 600px;
+  text-align: center;
+  background: var(--bg-card, #161618);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 48px 32px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.error-icon {
+  color: var(--accent-red, #e11d48);
+  margin-bottom: 24px;
+  animation: errorPulse 2s ease-in-out infinite;
+}
+
+@keyframes errorPulse {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.8; 
+    transform: scale(1.05);
+  }
+}
+
+.error-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  margin: 0 0 12px 0;
+}
+
+.error-message {
+  font-size: 14px;
+  color: var(--text-secondary, #9ca3af);
+  margin: 0 0 32px 0;
+  line-height: 1.5;
+}
+
+.error-details {
+  margin: 24px 0;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.error-details summary {
+  cursor: pointer;
+  color: var(--text-secondary, #9ca3af);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.error-stack {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--text-muted, #6b7280);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.error-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.error-btn.primary {
+  background: var(--accent-red, #e11d48);
+  color: white;
+}
+
+.error-btn.primary:hover {
+  background: #be123c;
+  transform: translateY(-2px);
+}
+
+.error-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.error-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 640px) {
+  .error-boundary-content {
+    padding: 32px 20px;
+  }
+  
+  .error-title {
+    font-size: 20px;
+  }
+  
+  .error-actions {
+    flex-direction: column;
+  }
+  
+  .error-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

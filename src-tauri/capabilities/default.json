@@ -1,0 +1,17 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for the app",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-close",
+    "core:window:allow-is-maximized",
+    "shell:default",
+    "dialog:default",
+    "dialog:allow-save",
+    "dialog:allow-open"
+  ]
+}

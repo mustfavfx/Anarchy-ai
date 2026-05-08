@@ -1,0 +1,118 @@
+.update-banner {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-width: 300px;
+  max-width: 380px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: update-slide-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes update-slide-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.update-banner.available  { border-color: rgba(59, 130, 246, 0.3); }
+.update-banner.downloading { border-color: rgba(245, 158, 11, 0.3); }
+.update-banner.done       { border-color: rgba(16, 185, 129, 0.3); }
+.update-banner.error      { border-color: rgba(225, 29, 72, 0.3); }
+
+.update-banner-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.update-banner.available  .update-banner-icon { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.update-banner.downloading .update-banner-icon { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.update-banner.done       .update-banner-icon { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.update-banner.error      .update-banner-icon { background: rgba(225, 29, 72, 0.12); color: #e11d48; }
+
+.update-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.update-banner-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.3;
+}
+
+.update-banner-body {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.update-btn-install {
+  padding: 6px 14px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.update-btn-install:hover { background: #2563eb; }
+
+.update-btn-dismiss {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 7px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.update-btn-dismiss:hover {
+  background: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.2);
+  color: #e11d48;
+}
+
+.spin {
+  animation: update-spin 1s linear infinite;
+}
+
+@keyframes update-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

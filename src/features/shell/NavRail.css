@@ -1,0 +1,264 @@
+.nav-rail {
+  width: var(--sidebar-width);
+  height: 100vh;
+  background-color: var(--bg-side, #000000);
+  border-right: 1px solid var(--border-color, rgba(255, 255, 255, 0.04));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 0;
+  z-index: 1000;
+  flex-shrink: 0;
+  transition: width 0.2s ease, background-color 0.3s ease;
+  position: relative;
+}
+
+.nav-rail.collapsed {
+  width: 60px;
+}
+
+.nav-rail.collapsed .nav-item-label {
+  display: none;
+}
+
+.nav-rail.collapsed .nav-item {
+  padding: 10px 0;
+}
+
+.nav-rail-top, .nav-rail-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.nav-logo {
+  margin-bottom: 28px;
+}
+
+.logo-box {
+  width: 40px;
+  height: 40px;
+  background-color: var(--accent-red);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  border-radius: 12px;
+  font-size: 20px;
+  box-shadow: 0 4px 15px rgba(225, 29, 72, 0.3);
+  transition: all 0.2s ease;
+}
+
+.nav-rail.collapsed .logo-box {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+.nav-items {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 2px;
+}
+
+.nav-item {
+  width: 100%;
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #6b7280);
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  gap: 3px;
+}
+
+.nav-item:hover {
+  color: var(--text-secondary, #d1d5db);
+}
+
+.nav-item.active {
+  color: #e11d48;
+  background-color: rgba(225, 29, 72, 0.08);
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 2px;
+  background-color: var(--accent-red);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-item-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  opacity: 0.7;
+}
+
+.nav-item.active .nav-item-label {
+  opacity: 1;
+}
+
+.nav-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: auto;
+  position: relative;
+}
+
+.nav-item.disabled:hover {
+  color: #6b7280;
+}
+
+/* 3D Coming Soon Badge - Only on hover */
+.nav-item.disabled::before {
+  content: 'Coming Soon';
+  position: absolute;
+  right: -8px;
+  top: -6px;
+  padding: 2px 6px;
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.9);
+  background: 
+    linear-gradient(135deg, rgba(100, 100, 120, 0.9) 0%, rgba(60, 60, 80, 0.95) 50%, rgba(40, 40, 60, 1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  transform: rotate(5deg) scale(0.9);
+  transform-origin: right center;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.nav-item.disabled:hover::before {
+  opacity: 1;
+}
+
+.nav-rail.collapsed .nav-item.disabled::before {
+  display: none;
+}
+
+.nav-rail-bottom {
+  gap: 6px;
+  padding-bottom: 20px;
+}
+
+.nav-avatar {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary, #4b5563);
+  transition: all 0.2s;
+  margin-bottom: 8px;
+  gap: 3px;
+  text-decoration: none;
+  position: relative;
+}
+
+.nav-avatar:hover {
+  color: var(--text-muted, #9ca3af);
+}
+
+.nav-avatar.active {
+  color: #e11d48;
+}
+
+.nav-avatar.active::after {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: 15%;
+  height: 70%;
+  width: 2px;
+  background-color: var(--accent-red);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-avatar-image {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.16);
+}
+
+.nav-avatar.active .nav-avatar-image {
+  border-color: rgba(225, 29, 72, 0.6);
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.18);
+}
+
+/* Collapse Toggle Button - Modern Minimal Design */
+.nav-collapse-btn {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 1001;
+  padding: 0;
+}
+
+.nav-collapse-btn:hover {
+  background: rgba(225, 29, 72, 0.15);
+  border-color: #e11d48;
+  color: #fb7185;
+  transform: translateY(-50%) scale(1.15);
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
+}
+
+.nav-rail:hover .nav-collapse-btn {
+  opacity: 1;
+}
+
+.nav-collapse-btn:hover {
+  background: rgba(225, 29, 72, 0.15);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #fb7185;
+  transform: translateY(-50%) scale(1.15);
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
+}
+
+.nav-rail.collapsed .nav-collapse-btn {
+  right: -10px;
+  opacity: 0;
+}
+
+.nav-rail.collapsed:hover .nav-collapse-btn {
+  opacity: 1;
+}
+
+

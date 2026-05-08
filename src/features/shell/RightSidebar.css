@@ -1,0 +1,1264 @@
+/* ── Wrapper (handles collapse transition) ── */
+.right-sidebar-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.right-sidebar {
+  width: 380px;
+  height: 100%;
+  background: #0a0a0b;
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.right-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.right-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.right-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+}
+.right-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(225,29,72,0.4);
+}
+
+.right-sidebar-wrapper.collapsed {
+  /* Invisible hover zone so the toggle button can appear */
+  min-width: 24px;
+}
+
+.right-sidebar-wrapper.collapsed .right-sidebar {
+  width: 0;
+  border-left: none;
+  overflow: hidden;
+}
+
+/* ── Collapse/Expand button ── fixed so overflow:hidden never clips it ── */
+
+.sidebar-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.sidebar-section.ai-control-section {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.section-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section-content {
+  flex: 1;
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-panel-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+/* preview-top-actions removed — replaced by sidebar-preview-toprow */
+
+/* Mini Canvas when swapped into preview panel */
+.mini-canvas-in-preview {
+  flex: 1;
+  min-height: 320px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0a0a0b;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mini-canvas-in-preview .react-flow__node {
+  pointer-events: auto;
+}
+
+.mini-canvas-in-preview .react-flow__edge-path {
+  stroke-width: 1.5px;
+}
+
+/* preview-enlarge-btn removed — replaced by sidebar-enlarge-btn */
+/* preview-mode-tabs removed — replaced by sidebar-preview-tabs */
+
+.preview-mode-tab {
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Enlarged tabs for expanded view */
+.preview-panel-v2.expanded .preview-mode-tabs,
+.image-preview-section.expanded .preview-mode-tabs {
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.preview-panel-v2.expanded .preview-mode-tab,
+.image-preview-section.expanded .preview-mode-tab {
+  height: 42px;
+  font-size: 14px;
+  border-radius: 8px;
+}
+
+/* Expanded preview panel styles */
+.image-preview-section.expanded .preview-panel-v2 {
+  min-height: 500px;
+}
+
+.image-preview-section.expanded .preview-stage {
+  min-height: 420px;
+}
+
+.image-preview-section.expanded .preview-stage-content {
+  gap: 16px;
+}
+
+.image-preview-section.expanded .preview-stage-content Image {
+  width: 48px;
+  height: 48px;
+}
+
+.image-preview-section.expanded .preview-stage-content span {
+  font-size: 15px;
+}
+
+.image-preview-section.expanded .preview-stage-content small {
+  font-size: 13px;
+}
+
+.preview-mode-tab:hover {
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.preview-mode-tab.active {
+  background: rgba(225, 29, 72, 0.18);
+  color: #ffe4e6;
+  box-shadow: inset 0 0 0 1px rgba(225, 29, 72, 0.35);
+}
+
+.preview-stage {
+  position: relative;
+  flex: 1;
+  min-height: 210px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: radial-gradient(circle at 20% 10%, rgba(225, 29, 72, 0.12), transparent 55%), #0e0e12;
+}
+
+.preview-stage.mode-compare {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 49.5%, rgba(225, 29, 72, 0.25) 50%, rgba(255, 255, 255, 0.04) 50.5%),
+    radial-gradient(circle at 20% 10%, rgba(225, 29, 72, 0.12), transparent 55%),
+    #0e0e12;
+}
+
+.preview-stage.mode-draw {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    radial-gradient(circle at 20% 10%, rgba(225, 29, 72, 0.12), transparent 55%),
+    #0e0e12;
+  background-size: 22px 22px, 22px 22px, auto, auto;
+}
+
+.preview-stage-tools {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.stage-tool-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(10, 10, 14, 0.85);
+  color: rgba(255, 255, 255, 0.7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stage-tool-btn:hover {
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #fecdd3;
+  background: rgba(225, 29, 72, 0.15);
+}
+
+.preview-stage-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.52);
+  padding: 24px;
+  text-align: center;
+}
+
+.preview-stage-content span {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.preview-stage-content small {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 220px;
+  line-height: 1.45;
+}
+
+/* Preview image - fills container with no padding */
+.preview-image-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-image-stretch {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+  background: #0a0a0b;
+}
+
+.preview-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.coming-soon {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Right Sidebar Collapse Button - matches NavRail style */
+.right-collapse-btn {
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: rgba(30, 30, 36, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 1001;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+}
+
+.right-sidebar-wrapper:hover .right-collapse-btn {
+  opacity: 1;
+}
+
+.right-collapse-btn:hover {
+  background: rgba(225, 29, 72, 0.15);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #fb7185;
+  transform: translateY(-50%) scale(1.15);
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
+}
+
+/* ============================================
+   PREVIEW MODE - Image Display
+   ============================================ */
+
+.preview-image-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================
+   COMPARE MODE - A/B Comparison
+   ============================================ */
+
+.compare-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a0b;
+}
+
+/* Empty state - two slots side by side */
+.compare-empty {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  gap: 4px;
+  padding: 4px;
+}
+
+.compare-slot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgba(255, 255, 255, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.compare-slot:hover:not(.filled) {
+  border-color: rgba(225, 29, 72, 0.4);
+  background: rgba(225, 29, 72, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.compare-slot.filled {
+  border-style: solid;
+  border-color: rgba(225, 29, 72, 0.3);
+  cursor: default;
+}
+
+.compare-slot span {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.compare-slot small {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.compare-slot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.compare-slot-label {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(225, 29, 72, 0.8);
+  color: white;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 2px 8px;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.compare-slot-clear {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.2s ease;
+}
+
+.compare-slot-clear:hover {
+  background: rgba(225, 29, 72, 0.8);
+}
+
+/* Compare view - when both A & B are loaded */
+.compare-base {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0a0a0b;
+}
+
+.compare-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.compare-clip img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0a0a0b;
+}
+
+/* Draggable handle/divider */
+.compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.compare-handle-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: white;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+.compare-handle-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: white;
+  color: #0a0a0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  cursor: ew-resize;
+}
+
+/* Invisible range input that covers full area */
+.compare-slider-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: ew-resize;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+}
+
+/* A/B Labels */
+.compare-label {
+  position: absolute;
+  top: 8px;
+  padding: 3px 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.compare-label-a { left: 8px; }
+.compare-label-b { right: 8px; }
+
+/* Toolbar bottom-right */
+.compare-toolbar {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 6;
+}
+
+.compare-tool-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.compare-tool-btn:hover {
+  background: rgba(225, 29, 72, 0.25);
+  border-color: rgba(225, 29, 72, 0.5);
+  color: white;
+}
+
+/* ============================================
+   MASK/DRAW MODE - Canvas Drawing
+   ============================================ */
+
+.mask-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  background: #0a0a0b;
+}
+
+.mask-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.mask-toolbar-slim {
+  padding: 3px 6px;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.mask-tool {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.mask-tool:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.mask-tool.active {
+  background: rgba(225, 29, 72, 0.25);
+  color: #fecdd3;
+}
+
+.mask-tool:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.mask-tool-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 2px;
+}
+
+.mask-brush-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.mask-brush-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 20px;
+  text-align: center;
+}
+
+.mask-brush-slider {
+  flex: 1;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.mask-brush-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e11d48;
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+.mask-canvas-wrapper {
+  flex: 1;
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0e0e12;
+}
+
+.mask-base-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mask-canvas {
+  cursor: crosshair;
+  z-index: 2;
+}
+
+/* Absolute-positioned canvas that syncs with letter-boxed image */
+.mask-canvas-absolute {
+  position: absolute;
+  pointer-events: all;
+}
+
+.mask-result-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 3;
+}
+
+.mask-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mask-prompt-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+}
+
+.mask-prompt-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.mask-prompt-input:focus {
+  border-color: rgba(225, 29, 72, 0.4);
+}
+
+.mask-generate-btn {
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mask-generate-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.mask-generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mask-clear-btn {
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mask-clear-btn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* ── Custom circle cursor (Freepik-style) ── */
+.mask-cursor-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  mix-blend-mode: difference;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================
+   ZOOM/PAN PREVIEW STAGE
+   ============================================ */
+
+.preview-zoom-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0a0a0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+}
+
+.preview-zoom-stage.panning {
+  cursor: grabbing;
+}
+
+.preview-zoom-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  transition: transform 0.05s linear;
+  pointer-events: none;
+  border-radius: 4px;
+}
+
+/* Zoom controls bottom-right */
+.preview-zoom-controls {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(10, 10, 11, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 3px 5px;
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+
+.pz-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.pz-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.pz-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Node label overlay inside image — bottom-left */
+.preview-node-label-overlay {
+  position: absolute;
+  bottom: 34px;
+  left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.preview-zoom-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ============================================
+   EXPAND MODAL - Fullscreen Image View
+   ============================================ */
+
+.preview-expand-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+
+.preview-expand-content {
+  position: relative;
+  max-width: 92vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0d0d0f;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.preview-expand-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+.preview-expand-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  text-transform: capitalize;
+}
+
+.preview-expand-dims {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  font-weight: 400;
+}
+
+.preview-expand-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.preview-expand-image {
+  flex: 1;
+  max-width: 88vw;
+  max-height: calc(88vh - 44px);
+  object-fit: contain;
+  display: block;
+}
+
+.preview-expand-close {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.preview-expand-close:hover {
+  background: rgba(225, 29, 72, 0.2);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #fff;
+}
+
+/* ============================================
+   MINI CANVAS - Sidebar when swapped
+   ============================================ */
+
+.mini-canvas-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+.mini-canvas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.section-title-small {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mini-canvas-close {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mini-canvas-close:hover {
+  background: rgba(225, 29, 72, 0.15);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #fff;
+}
+
+.mini-canvas-container {
+  flex: 1;
+  min-height: 240px;
+  background: #0a0a0b;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mini-canvas-container .react-flow__edge-path {
+  stroke-width: 1.5px;
+}
+
+.mini-canvas-content {
+  flex: 1;
+  min-height: 240px;
+  background: #0a0a0b;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mini-canvas-flow {
+  width: 100%;
+  height: 100%;
+  background: #0a0a0b;
+}
+
+.mini-canvas-flow .react-flow__edge-path {
+  stroke-width: 1.5px;
+}
+
+/* ============================================
+   SIDEBAR MINI CANVAS (Enlarged mode)
+   ============================================ */
+
+.sidebar-mini-canvas {
+  width: 100%;
+  height: 230px;
+  flex-shrink: 0;
+  position: relative;
+  background: #0a0a0b;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+/* Hide non-canvas UI inside mini canvas */
+.sidebar-mini-canvas .builder-prompt-container,
+.sidebar-mini-canvas .builder-watermark,
+.sidebar-mini-canvas .builder-stats,
+.sidebar-mini-canvas .context-menu,
+.sidebar-mini-canvas .builder-topbar {
+  display: none !important;
+}
+
+/* Let ReactFlow fill the mini canvas fully */
+.sidebar-mini-canvas .builder-page,
+.sidebar-mini-canvas .canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Canvas return row */
+.sidebar-canvas-return {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+
+.sidebar-canvas-return-btn {
+  width: 100%;
+  height: 30px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sidebar-canvas-return-btn:hover {
+  background: rgba(225,29,72,0.14);
+  border-color: rgba(225,29,72,0.4);
+  color: #fecdd3;
+}
+
+/* ============================================
+   VIZMAKER-STYLE SIDEBAR PREVIEW LAYOUT
+   ============================================ */
+
+/* ── Top row: tabs LEFT · actions RIGHT (single flex row) ── */
+.sidebar-preview-toprow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+  min-height: 30px;
+}
+
+/* Tabs group — pill container */
+.sidebar-preview-tabs {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 2px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 7px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.sidebar-tab {
+  height: 22px;
+  padding: 0 9px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 22px;
+}
+
+.sidebar-tab:hover { color: rgba(255,255,255,0.8); }
+
+.sidebar-tab.active {
+  background: rgba(225,29,72,0.2);
+  color: #fecdd3;
+  box-shadow: inset 0 0 0 1px rgba(225,29,72,0.35);
+}
+
+/* Actions: save icon + enlarge btn */
+.sidebar-preview-actions {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.sidebar-icon-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-icon-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border-color: rgba(255,255,255,0.15);
+}
+
+/* Enlarge / Canvas toggle button — prominent like VizMaker */
+.sidebar-enlarge-btn {
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid rgba(225,29,72,0.35);
+  border-radius: 6px;
+  background: rgba(225,29,72,0.12);
+  color: #fda4af;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.sidebar-enlarge-btn:hover {
+  background: rgba(225,29,72,0.22);
+  border-color: rgba(225,29,72,0.55);
+  color: #fff;
+}
+
+.sidebar-enlarge-btn.active {
+  background: rgba(225,29,72,0.3);
+  border-color: rgba(225,29,72,0.7);
+  color: #fff;
+}
+
+/* Node type label below image — like VizMaker "Source" label */
+.sidebar-node-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+  padding: 4px 0 2px;
+  flex-shrink: 0;
+}
+

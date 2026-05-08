@@ -1,0 +1,25 @@
+[package]
+name = "anarchy-ai"
+version = "0.0.0"
+description = "Anarchy AI - AI Image Builder Desktop App"
+authors = ["Anarchy AI Team"]
+edition = "2021"
+
+[package.metadata.bundle]
+icon = []
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = ["config-json5"] }
+
+[dependencies]
+tauri = { version = "2.0.0", features = [] }
+tauri-plugin-updater = "2"
+tauri-plugin-shell = "2.0.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+tokio = { version = "1", features = ["full"] }
+base64 = "0.22"
+tauri-plugin-dialog = "2.7.0"
+dirs = "5"
+tauri-plugin-drag = "2.1.1"

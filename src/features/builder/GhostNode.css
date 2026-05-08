@@ -1,0 +1,374 @@
+/**
+ * GhostNode Styles - Processing/Aggregation Stage
+ * New Builder visual language with legacy behavioral logic
+ * 3D Frozen Effect
+ */
+
+.ghost-node {
+  width: 240px;
+  position: relative;
+  border-radius: 14px;
+  background: 
+    linear-gradient(135deg, rgba(25, 28, 35, 0.85) 0%, rgba(18, 20, 28, 0.9) 50%, rgba(14, 16, 22, 0.95) 100%);
+  border: 1px solid rgba(200, 220, 255, 0.15);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(200, 220, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 0 30px rgba(200, 220, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  backdrop-filter: blur(12px);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  animation: ghostPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ghostPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.ghost-node:hover {
+  transform: translateY(-4px) rotateX(2deg);
+  border-color: rgba(200, 220, 255, 0.3);
+  background: 
+    linear-gradient(135deg, rgba(30, 35, 45, 0.9) 0%, rgba(22, 26, 35, 0.95) 50%, rgba(18, 20, 28, 1) 100%);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(200, 220, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(200, 220, 255, 0.08);
+}
+
+.ghost-node.selected {
+  border-style: solid;
+  border-color: rgba(200, 220, 255, 0.5);
+  background: 
+    linear-gradient(135deg, rgba(35, 40, 50, 0.95) 0%, rgba(28, 32, 42, 0.98) 50%, rgba(22, 24, 32, 1) 100%);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(200, 220, 255, 0.2),
+    0 0 50px rgba(200, 220, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+  transform: translateY(-4px) rotateX(2deg);
+}
+
+.ghost-node.processing {
+  border-color: rgba(245, 158, 11, 0.5);
+  animation: ghostProcessingPulse 2s ease-in-out infinite;
+}
+
+@keyframes ghostProcessingPulse {
+  0%,
+  100% {
+    border-color: rgba(245, 158, 11, 0.3);
+    box-shadow: none;
+  }
+
+  50% {
+    border-color: rgba(245, 158, 11, 0.7);
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.1);
+  }
+}
+
+/* ================================================================
+   HANDLES - Multiple Input / Single Output
+   ================================================================ */
+
+.ghost-handle {
+  width: 12px;
+  height: 12px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.ghost-handle:hover {
+  background: rgba(59, 130, 246, 0.5);
+  border-color: rgba(59, 130, 246, 0.9);
+  transform: scale(1.2);
+}
+
+.ghost-handle--input {
+  left: -8px;
+  transform: translateY(-50%);
+}
+
+.ghost-handle--output {
+  right: -6px;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  background: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+.ghost-handle--output:hover {
+  background: rgba(16, 185, 129, 0.5);
+  border-color: rgba(16, 185, 129, 0.9);
+}
+
+/* ================================================================
+   NODE CONTENT
+   ================================================================ */
+
+.ghost-node-content {
+  padding: 12px;
+}
+
+/* Header */
+.ghost-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ghost-collapse-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ghost-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.ghost-identity {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ghost-type-badge {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59, 130, 246, 0.15);
+  border-radius: 6px;
+}
+
+.ghost-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ghost-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ghost-input-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ghost-delete-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.ghost-delete-btn:hover {
+  background: rgba(225, 29, 72, 0.15);
+  color: #ef4444;
+}
+
+/* Body */
+.ghost-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Visual Preview Area */
+.ghost-visual {
+  position: relative;
+  aspect-ratio: 4/3;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ghost-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.ghost-placeholder span {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ghost-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.8;
+}
+
+/* Processing/Error Overlays */
+.ghost-processing-overlay,
+.ghost-error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  color: white;
+}
+
+.ghost-processing-overlay {
+  color: #f59e0b;
+}
+
+.ghost-error-overlay {
+  color: #ef4444;
+}
+
+.ghost-processing-overlay span,
+.ghost-error-overlay span {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Prompt Preview */
+.ghost-prompt-preview {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Status Bar */
+.ghost-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.status-badge.processing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.status-badge.ready {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.status-badge.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.status-badge.idle {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Collapsed State */
+.ghost-node.collapsed {
+  width: auto;
+  min-width: 140px;
+}
+
+.ghost-node.collapsed .ghost-node-content {
+  padding: 8px 12px;
+}
+
+.ghost-collapsed-thumb {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.ghost-collapsed-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.7;
+}
+
+/* Spin Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}

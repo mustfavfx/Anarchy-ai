@@ -1,0 +1,1538 @@
+/* ================================================================
+   ANARCHY BUILDER NODES - Premium Design System
+   ================================================================ */
+
+/* ----------------------------------------------------------------
+   BASE NODE ARCHITECTURE - 3D Frozen Effect
+   ---------------------------------------------------------------- */
+.anarchy-node {
+  width: 240px;
+  position: relative;
+  border-radius: 14px;
+  background: 
+    linear-gradient(135deg, rgba(30, 30, 35, 0.85) 0%, rgba(18, 18, 22, 0.9) 50%, rgba(12, 12, 16, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  backdrop-filter: blur(12px);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+/* Hover State - 3D Lift */
+.anarchy-node:hover {
+  transform: translateY(-4px) rotateX(2deg);
+  background: 
+    linear-gradient(135deg, rgba(35, 35, 40, 0.9) 0%, rgba(22, 22, 26, 0.95) 50%, rgba(15, 15, 18, 1) 100%);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(255, 255, 255, 0.03);
+}
+
+/* Selected State - 3D Frozen Glow */
+.anarchy-node.selected {
+  border-color: var(--accent-red);
+  background: 
+    linear-gradient(135deg, rgba(40, 25, 30, 0.95) 0%, rgba(25, 18, 22, 0.98) 50%, rgba(18, 15, 18, 1) 100%);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(225, 29, 72, 0.3),
+    0 0 50px rgba(225, 29, 72, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+  transform: translateY(-4px) rotateX(2deg);
+}
+
+/* Selection Ring - outer glow */
+.node-selection-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 23px;
+  border: 2px solid transparent;
+  opacity: 0;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.anarchy-node.selected .node-selection-ring {
+  border-color: rgba(225, 29, 72, 0.3);
+  opacity: 1;
+}
+
+/* Selected Glow - ambient effect */
+.node-selected-glow {
+  position: absolute;
+  inset: -30px;
+  background: radial-gradient(
+    circle at center,
+    rgba(225, 29, 72, 0.12) 0%,
+    rgba(225, 29, 72, 0.04) 40%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.anarchy-node.selected .node-selected-glow {
+  opacity: 1;
+}
+
+/* Empty State Dimming */
+.anarchy-node.empty {
+  opacity: 0.85;
+}
+
+.anarchy-node.empty.has-content,
+.anarchy-node.empty:hover {
+  opacity: 1;
+}
+
+/* Ghost Node Active States */
+.anarchy-node.ghost.selected {
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.15),
+    0 0 40px rgba(255, 255, 255, 0.08),
+    0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.anarchy-node.ghost.selected .node-selection-ring {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Render Node Success State */
+.anarchy-node.render.selected {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.3),
+    0 0 30px rgba(16, 185, 129, 0.15),
+    0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.anarchy-node.render.selected .node-selection-ring {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+/* Node Target States - Visual indication on the node itself */
+.anarchy-node.is-target.explicit {
+  border-color: rgba(225, 29, 72, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(225, 29, 72, 0.3),
+    0 0 30px rgba(225, 29, 72, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.anarchy-node.is-target.auto {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 20px rgba(255, 255, 255, 0.1),
+    0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.anarchy-node.is-target .node-accent-strip {
+  opacity: 1;
+  width: 4px;
+}
+
+.anarchy-node.is-target.explicit .node-accent-strip {
+  background: linear-gradient(180deg, transparent, var(--accent-red), transparent);
+}
+
+/* Node Type-specific glows when selected */
+.anarchy-node.source.selected .node-selected-glow {
+  background: radial-gradient(
+    circle at center,
+    rgba(225, 29, 72, 0.15) 0%,
+    rgba(225, 29, 72, 0.05) 40%,
+    transparent 70%
+  );
+}
+
+.anarchy-node.ghost.selected .node-selected-glow {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.03) 40%,
+    transparent 70%
+  );
+}
+
+.anarchy-node.render.selected .node-selected-glow {
+  background: radial-gradient(
+    circle at center,
+    rgba(16, 185, 129, 0.15) 0%,
+    rgba(16, 185, 129, 0.05) 40%,
+    transparent 70%
+  );
+}
+
+/* Accent Strip - Left edge indicator */
+.node-accent-strip {
+  position: absolute;
+  left: -1px;
+  top: 24px;
+  bottom: 24px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.anarchy-node:hover .node-accent-strip,
+.anarchy-node.selected .node-accent-strip {
+  opacity: 1;
+}
+
+.anarchy-node.source .node-accent-strip {
+  background: linear-gradient(180deg, transparent, var(--accent-red), transparent);
+}
+
+.anarchy-node.ghost .node-accent-strip {
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+}
+
+.anarchy-node.render .node-accent-strip {
+  background: linear-gradient(180deg, transparent, #10b981, transparent);
+}
+
+/* ----------------------------------------------------------------
+   NODE WRAPPER & EFFECTS
+   ---------------------------------------------------------------- */
+.node-wrapper {
+  position: relative;
+  z-index: 1;
+  border-radius: 20px;
+  overflow: hidden;
+  background: inherit;
+}
+
+/* Gloss overlay - top highlight */
+.node-gloss {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.01) 40%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Inner shadow for depth */
+.node-inner-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.03);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ----------------------------------------------------------------
+   HEADER SECTION
+   ---------------------------------------------------------------- */
+.node-header {
+  padding: 16px 16px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Identity Group (icon + titles) */
+.node-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Type Indicator - colored icon badge */
+.type-indicator {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.2s ease;
+}
+
+.anarchy-node:hover .type-indicator {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.type-indicator.source {
+  color: var(--accent-red);
+  background: rgba(225, 29, 72, 0.08);
+  border-color: rgba(225, 29, 72, 0.15);
+}
+
+.type-indicator.ghost {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.type-indicator.render {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+/* Title Group */
+.node-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.node-type-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+/* Target Badge - shows when node is the generation target */
+.node-target-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+  width: fit-content;
+}
+
+.node-target-badge.explicit {
+  background: rgba(225, 29, 72, 0.15);
+  color: var(--accent-red);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+}
+
+.node-target-badge.auto {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Header Actions */
+.node-actions {
+  flex-shrink: 0;
+}
+
+.node-menu-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.node-menu-btn:hover {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ----------------------------------------------------------------
+   BODY SECTION
+   ---------------------------------------------------------------- */
+.node-body {
+  padding: 12px;
+}
+
+/* ----------------------------------------------------------------
+   IMAGE REGION (Source & Render)
+   ---------------------------------------------------------------- */
+.node-image-region {
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Has Image State */
+.node-image-region.has-image {
+  background: #000;
+}
+
+.node-image-region.has-image img {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+  border-radius: 10px;
+  transition: transform 0.3s ease, opacity 0.2s ease;
+  display: block;
+}
+
+.node-image-region.has-image:hover img {
+  transform: scale(1.02);
+  opacity: 0.95;
+}
+
+/* Image Meta - dimensions display */
+.image-meta {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.node-image-region.has-image:hover .image-meta {
+  opacity: 1;
+}
+
+/* Image Overlay - actions on hover */
+.image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0) 60%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 12px;
+}
+
+.node-image-region.has-image:hover .image-overlay {
+  opacity: 1;
+}
+
+.image-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.image-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.image-action-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.image-action-btn.remove {
+  color: rgba(255, 100, 100, 0.8);
+  border-color: rgba(255, 100, 100, 0.2);
+}
+
+.image-action-btn.remove:hover {
+  background: rgba(255, 100, 100, 0.2);
+  border-color: rgba(255, 100, 100, 0.4);
+  color: #ff6464;
+}
+
+/* Upload Target State (Source only, no image) */
+.node-image-region.upload-target {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.node-image-region.upload-target:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Placeholder Content */
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Upload Icon with Pulse */
+.upload-icon-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.25);
+  transition: color 0.2s ease;
+}
+
+.node-image-region.upload-target:hover .upload-icon-wrap {
+  color: var(--accent-red);
+}
+
+/* Upload Text */
+.upload-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.upload-primary {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.node-image-region.upload-target:hover .upload-primary {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.upload-secondary {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Drag-over highlight */
+.node-image-region.drag-over {
+  background: rgba(225, 29, 72, 0.08) !important;
+  border-color: rgba(225, 29, 72, 0.4) !important;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.2);
+}
+
+.node-image-region.drag-over .upload-icon-wrap {
+  color: var(--accent-red);
+}
+
+/* Render Placeholder (empty state) */
+.render-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.rp-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.rp-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ----------------------------------------------------------------
+   GHOST NODE CONTENT - Active Processing Stage
+   ---------------------------------------------------------------- */
+.ghost-content {
+  min-height: 180px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Ghost Visual - Animated Orb */
+.ghost-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.ghost-orb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+}
+
+.ghost-orb.active {
+  background: rgba(225, 29, 72, 0.08);
+  border-color: rgba(225, 29, 72, 0.2);
+}
+
+.orb-icon {
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.ghost-orb.active .orb-icon {
+  color: var(--accent-red);
+}
+
+.orb-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  opacity: 0;
+}
+
+.orb-ring.ring-1 {
+  border-color: rgba(255, 255, 255, 0.05);
+  animation: orb-pulse 3s ease-in-out infinite;
+}
+
+.orb-ring.ring-2 {
+  border-color: rgba(255, 255, 255, 0.03);
+  animation: orb-pulse 3s ease-in-out infinite 0.5s;
+}
+
+.orb-ring.ring-3 {
+  border-color: rgba(255, 255, 255, 0.02);
+  animation: orb-pulse 3s ease-in-out infinite 1s;
+}
+
+.ghost-orb.active .orb-ring.ring-1 {
+  border-color: rgba(225, 29, 72, 0.15);
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.15); opacity: 0.6; }
+}
+
+/* Status Badge */
+.ghost-status-badge {
+  display: flex;
+  justify-content: center;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+}
+
+.status-pill.waiting {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.status-pill.active {
+  background: rgba(225, 29, 72, 0.12);
+  color: var(--accent-red);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  box-shadow: 0 0 20px rgba(225, 29, 72, 0.1);
+}
+
+/* Prompt Display */
+.ghost-prompt-display {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+}
+
+.prompt-bubble {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  position: relative;
+}
+
+.prompt-label {
+  position: absolute;
+  top: -6px;
+  left: 10px;
+  padding: 0 6px;
+  background: #121214;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-red);
+}
+
+.prompt-text {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Prompt Placeholder Lines */
+.prompt-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.ph-line {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  width: 100%;
+  animation: placeholder-pulse 2s ease-in-out infinite;
+}
+
+.ph-line.short {
+  width: 60%;
+  animation-delay: 0.3s;
+}
+
+@keyframes placeholder-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.5; }
+}
+
+/* Lineage Indicator - Processing Chain */
+.ghost-lineage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+}
+
+.lineage-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lineage-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lineage-connector {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.connector-line {
+  width: 16px;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.2)
+  );
+}
+
+.connector-arrow {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.lineage-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lineage-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.lineage-time {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ----------------------------------------------------------------
+   FOOTER SECTION
+   ---------------------------------------------------------------- */
+.node-footer {
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Source Footer */
+.source-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.source-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.status-icon.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-icon.empty {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.node-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.node-meta.dim {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Spawn Ghost Button */
+.spawn-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: rgba(225, 29, 72, 0.1);
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  color: var(--accent-red);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spawn-ghost-btn:hover {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+  color: white;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Ghost Footer */
+.ghost-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ghost-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.progress-dots .dot.filled {
+  background: var(--accent-red);
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.4);
+}
+
+.dot-connector {
+  width: 12px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ghost-hint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+  font-style: italic;
+}
+
+/* Render Footer */
+.render-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.render-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.render-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rs-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.rs-indicator.success {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.rs-indicator.pending {
+  background: rgba(255, 255, 255, 0.15);
+  animation: pending-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pending-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.render-time {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* Render Actions */
+.render-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.render-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.render-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.render-action-btn.primary {
+  background: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.2);
+  color: var(--accent-red);
+}
+
+.render-action-btn.primary:hover {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+  color: white;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.action-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------------------
+   HANDLES (Connection Points)
+   ---------------------------------------------------------------- */
+.anarchy-handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: #141418 !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.15s ease !important;
+}
+
+.anarchy-handle:hover {
+  border-color: var(--accent-red) !important;
+  transform: scale(1.3) !important;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.3) !important;
+}
+
+/* Handle positioning refinement */
+.anarchy-handle[data-handlepos="left"] {
+  left: -5px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+.anarchy-handle[data-handlepos="right"] {
+  right: -5px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Selected node handle highlight */
+.anarchy-node.selected .anarchy-handle {
+  border-color: rgba(225, 29, 72, 0.5) !important;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.3) !important;
+}
+
+/* Empty state handle dimming */
+.anarchy-node.empty .anarchy-handle {
+  opacity: 0.5;
+}
+
+.anarchy-node.empty.has-content .anarchy-handle {
+  opacity: 1;
+}
+
+
+.branch-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.branch-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+/* ----------------------------------------------------------------
+   ADD BRANCH BUTTON
+   ---------------------------------------------------------------- */
+.add-branch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(225, 29, 72, 0.1);
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-red);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-branch-btn:hover {
+  background: var(--accent-red);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.add-branch-btn.small {
+  padding: 6px;
+  border-radius: 6px;
+}
+
+/* ----------------------------------------------------------------
+   PROCESS NODE CONTENT
+   ---------------------------------------------------------------- */
+.process-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.process-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.process-orb {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.3s ease;
+}
+
+.process-orb.active {
+  border-color: var(--orb-color, #3b82f6);
+  box-shadow: 0 0 20px var(--orb-color, #3b82f6)30;
+}
+
+.process-orb .orb-ring {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  animation: orb-pulse 3s ease-in-out infinite;
+}
+
+.process-orb .orb-ring.ring-1 {
+  width: 80px;
+  height: 80px;
+  animation-delay: 0s;
+}
+
+.process-orb .orb-ring.ring-2 {
+  width: 96px;
+  height: 96px;
+  animation-delay: 1s;
+  opacity: 0.5;
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.process-status-badge {
+  display: flex;
+  justify-content: center;
+}
+
+.process-status-badge .status-pill {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.process-prompt-display {
+  padding: 0 8px;
+}
+
+/* ----------------------------------------------------------------
+   RESULT FOOTER
+   ---------------------------------------------------------------- */
+.result-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.result-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.result-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rs-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.rs-indicator.success {
+  background: #10b981;
+}
+
+.result-gen {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* ----------------------------------------------------------------
+   PROCESS FOOTER
+   ---------------------------------------------------------------- */
+.process-footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.process-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ----------------------------------------------------------------
+   NODE STATUS BADGE
+   ---------------------------------------------------------------- */
+.node-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 4px;
+}
+
+.node-status-badge.processing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+/* Delete action button */
+.node-action-btn.delete {
+  color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.node-action-btn.delete:hover {
+  color: var(--accent-red);
+  background: rgba(225, 29, 72, 0.1);
+}
+
+/* ----------------------------------------------------------------
+   RESPONSIVE & ACCESSIBILITY
+   ---------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .anarchy-node,
+  .node-image-region.has-image img,
+  .image-overlay,
+  .type-indicator,
+  .spawn-ghost-btn {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Focus states for keyboard navigation */
+.spawn-ghost-btn:focus-visible,
+.node-menu-btn:focus-visible,
+.image-action-btn:focus-visible,
+.download-btn:focus-visible {
+  outline: 2px solid var(--accent-red);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------------
+   GHOST NODE STATES - AI Processing Graph Architecture
+   ---------------------------------------------------------------- */
+
+/* Ghost node shimmer animation */
+.ghost-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.ghost-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.03) 50%,
+    transparent 100%
+  );
+  animation: ghostShimmer 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ghostShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Processing pulse animation */
+.processing-pulse {
+  animation: processingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes processingPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(245, 158, 11, 0.5),
+      0 8px 32px rgba(245, 158, 11, 0.15);
+  }
+}
+
+/* Ghost node specific styling */
+.anarchy-node.ghost {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.anarchy-node.ghost:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.anarchy-node.ghost.selected {
+  border-style: solid;
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+/* Result node styling */
+.anarchy-node.result {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.anarchy-node.result:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.anarchy-node.result.selected {
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.3),
+    0 0 30px rgba(16, 185, 129, 0.1);
+}
+
+/* Error state */
+.anarchy-node.node-error {
+  border-color: rgba(239, 68, 68, 0.4);
+  animation: errorPulse 2s ease-in-out infinite;
+}
+
+@keyframes errorPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.5), 0 0 20px rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* Status badges for new states */
+.node-status-badge.ghost {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.node-status-badge.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.node-status-badge.ready {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+/* State-specific content styling */
+.anarchy-node.state-idle .process-orb {
+  opacity: 0.6;
+}
+
+.anarchy-node.state-processing .process-orb {
+  animation: orbPulse 1s ease-in-out infinite;
+}
+
+@keyframes orbPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+/* Floating icon for ghost nodes */
+.ghost-floating-icon {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  animation: floatIcon 3s ease-in-out infinite;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+@keyframes floatIcon {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ── Prompt bar OUTSIDE node boundary (below it) ── */
+.node-prompt-bar {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  background: transparent;
+  z-index: 10;
+  pointer-events: all;
+}
+.node-prompt-text {
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+  text-align: center;
+}

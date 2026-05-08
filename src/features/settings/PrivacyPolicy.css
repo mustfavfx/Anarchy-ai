@@ -1,0 +1,307 @@
+.privacy-policy-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 24px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+}
+
+.privacy-header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.privacy-icon {
+  color: #e11d48;
+  margin-bottom: 16px;
+}
+
+.privacy-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 8px 0;
+}
+
+.privacy-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 4px 0;
+}
+
+.privacy-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0;
+}
+
+.privacy-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.privacy-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.privacy-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.privacy-section h2 svg {
+  color: #e11d48;
+}
+
+.privacy-section h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 24px 0 12px 0;
+}
+
+.privacy-section h3:first-of-type {
+  margin-top: 0;
+}
+
+.privacy-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 16px 0 8px 0;
+}
+
+.privacy-section p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 12px 0;
+}
+
+.privacy-section ul {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+.privacy-section li {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 8px 0;
+}
+
+.privacy-section li strong {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.info-box {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.info-box.local-data {
+  border-left: 3px solid #22c55e;
+}
+
+.info-box.api-usage {
+  border-left: 3px solid #3b82f6;
+}
+
+.info-box.privacy-box {
+  border-left: 3px solid #8b5cf6;
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.info-box.payment-box {
+  border-left: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.info-box.payment-box h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fbbf24;
+}
+
+.info-box.disclaimer-box {
+  border-left: 3px solid #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.info-box.disclaimer-box h4 {
+  color: #f87171;
+}
+
+.info-box h4 {
+  margin-top: 0;
+}
+
+.highlight {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+  color: #86efac;
+  font-size: 13px;
+}
+
+.services-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.services-table th,
+.services-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.services-table th {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.services-table td {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rights-grid,
+.license-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.right-item,
+.license-yes,
+.license-no {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.license-yes {
+  border-left: 3px solid #22c55e;
+}
+
+.license-no {
+  border-left: 3px solid #ef4444;
+}
+
+.summary-box {
+  background: rgba(225, 29, 72, 0.1);
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+.summary-box p {
+  margin: 8px 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.thank-you {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #f472b6;
+  margin-top: 20px;
+}
+
+.contact-section {
+  text-align: center;
+}
+
+.developer-name {
+  font-size: 16px;
+  color: white;
+  margin: 12px 0;
+}
+
+.contact-links {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.contact-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(225, 29, 72, 0.15);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #f472b6;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.contact-links a:hover {
+  background: rgba(225, 29, 72, 0.25);
+  border-color: rgba(225, 29, 72, 0.5);
+  color: #fda4af;
+}
+
+.privacy-footer {
+  text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 16px;
+}
+
+.privacy-footer p {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 4px 0;
+}
+
+@media (max-width: 640px) {
+  .privacy-policy-page {
+    padding: 24px 16px;
+  }
+
+  .rights-grid,
+  .license-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .services-table {
+    font-size: 12px;
+  }
+
+  .services-table th,
+  .services-table td {
+    padding: 8px;
+  }
+}

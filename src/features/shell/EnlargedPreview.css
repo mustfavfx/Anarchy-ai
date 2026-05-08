@@ -1,0 +1,416 @@
+/* ─── EnlargedPreview ────────────────────────────────────────────────────── */
+
+.enlarged-preview {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #0a0a0b;
+  overflow: hidden;
+}
+
+/* ── Top bar ── */
+.ep-topbar {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 40px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.025);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  gap: 8px;
+  position: relative;
+}
+
+.ep-tabs {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.ep-tab {
+  height: 26px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ep-tab:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+.ep-tab.active {
+  background: rgba(225,29,72,0.2);
+  color: #fecdd3;
+  border: 1px solid rgba(225,29,72,0.3);
+}
+
+.ep-topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ep-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+.ep-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.ep-img-dims {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  margin-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ep-zoom-pct {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ep-icon-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.65);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ep-icon-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border-color: rgba(255,255,255,0.15);
+}
+
+.ep-close-btn:hover {
+  background: rgba(225,29,72,0.2);
+  border-color: rgba(225,29,72,0.4);
+  color: #fecdd3;
+}
+
+/* ── Fullscreen overlay ── */
+.ep-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+
+.ep-fullscreen-img {
+  max-width: 96vw;
+  max-height: 96vh;
+  object-fit: contain;
+  border-radius: 4px;
+  cursor: default;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.8);
+}
+
+.ep-fullscreen-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  background: rgba(10,10,11,0.9);
+  color: rgba(255,255,255,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 10000;
+}
+
+.ep-fullscreen-close:hover {
+  background: rgba(225,29,72,0.25);
+  border-color: rgba(225,29,72,0.5);
+  color: #fff;
+}
+
+/* ── Stage ── */
+.ep-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Zoom/Pan stage ── */
+.ep-zoom-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+}
+
+.ep-zoom-stage.panning {
+  cursor: grabbing;
+}
+
+.ep-zoom-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  pointer-events: none;
+  border-radius: 4px;
+  transition: transform 0.04s linear;
+}
+
+/* ── Empty state ── */
+.ep-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.3);
+}
+
+.ep-empty span {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.4);
+}
+
+.ep-empty small {
+  font-size: 11px;
+  color: rgba(255,255,255,0.2);
+}
+
+/* ── Compare ── */
+.ep-compare {
+  position: absolute;
+  inset: 0;
+}
+
+.ep-compare-active {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+.ep-compare-base {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ep-compare-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ep-compare-clip img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ep-compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 2px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.ep-compare-line {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.5);
+}
+
+.ep-compare-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(10,10,11,0.9);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+}
+
+.ep-compare-slider {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: ew-resize;
+  z-index: 6;
+}
+
+.ep-compare-label {
+  position: absolute;
+  top: 10px;
+  background: rgba(10,10,11,0.8);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.8);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.ep-label-a { left: 10px; }
+.ep-label-b { right: 10px; }
+
+.ep-compare-toolbar {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  z-index: 7;
+}
+
+/* ── Compare slots (when one or both empty) ── */
+.ep-compare-slots {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 1px;
+}
+
+.ep-compare-slot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed rgba(255,255,255,0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  color: rgba(255,255,255,0.3);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.ep-compare-slot:hover {
+  border-color: rgba(225,29,72,0.3);
+  background: rgba(225,29,72,0.04);
+}
+
+.ep-compare-slot.filled {
+  border-color: transparent;
+  cursor: default;
+}
+
+.ep-compare-slot.filled img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ep-slot-plus {
+  font-size: 28px;
+  color: rgba(255,255,255,0.2);
+  line-height: 1;
+}
+
+.ep-slot-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(10,10,11,0.8);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.8);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.ep-slot-clear {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  background: rgba(10,10,11,0.8);
+  color: rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: all 0.15s ease;
+}
+
+.ep-slot-clear:hover {
+  background: rgba(225,29,72,0.2);
+  border-color: rgba(225,29,72,0.4);
+  color: #fff;
+}

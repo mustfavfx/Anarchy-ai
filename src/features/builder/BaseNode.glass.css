@@ -1,0 +1,367 @@
+/* ================================================================
+   MINIMAL GLASS DESIGN - Override Layer
+   Modern glassmorphism design for Source and Result nodes
+   ================================================================ */
+
+/* ---- Root node ---- */
+.anarchy-node {
+  width: 260px;
+  border-radius: 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.035) 0%,
+    rgba(255, 255, 255, 0.015) 50%,
+    rgba(0, 0, 0, 0.15) 100%
+  ), rgba(18, 18, 22, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 8px 28px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+}
+
+.anarchy-node:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 50%,
+    rgba(0, 0, 0, 0.15) 100%
+  ), rgba(20, 20, 24, 0.88);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.anarchy-node.selected {
+  border-color: rgba(225, 29, 72, 0.5);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px rgba(225, 29, 72, 0.3),
+    0 0 28px rgba(225, 29, 72, 0.15),
+    0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Remove legacy accent strip ---- */
+.node-accent-strip { display: none; }
+.node-selection-ring { display: none; }
+
+/* ---- Wrapper ---- */
+.node-wrapper {
+  border-radius: 18px;
+  background: transparent;
+  padding: 0;
+}
+
+.node-gloss {
+  height: 50%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    transparent 100%
+  );
+  border-radius: 18px 18px 0 0;
+}
+
+.node-inner-shadow {
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ---- Compact integrated header ---- */
+.node-header {
+  padding: 12px 14px 10px;
+  border-bottom: none;
+  gap: 10px;
+}
+
+.node-identity {
+  gap: 10px;
+}
+
+.type-indicator {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.04) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.anarchy-node.source .type-indicator,
+.type-indicator.source {
+  background: rgba(225, 29, 72, 0.12) !important;
+  color: #fb7185 !important;
+}
+
+.anarchy-node.render .type-indicator,
+.type-indicator.render,
+.anarchy-node.result .type-indicator,
+.type-indicator.result {
+  background: rgba(225, 29, 72, 0.12) !important;
+  color: #fb7185 !important;
+}
+
+/* Override legacy green tints for render/result nodes */
+.anarchy-node.render.selected,
+.anarchy-node.result.selected {
+  border-color: rgba(225, 29, 72, 0.5) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px rgba(225, 29, 72, 0.3),
+    0 0 28px rgba(225, 29, 72, 0.15),
+    0 12px 40px rgba(0, 0, 0, 0.55) !important;
+}
+
+.anarchy-node.render .node-accent-strip,
+.anarchy-node.result .node-accent-strip {
+  display: none !important;
+}
+
+.node-type-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ---- Action buttons ---- */
+.node-menu-btn,
+.node-action-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.35);
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.node-menu-btn:hover,
+.node-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.node-action-btn.delete:hover {
+  background: rgba(225, 29, 72, 0.12);
+  color: #fb7185;
+}
+
+/* ---- Body / image region ---- */
+.node-body {
+  padding: 0 12px 12px;
+}
+
+.node-image-region {
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 140px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.node-image-region.upload-target {
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+}
+
+.node-image-region.upload-target:hover {
+  border-color: rgba(225, 29, 72, 0.35);
+  background: rgba(225, 29, 72, 0.04);
+}
+
+.node-image-region.has-image {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.node-image-region img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ---- Upload placeholder ---- */
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px 16px;
+  min-height: 140px;
+}
+
+.upload-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  transition: all 0.2s ease;
+}
+
+.node-image-region.upload-target:hover .upload-icon-wrap {
+  background: linear-gradient(
+    145deg,
+    rgba(225, 29, 72, 0.18) 0%,
+    rgba(225, 29, 72, 0.06) 100%
+  );
+  border-color: rgba(225, 29, 72, 0.3);
+  color: #fb7185;
+  transform: scale(1.05);
+}
+
+.upload-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.upload-primary {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: -0.01em;
+}
+
+.node-image-region.upload-target:hover .upload-primary {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ---- Result placeholder ---- */
+.render-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+}
+
+.rp-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    145deg,
+    rgba(16, 185, 129, 0.15) 0%,
+    rgba(16, 185, 129, 0.04) 100%
+  );
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.rp-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ---- Image overlay ---- */
+.image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 50%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 10px;
+}
+
+.node-image-region:hover .image-overlay {
+  opacity: 1;
+}
+
+.image-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.image-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.image-action-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.08);
+}
+
+.image-action-btn.remove:hover {
+  background: rgba(225, 29, 72, 0.3);
+  border-color: rgba(225, 29, 72, 0.5);
+  color: #fff;
+}
+
+/* ---- Handles (connection points) ---- */
+.anarchy-handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  transition: all 0.2s ease;
+}
+
+.anarchy-handle:hover {
+  background: #e11d48 !important;
+  border-color: #fb7185 !important;
+  transform: scale(1.25);
+}
+
+/* ---- Status badges ---- */
+.node-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 500;
+  margin-top: 3px;
+  width: fit-content;
+}
+
+.node-status-badge.processing {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.node-status-badge.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}

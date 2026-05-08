@@ -1,0 +1,251 @@
+/* Quota Error Modal Styles */
+
+.quota-error-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+  padding: 20px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.quota-error-modal {
+  background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 420px;
+  padding: 32px;
+  position: relative;
+  animation: slideUp 0.4s ease;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 60px rgba(225, 29, 72, 0.15);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.quota-error-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.quota-error-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.quota-error-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.quota-error-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.2) 0%, rgba(190, 18, 60, 0.1) 100%);
+  border: 2px solid rgba(225, 29, 72, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: #e11d48;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.quota-error-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.quota-error-message {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+/* Quota Stats */
+.quota-error-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.quota-stat {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.quota-stat-label {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+
+.quota-stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: #e11d48;
+}
+
+/* Upgrade Card */
+.quota-upgrade-card {
+  background: linear-gradient(145deg, rgba(225, 29, 72, 0.12) 0%, rgba(190, 18, 60, 0.06) 100%);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.upgrade-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e11d48;
+  margin-bottom: 8px;
+}
+
+.upgrade-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.upgrade-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 16px 0;
+}
+
+.upgrade-features {
+  list-style: none;
+  margin: 0 0 16px 0;
+  padding: 0;
+}
+
+.upgrade-features li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.feature-check {
+  color: #22c55e;
+  font-weight: 700;
+}
+
+.upgrade-price {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.btn-upgrade-now {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-upgrade-now:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(225, 29, 72, 0.4);
+}
+
+.btn-continue-free {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.btn-continue-free:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .quota-error-modal {
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+
+  .quota-error-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .quota-error-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .quota-error-header h2 {
+    font-size: 18px;
+  }
+
+  .quota-stat-value {
+    font-size: 18px;
+  }
+}

@@ -1,0 +1,48 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-app, #0a0a0b);
+  overflow: hidden;
+  color: var(--text-primary, #ffffff);
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-surface, #121214);
+}
+
+.app-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-surface, #121214);
+}
+
+/* ── Enlarged mode layout: Preview fills left, RightSidebar has canvas+controls ── */
+.app-body-enlarged {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Enlarged preview fills all remaining space (canvas is now in sidebar) */
+.app-enlarged-main {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: #0a0a0b;
+}

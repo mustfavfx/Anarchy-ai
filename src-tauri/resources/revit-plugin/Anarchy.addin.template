@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Anarchy AI Connector</Name>
+    <Assembly>{{ASSEMBLY_PATH}}</Assembly>
+    <AddInId>7E9C6B4A-8A8D-4A1E-9B2A-AA0123456789</AddInId>
+    <FullClassName>AnarchyRevit.AnarchyApp</FullClassName>
+    <VendorId>ANAR</VendorId>
+    <VendorDescription>Anarchy AI</VendorDescription>
+  </AddIn>
+</RevitAddIns>

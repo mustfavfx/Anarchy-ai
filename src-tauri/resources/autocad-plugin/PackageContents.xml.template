@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="AutoCAD" Name="AnarchyAutoCAD" AppVersion="1.0.0" Author="Anarchy AI" ProductCode="{A1234567-8901-2345-6789-ABCDEFABCDEF}" ProductType="Application" Description="Send AutoCAD view to Anarchy AI Builder">
+  <CompanyDetails Name="Anarchy AI" Email="support@anarchy.ai" />
+  <Components Description="AutoCAD application plug-in">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="{{SERIES_MIN}}" SeriesMax="{{SERIES_MAX}}" />
+    <ComponentEntry AppName="AnarchyAutoCAD" ModuleName="./Contents/AnarchyAutoCad.dll" AppDescription="Send view to Anarchy AI Builder" LoadOnAutoCADStartup="True" />
+  </Components>
+</ApplicationPackage>
