@@ -78,28 +78,16 @@ async function uploadImageIfLocal(url: string, model?: string): Promise<string> 
 }
 
 async function persistImageLocally(url: string): Promise<string> {
-  if (!url || url.startsWith('data:')) return url;
+  if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
 
   try {
     const base64Data: string = await invoke('url_to_base64', { url });
     if (base64Data?.startsWith('data:')) return base64Data;
   } catch {
+    // Tauri invoke unavailable (dev browser) — return original URL
   }
 
-  try {
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return url;
-  }
+  return url;
 }
 
 // AI generation config passed to executeNode
@@ -463,7 +451,6 @@ export const useBuilderWorkflow = (tabId?: string) => {
   // ========================================================================
 
   const createSourceNode = useCallback((imageUrl?: string): string => {
-    console.log('[createSourceNode] Called with imageUrl:', imageUrl ? 'yes (' + imageUrl.length + ' chars)' : 'no');
     const id = `source-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     
     const lineage: NodeLineage = {
@@ -495,13 +482,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
       } as BuilderNodeData
     };
 
-    console.log('[createSourceNode] Current nodes count:', nodesRef.current.length);
     pushHistory(nodesRef.current, edgesRef.current); // snapshot before adding
-    console.log('[createSourceNode] Calling setNodes with new node:', id);
-    setNodes(nds => {
-      console.log('[createSourceNode] setNodes callback, previous count:', nds.length);
-      return [...nds, newNode];
-    });
+    setNodes(nds => [...nds, newNode]);
 
     if (imageUrl) {
       try {
@@ -561,16 +543,6 @@ export const useBuilderWorkflow = (tabId?: string) => {
     // Get parent output for input data (but ghost doesn't inherit image visually)
     const parentOutput = parentData.outputData;
     
-    // Debug: Log parent data to trace image flow
-    console.log('[DEBUG] spawnGhostNode:', {
-      parentId,
-      parentType: parentData.type,
-      parentHasImage: !!parentData.image,
-      parentOutputExists: !!parentOutput,
-      parentOutputImage: parentOutput?.image,
-      parentOutput: parentOutput,
-    });
-
     const newNode: Node = {
       id,
       type: 'ghostNode',
@@ -681,6 +653,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
     try {
       const sourceDims = nodeData.inputData?.dimensions;
+      let result: { imageUrl: string; metadata: { width: number; height: number; model: string; prompt: string } };
 
       // For upscale models, use upscaleImage API
       if (isUpscaleModel) {
@@ -724,8 +697,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
           }
         );
         
-        // Create result object compatible with existing code
-        var result: { imageUrl: string; metadata: { width: number; height: number; model: string; prompt: string } } = {
+        result = {
           imageUrl: resultUrl,
           metadata: {
             width: sourceDims?.width ? sourceDims.width * scale : 1024,

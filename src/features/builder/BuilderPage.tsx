@@ -41,11 +41,10 @@ import { useNotificationStore } from '../../stores/notificationStore';
 import { downloadImage, downloadImagesBatch } from '../../utils/imageExport';
 import { saveWorkflow, saveWorkflowAs, loadWorkflow } from '../../services/workflow';
 import { PRESET_PROMPTS } from './presetPrompts';
-import { addHistoryEntry } from '../../services/history/HistoryService';
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { useAuth } from '../auth/AuthContext';
-import { checkCreditBalance, deductCredits, GENERATION_COST, DEV_MODE, type UserCredit } from '../../services/credit/creditService';
+import { checkCreditBalance, deductCredits, GENERATION_COST, DEV_MODE } from '../../services/credit/creditService';
 import './BuilderPage.css';
 
 // Lucide icon map for preset prompts
@@ -122,9 +121,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     nodeId?: string;
   } | null>(null);
   const [creditError, setCreditError] = useState<{ balance: number; needed: number } | null>(null);
-  const [userCredit, setUserCredit] = useState<UserCredit | null>(null);
   const { fitView, getViewport } = useReactFlow();
-  const reactFlowRef = useRef<HTMLDivElement>(null);
 
   // Generate thumbnail from canvas for project preview
   const generateThumbnail = useCallback(async (): Promise<string | undefined> => {
@@ -199,11 +196,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
     });
   };
-
-  // Keep workflowSnapshot in sync for save-on-close
-  useEffect(() => {
-    setWorkflowSnapshot({ nodes, edges });
-  }, [nodes, edges, setWorkflowSnapshot]);
 
   // Close presets popup on outside click
   useEffect(() => {
@@ -436,11 +428,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                   },
                 } : undefined,
               });
-              if (url) {
-                try {
-                  addHistoryEntry({ type: 'generate', label: 'Source imported', inputImage: url });
-                } catch {}
-              }
             }
           : undefined,
         onImagesUpload: node.data.type === 'source'
@@ -459,10 +446,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                   },
                 },
               });
-
-              try {
-                addHistoryEntry({ type: 'generate', label: 'Source imported', inputImage: urls[0] });
-              } catch {}
 
               urls.slice(1).forEach((url, index) => {
                 const sourceId = createSourceNode(url);
@@ -527,17 +510,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setSelectedNodeId(null);
   }, [setSelectedNodeId, nodes, deleteNode]);
 
-  const onPaneContextMenu = useCallback((event: React.MouseEvent) => {
-    console.log('[onPaneContextMenu] Right-click detected!', event.clientX, event.clientY);
+  const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setSelectedNodeId(null);
     setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
+      x: (event as MouseEvent).clientX ?? (event as React.MouseEvent).clientX,
+      y: (event as MouseEvent).clientY ?? (event as React.MouseEvent).clientY,
       type: 'canvas',
     });
-    console.log('[onPaneContextMenu] Context menu set');
   }, [setSelectedNodeId]);
 
   const onPromptContextMenu = useCallback((event: React.MouseEvent) => {
@@ -627,8 +608,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         addNotification({ type: 'error', title: 'فشل الخصم', message: deduct.error || 'رصيد غير كافٍ' });
         return;
       }
-      // Update local credit state
-      setUserCredit(prev => prev ? { ...prev, balance: deduct.remaining } : null);
+      // Credit deducted successfully
     }
 
     if (idleGhosts.length > 0) {
@@ -742,7 +722,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // ── New Canvas — clear autosave and start fresh ───────────────────────
   const handleNewCanvas = useCallback(() => {
-    console.log('[handleNewCanvas] Starting...');
     try { localStorage.removeItem(BUILDER_AUTOSAVE_KEY); } catch {}
     setNodes([]);
     setEdges([]);
@@ -766,9 +745,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, []);
 
   const spawnFromImage = useCallback(async (dataUrl: string) => {
-    console.log('[spawnFromImage] Creating node with image, dataUrl length:', dataUrl?.length);
     const nodeId = createSourceNode(dataUrl);
-    console.log('[spawnFromImage] Created node:', nodeId);
     setSelectedNodeId(nodeId);
     setSelectedNode({ id: nodeId, type: 'source', image: dataUrl, prompt: undefined, state: 'ready' });
     setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 100);
@@ -803,53 +780,23 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // ── Native file drop (Tauri + HTML5) ─────────────────────────────────────
   useEffect(() => {
-    console.log('[DragDrop] Window-level handlers registered');
-    
-    // Debug all mouse events
-    const debugMouse = (e: MouseEvent) => {
-      if (e.type === 'contextmenu') {
-        console.log('[Global] contextmenu event at:', e.clientX, e.clientY, 'target:', (e.target as Element)?.nodeName);
-      }
-    };
-    window.addEventListener('contextmenu', debugMouse);
-    
-    // Debug all drag events
-    const debugDrag = (e: DragEvent) => {
-      console.log('[Global] Drag event:', e.type, 'target:', (e.target as Element)?.nodeName);
-    };
-    window.addEventListener('dragenter', debugDrag);
-    window.addEventListener('dragover', debugDrag);
-    window.addEventListener('drop', debugDrag);
-    
-    const handleWindowDragOver = (e: DragEvent) => {
-      e.preventDefault();
-    };
+    const handleWindowDragOver = (e: DragEvent) => { e.preventDefault(); };
     const handleWindowDrop = async (e: DragEvent) => {
-      console.log('[DragDrop] Window drop event:', e.dataTransfer?.files?.length, 'files');
       e.preventDefault();
       if (!e.dataTransfer) return;
       const files = Array.from(e.dataTransfer.files);
-      console.log('[DragDrop] Processing', files.length, 'files');
       for (const file of files.slice(0, 5)) {
-        console.log('[DragDrop] File:', file.name, file.type);
         if (file.type.startsWith('image/')) {
           try {
             const dataUrl = await imageFileToDataUrl(file);
-            console.log('[DragDrop] Converted to dataUrl, length:', dataUrl.length);
             await spawnFromImage(dataUrl);
-          } catch (err) {
-            console.error('[DragDrop] Failed to process image:', err);
-          }
+          } catch { /* skip invalid files */ }
         }
       }
     };
     window.addEventListener('dragover', handleWindowDragOver);
     window.addEventListener('drop', handleWindowDrop);
     return () => {
-      window.removeEventListener('contextmenu', debugMouse);
-      window.removeEventListener('dragenter', debugDrag);
-      window.removeEventListener('dragover', debugDrag);
-      window.removeEventListener('drop', debugDrag);
       window.removeEventListener('dragover', handleWindowDragOver);
       window.removeEventListener('drop', handleWindowDrop);
     };
@@ -905,11 +852,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [handleSave, handleSaveAs, handleLoad, handleNewCanvas, imageFileToDataUrl, spawnFromImage, undo, redo, canUndo, canRedo]);
 
   const runContextAction = (action: 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-all' | 'save-project' | 'load-project') => {
-    console.log('[runContextAction] Action called:', action);
     if (action === 'add-source') {
-      console.log('[runContextAction] Calling createSourceNode...');
-      const result = createSourceNode();
-      console.log('[runContextAction] createSourceNode returned:', result);
+      createSourceNode();
     }
 
     if (action === 'rearrange') {
@@ -1200,7 +1144,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                 <div className="context-section-label">Workflow</div>
 
                 <button className="context-item" onClick={(e) => {
-                  console.log('[BuilderPage] Add Source Node button clicked!', e);
                   e.stopPropagation();
                   runContextAction('add-source');
                 }}>

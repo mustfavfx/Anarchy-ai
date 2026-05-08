@@ -20,22 +20,25 @@ export const PrivacyPolicy: React.FC = () => {
           <p><strong>Anarchy AI</strong> is designed with privacy in mind. We collect minimal data:</p>
           
           <div className="info-box local-data">
-            <h4>📁 Local Data (Stored on Your Device Only)</h4>
+            <h4>📁 Local Data (Stored on Your Device)</h4>
             <ul>
-              <li><strong>App Settings:</strong> Theme preferences, language, notification settings</li>
+              <li><strong>App Settings:</strong> Theme preferences, language, API key, notification settings</li>
               <li><strong>Project Data:</strong> Your architectural projects, workflows, and generated images</li>
-              <li><strong>History:</strong> Generation history and usage logs</li>
+              <li><strong>History:</strong> Generation history stored in localStorage and IndexedDB</li>
               <li><strong>Library:</strong> Your saved assets and images</li>
             </ul>
-            <p className="highlight">Important: All data is stored locally on your device using localStorage. We do not store your data on any external servers.</p>
           </div>
 
           <div className="info-box api-usage">
-            <h4>🌐 AI Processing</h4>
+            <h4>🌐 External Services Used</h4>
+            <p>Anarchy AI connects to the following third-party services to deliver its features:</p>
             <ul>
-              <li><strong>AI Generation:</strong> When you generate images, your prompts are securely sent to our AI service for processing</li>
-              <li><strong>API Tokens:</strong> Your access tokens are stored locally in your .env file</li>
+              <li><strong>Supabase</strong> — Authentication, user accounts, credit balance, and usage analytics</li>
+              <li><strong>Replicate API</strong> — AI image generation: your prompts and reference images are sent to Replicate's servers for processing</li>
+              <li><strong>Image Hosting (0x0.st / catbox.moe)</strong> — Reference images may be temporarily uploaded to these services to be accessible by the AI model</li>
+              <li><strong>GitHub</strong> — Automatic update checks fetch release metadata from GitHub</li>
             </ul>
+            <p className="highlight">Note: Your API key is stored locally on your device. We never store your API key on our servers.</p>
           </div>
 
           <h3>2. How We Use Your Information</h3>
@@ -45,24 +48,26 @@ export const PrivacyPolicy: React.FC = () => {
             <li><strong>App Functionality:</strong> To provide the core features of the application</li>
           </ul>
 
-          <h3>3. Local Processing for Privacy</h3>
+          <h3>3. Data Handling & Privacy</h3>
           <div className="info-box privacy-box">
             <h4>🏛️ Architectural Design Privacy</h4>
-            <p>Your architectural designs and proprietary project data are processed <strong>locally</strong> on your machine. We understand the sensitive nature of architectural work and intellectual property.</p>
+            <p>We understand the sensitive nature of architectural work. Here is exactly what leaves your device:</p>
             <ul>
-              <li>All project files, models, and workflows remain on your device</li>
-              <li>No architectural designs are uploaded to external servers</li>
-              <li>Only AI generation prompts are sent to cloud service (not your full project)</li>
-              <li>Complete offline capability for sensitive projects</li>
+              <li>Text prompts and model parameters are sent to <strong>Replicate API</strong> for AI processing</li>
+              <li>Reference images you attach are temporarily uploaded to image hosting services to be processed by AI models</li>
+              <li>Account credentials and credit balance are managed by <strong>Supabase</strong></li>
+              <li>Anonymous usage events (model used, generation count) may be logged to Supabase for product improvement</li>
+              <li>Project workflows, canvas data, and generated images are stored <strong>locally on your device only</strong></li>
             </ul>
           </div>
 
           <h3>4. Data Security</h3>
           <ul>
-            <li>✅ All data remains <strong>on your device</strong></li>
-            <li>✅ No data is transmitted to our servers</li>
-            <li>✅ API communications use HTTPS encryption</li>
-            <li>✅ You can export/delete all data anytime via Settings &gt; Storage</li>
+            <li>✅ Project workflows and generated images remain <strong>on your device</strong></li>
+            <li>✅ Your Replicate API key is stored locally and never sent to our servers</li>
+            <li>✅ All API communications use HTTPS encryption</li>
+            <li>✅ You can export/delete all local data anytime via Settings &gt; Storage</li>
+            <li>✅ You can delete your account and all associated data from Settings &gt; Account</li>
           </ul>
 
           <h3>5. Payment Processing</h3>
@@ -145,7 +150,9 @@ export const PrivacyPolicy: React.FC = () => {
         <section className="privacy-section">
           <h2><Database size={20} /> Summary</h2>
           <div className="summary-box">
-            <p>🔒 <strong>Your data stays on your device</strong></p>
+            <p>🔒 <strong>Projects &amp; images stay on your device</strong></p>
+            <p>🌐 <strong>Prompts &amp; reference images go to Replicate API for AI processing</strong></p>
+            <p>🔑 <strong>Your API key is stored locally only</strong></p>
             <p>🎨 <strong>Use for any architectural project</strong></p>
             <p>🚫 <strong>Don't redistribute the app</strong></p>
             <p>⚡ <strong>You control your AI service usage</strong></p>

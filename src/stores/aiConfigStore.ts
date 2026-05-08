@@ -158,6 +158,9 @@ interface AIConfigState {
   isEnlargedView: boolean;
   setIsEnlargedView: (enlarged: boolean) => void;
   toggleEnlargedView: () => void;
+
+  isSwappedView: boolean;
+  setIsSwappedView: (swapped: boolean) => void;
   
   // Workflow Snapshot
   workflowSnapshot: { nodes: Node[]; edges: Edge[] };
@@ -253,6 +256,9 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   isEnlargedView: false,
   setIsEnlargedView: (enlarged) => set({ isEnlargedView: enlarged }),
   toggleEnlargedView: () => set((state) => ({ isEnlargedView: !state.isEnlargedView })),
+
+  isSwappedView: false,
+  setIsSwappedView: (swapped) => set({ isSwappedView: swapped }),
   
   // Workflow Snapshot
   workflowSnapshot: { nodes: [], edges: [] },

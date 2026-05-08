@@ -490,7 +490,6 @@ async function apiPost(url: string, headers: Record<string,string>, body: unknow
     const { invoke } = await import('@tauri-apps/api/core');
     return await invoke('http_post', { url, headers, body });
   } catch (invokeErr) {
-    console.warn('[apiPost] Tauri invoke failed, trying fetch:', invokeErr);
     const res = await fetch(url, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -506,7 +505,6 @@ async function apiGet(url: string, headers: Record<string,string>): Promise<any>
     const { invoke } = await import('@tauri-apps/api/core');
     return await invoke('http_get', { url, headers });
   } catch (invokeErr) {
-    console.warn('[apiGet] Tauri invoke failed, trying fetch:', invokeErr);
     const res = await fetch(url, { headers });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     return res.json();
@@ -562,7 +560,7 @@ class ReplicateService {
     const elapsed = now - this.lastRequestTime;
     if (elapsed < this.minRequestInterval) {
       const waitMs = this.minRequestInterval - elapsed;
-      console.log(`[Replicate] Throttling: waiting ${Math.round(waitMs/1000)}s before next request...`);
+      // Wait to respect rate limit
       await new Promise(r => setTimeout(r, waitMs));
     }
     this.lastRequestTime = Date.now();
@@ -798,9 +796,9 @@ class ReplicateService {
 
   // ── Text-to-Image ─────────────────────────────────────────────────────────
   async generate(params: ReplicateGenerationParams): Promise<ReplicateGenerationResult> {
+    this.updateApiKey();
     const start = Date.now();
     const input = this.buildInput(params, []);
-    console.log('[Replicate] generate →', params.model, input);
 
     const prediction = await this.runPrediction(params.model, input);
     const imageUrl   = this.extractImageUrl(prediction.output);
@@ -813,6 +811,7 @@ class ReplicateService {
     params: ReplicateGenerationParams,
     images: string | string[]
   ): Promise<ReplicateGenerationResult> {
+    this.updateApiKey();
     const start     = Date.now();
     const meta      = this.getModelCapabilities(params.model);
     const imageList = Array.isArray(images) ? images : [images];
@@ -821,18 +820,7 @@ class ReplicateService {
     const maxImgs  = meta.maxReferenceImages > 0 ? meta.maxReferenceImages : 14;
     const imgSlice = imageList.slice(0, maxImgs);
 
-    console.log('[Replicate] generateImg2Img:', params.model, {
-      images:            imgSlice.length,
-      seed:              params.seed,
-      steps:             params.steps,
-      referenceStrength: params.referenceStrength,
-      negativePrompt:    params.negativePrompt,
-      resolution:        params.resolution,
-      aspectRatio:       params.aspectRatio,
-    });
-
-    const input      = this.buildInput(params, imgSlice);
-    console.log('[Replicate] request body:', JSON.stringify(input, null, 2));
+    const input = this.buildInput(params, imgSlice);
 
     const prediction = await this.runPrediction(params.model, input);
     const imageUrl   = this.extractImageUrl(prediction.output);

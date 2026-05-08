@@ -73,7 +73,7 @@ export const GENERATION_COST = {
 // ── Development Mode ───────────────────────────────────────────────────────────
 // Set to true to bypass credit checks during development
 // Set to false to enforce credit system for production
-export const DEV_MODE = true;
+export const DEV_MODE = import.meta.env.DEV === true;
 
 // ── API ──────────────────────────────────────────────────────────────────────
 

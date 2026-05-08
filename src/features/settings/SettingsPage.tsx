@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Settings, Shield, Database,
   Check,
@@ -45,8 +45,6 @@ export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about'>('general');
   const [saved, setSaved] = useState(false);
-  const [storageStats, setStorageStats] = useState({ total: 0, projects: 0, history: 0, library: 0, settings: 0 });
-  const [isLoading, setIsLoading] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
@@ -56,28 +54,27 @@ export const SettingsPage: React.FC = () => {
   const [confirmClearData, setConfirmClearData] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Application version
-  const APP_VERSION = '0.1.121';
+  const [appVersion, setAppVersion] = useState('...');
 
-  // Check for updates function
-  const checkForUpdates = async () => {
+  useEffect(() => {
+    import('@tauri-apps/api/app')
+      .then(m => m.getVersion())
+      .then(v => setAppVersion(v))
+      .catch(() => setAppVersion('0.7.0'));
+  }, []);
+
+  const checkForUpdates = useCallback(async () => {
     setUpdateStatus('checking');
     try {
-      // Simulate checking for updates (replace with actual API call)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // For demo purposes, we'll say it's up to date
-      // In production, compare with latest version from API
-      setUpdateStatus('up-to-date');
-      
-      // Reset status after 3 seconds
-      setTimeout(() => setUpdateStatus('idle'), 3000);
-    } catch (error) {
-      console.error('Failed to check for updates:', error);
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<{ shouldUpdate: boolean }>('check_update');
+      setUpdateStatus(result?.shouldUpdate ? 'available' : 'up-to-date');
+      setTimeout(() => setUpdateStatus('idle'), 4000);
+    } catch {
       setUpdateStatus('error');
       setTimeout(() => setUpdateStatus('idle'), 3000);
     }
-  };
+  }, []);
 
   // Load settings
   useEffect(() => {
@@ -584,7 +581,7 @@ export const SettingsPage: React.FC = () => {
                   </div>
                   <div className="version-text">
                     <span className="version-label">Application Version</span>
-                    <span className="version-number">{APP_VERSION}</span>
+                    <span className="version-number">{appVersion}</span>
                   </div>
                 </div>
                 <button 
@@ -605,7 +602,7 @@ export const SettingsPage: React.FC = () => {
             <div className="settings-card about-card">
               <div className="about-logo-large">A</div>
               <h2>Anarchy AI</h2>
-              <span className="about-version-badge">Version {APP_VERSION}</span>
+              <span className="about-version-badge">Version {appVersion}</span>
 
               <p className="about-description">
                 AI-powered architectural visualization and design assistant.

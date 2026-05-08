@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './styles/theme.css';
 import { AppShell } from './features/shell/AppShell';
 import { MultiBuilderPage } from './features/builder/MultiBuilderPage';
@@ -25,15 +25,14 @@ function App() {
           <AppShell>
             <Routes>
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              {/* /dashboard kept for backward-compat nav links */}
+              <Route path="/dashboard" element={<Navigate to="/" replace />} />
               <Route path="/builder" element={<MultiBuilderPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/generate" element={<GeneratePage />} />
               <Route path="/lora" element={<LoraTrainingPage />} />
               <Route path="/library" element={<LibraryPage />} />
               <Route path="/history" element={<HistoryPage />} />
-              <Route path="/3d" element={<div className="p-10 text-white">3D Generation — Coming Soon</div>} />
+              <Route path="/3d" element={<div style={{padding:'40px',color:'var(--text-primary)',textAlign:'center'}}>3D Generation — Coming Soon</div>} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/account" element={<AccountPage />} />
