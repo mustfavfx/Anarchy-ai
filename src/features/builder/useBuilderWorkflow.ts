@@ -468,6 +468,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
       id,
       type: 'baseNode',
       position: { x: 80, y: 300 },
+      width: 240,
       data: {
         label: 'Source',
         type: 'source',
@@ -547,6 +548,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
       id,
       type: 'ghostNode',
       position,
+      width: 240,
       data: {
         label: baseLabel,
         type: 'ghost',

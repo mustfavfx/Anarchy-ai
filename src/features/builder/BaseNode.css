@@ -6,7 +6,8 @@
    BASE NODE ARCHITECTURE - 3D Frozen Effect
    ---------------------------------------------------------------- */
 .anarchy-node {
-  width: 240px;
+  width: 100%;
+  min-width: 200px;
   position: relative;
   border-radius: 14px;
   background: 
@@ -398,8 +399,8 @@
 
 .node-image-region.has-image img {
   width: 100%;
-  height: auto;
-  max-height: none;
+  height: 100%;
+  max-height: 100%;
   object-fit: contain;
   border-radius: 10px;
   transition: transform 0.3s ease, opacity 0.2s ease;

@@ -132,7 +132,7 @@ export const MultiBuilderPage: React.FC = () => {
               >
                 <X size={12} />
               </button>
-            </div>
+            </button>
           ))}
         </div>
         
