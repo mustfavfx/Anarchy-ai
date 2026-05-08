@@ -312,14 +312,87 @@
 }
 
 .tab-pane {
-  display: none;
+  flex-direction: column;
   height: 100%;
   width: 100%;
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
-.tab-pane.active {
-  display: block;
-  opacity: 1;
+/* ============================================
+   CLOSE CONFIRMATION DIALOG
+   ============================================ */
+.tab-close-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-close-dialog {
+  background: #1a1a1f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tab-close-dialog-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.tab-close-dialog-msg {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}
+
+.tab-close-dialog-msg strong {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tab-close-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.tab-close-dialog-btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.15s ease;
+}
+
+.tab-close-dialog-btn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.tab-close-dialog-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-close-dialog-btn.primary {
+  background: #e11d48;
+  color: #fff;
+  border-color: transparent;
+}
+
+.tab-close-dialog-btn.primary:hover {
+  background: #be123c;
 }
