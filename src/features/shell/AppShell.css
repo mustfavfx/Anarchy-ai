@@ -31,6 +31,36 @@
   background: var(--bg-surface, #121214);
 }
 
+/* ── Mini canvas: BuilderPage stays mounted but shrinks to thumbnail in sidebar ── */
+.app-content--mini-canvas {
+  position: fixed;
+  right: 0;
+  top: 30px; /* below title bar */
+  width: 380px; /* match right-sidebar width */
+  height: 230px;
+  z-index: 10;
+  overflow: hidden;
+  pointer-events: auto;
+  background: #0a0a0b;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Hide non-canvas UI inside mini canvas */
+.app-content--mini-canvas .builder-prompt-container,
+.app-content--mini-canvas .builder-watermark,
+.app-content--mini-canvas .builder-stats,
+.app-content--mini-canvas .context-menu,
+.app-content--mini-canvas .builder-topbar {
+  display: none !important;
+}
+
+/* Let ReactFlow fill the mini canvas fully */
+.app-content--mini-canvas .builder-page,
+.app-content--mini-canvas .canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* ── Enlarged mode layout: Preview fills left, RightSidebar has canvas+controls ── */
 .app-body-enlarged {
   display: flex;

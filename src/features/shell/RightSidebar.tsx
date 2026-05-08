@@ -8,11 +8,7 @@ import { replicateService } from '../../services/replicate';
 import { maskService } from '../../services/mask/MaskService';
 import './RightSidebar.css';
 
-interface RightSidebarProps {
-  canvasChildren?: React.ReactNode;
-}
-
-export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) => {
+export const RightSidebar: React.FC = () => {
   const config = useAIConfigStore((state) => state.config);
   const setConfig = useAIConfigStore((state) => state.setConfig);
   const selectedNode = useAIConfigStore((state) => state.selectedNode);
@@ -456,11 +452,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
   return (
     <div className={`right-sidebar-wrapper ${isCollapsed ? 'collapsed' : ''}`}>
     <aside className="right-sidebar">
-      {/* ── Enlarged mode: Mini Canvas + Canvas return button ── */}
+      {/* ── Enlarged mode: Mini Canvas spacer + Canvas return button ── */}
       {isEnlargedView && (
         <>
           <div className="sidebar-mini-canvas">
-            {canvasChildren}
+            {/* BuilderPage is rendered here via CSS fixed positioning (AppShell) */}
           </div>
           <div className="sidebar-canvas-return">
             <button

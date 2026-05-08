@@ -54,10 +54,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         {isBuilderPage ? (
           /* ── Builder layout: keep children always mounted to prevent canvas wipe ── */
           <>
-            <main
-              className="app-content"
-              style={isEnlargedView ? { display: 'none' } : undefined}
-            >
+            <main className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}`}>
               {children}
             </main>
             {isEnlargedView ? (
