@@ -438,7 +438,7 @@ function arToSize(ar: string, base: number): { width: number; height: number } {
 
 function resolutionToPixels(res: string): number {
   if (res === '2K') return 1536;
-  const n = parseInt(res);
+  const n = Number.parseInt(res);
   return isNaN(n) ? 1024 : n;
 }
 
@@ -606,7 +606,6 @@ class ReplicateService {
       const data = proxy
         ? await proxyGet(proxy, path)
         : await apiGet(`${this.config.baseUrl}${path}`, headers);
-      console.log('[Replicate] poll status:', data.status, 'error:', JSON.stringify(data.error ?? null));
       if (data.status === 'succeeded') return data;
       if (data.status === 'failed' || data.status === 'canceled') {
         throw new Error(`Prediction ${data.status}: ${JSON.stringify(data.error ?? data.logs ?? 'unknown error')}`);
@@ -639,9 +638,6 @@ class ReplicateService {
     const url  = `${this.config.baseUrl}${path}`;
     const body = version ? { version, input } : { input };
 
-    if (proxy) {
-      console.log('[Replicate] → Supabase proxy (API key hidden from client)');
-    }
 
     const maxRetries = 3;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -651,11 +647,8 @@ class ReplicateService {
           ? await proxyPost(proxy, path, body)
           : await apiPost(url, headers, body);
 
-        console.log('[Replicate] Prediction created:', prediction.id, 'status:', prediction.status);
-
         if (prediction.status === 'succeeded') return prediction;
         if (prediction.status === 'failed') {
-          console.error('[Replicate] Prediction failed immediately:', JSON.stringify(prediction.error ?? prediction, null, 2));
           throw new Error(`Prediction failed: ${JSON.stringify(prediction.error ?? prediction)}`);
         }
         return this.pollPrediction(prediction.id);
@@ -669,8 +662,7 @@ class ReplicateService {
           || errMsg.includes('503');
         if (isRetryable && attempt < maxRetries) {
           const retryMatch = errMsg.match(/"retry_after"\s*:\s*(\d+)/);
-          const waitSec = retryMatch ? parseInt(retryMatch[1], 10) + 1 : (attempt + 1) * 15;
-          console.warn(`[Replicate] Retryable error, retrying in ${waitSec}s (attempt ${attempt + 1}/${maxRetries}):`, errMsg.substring(0, 120));
+          const waitSec = retryMatch ? Number.parseInt(retryMatch[1], 10) + 1 : (attempt + 1) * 15;
           await new Promise(r => setTimeout(r, waitSec * 1000));
           continue;
         }
@@ -705,7 +697,6 @@ class ReplicateService {
     if (images.length === 0 && params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
-    console.log('[NanoBanana] input:', JSON.stringify(input, null, 2));
     return input;
   }
 
@@ -728,7 +719,6 @@ class ReplicateService {
         input.aspect_ratio = 'match_input_image';
       }
       if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
-      console.log('[Replicate] Kontext Pro input:', JSON.stringify(input, null, 2));
       return input;
     }
 
@@ -846,7 +836,6 @@ class ReplicateService {
     } else if (images.length > 0) {
       input.aspect_ratio = 'match_input_image';
     }
-    console.log('[Replicate] Seedream input:', JSON.stringify(input, null, 2));
     return input;
   }
 
@@ -864,7 +853,6 @@ class ReplicateService {
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
-    console.log('[Replicate] Grok input:', JSON.stringify(input, null, 2));
     return input;
   }
 
@@ -875,12 +863,9 @@ class ReplicateService {
   ): Record<string, any> {
     const input: Record<string, any> = { prompt: params.prompt };
     
-    console.log('[Replicate] GPT Image 2 - images received:', images.length, 'first image:', images[0]?.substring(0, 100));
-    
     if (images.length >= 1) {
       // GPT Image 2 uses 'input_images' for all reference images
       input.input_images = images;
-      console.log('[Replicate] GPT Image 2 - using input_images:', images.length);
     }
     
     // GPT Image 2 uses 'quality' param for resolution (low, medium, high, auto)
@@ -893,7 +878,6 @@ class ReplicateService {
       input.aspect_ratio = params.aspectRatio; // 1:1, 3:2, 2:3
     }
     
-    console.log('[Replicate] GPT Image 2 - final input:', JSON.stringify({ ...input, input_images: `[${images.length} images]` }, null, 2));
     return input;
   }
 
@@ -978,7 +962,6 @@ class ReplicateService {
       prunaQuality?: number;
     }
   ): Promise<string> {
-    console.log('[Replicate] upscale →', model, 'scale:', scale, 'options:', options);
     
     let input: Record<string, any> = {};
     
@@ -1069,7 +1052,6 @@ class ReplicateService {
     prompt: string,
     model: ReplicateVideoModel = 'wavespeedai/wan-2.1-i2v-480p'
   ): Promise<string> {
-    console.log('[Replicate] video →', model);
     const prediction = await this.runPrediction(model, {
       image:  imageUrl,
       prompt,
@@ -1085,7 +1067,6 @@ class ReplicateService {
     imageUrl: string,
     model: Replicate3DModel = 'zsxkib/tripo3d'
   ): Promise<string> {
-    console.log('[Replicate] 3D →', model);
     const prediction = await this.runPrediction(model, { image: imageUrl });
     const output = prediction.output;
     if (typeof output === 'string') return output;

@@ -479,7 +479,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   min="1"
                   max="50"
                   value={params.clarityDynamic ?? 6}
-                  onChange={(e) => updateParam('clarityDynamic', parseInt(e.target.value))}
+                  onChange={(e) => updateParam('clarityDynamic', Number.parseInt(e.target.value))}
                   className="param-slider"
                 />
                 <span className="param-hint">HDR effect, try 3-9</span>
@@ -497,7 +497,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   max="1"
                   step="0.05"
                   value={params.clarityCreativity ?? 0.35}
-                  onChange={(e) => updateParam('clarityCreativity', parseFloat(e.target.value))}
+                  onChange={(e) => updateParam('clarityCreativity', Number.parseFloat(e.target.value))}
                   className="param-slider"
                 />
                 <span className="param-hint">Try 0.3 - 0.9</span>
@@ -510,7 +510,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   <select
                     className="param-select"
                     value={params.clarityTilingWidth ?? 112}
-                    onChange={(e) => updateParam('clarityTilingWidth', parseInt(e.target.value))}
+                    onChange={(e) => updateParam('clarityTilingWidth', Number.parseInt(e.target.value))}
                   >
                     <option value={64}>64</option>
                     <option value={80}>80</option>
@@ -527,7 +527,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   <select
                     className="param-select"
                     value={params.clarityTilingHeight ?? 144}
-                    onChange={(e) => updateParam('clarityTilingHeight', parseInt(e.target.value))}
+                    onChange={(e) => updateParam('clarityTilingHeight', Number.parseInt(e.target.value))}
                   >
                     <option value={64}>64</option>
                     <option value={80}>80</option>
@@ -582,7 +582,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   min="1"
                   max="100"
                   value={params.claritySteps ?? 18}
-                  onChange={(e) => updateParam('claritySteps', parseInt(e.target.value))}
+                  onChange={(e) => updateParam('claritySteps', Number.parseInt(e.target.value))}
                   className="param-slider"
                 />
                 <span className="param-hint">Denoising steps</span>
@@ -597,7 +597,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     className="param-input seed-input"
                     placeholder="Random (default 1337)"
                     value={params.claritySeed || ''}
-                    onChange={(e) => updateParam('claritySeed', e.target.value ? parseInt(e.target.value) : null)}
+                    onChange={(e) => updateParam('claritySeed', e.target.value ? Number.parseInt(e.target.value) : null)}
                   />
                   <button
                     type="button"
@@ -635,7 +635,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     type="number"
                     className="param-input"
                     value={params.clarityDownscalingRes ?? 768}
-                    onChange={(e) => updateParam('clarityDownscalingRes', parseInt(e.target.value))}
+                    onChange={(e) => updateParam('clarityDownscalingRes', Number.parseInt(e.target.value))}
                     min="256"
                     max="2048"
                     step="64"
@@ -655,7 +655,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   min="0"
                   max="10"
                   value={params.claritySharpen ?? 0}
-                  onChange={(e) => updateParam('claritySharpen', parseInt(e.target.value))}
+                  onChange={(e) => updateParam('claritySharpen', Number.parseInt(e.target.value))}
                   className="param-slider"
                 />
                 <span className="param-hint">0 = no sharpening</span>
@@ -755,7 +755,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     max="1"
                     step="0.1"
                     value={params.faceEnhancementCreativity ?? 0}
-                    onChange={(e) => updateParam('faceEnhancementCreativity', parseFloat(e.target.value))}
+                    onChange={(e) => updateParam('faceEnhancementCreativity', Number.parseFloat(e.target.value))}
                     className="param-slider"
                   />
                   <span className="param-hint">Level of creativity for face enhancement (0-1)</span>
@@ -775,7 +775,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     max="1"
                     step="0.1"
                     value={params.faceEnhancementStrength ?? 0.8}
-                    onChange={(e) => updateParam('faceEnhancementStrength', parseFloat(e.target.value))}
+                    onChange={(e) => updateParam('faceEnhancementStrength', Number.parseFloat(e.target.value))}
                     className="param-slider"
                   />
                   <span className="param-hint">Sharpness of enhanced faces relative to background</span>
@@ -817,7 +817,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     min="1"
                     max="8"
                     value={params.prunaTarget ?? 4}
-                    onChange={(e) => updateParam('prunaTarget', parseInt(e.target.value))}
+                    onChange={(e) => updateParam('prunaTarget', Number.parseInt(e.target.value))}
                     className="param-slider"
                   />
                   <span className="param-hint">Target resolution in megapixels</span>
@@ -836,7 +836,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     min="1"
                     max="8"
                     value={params.prunaFactor ?? 2}
-                    onChange={(e) => updateParam('prunaFactor', parseInt(e.target.value))}
+                    onChange={(e) => updateParam('prunaFactor', Number.parseInt(e.target.value))}
                     className="param-slider"
                   />
                   <span className="param-hint">Scaling factor per side</span>
@@ -854,7 +854,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   min="0"
                   max="100"
                   value={params.prunaQuality ?? 80}
-                  onChange={(e) => updateParam('prunaQuality', parseInt(e.target.value))}
+                  onChange={(e) => updateParam('prunaQuality', Number.parseInt(e.target.value))}
                   className="param-slider"
                 />
                 <span className="param-hint">JPEG quality (0-100), PNG ignores this</span>
@@ -969,7 +969,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
             max={modelSettings.stepsRange[1]}
             step="1"
             value={params.steps ?? modelSettings.defaultSteps}
-            onChange={(e) => updateParam('steps', parseInt(e.target.value))}
+            onChange={(e) => updateParam('steps', Number.parseInt(e.target.value))}
             className="param-slider"
           />
           <div className="slider-hints">
@@ -992,7 +992,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
             className="param-input"
             placeholder="Random"
             value={params.seed ?? ''}
-            onChange={(e) => updateParam('seed', e.target.value ? parseInt(e.target.value) : null)}
+            onChange={(e) => updateParam('seed', e.target.value ? Number.parseInt(e.target.value) : null)}
           />
           <button
             className="seed-random-btn"
@@ -1021,7 +1021,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
             max="1"
             step="0.05"
             value={params.referenceStrength ?? 0.85}
-            onChange={(e) => updateParam('referenceStrength', parseFloat(e.target.value))}
+            onChange={(e) => updateParam('referenceStrength', Number.parseFloat(e.target.value))}
             className="param-slider"
           />
           <div className="slider-hints"><span>Low influence</span><span>High influence</span></div>

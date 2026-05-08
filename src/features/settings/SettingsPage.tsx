@@ -376,7 +376,7 @@ export const SettingsPage: React.FC = () => {
                           <button
                             key={p.v}
                             className={`wm-pos-btn ${(aiConfig.watermarkPosition || 'bottom-right') === p.v ? 'active' : ''}`}
-                            title={p.v.replace(/-/g, ' ')}
+                            title={p.v.replaceAll('-', ' ')}
                             onClick={() => setAIConfig(prev => ({ ...prev, watermarkPosition: p.v as WatermarkPosition }))}
                           >{p.label}</button>
                         ))}
@@ -393,7 +393,7 @@ export const SettingsPage: React.FC = () => {
                         <input type="range" min="0" max="1" step="0.05"
                           className="wm-slider"
                           value={aiConfig.watermarkOpacity || 0.5}
-                          onChange={e => setAIConfig(prev => ({ ...prev, watermarkOpacity: parseFloat(e.target.value) }))}
+                          onChange={e => setAIConfig(prev => ({ ...prev, watermarkOpacity: Number.parseFloat(e.target.value) }))}
                         />
                         <div className="wm-opacity-preview" style={{ opacity: aiConfig.watermarkOpacity || 0.5 }}>
                           <span>Preview</span>
@@ -409,7 +409,7 @@ export const SettingsPage: React.FC = () => {
                           <input type="range" min="12" max="72" step="2"
                             className="wm-slider"
                             value={aiConfig.watermarkFontSize || 24}
-                            onChange={e => setAIConfig(prev => ({ ...prev, watermarkFontSize: parseInt(e.target.value) }))}
+                            onChange={e => setAIConfig(prev => ({ ...prev, watermarkFontSize: Number.parseInt(e.target.value) }))}
                           />
                           <div className="wm-size-preview">
                             <span style={{ fontSize: Math.min(aiConfig.watermarkFontSize || 24, 28) }}>
@@ -426,7 +426,7 @@ export const SettingsPage: React.FC = () => {
                           <input type="range" min="20" max="300" step="10"
                             className="wm-slider"
                             value={aiConfig.watermarkImageSize || 80}
-                            onChange={e => setAIConfig(prev => ({ ...prev, watermarkImageSize: parseInt(e.target.value) }))}
+                            onChange={e => setAIConfig(prev => ({ ...prev, watermarkImageSize: Number.parseInt(e.target.value) }))}
                           />
                           {aiConfig.watermarkImage && (
                             <div className="wm-size-preview">

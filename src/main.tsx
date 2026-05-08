@@ -4,7 +4,8 @@ import App from './App.tsx'
 import { AuthProvider } from './features/auth/AuthContext'
 import './index.css'
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const rootEl = document.getElementById('root') ?? document.body;
+ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
     <AuthProvider>
       <App />

@@ -451,7 +451,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
   // ========================================================================
 
   const createSourceNode = useCallback((imageUrl?: string): string => {
-    const id = `source-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    const id = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     
     const lineage: NodeLineage = {
       parentId: null,
@@ -525,7 +525,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
       return null;
     }
 
-    const id = `ghost-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    const id = `ghost-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const position = calculateChildPosition(parentId);
 
     const parentLineage = parentData.lineage;
@@ -788,8 +788,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
       // Auto-save generated image to Documents/Anarchy AI
       try {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const safeName = (prompt || 'generation').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim().slice(0, 40).replace(/\s+/g, '_') || 'generation';
+        const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-').slice(0, 19);
+        const safeName = (prompt || 'generation').replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, '').trim().slice(0, 40).replaceAll(' ', '_').replaceAll('  ', '_') || 'generation';
         const fileName = `${timestamp}_${safeName}.png`;
         await invoke('save_image_to_documents', { dataUri: finalImage, fileName });
       } catch { /* Non-critical — silently ignore */ }

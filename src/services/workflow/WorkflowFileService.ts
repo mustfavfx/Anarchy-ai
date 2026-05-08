@@ -134,7 +134,7 @@ export async function saveWorkflow(
   const workflow: WorkflowFile = {
     version: FILE_VERSION,
     appVersion: '0.07',
-    createdAt: lastSavePath === filePath ? Date.now() : Date.now(),
+    createdAt: Date.now(),
     updatedAt: Date.now(),
     name: options?.name || extractFilename(filePath),
     nodes: serializeNodes(nodes),
@@ -150,14 +150,12 @@ export async function saveWorkflow(
     const appData: string = await invoke('get_app_data_dir');
     const projectsDir = `${appData}\\projects`;
     await invoke('ensure_dir', { path: projectsDir });
-    const projectCopy = `${projectsDir}\\${workflow.name.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled'}.ana`;
+    const safeName = workflow.name.replaceAll(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled';
+    const projectCopy = `${projectsDir}\\${safeName}.ana`;
     await invoke('save_file', { path: projectCopy, contents: json });
-  } catch (e) {
-    console.warn('[Workflow] Could not copy to projects dir:', e);
-  }
+  } catch { /* non-critical */ }
 
   lastSavePath = filePath;
-  console.log('[Workflow] Saved to:', filePath);
   return filePath;
 }
 
@@ -190,7 +188,7 @@ export async function loadWorkflow(): Promise<{
 
   if (!selected) return null; // User cancelled
 
-  const filePath = selected as string;
+  const filePath = selected;
   const contents: string = await invoke('load_file', { path: filePath });
   const workflow: WorkflowFile = JSON.parse(contents);
 
@@ -200,8 +198,6 @@ export async function loadWorkflow(): Promise<{
   }
 
   lastSavePath = filePath;
-  console.log('[Workflow] Loaded from:', filePath, '—', workflow.nodes.length, 'nodes,', workflow.edges.length, 'edges');
-
   return {
     nodes: deserializeNodes(workflow.nodes),
     edges: deserializeEdges(workflow.edges),
@@ -223,7 +219,7 @@ export function resetFilePath(): void {
 // ── Utilities ────────────────────────────────────────────────────────────────
 
 function extractFilename(path: string): string {
-  const parts = path.replace(/\\/g, '/').split('/');
-  const file = parts[parts.length - 1] || 'untitled';
-  return file.replace(/\.ana$/i, '');
+  const parts = path.replaceAll('\\', '/').split('/');
+  const file = parts.at(-1) || 'untitled';
+  return file.replaceAll(/\.ana$/i, '');
 }

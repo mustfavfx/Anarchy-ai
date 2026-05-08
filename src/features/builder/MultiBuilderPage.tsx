@@ -13,7 +13,7 @@ interface Tab {
   isDirty: boolean;
 }
 
-const generateTabId = () => `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const generateTabId = () => `tab-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
 export const MultiBuilderPage: React.FC = () => {
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -89,7 +89,7 @@ export const MultiBuilderPage: React.FC = () => {
     setTabs(prev => {
       const newTabs = prev.filter(t => t.id !== tabId);
       if (activeTabId === tabId && newTabs.length > 0) {
-        setActiveTabId(newTabs[newTabs.length - 1].id);
+        setActiveTabId(newTabs.at(-1)!.id);
       } else if (newTabs.length === 0) {
         // Create empty tab if all closed
         const emptyTab: Tab = {
@@ -117,8 +117,9 @@ export const MultiBuilderPage: React.FC = () => {
       <div className="builder-tabs-bar">
         <div className="builder-tabs-scroll">
           {tabs.map((tab) => (
-            <div
+            <button
               key={tab.id}
+              type="button"
               className={`builder-tab ${activeTabId === tab.id ? 'active' : ''} ${tab.isDirty ? 'dirty' : ''}`}
               onClick={() => setActiveTabId(tab.id)}
             >

@@ -16,7 +16,7 @@ export interface ExportOptions {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 export const sanitize = (s: string): string =>
-  s.replace(/[^a-z0-9._-]+/gi, '_').slice(0, 80) || 'image';
+  s.replaceAll(/[^a-z0-9._-]+/gi, '_').slice(0, 80) || 'image';
 
 const extFromMime = (mime: string): ExportFormat => {
   if (mime.includes('png')) return 'png';
@@ -26,7 +26,7 @@ const extFromMime = (mime: string): ExportFormat => {
 
 const extFromUrl = (url: string): ExportFormat | null => {
   const clean = url.split('?')[0].split('#')[0];
-  const m = clean.match(/\.(png|jpe?g|webp)$/i);
+  const m = /\.(png|jpe?g|webp)$/i.exec(clean);
   if (!m) return null;
   const e = m[1].toLowerCase();
   return (e === 'jpeg' ? 'jpg' : e) as ExportFormat;
@@ -58,7 +58,8 @@ function drawDataUri(dataUri: string, format: ExportFormat, quality: number): Pr
       if (!ctx) { reject(new Error('Canvas 2D unavailable')); return; }
       if (format === 'jpg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
       ctx.drawImage(img, 0, 0);
-      const mime = format === 'png' ? 'image/png' : format === 'webp' ? 'image/webp' : 'image/jpeg';
+      const mimeMap: Record<ExportFormat, string> = { png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg' };
+      const mime = mimeMap[format];
       const q    = format === 'png' ? undefined : quality;
       resolve(canvas.toDataURL(mime, q));
     };
@@ -98,7 +99,7 @@ export async function convertImage(
   // External URL — use Tauri Rust backend (reqwest) to fetch raw bytes.
   // This bypasses all CORS/CSP restrictions completely.
   // __TAURI_INTERNALS__ is defined only inside a real Tauri webview.
-  const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  const isTauri = globalThis.window !== undefined && '__TAURI_INTERNALS__' in globalThis;
 
   if (isTauri) {
     try {
@@ -107,9 +108,7 @@ export async function convertImage(
       if (dataUri?.startsWith('data:')) {
         return await drawDataUri(dataUri, format, quality);
       }
-      console.warn('[imageExport] url_to_base64 returned unexpected value:', String(dataUri).slice(0, 80));
     } catch (err) {
-      console.warn('[imageExport] url_to_base64 invoke failed:', err);
       throw new Error(err instanceof Error ? err.message : String(err));
     }
   }
@@ -133,7 +132,7 @@ export async function downloadImage(
   const format  = options.format  ?? extFromUrl(url) ?? extFromMime('');
   const quality = options.quality ?? 0.92;
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-').slice(0, 19);
   const ext       = format === 'jpg' ? 'jpg' : format;
   const fileName  = `${sanitize(baseName)}_${timestamp}.${ext}`;
 
@@ -152,7 +151,7 @@ export async function downloadImage(
     a.target   = '_blank';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     return;
   }
 
@@ -171,7 +170,7 @@ export async function downloadImage(
   a.download = fileName;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 

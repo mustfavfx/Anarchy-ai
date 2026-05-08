@@ -142,7 +142,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
   const [brushSize, setBrushSize] = useState(30);
   const historyRef      = useRef<ImageData[]>([]);
   const historyIndexRef = useRef<number>(-1);
-  const [, forceUpdate] = useState(0);
+  const [, forceUpdate] = useState<number>(0);
   const lastPointRef    = useRef<{ x: number; y: number } | null>(null);
 
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -186,7 +186,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
   // Use state for undo/redo buttons instead of ref
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const [, setHistoryTrigger] = useState(0);
+  const [, setHistoryTrigger] = useState<number>(0);
   
   // Call this whenever history changes
   const triggerHistoryUpdate = useCallback(() => {
@@ -349,8 +349,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
       if (e.key === 'Enter') setShowExpandModal(true);
       if (e.key === 'Escape') setShowExpandModal(false);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    globalThis.addEventListener('keydown', onKey);
+    return () => globalThis.removeEventListener('keydown', onKey);
   }, [previewMode, fitToStage]);
 
   // Keyboard shortcuts for mask tools (only active in draw mode)
@@ -364,8 +364,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    globalThis.addEventListener('keydown', onKey);
+    return () => globalThis.removeEventListener('keydown', onKey);
   }, [previewMode, undo, redo]);
 
   // Initialize canvas on mount / image change
@@ -421,12 +421,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
         detectShapes: true,
       });
       
-      console.log('[Mask] Generated mask with shapes:', result.shapes);
-      console.log('[Mask] Detected edges:', result.edges ? 'yes' : 'no');
-      
       return result.maskData;
-    } catch (error) {
-      console.error('[Mask] Failed to build mask:', error);
+    } catch {
       return null;
     }
   };
@@ -437,9 +433,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
     setIsProcessingMask(true);
     try {
       // Build a black/white mask (debug/log for now)
-      const maskBase64 = await buildBlackWhiteMask();
-      console.log('[Mask] Generated mask:', maskBase64?.substring(0, 64), '...');
-
+      await buildBlackWhiteMask();
       // Note: True inpainting requires a KIE endpoint that accepts a mask.
       // For now we use img2img with the prompt; future work: pass mask separately.
       const result = await replicateService.generateImg2Img({
@@ -448,13 +442,12 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
         strength: 0.85,
         resolution: 'Auto',
         aspectRatio: 'Auto',
-      }, selectedNode.image!);
+      }, selectedNode.image);
 
       if (result.imageUrl) {
         setMaskResult(result.imageUrl);
       }
     } catch (error) {
-      console.error('Mask processing failed:', error);
     } finally {
       setIsProcessingMask(false);
     }
@@ -519,11 +512,19 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
                 <div
                   className={`preview-zoom-stage ${isPanning ? 'panning' : ''}`}
                   ref={previewStageRef}
+                  role="img"
+                  aria-label="Image preview"
+                  tabIndex={0}
                   onWheel={handleWheel}
                   onMouseDown={handlePanStart}
                   onMouseMove={handlePanMove}
                   onMouseUp={handlePanEnd}
                   onMouseLeave={handlePanEnd}
+                  onKeyDown={e => {
+                    if (e.key === '+' || e.key === '=') setZoom(z => Math.min(10, z * 1.25));
+                    if (e.key === '-') setZoom(z => Math.max(0.1, z / 1.25));
+                    if (e.key === 'f' || e.key === 'F') fitToStage();
+                  }}
                 >
                   {selectedNode?.image ? (
                     <>
@@ -532,7 +533,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
                         alt={selectedNode.type || 'Node'}
                         className="preview-zoom-img"
                         style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        onError={e => { (e.currentTarget).style.display = 'none'; }}
                         draggable={false}
                       />
                       {/* Zoom controls overlay */}
@@ -614,7 +615,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
                     </>
                   ) : (
                     <div className="compare-empty">
-                      <div 
+                      <button
+                        type="button"
                         className={`compare-slot ${compareImages.A ? 'filled' : ''}`}
                         onClick={() => !compareImages.A && handleSetCompareSlot('A')}
                       >
@@ -636,9 +638,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
                             <small>Click or right-click node</small>
                           </>
                         )}
-                      </div>
+                      </button>
                       
-                      <div 
+                      <button
+                        type="button"
                         className={`compare-slot ${compareImages.B ? 'filled' : ''}`}
                         onClick={() => !compareImages.B && handleSetCompareSlot('B')}
                       >
@@ -660,7 +663,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
                             <small>Click or right-click node</small>
                           </>
                         )}
-                      </div>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -861,6 +864,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
       {/* Fullscreen Modal */}
       {showExpandModal && selectedNode?.image && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Fullscreen image preview"
           className="preview-expand-modal"
           onClick={() => setShowExpandModal(false)}
           onKeyDown={e => { if (e.key === 'Escape' || e.key === 'f' || e.key === 'F') setShowExpandModal(false); }}
@@ -868,7 +874,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
           style={{ outline: 'none' }}
           ref={el => el?.focus()}
         >
-          <div className="preview-expand-content" onClick={e => e.stopPropagation()}>
+          <div className="preview-expand-content" onClick={e => e.stopPropagation()} role="document">
             {/* Top bar */}
             <div className="preview-expand-topbar">
               <span className="preview-expand-title">
@@ -902,7 +908,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ canvasChildren }) =>
                 const t = e.currentTarget;
                 setImgNaturalSize({ w: t.naturalWidth, h: t.naturalHeight });
               }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onError={e => { e.currentTarget.style.display = 'none'; }}
             />
           </div>
         </div>

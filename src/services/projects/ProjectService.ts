@@ -34,9 +34,9 @@ async function getProjectsDir(): Promise<string> {
 }
 
 function extractFilename(path: string): string {
-  const parts = path.replace(/\\/g, '/').split('/');
-  const file = parts[parts.length - 1] || 'untitled';
-  return file.replace(/\.ana$/i, '');
+  const parts = path.replaceAll('\\', '/').split('/');
+  const file = parts.at(-1) || 'untitled';
+  return file.replaceAll(/\.ana$/i, '');
 }
 
 function timeAgo(ts: number): string {
@@ -126,7 +126,7 @@ export async function saveProjectToDir(
   workflow: WorkflowFile
 ): Promise<string> {
   const dir = await getProjectsDir();
-  const safeName = name.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled';
+  const safeName = name.replaceAll(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled';
   const filePath = `${dir}\\${safeName}.ana`;
   const json = JSON.stringify(workflow, null, 2);
   await invoke('save_file', { path: filePath, contents: json });
