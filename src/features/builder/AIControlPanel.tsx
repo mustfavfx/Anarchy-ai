@@ -8,7 +8,8 @@ import {
   ChevronDown, Check, Wand2, ImagePlus, Maximize2, 
   Film, Zap, Sparkles,
   Banana,
-  Flame, Crown, Star
+  Flame, Crown, Star,
+  Image as ImageIcon
 } from 'lucide-react';
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
@@ -38,6 +39,8 @@ interface AIControlPanelProps {
     watermarkFontSize: number;
     // Topaz Labs settings
     enhanceModel?: string;
+    topazUpscaleFactor?: string;
+    topazSubjectDetection?: string;
     faceEnhancement?: boolean;
     faceEnhancementCreativity?: number;
     faceEnhancementStrength?: number;
@@ -55,7 +58,8 @@ interface AIControlPanelProps {
     clarityDownscalingRes?: number;
     claritySharpen?: number;
     clarityHandfix?: string;
-    clarityPattern?: boolean;
+    clarityResemblance?: number;
+    clarityOutputFormat?: string;
     // Pruna AI settings
     prunaMode?: 'target' | 'factor';
     prunaTarget?: number;
@@ -63,11 +67,64 @@ interface AIControlPanelProps {
     prunaEnhanceDetails?: boolean;
     prunaEnhanceRealism?: boolean;
     prunaQuality?: number;
+    prunaOutputFormat?: string;
+    // Style settings
+    styleType?: string;
+    stylePreset?: string;
   };
   onParamsChange: (params: AIControlPanelProps['params']) => void;
 }
 
 const UPSCALE_FACTORS = [1, 2, 4, 8, 16] as const;
+
+// ── Custom Select Dropdown (replaces native <select>) ────────────────────────
+interface PanelSelectOption { value: string | number; label: string; }
+interface PanelSelectProps {
+  value: string | number;
+  options: PanelSelectOption[];
+  onChange: (v: string) => void;
+  className?: string;
+}
+const PanelSelect: React.FC<PanelSelectProps> = ({ value, options, onChange, className }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => String(o.value) === String(value)) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler, true);
+    return () => document.removeEventListener('mousedown', handler, true);
+  }, [open]);
+
+  return (
+    <div ref={ref} className={`panel-select-wrap ${className ?? ''}`} style={{ position: 'relative' }}>
+      <div
+        className={`panel-select-trigger ${open ? 'open' : ''}`}
+        onClick={() => setOpen(v => !v)}
+      >
+        <span className="panel-select-val">{selected?.label}</span>
+        <ChevronDown size={14} className={`panel-select-arrow ${open ? 'rotated' : ''}`} />
+      </div>
+      {open && (
+        <div className="panel-select-menu">
+          {options.map(opt => (
+            <div
+              key={opt.value}
+              className={`panel-select-item ${String(opt.value) === String(value) ? 'active' : ''}`}
+              onClick={() => { onChange(String(opt.value)); setOpen(false); }}
+            >
+              <span>{opt.label}</span>
+              {String(opt.value) === String(value) && <Check size={12} color="#e11d48" />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Tool types matching the reference design
 type ToolType = 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator';
@@ -153,6 +210,15 @@ const ENGINES: Engine[] = [
     icon: <Zap size={18} />,
     tool: 'image-editor',
   },
+  {
+    id: 'stability-ai/stable-diffusion-3.5',
+    name: 'Stable Diffusion 3.5',
+    provider: 'Replicate',
+    color: '#8b5cf6',
+    icon: <ImageIcon size={18} />,
+    tool: 'image-editor',
+    badge: 'SD 3.5'
+  },
   // ── Image Upscaling ──
   {
     id: 'topazlabs/image-upscale' as ReplicateImageModel,
@@ -204,6 +270,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   const [showEngineDropdown, setShowEngineDropdown] = useState(false);
   const [showResDropdown, setShowResDropdown] = useState(false);
   const [showAspectDropdown, setShowAspectDropdown] = useState(false);
+  const [showStyleTypeDropdown, setShowStyleTypeDropdown] = useState(false);
+  const [showStylePresetDropdown, setShowStylePresetDropdown] = useState(false);
 
   // Ref to track previous tool value
   const prevSelectedToolRef = useRef<ToolType>(selectedTool);
@@ -229,6 +297,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   const engineDropdownRef = useRef<HTMLDivElement>(null);
   const resDropdownRef = useRef<HTMLDivElement>(null);
   const aspectDropdownRef = useRef<HTMLDivElement>(null);
+  const styleTypeDropdownRef = useRef<HTMLDivElement>(null);
+  const stylePresetDropdownRef = useRef<HTMLDivElement>(null);
 
   const availableEngines = useMemo(
     () => ENGINES.filter(engine => engine.tool === selectedTool),
@@ -286,6 +356,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
       setShowEngineDropdown(false);
       setShowResDropdown(false);
       setShowAspectDropdown(false);
+      setShowStyleTypeDropdown(false);
+      setShowStylePresetDropdown(false);
     };
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -294,7 +366,9 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
         (toolDropdownRef.current?.contains(target)) ||
         (engineDropdownRef.current?.contains(target)) ||
         (resDropdownRef.current?.contains(target)) ||
-        (aspectDropdownRef.current?.contains(target))
+        (aspectDropdownRef.current?.contains(target)) ||
+        (styleTypeDropdownRef.current?.contains(target)) ||
+        (stylePresetDropdownRef.current?.contains(target))
       );
       if (!insideAny) closeAll();
     };
@@ -420,52 +494,79 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
 
       {isUpscalingTool ? (
         <>
-          <div className="control-section">
-            <label className="section-label">Upscale Factor</label>
-            {supportsUpscaleFactor ? (
-              <div className="upscale-factor-row">
-                {UPSCALE_FACTORS.filter(factor => {
-                  // Real-ESRGAN supports 1x-10x
-                  if ((selectedModel as string) === 'nightmareai/real-esrgan') {
-                    return factor >= 1 && factor <= 10;
-                  }
-                  // Pruna supports all: 1x, 2x, 4x, 8x, 16x
-                  return true;
-                }).map(factor => (
-                  <button
-                    key={factor}
-                    type="button"
-                    className={`upscale-factor-btn ${(params.upscaleFactor ?? 2) === factor ? 'active' : ''}`}
-                    onClick={() => updateParam('upscaleFactor', factor)}
-                  >
-                    {factor}x
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="upscale-fixed-note">This engine uses a fixed upscale level.</div>
-            )}
-          </div>
+          {(selectedModel as string) !== 'topazlabs/image-upscale' &&
+           (selectedModel as string) !== 'philz1337x/clarity-upscaler' && (
+            <div className="control-section">
+              <label className="section-label">Upscale Factor</label>
+              {supportsUpscaleFactor ? (
+                <div className="upscale-factor-row">
+                  {UPSCALE_FACTORS.filter(factor => {
+                    if ((selectedModel as string) === 'nightmareai/real-esrgan') {
+                      return factor >= 1 && factor <= 10;
+                    }
+                    return true;
+                  }).map(factor => {
+                    // Pruna AI: auto-preset settings per scale factor
+                    const isPruna = (selectedModel as string) === 'prunaai/p-image-upscale';
+                    const prunaPresets: Record<number, Partial<typeof params>> = {
+                      1:  { upscaleFactor: 1,  prunaMode: 'factor', prunaFactor: 1,  prunaEnhanceDetails: false, prunaEnhanceRealism: false, prunaQuality: 80 },
+                      2:  { upscaleFactor: 2,  prunaMode: 'factor', prunaFactor: 2,  prunaEnhanceDetails: false, prunaEnhanceRealism: true,  prunaQuality: 80 },
+                      4:  { upscaleFactor: 4,  prunaMode: 'factor', prunaFactor: 4,  prunaEnhanceDetails: true,  prunaEnhanceRealism: true,  prunaQuality: 85 },
+                      8:  { upscaleFactor: 8,  prunaMode: 'factor', prunaFactor: 8,  prunaEnhanceDetails: true,  prunaEnhanceRealism: true,  prunaQuality: 90 },
+                      16: { upscaleFactor: 16, prunaMode: 'target', prunaTarget: 128, prunaEnhanceDetails: true, prunaEnhanceRealism: true,  prunaQuality: 95 },
+                    };
+                    return (
+                      <button
+                        key={factor}
+                        type="button"
+                        className={`upscale-factor-btn ${(params.upscaleFactor ?? 2) === factor ? 'active' : ''}`}
+                        onClick={() => {
+                          if (isPruna) {
+                            const preset = prunaPresets[factor];
+                            onParamsChange({ ...params, ...preset });
+                          } else {
+                            updateParam('upscaleFactor', factor);
+                          }
+                        }}
+                      >
+                        {factor}x
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="upscale-fixed-note">This engine uses a fixed upscale level.</div>
+              )}
+            </div>
+          )}
           
           {/* Clarity Upscaler Advanced Settings */}
           {(selectedModel as string) === 'philz1337x/clarity-upscaler' && (
             <>
-              {/* Scale Factor - Clarity specific (2x, 4x) */}
+              {/* Scale Factor - Clarity specific with auto-presets */}
               <div className="control-section">
                 <label className="section-label">Clarity Scale</label>
                 <div className="upscale-factor-row">
-                  {[2, 4].map(factor => (
-                    <button
-                      key={factor}
-                      type="button"
-                      className={`upscale-factor-btn ${(params.clarityScale ?? 2) === factor ? 'active' : ''}`}
-                      onClick={() => updateParam('clarityScale', factor)}
-                    >
-                      {factor}x
-                    </button>
-                  ))}
+                  {[2, 4, 8, 12].map(factor => {
+                    const presets: Record<number, Partial<typeof params>> = {
+                      2:  { clarityScale: 2,  clarityDynamic: 6,  clarityCreativity: 0.35, clarityResemblance: 0.6,  clarityTilingWidth: 112, clarityTilingHeight: 144, claritySteps: 18, claritySharpen: 0, clarityDownscaling: false },
+                      4:  { clarityScale: 4,  clarityDynamic: 6,  clarityCreativity: 0.35, clarityResemblance: 0.6,  clarityTilingWidth: 96,  clarityTilingHeight: 112, claritySteps: 20, claritySharpen: 0, clarityDownscaling: false },
+                      8:  { clarityScale: 8,  clarityDynamic: 8,  clarityCreativity: 0.4,  clarityResemblance: 0.8,  clarityTilingWidth: 64,  clarityTilingHeight: 80,  claritySteps: 25, claritySharpen: 2, clarityDownscaling: false },
+                      12: { clarityScale: 12, clarityDynamic: 9,  clarityCreativity: 0.45, clarityResemblance: 1.0, clarityTilingWidth: 48,  clarityTilingHeight: 64,  claritySteps: 30, claritySharpen: 3, clarityDownscaling: false },
+                    };
+                    return (
+                      <button
+                        key={factor}
+                        type="button"
+                        className={`upscale-factor-btn ${(params.clarityScale ?? 2) === factor ? 'active' : ''}`}
+                        onClick={() => onParamsChange({ ...params, ...presets[factor] })}
+                      >
+                        {factor}x
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className="param-hint">Clarity upscaling factor</span>
+                <span className="param-hint">Auto-adjusts settings · 8x=8K · 12x=12K</span>
               </div>
               
               {/* Dynamic - HDR */}
@@ -507,36 +608,20 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               <div className="control-row">
                 <div className="control-half">
                   <label className="section-label">Tiling Width</label>
-                  <select
-                    className="param-select"
+                  <PanelSelect
                     value={params.clarityTilingWidth ?? 112}
-                    onChange={(e) => updateParam('clarityTilingWidth', Number.parseInt(e.target.value))}
-                  >
-                    <option value={64}>64</option>
-                    <option value={80}>80</option>
-                    <option value={96}>96</option>
-                    <option value={112}>112</option>
-                    <option value={128}>128</option>
-                    <option value={144}>144</option>
-                    <option value={160}>160</option>
-                  </select>
+                    options={[64,80,96,112,128,144,160].map(v => ({ value: v, label: String(v) }))}
+                    onChange={(v) => updateParam('clarityTilingWidth', Number.parseInt(v))}
+                  />
                   <span className="param-hint">Lower = more fractality</span>
                 </div>
                 <div className="control-half">
                   <label className="section-label">Tiling Height</label>
-                  <select
-                    className="param-select"
+                  <PanelSelect
                     value={params.clarityTilingHeight ?? 144}
-                    onChange={(e) => updateParam('clarityTilingHeight', Number.parseInt(e.target.value))}
-                  >
-                    <option value={64}>64</option>
-                    <option value={80}>80</option>
-                    <option value={96}>96</option>
-                    <option value={112}>112</option>
-                    <option value={128}>128</option>
-                    <option value={144}>144</option>
-                    <option value={160}>160</option>
-                  </select>
+                    options={[64,80,96,112,128,144,160].map(v => ({ value: v, label: String(v) }))}
+                    onChange={(v) => updateParam('clarityTilingHeight', Number.parseInt(v))}
+                  />
                   <span className="param-hint">Lower = more fractality</span>
                 </div>
               </div>
@@ -545,29 +630,28 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               <div className="control-row">
                 <div className="control-half">
                   <label className="section-label">SD Model</label>
-                  <select
-                    className="param-select"
-                    value={params.claritySdModel ?? 'juggernaut_reborn.safetensors'}
-                    onChange={(e) => updateParam('claritySdModel', e.target.value)}
-                  >
-                    <option value="juggernaut_reborn.safetensors">Juggernaut Reborn</option>
-                    <option value="realisticVision.safetensors">Realistic Vision</option>
-                    <option value="deliberate.safetensors">Deliberate</option>
-                    <option value="epicrealism.safetensors">Epic Realism</option>
-                  </select>
+                  <PanelSelect
+                    value={params.claritySdModel ?? 'juggernaut_reborn.safetensors [338b85bc4f]'}
+                    options={[
+                      { value: 'juggernaut_reborn.safetensors [338b85bc4f]',          label: 'Juggernaut Reborn' },
+                      { value: 'epicrealism_naturalSinRC1VAE.safetensors [84d76a0328]', label: 'Epic Realism' },
+                      { value: 'flat2DAnimerge_v45Sharp.safetensors',                  label: 'Flat 2D Animerge' },
+                    ]}
+                    onChange={(v) => updateParam('claritySdModel', v)}
+                  />
                 </div>
                 <div className="control-half">
                   <label className="section-label">Scheduler</label>
-                  <select
-                    className="param-select"
+                  <PanelSelect
                     value={params.clarityScheduler ?? 'DPM++ 3M SDE Karras'}
-                    onChange={(e) => updateParam('clarityScheduler', e.target.value)}
-                  >
-                    <option value="DPM++ 3M SDE Karras">DPM++ 3M SDE Karras</option>
-                    <option value="DPM++ 2M Karras">DPM++ 2M Karras</option>
-                    <option value="Euler a">Euler a</option>
-                    <option value="DDIM">DDIM</option>
-                  </select>
+                    options={[
+                      { value: 'DPM++ 3M SDE Karras', label: 'DPM++ 3M SDE' },
+                      { value: 'DPM++ 2M Karras',     label: 'DPM++ 2M' },
+                      { value: 'Euler a',              label: 'Euler a' },
+                      { value: 'DDIM',                 label: 'DDIM' },
+                    ]}
+                    onChange={(v) => updateParam('clarityScheduler', v)}
+                  />
                 </div>
               </div>
               
@@ -664,31 +748,48 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               {/* Hand Fix */}
               <div className="control-section">
                 <label className="section-label">Hand Fix</label>
-                <select
-                  className="param-select"
+                <PanelSelect
                   value={params.clarityHandfix ?? 'disabled'}
-                  onChange={(e) => updateParam('clarityHandfix', e.target.value)}
-                >
-                  <option value="disabled">Disabled</option>
-                  <option value="enabled">Enabled</option>
-                </select>
+                  options={[
+                    { value: 'disabled',         label: 'Disabled' },
+                    { value: 'hands_only',       label: 'Hands Only' },
+                    { value: 'image_and_hands',  label: 'Image & Hands' },
+                  ]}
+                  onChange={(v) => updateParam('clarityHandfix', v)}
+                />
                 <span className="param-hint">Use clarity to fix hands</span>
               </div>
               
-              {/* Pattern (Seamless Tiling) */}
+              {/* Resemblance */}
               <div className="control-section">
-                <div className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    id="pattern"
-                    checked={params.clarityPattern || false}
-                    onChange={(e) => updateParam('clarityPattern', e.target.checked)}
-                  />
-                  <label htmlFor="pattern" className="checkbox-label">
-                    Pattern (Seamless Tiling)
-                  </label>
+                <label className="section-label">Resemblance: {(params.clarityResemblance ?? 0.6).toFixed(1)}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="3"
+                  step="0.1"
+                  value={params.clarityResemblance ?? 0.6}
+                  onChange={(e) => updateParam('clarityResemblance', parseFloat(e.target.value))}
+                  className="param-slider"
+                />
+                <span className="param-hint">0.3 – 1.6 recommended</span>
+              </div>
+
+              {/* Output Format */}
+              <div className="control-section">
+                <label className="section-label">Output Format</label>
+                <div className="upscale-factor-row">
+                  {(['png', 'jpg', 'webp'] as const).map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`upscale-factor-btn ${(params.clarityOutputFormat ?? 'png') === f ? 'active' : ''}`}
+                      onClick={() => updateParam('clarityOutputFormat', f)}
+                    >
+                      {f.toUpperCase()}
+                    </button>
+                  ))}
                 </div>
-                <span className="param-hint">Upscale patterns with seamless tiling</span>
               </div>
               
               {/* Enhancement Prompt */}
@@ -709,21 +810,55 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
           {/* Topaz Labs Advanced Settings */}
           {(selectedModel as string) === 'topazlabs/image-upscale' && (
             <>
+              {/* Upscale Factor */}
+              <div className="control-section">
+                <label className="section-label">Upscale Factor</label>
+                <div className="upscale-factor-row">
+                  {(['None', '2x', '4x', '6x'] as const).map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`upscale-factor-btn ${(params.topazUpscaleFactor ?? '4x') === f ? 'active' : ''}`}
+                      onClick={() => updateParam('topazUpscaleFactor', f)}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                <span className="param-hint">How much to upscale the image</span>
+              </div>
+
               {/* Enhance Model */}
               <div className="control-section">
                 <label className="section-label">Enhance Model</label>
-                <select
-                  className="param-select"
+                <PanelSelect
                   value={params.enhanceModel || 'Low Resolution V2'}
-                  onChange={(e) => updateParam('enhanceModel', e.target.value)}
-                >
-                  <option value="Low Resolution V2">Low Resolution V2</option>
-                  <option value="Standard V2">Standard V2</option>
-                  <option value="CGI">CGI</option>
-                  <option value="High Fidelity V2">High Fidelity V2</option>
-                  <option value="Text Refine">Text Refine</option>
-                </select>
+                  options={[
+                    { value: 'Low Resolution V2', label: 'Low Resolution V2' },
+                    { value: 'Standard V2',        label: 'Standard V2' },
+                    { value: 'CGI',                label: 'CGI' },
+                    { value: 'High Fidelity V2',   label: 'High Fidelity V2' },
+                    { value: 'Text Refine',        label: 'Text Refine' },
+                  ]}
+                  onChange={(v) => updateParam('enhanceModel', v)}
+                />
                 <span className="param-hint">AI model for enhancement style</span>
+              </div>
+
+              {/* Subject Detection */}
+              <div className="control-section">
+                <label className="section-label">Subject Detection</label>
+                <PanelSelect
+                  value={params.topazSubjectDetection || 'None'}
+                  options={[
+                    { value: 'None',       label: 'None' },
+                    { value: 'All',        label: 'All' },
+                    { value: 'Foreground', label: 'Foreground' },
+                    { value: 'Background', label: 'Background' },
+                  ]}
+                  onChange={(v) => updateParam('topazSubjectDetection', v)}
+                />
+                <span className="param-hint">Optimize enhancement for subject type</span>
               </div>
               
               {/* Face Enhancement */}
@@ -790,14 +925,14 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               {/* Upscale Mode */}
               <div className="control-section">
                 <label className="section-label">Upscale Mode</label>
-                <select
-                  className="param-select"
+                <PanelSelect
                   value={params.prunaMode ?? 'target'}
-                  onChange={(e) => updateParam('prunaMode', e.target.value)}
-                >
-                  <option value="target">Target (Megapixels)</option>
-                  <option value="factor">Factor (Multiplier)</option>
-                </select>
+                  options={[
+                    { value: 'target', label: 'Target (Megapixels)' },
+                    { value: 'factor', label: 'Factor (Multiplier)' },
+                  ]}
+                  onChange={(v) => updateParam('prunaMode', v)}
+                />
                 <span className="param-hint">
                   {params.prunaMode === 'target' 
                     ? "Scale to fixed megapixel resolution" 
@@ -815,12 +950,13 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   <input
                     type="range"
                     min="1"
-                    max="8"
+                    max="128"
+                    step="1"
                     value={params.prunaTarget ?? 4}
                     onChange={(e) => updateParam('prunaTarget', Number.parseInt(e.target.value))}
                     className="param-slider"
                   />
-                  <span className="param-hint">Target resolution in megapixels</span>
+                  <span className="param-hint">Target resolution in megapixels (1–128 MP)</span>
                 </div>
               )}
               
@@ -889,7 +1025,25 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     Enhance Realism
                   </label>
                 </div>
-                <span className="param-hint">Improve realism (recommended for AI-generated)</span>
+                <span className="param-hint">Improve realism (on by default, recommended for AI images)</span>
+              </div>
+
+              {/* Output Format */}
+              <div className="control-section">
+                <label className="section-label">Output Format</label>
+                <div className="upscale-factor-row">
+                  {(['png', 'jpg', 'webp'] as const).map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`upscale-factor-btn ${(params.prunaOutputFormat ?? 'png') === f ? 'active' : ''}`}
+                      onClick={() => updateParam('prunaOutputFormat', f)}
+                    >
+                      {f.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <span className="param-hint">Quality slider applies to JPG/WebP only</span>
               </div>
             </>
           )}
@@ -1034,15 +1188,74 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
           <label className="section-label">Negative Prompt</label>
           <textarea
             className="param-textarea"
-            placeholder="What to avoid..."
+            placeholder="blur, low quality, distorted, ugly, deformed, watermark, signature, text, bad anatomy..."
             rows={2}
             value={params.negativePrompt ?? ''}
             onChange={(e) => updateParam('negativePrompt', e.target.value)}
           />
+          <span className="param-hint">Specify what to avoid in the generated image</span>
         </div>
       )}
 
+      {/* ── Style Type ── */}
+      {!isUpscalingTool && modelSettings.supportsStyleType && (
+        <div className="control-section" ref={styleTypeDropdownRef}>
+          <label className="section-label">Style Type</label>
+          <div 
+            className="dropdown-trigger"
+            onClick={() => setShowStyleTypeDropdown(!showStyleTypeDropdown)}
+          >
+            <span>{params.styleType || 'None'}</span>
+            <ChevronDown size={16} />
+          </div>
+          {showStyleTypeDropdown && (
+            <div className="dropdown-menu small-menu">
+              {['None', ...(modelSettings.styleTypes || [])].map(type => (
+                <div 
+                  key={type}
+                  className={`dropdown-item ${params.styleType === type ? 'active' : ''}`}
+                  onClick={() => {
+                    updateParam('styleType', type === 'None' ? 'None' : type);
+                    setShowStyleTypeDropdown(false);
+                  }}
+                >
+                  {type}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* ── Style Preset ── */}
+      {!isUpscalingTool && modelSettings.supportsStylePreset && (
+        <div className="control-section" ref={stylePresetDropdownRef}>
+          <label className="section-label">Style Preset</label>
+          <div 
+            className="dropdown-trigger"
+            onClick={() => setShowStylePresetDropdown(!showStylePresetDropdown)}
+          >
+            <span>{params.stylePreset || 'None'}</span>
+            <ChevronDown size={16} />
+          </div>
+          {showStylePresetDropdown && (
+            <div className="dropdown-menu small-menu" style={{ maxHeight: '300px', overflow: 'auto' }}>
+              {['None', ...(modelSettings.stylePresets || [])].map(preset => (
+                <div 
+                  key={preset}
+                  className={`dropdown-item ${params.stylePreset === preset ? 'active' : ''}`}
+                  onClick={() => {
+                    updateParam('stylePreset', preset === 'None' ? 'None' : preset);
+                    setShowStylePresetDropdown(false);
+                  }}
+                >
+                  {preset}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );

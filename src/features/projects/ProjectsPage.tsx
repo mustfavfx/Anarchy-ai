@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Grid, List as ListIcon, Plus, Trash2, FolderOpen, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { listProjects, deleteProject, timeAgo, type ProjectMeta } from '../../services/projects/ProjectService';
+import { Search, Grid, List as ListIcon, Plus, Trash2, FolderOpen, Image as ImageIcon, Loader2, Copy, Pencil, ArrowUpDown } from 'lucide-react';
+import { listProjects, deleteProject, renameProject, duplicateProject, timeAgo, type ProjectMeta } from '../../services/projects/ProjectService';
 import { loadWorkflow } from '../../services/workflow';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { SESSION_KEYS } from '../../utils/storageKeys';
@@ -15,6 +15,9 @@ export const ProjectsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ProjectMeta | null>(null);
+  const [renameTarget, setRenameTarget] = useState<ProjectMeta | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -65,7 +68,12 @@ export const ProjectsPage: React.FC = () => {
     try {
       const result = await loadWorkflow();
       if (result) {
-        sessionStorage.setItem(SESSION_KEYS.LOADED_WORKFLOW, JSON.stringify(result));
+        const payload = {
+          nodes: result.nodes,
+          edges: result.edges,
+          name: result.name || 'Imported Project',
+        };
+        sessionStorage.setItem(SESSION_KEYS.LOADED_WORKFLOW, JSON.stringify(payload));
         navigate('/builder');
       }
     } catch (err) {
@@ -73,7 +81,35 @@ export const ProjectsPage: React.FC = () => {
     }
   };
 
-  const filtered = projects.filter(p =>
+  const handleRename = async () => {
+    if (!renameTarget || !renameValue.trim()) return;
+    try {
+      await renameProject(renameTarget.filePath, renameValue.trim());
+      await refresh();
+    } catch (err) {
+      console.error('[Projects] Rename failed:', err);
+    }
+    setRenameTarget(null);
+    setRenameValue('');
+  };
+
+  const handleDuplicate = async (e: React.MouseEvent, project: ProjectMeta) => {
+    e.stopPropagation();
+    try {
+      await duplicateProject(project.filePath);
+      await refresh();
+    } catch (err) {
+      console.error('[Projects] Duplicate failed:', err);
+    }
+  };
+
+  const sortedProjects = [...projects].sort((a, b) => {
+    if (sortOrder === 'name') return a.name.localeCompare(b.name);
+    if (sortOrder === 'oldest') return a.updatedAt - b.updatedAt;
+    return b.updatedAt - a.updatedAt;
+  });
+
+  const filtered = sortedProjects.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -107,6 +143,14 @@ export const ProjectsPage: React.FC = () => {
           </div>
         </div>
         <div className="header-actions">
+          <button
+            className="import-btn"
+            title={sortOrder === 'newest' ? 'Sorted: Newest' : sortOrder === 'oldest' ? 'Sorted: Oldest' : 'Sorted: Name'}
+            onClick={() => setSortOrder(o => o === 'newest' ? 'oldest' : o === 'oldest' ? 'name' : 'newest')}
+          >
+            <ArrowUpDown size={14} />
+            <span>{sortOrder === 'newest' ? 'Newest' : sortOrder === 'oldest' ? 'Oldest' : 'Name'}</span>
+          </button>
           <button className="import-btn" onClick={handleImportFile}>
             <FolderOpen size={16} />
             <span>Open File</span>
@@ -162,17 +206,25 @@ export const ProjectsPage: React.FC = () => {
                 <div className={`status-tag ${project.status}`}>
                   {project.status}
                 </div>
-                <button
-                  className="project-delete-btn"
-                  onClick={(e) => handleDelete(e, project)}
-                  title="Delete project"
-                >
-                  {deletingPath === project.filePath ? (
-                    <Loader2 size={14} className="spin" />
-                  ) : (
-                    <Trash2 size={14} />
-                  )}
-                </button>
+                <div className="project-card-actions">
+                  <button
+                    className="project-action-btn"
+                    onClick={(e) => { e.stopPropagation(); setRenameTarget(project); setRenameValue(project.name); }}
+                    title="Rename"
+                  ><Pencil size={13} /></button>
+                  <button
+                    className="project-action-btn"
+                    onClick={(e) => handleDuplicate(e, project)}
+                    title="Duplicate"
+                  ><Copy size={13} /></button>
+                  <button
+                    className="project-action-btn danger"
+                    onClick={(e) => handleDelete(e, project)}
+                    title="Delete"
+                  >
+                    {deletingPath === project.filePath ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
+                  </button>
+                </div>
               </div>
               <div className="project-details-box">
                 <h3 className="project-display-title">{project.name}</h3>
@@ -216,12 +268,20 @@ export const ProjectsPage: React.FC = () => {
               <div className={`status-tag ${project.status}`}>{project.status}</div>
               <span className="updated-text">{timeAgo(project.updatedAt)}</span>
               <button
-                className="project-delete-btn inline"
+                className="project-action-btn"
+                onClick={(e) => { e.stopPropagation(); setRenameTarget(project); setRenameValue(project.name); }}
+                title="Rename"
+              ><Pencil size={13} /></button>
+              <button
+                className="project-action-btn"
+                onClick={(e) => handleDuplicate(e, project)}
+                title="Duplicate"
+              ><Copy size={13} /></button>
+              <button
+                className="project-action-btn danger"
                 onClick={(e) => handleDelete(e, project)}
-                title="Delete project"
-              >
-                <Trash2 size={14} />
-              </button>
+                title="Delete"
+              ><Trash2 size={13} /></button>
             </div>
           ))}
         </div>
@@ -235,6 +295,24 @@ export const ProjectsPage: React.FC = () => {
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(null)}
         />
+      )}
+      {renameTarget && (
+        <div className="rename-overlay" onClick={() => setRenameTarget(null)}>
+          <div className="rename-modal" onClick={e => e.stopPropagation()}>
+            <h3>Rename Project</h3>
+            <input
+              className="rename-input"
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenameTarget(null); }}
+              autoFocus
+            />
+            <div className="rename-actions">
+              <button className="btn-secondary" onClick={() => setRenameTarget(null)}>Cancel</button>
+              <button className="new-project-btn" onClick={handleRename}>Rename</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

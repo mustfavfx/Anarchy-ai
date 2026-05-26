@@ -13,7 +13,8 @@ export type ReplicateImageModel =
   | 'google/nano-banana-pro'            // Nano Banana Pro (Gemini 3 Pro)
   | 'bytedance/seedance-2.0'            // Seedance 2.0 - video (used via generateVideo)
   | 'xai/grok-imagine-image'            // Grok Imagine Image - xAI
-  | 'black-forest-labs/flux-kontext-pro'; // FLUX Kontext Pro - character consistency
+  | 'black-forest-labs/flux-kontext-pro' // FLUX Kontext Pro - character consistency
+  | 'stability-ai/stable-diffusion-3.5'; // Stable Diffusion 3.5
 
 // ── Upscale Models ────────────────────────────────────────────────────────────
 export type ReplicateUpscaleModel =
@@ -62,6 +63,8 @@ export interface ReplicateGenerationParams {
   resolution?: string;
   loraUrl?: string;
   loraScale?: number;
+  styleType?: string;
+  stylePreset?: string;
 }
 
 export interface ReplicateChatMessage {
@@ -107,11 +110,15 @@ interface ModelMeta {
   supportsUpscale: boolean;
   supportsLoRA: boolean;
   supportsReferenceStrength: boolean;
+  supportsStyleType?: boolean;
+  supportsStylePreset?: boolean;
   defaultSteps: number;
   stepsRange: [number, number];    // [min, max]
   maxReferenceImages: number;
   aspectRatios: string[];
   resolutions: string[];
+  styleTypes?: string[];
+  stylePresets?: string[];
   pricePerImage: number;
 }
 
@@ -129,7 +136,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     defaultSteps: 1,
     stepsRange: [1, 1],
     maxReferenceImages: 14,
-    resolutions: ['512', '1K', '2K', '4K'],
+    resolutions: ['1K', '2K', '4K'],
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
     pricePerImage: 0.003,
   },
@@ -197,7 +204,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     defaultSteps: 1,
     stepsRange: [1, 1],
     maxReferenceImages: 14,
-    resolutions: ['512', '1K', '2K', '4K'],
+    resolutions: ['1K', '2K', '4K'],
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
     pricePerImage: 0.015,
   },
@@ -252,7 +259,24 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
     pricePerImage: 0.03,
   },
-  // ── 8. Topaz Labs Image Upscale ────────────────────────────────────────────
+  // ── 9. Stable Diffusion 3.5 ──────────────────────────────────────────────
+  'stability-ai/stable-diffusion-3.5': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: true,
+    supportsSteps: true,
+    supportsNegativePrompt: true,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: true, // Uses strength for img2img
+    defaultSteps: 28,
+    stepsRange: [20, 50],
+    maxReferenceImages: 1,
+    resolutions: ['Auto'],
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '9:21'],
+    pricePerImage: 0.035, // ~$0.035 per image
+  },
+  // ── 10. Topaz Labs Image Upscale ──────────────────────────────────────────
   'topazlabs/image-upscale': {
     supportsImg2Img: false,
     supportsMultiImage: false,
@@ -442,8 +466,17 @@ function resolutionToPixels(res: string): number {
   return isNaN(n) ? 1024 : n;
 }
 
-// ── Supabase proxy URL (used when Supabase is configured) ────────────────────
+// ── Detect Tauri runtime ─────────────────────────────────────────────────────
+function isTauriRuntime(): boolean {
+  if (typeof window === 'undefined') return false;
+  // withGlobalTauri:true sets window.__TAURI__; fallback to __TAURI_INTERNALS__
+  return !!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__;
+}
+
+// ── Supabase proxy URL (only when NOT inside Tauri) ──────────────────────────
 function getProxyUrl(): string | null {
+  // Inside Tauri we use invoke('http_post') directly — no proxy needed/wanted
+  if (isTauriRuntime()) return null;
   const url  = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const key  = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
   if (!url || !key || url.includes('placeholder')) return null;
@@ -490,13 +523,30 @@ async function apiPost(url: string, headers: Record<string,string>, body: unknow
     const { invoke } = await import('@tauri-apps/api/core');
     return await invoke('http_post', { url, headers, body });
   } catch (invokeErr) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-    return res.json();
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      return res.json();
+    } catch (fetchErr: any) {
+      // Detect CORS errors and provide helpful message
+      if (fetchErr?.message?.includes('Failed to fetch') || fetchErr?.message?.includes('CORS')) {
+        const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        if (isLocalhost) {
+          throw new Error(
+            'CORS Error: Cannot connect to Replicate API directly from browser. ' +
+            'Please use one of these options:\n' +
+            '1. Run in Tauri mode: npm run tauri dev\n' +
+            '2. Configure Supabase proxy in .env\n' +
+            '3. Check that Vite dev proxy is working (/api/replicate)'
+          );
+        }
+      }
+      throw fetchErr;
+    }
   }
 }
 
@@ -518,8 +568,9 @@ class ReplicateService {
   private readonly minRequestInterval = 12_000; // 12s between requests (5 req/min safe)
 
   constructor() {
-    // Use proxy in development to avoid CORS
-    const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    // Detect environment
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const inTauri = isTauriRuntime();
     
     // Try to get API key from localStorage settings first, then env
     let apiKey = import.meta.env.VITE_REPLICATE_API_TOKEN ?? '';
@@ -533,12 +584,30 @@ class ReplicateService {
       // Ignore parse errors
     }
     
+    // Determine base URL:
+    // - In Tauri: use real API (Tauri handles CORS via Rust backend)
+    // - In browser dev: use Vite proxy (/api/replicate -> https://api.replicate.com/v1)
+    // - In browser production: use real API (will need Supabase proxy or similar)
+    let baseUrl: string;
+    if (inTauri) {
+      baseUrl = 'https://api.replicate.com/v1';
+    } else if (isDev) {
+      baseUrl = '/api/replicate'; // Vite dev proxy
+    } else {
+      baseUrl = 'https://api.replicate.com/v1';
+    }
+    
     this.config = {
       apiKey,
-      baseUrl:    isDev ? '/api/replicate' : 'https://api.replicate.com/v1',
+      baseUrl,
       timeout:    120_000,
       maxRetries: 3,
     };
+    
+    // Debug logging in dev mode
+    if (isDev) {
+      console.log('[ReplicateService] Mode:', inTauri ? 'Tauri' : 'Browser', '| Base URL:', baseUrl);
+    }
   }
 
   // Update API key from settings
@@ -582,9 +651,13 @@ class ReplicateService {
       supportsMultiImage:        meta.supportsMultiImage,
       supportsSeed:              meta.supportsSeed,
       supportsLoRA:              meta.supportsLoRA,
+      supportsStyleType:         meta.supportsStyleType,
+      supportsStylePreset:       meta.supportsStylePreset,
       maxReferenceImages:        meta.maxReferenceImages,
       defaultSteps:              meta.defaultSteps,
       stepsRange:                meta.stepsRange,
+      styleTypes:                meta.styleTypes,
+      stylePresets:              meta.stylePresets,
     };
   }
 
@@ -619,6 +692,45 @@ class ReplicateService {
     'philz1337x/clarity-upscaler': 'dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e',
     'nightmareai/real-esrgan':     'b3ef194191d13140337468c916c2c5b96dd0cb06dffc032a022a31807f6a5ea8',
   };
+
+  // ── Upload a base64 data URI to Replicate Files API and return serving URL ──
+  async uploadToReplicate(dataUri: string): Promise<string> {
+    // Parse data URI
+    const commaIdx = dataUri.indexOf(',');
+    if (commaIdx === -1) throw new Error('Invalid data URI');
+    const meta = dataUri.substring(0, commaIdx);
+    const b64 = dataUri.substring(commaIdx + 1);
+    const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
+    const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      // Send base64 string to Rust (not byte array — avoids huge JSON serialization)
+      const result: string = await invoke('upload_to_replicate', {
+        apiKey: this.config.apiKey,
+        b64Data: b64,
+        filename: `upload.${ext}`,
+        contentType: mime,
+      });
+      return result;
+    } catch {
+      // Fallback: use fetch directly (browser dev mode)
+      const byteStr = atob(b64);
+      const bytes = new Uint8Array(byteStr.length);
+      for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+      const formData = new FormData();
+      formData.append('content', blob, `upload.${ext}`);
+      const res = await fetch('https://api.replicate.com/v1/files', {
+        method: 'POST',
+        headers: { 'Authorization': `Token ${this.config.apiKey}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Replicate upload failed: ${res.status}`);
+      const json = await res.json();
+      return json.urls?.get || json.url;
+    }
+  }
 
   // ── Submit a prediction and wait for result (with rate-limit retry) ──────
   private async runPrediction(
@@ -692,6 +804,10 @@ class ReplicateService {
     const input: Record<string, any> = { prompt: promptText };
     if (images.length > 0) {
       input.image_input = images; // array format forces edit mode
+    }
+    // Add resolution (512, 1K, 2K, 4K)
+    if (params.resolution && params.resolution !== 'Auto') {
+      input.resolution = params.resolution;
     }
     // Only add aspect_ratio for text-to-image (no images)
     if (images.length === 0 && params.aspectRatio && params.aspectRatio !== 'Auto') {
@@ -881,6 +997,41 @@ class ReplicateService {
     return input;
   }
 
+  // ── Build input payload for Stable Diffusion 3.5 ────────────────────────────
+  private buildStableDiffusionInput(
+    params: ReplicateGenerationParams,
+    images: string[]
+  ): Record<string, any> {
+    const input: Record<string, any> = { prompt: params.prompt };
+    
+    // SD 3.5 uses 'image' for img2img
+    if (images.length > 0) {
+      input.image = images[0];
+      // strength: how much to change (0.0 = same, 1.0 = complete change)
+      input.strength = params.referenceStrength ?? 0.75;
+    }
+    
+    // SD 3.5 supports 'aspect_ratio' for text-to-image
+    if (!images.length && params.aspectRatio && params.aspectRatio !== 'Auto') {
+      input.aspect_ratio = params.aspectRatio;
+    }
+    
+    // SD 3.5 supports negative_prompt
+    if (params.negativePrompt) {
+      input.negative_prompt = params.negativePrompt;
+    }
+    
+    // SD 3.5 supports steps (20-50)
+    if (params.steps != null) {
+      input.num_inference_steps = params.steps;
+    }
+    
+    // SD 3.5 supports seed
+    if (params.seed != null) input.seed = params.seed;
+    
+    return input;
+  }
+
   // ── Route input building per model family ─────────────────────────────────
   private buildInput(
     params: ReplicateGenerationParams,
@@ -893,6 +1044,7 @@ class ReplicateService {
     if (m === 'openai/gpt-image-2')             return this.buildGptImageInput(params, images);
     if (m === 'bytedance/seedance-2.0')         return this.buildSeedreamInput(params, images); // same structure
     if (m === 'xai/grok-imagine-image')          return this.buildGrokInput(params, images);
+    if (m === 'stability-ai/stable-diffusion-3.5') return this.buildStableDiffusionInput(params, images);
     return this.buildGeneralInput(params);
   }
 
@@ -935,6 +1087,9 @@ class ReplicateService {
       seed?: number;
       // Topaz Labs settings
       enhanceModel?: string;
+      topazUpscaleFactor?: string;  // "None" | "2x" | "4x" | "6x"
+      topazSubjectDetection?: string; // "None" | "Foreground" | "Sky" | "Product" | "Person" | "Portrait" | "Architecture" | "Landscape" | "Macro" | "Document" | "Food" | "Subject"
+      topazOutputFormat?: string; // "jpg" | "png" | "webp"
       faceEnhancement?: boolean;
       faceEnhancementCreativity?: number;
       faceEnhancementStrength?: number;
@@ -942,6 +1097,7 @@ class ReplicateService {
       clarityScale?: number;
       clarityDynamic?: number;
       clarityCreativity?: number;
+      clarityResemblance?: number;
       clarityTilingWidth?: number;
       clarityTilingHeight?: number;
       claritySdModel?: string;
@@ -952,7 +1108,7 @@ class ReplicateService {
       clarityDownscalingRes?: number;
       claritySharpen?: number;
       clarityHandfix?: string;
-      clarityPattern?: boolean;
+      clarityOutputFormat?: string;
       // Pruna AI settings
       prunaMode?: 'target' | 'factor';
       prunaTarget?: number;
@@ -960,6 +1116,7 @@ class ReplicateService {
       prunaEnhanceDetails?: boolean;
       prunaEnhanceRealism?: boolean;
       prunaQuality?: number;
+      prunaOutputFormat?: string;
     }
   ): Promise<string> {
     
@@ -967,25 +1124,24 @@ class ReplicateService {
     
     // Build model-specific input
     switch (model) {
-      case 'topazlabs/image-upscale':
+      case 'topazlabs/image-upscale': {
+        // upscale_factor is a STRING enum: "None" | "2x" | "4x" | "6x"
+        const topazFactor = options?.topazUpscaleFactor
+          ?? (scale === 1 ? 'None' : scale === 2 ? '2x' : scale === 6 ? '6x' : '4x');
         input = {
-          image: imageUrl,
-          scale: scale === 2 ? 2 : 4, // 2x or 4x only
+          image:             imageUrl,
+          upscale_factor:    topazFactor,
+          enhance_model:     options?.enhanceModel ?? 'Low Resolution V2',
+          subject_detection: options?.topazSubjectDetection ?? 'None',
+          output_format:     options?.topazOutputFormat ?? 'jpg',
+          face_enhancement:  options?.faceEnhancement ?? false,
         };
-        // Topaz Labs advanced settings
-        if (options?.enhanceModel) {
-          input.enhance_model = options.enhanceModel;
-        }
-        if (options?.faceEnhancement !== undefined) {
-          input.face_enhancement = options.faceEnhancement;
-        }
-        if (options?.faceEnhancement && options?.faceEnhancementCreativity !== undefined) {
-          input.face_enhancement_creativity = options.faceEnhancementCreativity;
-        }
-        if (options?.faceEnhancement && options?.faceEnhancementStrength !== undefined) {
-          input.face_enhancement_strength = options.faceEnhancementStrength;
+        if (options?.faceEnhancement) {
+          input.face_enhancement_creativity = options.faceEnhancementCreativity ?? 0;
+          input.face_enhancement_strength   = options.faceEnhancementStrength   ?? 0.8;
         }
         break;
+      }
         
       case 'nightmareai/real-esrgan':
         // Real-ESRGAN supports 1x-10x
@@ -995,15 +1151,20 @@ class ReplicateService {
         };
         break;
         
-      case 'philz1337x/clarity-upscaler':
-        input = {
-          image: imageUrl,
+      case 'philz1337x/clarity-upscaler': {
+        // Clarity model maxes out at 2x per pass.
+        // For higher scales (4x, 8x, 12x) we chain multiple 2x passes.
+        const targetScale = options?.clarityScale ?? scale;
+        const passes = targetScale <= 2 ? 1 : Math.ceil(Math.log2(targetScale)); // 4x=2, 8x=3, 12x=4
+
+        const buildClarityInput = (img: string) => ({
+          image: img,
           prompt: options?.prompt || 'masterpiece, best quality, highres, <lora:more_details:0.5> <lora:SDXLrender_v2.0:1>',
           negative_prompt: options?.negativePrompt || '(worst quality, low quality, normal quality:2) JuggernautNegative-neg',
-          scale_factor: options?.clarityScale ?? scale,
+          scale_factor: 2,
           dynamic: options?.clarityDynamic ?? 6,
           creativity: options?.clarityCreativity ?? 0.35,
-          resemblance: 0.6,
+          resemblance: options?.clarityResemblance ?? 0.6,
           tiling_width: options?.clarityTilingWidth ?? 112,
           tiling_height: options?.clarityTilingHeight ?? 144,
           sd_model: options?.claritySdModel ?? 'juggernaut_reborn.safetensors [338b85bc4f]',
@@ -1014,27 +1175,32 @@ class ReplicateService {
           downscaling_resolution: options?.clarityDownscalingRes ?? 768,
           sharpen: options?.claritySharpen ?? 0,
           handfix: options?.clarityHandfix ?? 'disabled',
-          pattern: options?.clarityPattern ?? false,
-          output_format: 'png',
-        };
-        break;
+          output_format: options?.clarityOutputFormat ?? 'png',
+        });
+
+        // Chain: run 2x passes sequentially, feeding output into next input
+        let currentImageUrl = imageUrl;
+        for (let pass = 0; pass < passes; pass++) {
+          const passInput = buildClarityInput(currentImageUrl);
+          const prediction = await this.runPrediction(model, passInput);
+          currentImageUrl = this.extractImageUrl(prediction.output);
+        }
+        return currentImageUrl;
+      }
         
       case 'prunaai/p-image-upscale':
         input = {
           image: imageUrl,
           upscale_mode: options?.prunaMode ?? 'target',
+          enhance_details: options?.prunaEnhanceDetails ?? false,
+          enhance_realism: options?.prunaEnhanceRealism ?? true,
+          output_format: options?.prunaOutputFormat ?? 'png',
+          output_quality: options?.prunaQuality ?? 80,
         };
         if (options?.prunaMode === 'factor') {
           input.factor = options.prunaFactor ?? 2;
         } else {
           input.target = options?.prunaTarget ?? 4;
-        }
-        input.output_quality = options?.prunaQuality ?? 80;
-        if (options?.prunaEnhanceDetails) {
-          input.enhance_details = options.prunaEnhanceDetails;
-        }
-        if (options?.prunaEnhanceRealism) {
-          input.enhance_realism = options.prunaEnhanceRealism;
         }
         break;
         

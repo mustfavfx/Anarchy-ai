@@ -414,3 +414,294 @@
   border-color: rgba(225,29,72,0.4);
   color: #fff;
 }
+
+/* ============================================
+   MASK/DRAW MODE - Full Drawing Support
+   ============================================ */
+
+.ep-draw-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0b;
+}
+
+/* ── Mask Toolbar ── */
+.ep-mask-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(20, 20, 25, 0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.ep-mask-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ep-mask-tool {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ep-mask-tool:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+.ep-mask-tool.active {
+  background: rgba(225,29,72,0.25);
+  color: #fecdd3;
+}
+
+.ep-mask-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.1);
+}
+
+.ep-mask-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ep-mask-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ep-mask-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+}
+
+.ep-mask-slider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  outline: none;
+}
+
+.ep-mask-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e11d48;
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+.ep-mask-value {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  min-width: 28px;
+  text-align: center;
+}
+
+.ep-mask-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.ep-mask-action {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ep-mask-action:hover:not(:disabled) {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+.ep-mask-action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ep-mask-action.clear {
+  color: #ef4444;
+}
+
+.ep-mask-action.clear:hover {
+  background: rgba(239,68,68,0.15);
+}
+
+/* ── Canvas Wrapper ── */
+.ep-mask-canvas-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0e0e12;
+  border-radius: 0 0 12px 12px;
+}
+
+.ep-mask-base-image {
+  position: absolute;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ep-mask-canvas {
+  position: absolute;
+  z-index: 10;
+  pointer-events: all;
+  touch-action: none;
+}
+
+/* ── Brush Cursor ── */
+.ep-brush-cursor {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(225,29,72,0.8);
+  background: rgba(225,29,72,0.15);
+  pointer-events: none;
+  z-index: 20;
+  transform: translate(-50%, -50%);
+  transition: width 0.1s, height 0.1s;
+}
+
+/* ── Mask Hint ── */
+.ep-mask-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  padding: 8px 16px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 20px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  pointer-events: none;
+  z-index: 30;
+}
+
+.ep-mask-hint span {
+  white-space: nowrap;
+}
+
+/* ============================================
+   RESPONSIVE - Small Screens
+   ============================================ */
+
+@media (max-width: 768px) {
+  .ep-mask-toolbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  
+  .ep-mask-tools {
+    gap: 4px;
+  }
+  
+  .ep-mask-tool {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .ep-mask-tool svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .ep-mask-controls {
+    gap: 10px;
+  }
+  
+  .ep-mask-control {
+    gap: 6px;
+  }
+  
+  .ep-mask-slider {
+    width: 60px;
+  }
+  
+  .ep-mask-label {
+    font-size: 10px;
+  }
+  
+  .ep-mask-value {
+    font-size: 10px;
+    min-width: 24px;
+  }
+  
+  .ep-mask-actions {
+    gap: 4px;
+  }
+  
+  .ep-mask-action {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .ep-mask-hint {
+    gap: 12px;
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ep-mask-toolbar {
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  
+  .ep-mask-controls {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  
+  .ep-mask-slider {
+    width: 50px;
+  }
+  
+  .ep-mask-hint {
+    display: none; /* Hide hints on very small screens */
+  }
+}

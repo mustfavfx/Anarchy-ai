@@ -48,6 +48,7 @@ export interface AIConfig {
   prunaEnhanceDetails?: boolean;
   prunaEnhanceRealism?: boolean;
   prunaQuality?: number;
+  prunaOutputFormat?: string;
 }
 
 export interface SelectedNodeInfo {
@@ -102,8 +103,9 @@ const DEFAULT_CONFIG: AIConfig = {
   prunaTarget: 4,
   prunaFactor: 2,
   prunaEnhanceDetails: false,
-  prunaEnhanceRealism: false,
+  prunaEnhanceRealism: true,
   prunaQuality: 80,
+  prunaOutputFormat: 'png',
 };
 
 interface AIConfigContextType {

@@ -1,10 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X, BookOpen, Search, Play, ArrowRight,
   Layers, Workflow, Download,
-  FileText, Video, HelpCircle, ExternalLink
+  FileText, Video, HelpCircle, ExternalLink,
+  Zap, Cpu, History, Settings, Loader2
 } from 'lucide-react';
 import './DocumentationModal.css';
+import { 
+  getDocCategories, 
+  getVideoTutorials, 
+  searchDocs, 
+  loadDocContent,
+  type DocCategory,
+  type DocFile 
+} from '../../services/docs';
+import { DocViewer } from '../../components/DocViewer';
+
+// ── Data (outside component for reference stability) ────────────────────────
+
+// ── Icon mapping ───────────────────────────────────────────────────────────
+
+const iconMap: Record<string, React.ReactNode> = {
+  'BookOpen': <BookOpen size={20} />,
+  'Zap': <Zap size={20} />,
+  'Layers': <Layers size={20} />,
+  'Workflow': <Workflow size={20} />,
+  'Cpu': <Cpu size={20} />,
+  'Download': <Download size={20} />,
+  'History': <History size={20} />,
+  'Settings': <Settings size={20} />,
+};
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 interface DocumentationModalProps {
   isOpen: boolean;
@@ -12,64 +39,60 @@ interface DocumentationModalProps {
 }
 
 export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoriesData, setCategoriesData] = useState<DocCategory[]>([]);
+  const [videoTutorialsData, setVideoTutorialsData] = useState<DocFile[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<DocCategory[]>([]);
+  const [filteredVideos, setFilteredVideos] = useState<DocFile[]>([]);
+  
+  // Viewer state
+  const [activeDoc, setActiveDoc] = useState<{ title: string; content: string } | null>(null);
+
+  // Load documentation data
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoading(true);
+      const categories = getDocCategories();
+      const videos = getVideoTutorials();
+      setCategoriesData(categories);
+      setVideoTutorialsData(videos);
+      setFilteredCategories(categories);
+      setFilteredVideos(videos);
+      const timer = setTimeout(() => setIsLoading(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // Filter content based on search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredCategories(categoriesData);
+      setFilteredVideos(videoTutorialsData);
+      return;
+    }
+    
+    const { categories, videos } = searchDocs(searchQuery);
+    setFilteredCategories(categories);
+    setFilteredVideos(videos);
+  }, [searchQuery, categoriesData, videoTutorialsData]);
+  
+  // Handle doc click
+  const handleDocClick = async (doc: DocFile) => {
+    if (doc.type === 'doc') {
+      setIsLoading(true);
+      const content = await loadDocContent(doc.path);
+      setActiveDoc({ title: doc.title, content });
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle back from viewer
+  const handleBackFromViewer = () => {
+    setActiveDoc(null);
+  };
+
   if (!isOpen) return null;
-
-  const categories = [
-    {
-      id: 'getting-started',
-      icon: <BookOpen size={20} />,
-      title: 'Getting Started',
-      description: 'Learn the basics of Anarchy-AI and set up your first workflow',
-      items: [
-        { title: 'Installation & Setup', type: 'doc', link: '#' },
-        { title: 'Your First Project', type: 'video', link: '#' },
-        { title: 'Interface Overview', type: 'doc', link: '#' },
-        { title: 'Keyboard Shortcuts', type: 'doc', link: '#' },
-      ]
-    },
-    {
-      id: 'node-library',
-      icon: <Layers size={20} />,
-      title: 'Node Library',
-      description: 'Explore all available nodes and their configurations',
-      items: [
-        { title: 'AI Generation Nodes', type: 'doc', link: '#' },
-        { title: 'Input/Output Nodes', type: 'doc', link: '#' },
-        { title: 'Processing Nodes', type: 'doc', link: '#' },
-        { title: 'Utility Nodes', type: 'doc', link: '#' },
-      ]
-    },
-    {
-      id: 'workflows',
-      icon: <Workflow size={20} />,
-      title: 'Architectural Workflows',
-      description: 'Step-by-step guides for common architectural tasks',
-      items: [
-        { title: 'Concept Massing', type: 'video', link: '#' },
-        { title: 'Facade Generation', type: 'video', link: '#' },
-        { title: 'Interior Visualization', type: 'video', link: '#' },
-        { title: 'Landscape Design', type: 'doc', link: '#' },
-      ]
-    },
-    {
-      id: 'exporting',
-      icon: <Download size={20} />,
-      title: 'Exporting & Integrations',
-      description: 'Export to professional CAD and BIM software',
-      items: [
-        { title: '3ds Max Integration', type: 'doc', link: '#' },
-        { title: 'Revit Plugin Guide', type: 'doc', link: '#' },
-        { title: 'SketchUp Export', type: 'doc', link: '#' },
-        { title: 'Rhino/GH Workflow', type: 'video', link: '#' },
-      ]
-    },
-  ];
-
-  const videoTutorials = [
-    { title: 'Quick Start Guide', duration: '5:30', thumbnail: '🎬' },
-    { title: 'Advanced Node Workflows', duration: '12:45', thumbnail: '🎬' },
-    { title: 'Best Practices', duration: '8:20', thumbnail: '🎬' },
-  ];
 
   return (
     <div className="doc-modal-overlay" onClick={onClose}>
@@ -96,18 +119,56 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
               type="text"
               placeholder="Search documentation, tutorials, or nodes..."
               className="doc-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button 
+                className="doc-search-clear" 
+                onClick={() => setSearchQuery('')}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="doc-loading">
+            <Loader2 size={32} className="doc-loading-spinner" />
+            <p>Loading documentation...</p>
+          </div>
+        )}
+
+        {/* Doc Viewer */}
+        {activeDoc && (
+          <DocViewer 
+            title={activeDoc.title}
+            content={activeDoc.content}
+            onBack={handleBackFromViewer}
+          />
+        )}
+
         {/* Content */}
+        {!isLoading && !activeDoc && (
         <div className="doc-modal-content">
+          {/* Empty State */}
+          {filteredCategories.length === 0 && filteredVideos.length === 0 && (
+            <div className="doc-empty-state">
+              <Search size={48} />
+              <p>No results found for "{searchQuery}"</p>
+              <button onClick={() => setSearchQuery('')}>Clear search</button>
+            </div>
+          )}
+
           {/* Categories Grid */}
+          {filteredCategories.length > 0 && (
           <div className="doc-categories-grid">
-            {categories.map((category) => (
+            {filteredCategories.map((category) => (
               <div key={category.id} className="doc-category-card">
                 <div className="doc-category-header">
-                  <div className="doc-category-icon">{category.icon}</div>
+                  <div className="doc-category-icon">{iconMap[category.icon] || <BookOpen size={20} />}</div>
                   <div className="doc-category-info">
                     <h3>{category.title}</h3>
                     <p>{category.description}</p>
@@ -116,7 +177,10 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
                 <ul className="doc-category-items">
                   {category.items.map((item, index) => (
                     <li key={index}>
-                      <a href={item.link} className="doc-item-link">
+                      <button 
+                        className="doc-item-link" 
+                        onClick={() => handleDocClick(item)}
+                      >
                         {item.type === 'video' ? (
                           <Play size={14} className="doc-item-icon video" />
                         ) : (
@@ -124,22 +188,24 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
                         )}
                         <span>{item.title}</span>
                         <ArrowRight size={14} className="doc-item-arrow" />
-                      </a>
+                      </button>
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
           </div>
+          )}
 
           {/* Video Tutorials Section */}
+          {filteredVideos.length > 0 && (
           <div className="doc-videos-section">
             <div className="doc-section-header">
               <Video size={20} />
               <h3>Video Tutorials</h3>
             </div>
             <div className="doc-videos-grid">
-              {videoTutorials.map((video, index) => (
+              {filteredVideos.map((video, index) => (
                 <a key={index} href="#" className="doc-video-card">
                   <div className="doc-video-thumbnail">
                     <span className="doc-video-emoji">{video.thumbnail}</span>
@@ -150,6 +216,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
               ))}
             </div>
           </div>
+          )}
 
           {/* Help Section */}
           <div className="doc-help-section">
@@ -165,6 +232,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

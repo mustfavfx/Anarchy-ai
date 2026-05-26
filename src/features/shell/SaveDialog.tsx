@@ -3,7 +3,7 @@ import { FileText, X, Save } from 'lucide-react';
 import './SaveDialog.css';
 
 interface SaveDialogProps {
-  onSave: () => void;
+  onSave: (filename: string) => void;
   onDontSave: () => void;
   onCancel: () => void;
 }
@@ -13,12 +13,11 @@ export const SaveDialog: React.FC<SaveDialogProps> = ({
   onDontSave, 
   onCancel 
 }) => {
-  const [filename, setFilename] = useState('untitled.ana');
+  const [filename, setFilename] = useState('untitled');
 
   const handleSaveClick = () => {
-    // Here we would trigger the actual file save
-    // For now, just call the callback
-    onSave();
+    const name = filename.trim().replace(/\.ana$/i, '') || 'untitled';
+    onSave(name);
   };
 
   return (
@@ -37,13 +36,18 @@ export const SaveDialog: React.FC<SaveDialogProps> = ({
           
           <div className="filename-input-group">
             <label>Filename:</label>
-            <input 
-              type="text" 
-              value={filename}
-              onChange={(e) => setFilename(e.target.value)}
-              placeholder="project.ana"
-              autoFocus
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input 
+                type="text" 
+                value={filename}
+                onChange={(e) => setFilename(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveClick()}
+                placeholder="project"
+                autoFocus
+                style={{ flex: 1 }}
+              />
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px', whiteSpace: 'nowrap' }}>.ana</span>
+            </div>
           </div>
           
           <div className="file-type-info">

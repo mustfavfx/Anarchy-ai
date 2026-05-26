@@ -20,7 +20,7 @@ import type {
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { watermarkService } from '../../services/watermark/WatermarkService';
-import { addHistoryEntry } from '../../services/history/HistoryService';
+import { addHistoryEntry, type NodeTreeData } from '../../services/history/HistoryService';
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { track } from '../../services/tracking/trackingService';
@@ -66,15 +66,34 @@ async function uploadImageIfLocal(url: string, model?: string): Promise<string> 
       }
     }
   }
-  // Already a public URL - return as-is for other models
-  if (url.startsWith('https://') || url.startsWith('http://')) return url;
-  // For other models or non-data URIs, upload to get public URL
-  try {
-    const publicUrl: string = await invoke('upload_image', { apiKey: '', dataUri: url });
-    return publicUrl;
-  } catch {
+  // Public HTTPS URL (not localhost) - safe to use directly
+  if (url.startsWith('https://')) return url;
+  // Already a data URI — upload to Replicate Files API to get a serving URL
+  // This is more reliable than sending huge base64 inline in JSON body
+  if (url.startsWith('data:')) {
+    try {
+      const { replicateService } = await import('../../services/replicate');
+      return await replicateService.uploadToReplicate(url);
+    } catch {
+      return url; // fallback: send data URI inline (works for small images)
+    }
+  }
+  // localhost / blob URLs are not reachable by Replicate — convert to base64 first, then upload
+  if (url.startsWith('http://') || url.startsWith('blob:')) {
+    try {
+      const b64: string = await invoke('url_to_base64', { url });
+      if (b64?.startsWith('data:')) {
+        try {
+          const { replicateService } = await import('../../services/replicate');
+          return await replicateService.uploadToReplicate(b64);
+        } catch {
+          return b64; // fallback: send data URI inline
+        }
+      }
+    } catch { /* fall through */ }
     return url;
   }
+  return url;
 }
 
 async function persistImageLocally(url: string): Promise<string> {
@@ -111,6 +130,8 @@ export interface GenerationConfig {
   watermarkFontSize?: number;
   // Topaz Labs settings
   enhanceModel?: string;
+  topazUpscaleFactor?: string;
+  topazSubjectDetection?: string;
   faceEnhancement?: boolean;
   faceEnhancementCreativity?: number;
   faceEnhancementStrength?: number;
@@ -118,6 +139,7 @@ export interface GenerationConfig {
   clarityScale?: number;
   clarityDynamic?: number;
   clarityCreativity?: number;
+  clarityResemblance?: number;
   clarityTilingWidth?: number;
   clarityTilingHeight?: number;
   claritySdModel?: string;
@@ -128,7 +150,7 @@ export interface GenerationConfig {
   clarityDownscalingRes?: number;
   claritySharpen?: number;
   clarityHandfix?: string;
-  clarityPattern?: boolean;
+  clarityOutputFormat?: string;
   // Pruna AI settings
   prunaMode?: 'target' | 'factor';
   prunaTarget?: number;
@@ -136,6 +158,7 @@ export interface GenerationConfig {
   prunaEnhanceDetails?: boolean;
   prunaEnhanceRealism?: boolean;
   prunaQuality?: number;
+  prunaOutputFormat?: string;
 }
 
 // Re-export types for backward compatibility
@@ -296,6 +319,9 @@ export const useBuilderWorkflow = (tabId?: string) => {
         if (data.nodes && data.nodes.length > 0) {
           setNodes(data.nodes);
           setEdges(data.edges || []);
+          // Delay isRestored so BuilderPage sees the restored nodes before checking
+          setTimeout(() => setIsRestored(true), 20);
+          return;
         }
       }
     } catch {
@@ -450,7 +476,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
   // NODE LIFECYCLE - Source → Ghost → Result
   // ========================================================================
 
-  const createSourceNode = useCallback((imageUrl?: string): string => {
+  const createSourceNode = useCallback((imageUrl?: string, label?: string): string => {
     const id = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     
     const lineage: NodeLineage = {
@@ -470,7 +496,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
       position: { x: 80, y: 300 },
       width: 240,
       data: {
-        label: 'Source',
+        label: label || 'Source',
         type: 'source',
         processingType: 'source',
         state: imageUrl ? 'ready' : 'idle',
@@ -488,10 +514,29 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
     if (imageUrl) {
       try {
+        // Build node tree from current state
+        const nodeTree: NodeTreeData = {
+          nodes: nodesRef.current.map(n => {
+            const data = n.data as BuilderNodeData;
+            return {
+              id: n.id,
+              type: data.type,
+              position: n.position,
+              image: data.image,
+              prompt: data.prompt,
+              processingType: data.processingType,
+              state: data.state,
+              parentId: data.lineage?.parentId || undefined,
+            };
+          }),
+          sourceNodeId: newNode.id,
+          createdAt: Date.now(),
+        };
         addHistoryEntry({
           type: 'edit',
           label: 'Source imported',
           outputImage: imageUrl,
+          nodeTree,
         });
       } catch {}
     }
@@ -665,12 +710,14 @@ export const useBuilderWorkflow = (tabId?: string) => {
           model as import('../../services/replicate').ReplicateUpscaleModel,
           scale,
           {
-            prompt: config?.negativePrompt, // Use as enhancement prompt for clarity
+            prompt: config?.negativePrompt || undefined, // enhancement prompt for clarity
             negativePrompt: config?.negativePrompt,
             steps: config?.steps,
             seed: config?.seed ?? undefined,
             // Topaz Labs settings
             enhanceModel: config?.enhanceModel,
+            topazUpscaleFactor: config?.topazUpscaleFactor,
+            topazSubjectDetection: config?.topazSubjectDetection,
             faceEnhancement: config?.faceEnhancement,
             faceEnhancementCreativity: config?.faceEnhancementCreativity,
             faceEnhancementStrength: config?.faceEnhancementStrength,
@@ -678,6 +725,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
             clarityScale: config?.clarityScale,
             clarityDynamic: config?.clarityDynamic,
             clarityCreativity: config?.clarityCreativity,
+            clarityResemblance: config?.clarityResemblance,
             clarityTilingWidth: config?.clarityTilingWidth,
             clarityTilingHeight: config?.clarityTilingHeight,
             claritySdModel: config?.claritySdModel,
@@ -688,7 +736,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
             clarityDownscalingRes: config?.clarityDownscalingRes,
             claritySharpen: config?.claritySharpen,
             clarityHandfix: config?.clarityHandfix,
-            clarityPattern: config?.clarityPattern,
+            clarityOutputFormat: config?.clarityOutputFormat,
             // Pruna AI settings
             prunaMode: config?.prunaMode,
             prunaTarget: config?.prunaTarget,
@@ -696,6 +744,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
             prunaEnhanceDetails: config?.prunaEnhanceDetails,
             prunaEnhanceRealism: config?.prunaEnhanceRealism,
             prunaQuality: config?.prunaQuality,
+            prunaOutputFormat: config?.prunaOutputFormat,
           }
         );
         
@@ -741,19 +790,27 @@ export const useBuilderWorkflow = (tabId?: string) => {
       // Apply watermark if enabled
       let finalImage = resultImage;
       const aiConfig = useAIConfigStore.getState().config;
-      const wmEnabled = aiConfig.enableWatermark && (aiConfig.watermarkType === 'image' ? !!aiConfig.watermarkImage : !!aiConfig.watermarkText);
+      const wmText = (aiConfig.watermarkText || '').trim();
+      const wmEnabled = aiConfig.enableWatermark &&
+        (aiConfig.watermarkType === 'image' ? !!aiConfig.watermarkImage : wmText.length > 0);
       if (wmEnabled) {
         try {
-          finalImage = await watermarkService.applyWatermark(resultImage, {
+          // Ensure image is a data URI before passing to canvas (fetch fails on http:// in Tauri)
+          let imageForWm = finalImage;
+          if (imageForWm.startsWith('http')) {
+            try { imageForWm = await invoke<string>('url_to_base64', { url: imageForWm }); } catch { /* keep original */ }
+          }
+          finalImage = await watermarkService.applyWatermark(imageForWm, {
             type: aiConfig.watermarkType || 'text',
-            text: aiConfig.watermarkText,
+            text: wmText || 'Anarchy AI',
             watermarkImage: aiConfig.watermarkImage,
-            watermarkImageSize: aiConfig.watermarkImageSize,
-            position: aiConfig.watermarkPosition,
-            opacity: aiConfig.watermarkOpacity,
-            fontSize: aiConfig.watermarkFontSize,
+            watermarkImageSize: aiConfig.watermarkImageSize ?? 80,
+            position: aiConfig.watermarkPosition ?? 'bottom-right',
+            opacity: aiConfig.watermarkOpacity ?? 0.5,
+            fontSize: aiConfig.watermarkFontSize ?? 24,
           });
-        } catch {
+        } catch (wmErr) {
+          console.warn('[Watermark] Failed to apply:', wmErr);
         }
       }
       
@@ -768,6 +825,26 @@ export const useBuilderWorkflow = (tabId?: string) => {
         const parent = getParent(nodeId);
         const parentImage = parent ? (parent.data as BuilderNodeData).image : undefined;
         const modelId = model as string;
+        
+        // Build node tree from current state
+        const nodeTree: NodeTreeData = {
+          nodes: nodesRef.current.map(n => {
+            const data = n.data as BuilderNodeData;
+            return {
+              id: n.id,
+              type: data.type,
+              position: n.position,
+              image: data.image,
+              prompt: data.prompt,
+              processingType: data.processingType,
+              state: data.state,
+              parentId: data.lineage?.parentId || undefined,
+            };
+          }),
+          sourceNodeId: nodesRef.current.find(n => (n.data as BuilderNodeData).type === 'source')?.id || nodeId,
+          createdAt: Date.now(),
+        };
+        
         addHistoryEntry({
           type: (nodeData.processingType as any) === 'upscale' ? 'upscale' : 'render',
           label: prompt && prompt.length > 50 ? prompt.slice(0, 50) + '...' : (prompt || 'Generation'),
@@ -776,6 +853,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
           inputImage: parentImage,
           outputImage: finalImage,
           duration: Date.now() - _execStartTime,
+          nodeTree,
         });
         const isUpscale = (nodeData.processingType as any) === 'upscale';
         track({
@@ -806,6 +884,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
         'bytedance/seedance-2.0':           'Seedance 2',
         'black-forest-labs/flux-kontext-pro':'FLUX Kontext Pro',
         'xai/grok-imagine-image':           'Grok Imagine',
+        'stability-ai/stable-diffusion-3.5': 'Stable Diffusion 3.5',
         'nightmareai/real-esrgan':          'Real-ESRGAN',
         'philz1337x/clarity-upscaler':      'Clarity Upscaler',
       };

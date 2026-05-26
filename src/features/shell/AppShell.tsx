@@ -4,6 +4,7 @@ import { NavRail } from './NavRail';
 import { TitleBar } from './TitleBar';
 import { RightSidebar } from './RightSidebar';
 import { SaveDialog } from './SaveDialog';
+import { MultiBuilderPage } from '../builder/MultiBuilderPage';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { saveWorkflowAs } from '../../services/workflow';
@@ -30,11 +31,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const handleCloseRequest = () => setShowSaveDialog(true);
 
-  const handleSaveConfirm = async () => {
+  const handleSaveConfirm = async (filename: string) => {
     setShowSaveDialog(false);
     try {
       const { nodes, edges } = useAIConfigStore.getState().workflowSnapshot;
-      if (nodes.length > 0) await saveWorkflowAs(nodes, edges);
+      if (nodes.length > 0) await saveWorkflowAs(nodes, edges, filename);
     } catch { /* Non-critical */ }
     await getCurrentWindow().close();
   };
@@ -52,25 +53,28 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       <div className="app-body">
         <NavRail />
 
-        {isBuilderPage ? (
-          /* ── Builder layout: keep children always mounted to prevent canvas wipe ── */
-          <>
-            <main className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}`}>
-              {children}
-            </main>
-            {isEnlargedView ? (
-              <div className="app-body-enlarged">
-                <div className="app-enlarged-main">
-                  <EnlargedPreview />
-                </div>
-                <RightSidebar />
+        {/* ── Builder layout: always mounted, hidden via CSS to preserve canvas state ── */}
+        <main
+          className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}`}
+          style={isBuilderPage ? undefined : { display: 'none' }}
+        >
+          <MultiBuilderPage />
+        </main>
+        {isBuilderPage && (
+          isEnlargedView ? (
+            <div className="app-body-enlarged">
+              <div className="app-enlarged-main">
+                <EnlargedPreview />
               </div>
-            ) : (
               <RightSidebar />
-            )}
-          </>
-        ) : (
-          /* ── Normal mode (non-builder pages) ── */
+            </div>
+          ) : (
+            <RightSidebar />
+          )
+        )}
+
+        {/* ── Non-builder pages ── */}
+        {!isBuilderPage && (
           <main className="app-content">
             {children}
           </main>

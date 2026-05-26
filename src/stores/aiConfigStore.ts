@@ -36,6 +36,8 @@ export interface AIConfig {
   watermarkFontSize: number;
   // Topaz Labs settings
   enhanceModel?: string;
+  topazUpscaleFactor?: string;
+  topazSubjectDetection?: string;
   faceEnhancement?: boolean;
   faceEnhancementCreativity?: number;
   faceEnhancementStrength?: number;
@@ -53,7 +55,9 @@ export interface AIConfig {
   clarityDownscalingRes?: number;
   claritySharpen?: number;
   clarityHandfix?: string;
-  clarityPattern?: boolean;
+  clarityPattern?: string;
+  clarityResemblance?: number;
+  clarityOutputFormat?: string;
   // Pruna AI settings
   prunaMode?: 'target' | 'factor';
   prunaTarget?: number;
@@ -61,6 +65,10 @@ export interface AIConfig {
   prunaEnhanceDetails?: boolean;
   prunaEnhanceRealism?: boolean;
   prunaQuality?: number;
+  prunaOutputFormat?: string;
+  // Style settings
+  styleType?: string;
+  stylePreset?: string;
 }
 
 export interface SelectedNodeInfo {
@@ -93,7 +101,7 @@ const DEFAULT_CONFIG: AIConfig = {
   aspectRatio: '1:1',
   selectedTool: 'image-editor',
   // Watermark settings
-  enableWatermark: false,
+  enableWatermark: true,
   watermarkType: 'text',
   watermarkText: 'Anarchy AI',
   watermarkImage: '',
@@ -103,6 +111,8 @@ const DEFAULT_CONFIG: AIConfig = {
   watermarkFontSize: 24,
   // Topaz Labs defaults
   enhanceModel: 'Low Resolution V2',
+  topazUpscaleFactor: '4x',
+  topazSubjectDetection: 'None',
   faceEnhancement: false,
   faceEnhancementCreativity: 0,
   faceEnhancementStrength: 0.8,
@@ -112,7 +122,7 @@ const DEFAULT_CONFIG: AIConfig = {
   clarityCreativity: 0.35,
   clarityTilingWidth: 112,
   clarityTilingHeight: 144,
-  claritySdModel: 'juggernaut_reborn.safetensors',
+  claritySdModel: 'juggernaut_reborn.safetensors [338b85bc4f]',
   clarityScheduler: 'DPM++ 3M SDE Karras',
   claritySteps: 18,
   claritySeed: null,
@@ -120,14 +130,20 @@ const DEFAULT_CONFIG: AIConfig = {
   clarityDownscalingRes: 768,
   claritySharpen: 0,
   clarityHandfix: 'disabled',
-  clarityPattern: false,
+  clarityPattern: 'none',
+  clarityResemblance: 0.6,
+  clarityOutputFormat: 'png',
   // Pruna AI defaults
   prunaMode: 'target',
   prunaTarget: 4,
   prunaFactor: 2,
   prunaEnhanceDetails: false,
-  prunaEnhanceRealism: false,
+  prunaEnhanceRealism: true,
   prunaQuality: 80,
+  prunaOutputFormat: 'png',
+  // Style defaults
+  styleType: 'None',
+  stylePreset: 'None',
 };
 
 // ── Store State ──────────────────────────────────────────────────────────────

@@ -25,6 +25,23 @@ export interface HistoryEntry {
   duration?: number; // ms
   starred?: boolean;
   params?: Record<string, any>;
+  nodeTree?: NodeTreeData; // Builder node tree for restoring workflow
+}
+
+export interface NodeTreeData {
+  nodes: Array<{
+    id: string;
+    type: 'source' | 'ghost' | 'result';
+    position: { x: number; y: number };
+    image?: string;
+    prompt?: string;
+    processingType?: string;
+    state?: 'idle' | 'processing' | 'ready' | 'completed' | 'error';
+    children?: string[]; // Child node IDs
+    parentId?: string;
+  }>;
+  sourceNodeId: string;
+  createdAt: number;
 }
 
 export interface HistoryGroup {
@@ -257,6 +274,24 @@ export function getHistoryGrouped(): HistoryGroup[] {
   }
 
   return Array.from(groups.values());
+}
+
+/** Enrich a history entry with full-resolution images from IndexedDB */
+export async function enrichWithFullImages(entry: HistoryEntry): Promise<HistoryEntry> {
+  const enriched = { ...entry };
+  
+  // Try to load full resolution images from IndexedDB
+  if (!enriched.outputImage || enriched.outputImage.startsWith('data:') === false) {
+    const fullOutput = await loadFullImage(entry.id, 'output');
+    if (fullOutput) enriched.outputImage = fullOutput;
+  }
+  
+  if (!enriched.inputImage || enriched.inputImage.startsWith('data:') === false) {
+    const fullInput = await loadFullImage(entry.id, 'input');
+    if (fullInput) enriched.inputImage = fullInput;
+  }
+  
+  return enriched;
 }
 
 /** Toggle star on an entry */

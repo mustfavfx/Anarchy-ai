@@ -23,3 +23,4 @@ base64 = "0.22"
 tauri-plugin-dialog = "2.7.0"
 dirs = "5"
 tauri-plugin-drag = "2.1.1"
+image = { version = "0.25", default-features = false, features = ["bmp", "png"] }

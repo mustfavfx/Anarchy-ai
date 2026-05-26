@@ -134,6 +134,36 @@ export async function saveProjectToDir(
 }
 
 /**
+ * Rename a project — updates the .name field inside the file and renames it
+ */
+export async function renameProject(filePath: string, newName: string): Promise<string> {
+  const contents: string = await invoke('load_file', { path: filePath });
+  const wf = JSON.parse(contents);
+  wf.name = newName;
+  const dir = await getProjectsDir();
+  const safeName = newName.replaceAll(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled';
+  const newPath = `${dir}\\${safeName}.ana`;
+  await invoke('save_file', { path: newPath, contents: JSON.stringify(wf, null, 2) });
+  if (newPath !== filePath) {
+    try { await invoke('delete_file', { path: filePath }); } catch { /* ignore */ }
+  }
+  return newPath;
+}
+
+/**
+ * Duplicate a project with a " (Copy)" suffix
+ */
+export async function duplicateProject(filePath: string): Promise<string> {
+  const contents: string = await invoke('load_file', { path: filePath });
+  const wf = JSON.parse(contents);
+  const baseName = (wf.name || extractFilename(filePath)) + ' (Copy)';
+  wf.name = baseName;
+  wf.createdAt = Date.now();
+  wf.updatedAt = Date.now();
+  return saveProjectToDir(baseName, wf);
+}
+
+/**
  * Get projects directory path
  */
 export { getProjectsDir, timeAgo };

@@ -17,6 +17,8 @@ struct ExternalImagePayload {
 #[derive(serde::Deserialize)]
 struct UploadViewPayload {
     image: String,
+    #[serde(default)]
+    source: String,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -113,6 +115,61 @@ async fn url_to_base64(url: String) -> Result<String, String> {
 
     let data_uri = format!("data:{};base64,{}", mime, b64);
     Ok(data_uri)
+}
+
+/// Upload image to Replicate Files API and return serving URL
+/// Accepts base64 string (not bytes) to avoid huge IPC serialization overhead
+#[tauri::command]
+async fn upload_to_replicate(
+    api_key: String,
+    b64_data: String,
+    filename: String,
+    content_type: String,
+) -> Result<String, String> {
+    use base64::{Engine as _, engine::general_purpose};
+
+    let image_bytes = general_purpose::STANDARD
+        .decode(&b64_data)
+        .map_err(|e| format!("Base64 decode failed: {}", e))?;
+
+    let client = reqwest::Client::builder()
+        .user_agent("AnarchyAI/1.0")
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let part = multipart::Part::bytes(image_bytes)
+        .file_name(filename)
+        .mime_str(&content_type)
+        .map_err(|e| e.to_string())?;
+
+    let form = multipart::Form::new().part("content", part);
+
+    let resp = client
+        .post("https://api.replicate.com/v1/files")
+        .header("Authorization", format!("Token {}", api_key))
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("Replicate upload failed: {}", e))?;
+
+    let status = resp.status();
+    let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    if !status.is_success() {
+        return Err(format!("Replicate upload error {}: {}", status, body));
+    }
+
+    // Return the serving URL
+    let url = body["urls"]["get"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    if url.is_empty() {
+        return Err(format!("No URL in Replicate response: {}", body));
+    }
+
+    Ok(url)
 }
 
 /// Upload a base64-encoded image to imgbb and return the direct URL
@@ -768,11 +825,16 @@ async fn install_autocad_plugin(versions: Option<Vec<String>>) -> Result<Vec<Str
         std::fs::write(build_dir.join("AnarchyAutoCad.csproj"), csproj)
             .map_err(|e| format!("Failed to write csproj: {}", e))?;
 
+        // Build to a separate temp output dir to avoid locking issues with running AutoCAD
+        let build_out_dir = std::env::temp_dir().join("AnarchyAutoCad2025Out");
+        let _ = std::fs::remove_dir_all(&build_out_dir);
+        std::fs::create_dir_all(&build_out_dir)
+            .map_err(|e| format!("Failed to create build output dir: {}", e))?;
+
         let output = std::process::Command::new(&dotnet)
-            .args(["publish", "-c", "Release", "-r", "win-x64",
+            .args(["publish", "--nologo", "-c", "Release", "-r", "win-x64",
                    "--self-contained", "false", "-o"])
-            .arg(&contents_dir)
-            .arg("--nologo")
+            .arg(&build_out_dir)
             .current_dir(&build_dir)
             .output()
             .map_err(|e| format!("Failed to invoke dotnet publish: {}", e))?;
@@ -782,8 +844,28 @@ async fn install_autocad_plugin(versions: Option<Vec<String>>) -> Result<Vec<Str
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
+            let _ = std::fs::remove_dir_all(&build_out_dir);
             return Err(format!("AutoCAD 2025 build failed:\n{}\n{}", stdout, stderr));
         }
+
+        // Copy built DLL to bundle contents dir - will fail if AutoCAD is running
+        std::fs::create_dir_all(&contents_dir)
+            .map_err(|e| format!("Failed to create contents dir: {}", e))?;
+
+        for entry in std::fs::read_dir(&build_out_dir)
+            .map_err(|e| format!("Failed to read build output: {}", e))?
+        {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let dest = contents_dir.join(entry.file_name());
+            if let Err(e) = std::fs::copy(entry.path(), &dest) {
+                let _ = std::fs::remove_dir_all(&build_out_dir);
+                if e.to_string().contains("being used by another process") {
+                    return Err("AutoCAD is currently running.\n\nPlease close AutoCAD completely, then click Reinstall again.".to_string());
+                }
+                return Err(format!("Failed to copy plugin file: {}", e));
+            }
+        }
+        let _ = std::fs::remove_dir_all(&build_out_dir);
     } else {
         // AutoCAD 2022-2024: compile with csc.exe (.NET Framework 4.x)
         const CS_SOURCE: &str = include_str!("../resources/autocad-plugin/AnarchyAutoCad.cs");
@@ -797,7 +879,6 @@ async fn install_autocad_plugin(versions: Option<Vec<String>>) -> Result<Vec<Str
             .ok_or_else(|| "PresentationFramework.dll not found".to_string())?;
         let windows_base = find_wpf_assembly("WindowsBase.dll")
             .ok_or_else(|| "WindowsBase.dll not found".to_string())?;
-
         let cs_path = contents_dir.join("AnarchyAutoCad.cs");
         std::fs::write(&cs_path, CS_SOURCE)
             .map_err(|e| format!("Failed to write C# source: {}", e))?;
@@ -1011,7 +1092,7 @@ async fn start_anarchy_viewport_server(app_handle: tauri::AppHandle) {
                     }
                 }
 
-                if buffer.len() > 1024 * 1024 * 30 {
+                if buffer.len() > 1024 * 1024 * 80 {
                     break;
                 }
             }
@@ -1027,9 +1108,10 @@ async fn start_anarchy_viewport_server(app_handle: tauri::AppHandle) {
             let status = if is_upload_view {
                 match serde_json::from_str::<UploadViewPayload>(&body) {
                     Ok(payload) if payload.image.starts_with("data:image/") => {
+                        let source = if payload.source.is_empty() { "3ds Max".to_string() } else { payload.source.clone() };
                         let _ = app.emit("anarchy://external-image", ExternalImagePayload {
                             image: payload.image,
-                            source: "3ds Max".to_string(),
+                            source,
                         });
                         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"ok\":true}"
                     }
@@ -1091,6 +1173,170 @@ async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, Strin
     }
 }
 
+/// Read an image from the Windows clipboard and return it as a base64 PNG data URI
+#[tauri::command]
+fn read_clipboard_image() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::ffi::c_void;
+
+        extern "system" {
+            fn OpenClipboard(hwnd: *mut c_void) -> i32;
+            fn CloseClipboard() -> i32;
+            fn GetClipboardData(format: u32) -> *mut c_void;
+            fn GlobalLock(hmem: *mut c_void) -> *mut c_void;
+            fn GlobalUnlock(hmem: *mut c_void) -> i32;
+            fn GlobalSize(hmem: *mut c_void) -> usize;
+            fn IsClipboardFormatAvailable(format: u32) -> i32;
+        }
+
+        const CF_BITMAP: u32 = 2;
+        const CF_DIB: u32 = 8;
+        const CF_DIBV5: u32 = 17;
+        const CF_PNG: u32 = 49161; // Registered clipboard format for PNG
+
+        unsafe {
+            // Check if any supported image format is available
+            let has_dibv5 = IsClipboardFormatAvailable(CF_DIBV5) != 0;
+            let has_dib = IsClipboardFormatAvailable(CF_DIB) != 0;
+            let has_bitmap = IsClipboardFormatAvailable(CF_BITMAP) != 0;
+            let has_png = IsClipboardFormatAvailable(CF_PNG) != 0;
+
+            if !has_dibv5 && !has_dib && !has_bitmap && !has_png {
+                return Err("No image in clipboard".to_string());
+            }
+
+            if OpenClipboard(std::ptr::null_mut()) == 0 {
+                return Err("Failed to open clipboard".to_string());
+            }
+
+            // Prefer PNG > DIBv5 > DIB (PNG is usually best quality from modern apps)
+            let mut fmt: u32;
+            if has_png {
+                fmt = CF_PNG;
+            } else if has_dibv5 {
+                fmt = CF_DIBV5;
+            } else if has_dib {
+                fmt = CF_DIB;
+            } else {
+                fmt = CF_DIB; // fallback
+            }
+
+            // If PNG is available, try to use it directly
+            if fmt == CF_PNG {
+                let handle = GetClipboardData(CF_PNG);
+                if !handle.is_null() {
+                    let ptr = GlobalLock(handle);
+                    if !ptr.is_null() {
+                        let size = GlobalSize(handle);
+                        let png_bytes: Vec<u8> = std::slice::from_raw_parts(ptr as *const u8, size).to_vec();
+                        GlobalUnlock(handle);
+                        CloseClipboard();
+                        // Validate PNG and encode as base64
+                        if png_bytes.len() > 8 && &png_bytes[0..8] == &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] {
+                            let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
+                            return Ok(format!("data:image/png;base64, {}", b64));
+                        }
+                        // PNG bytes invalid, fall through to try other formats
+                        if !has_dibv5 && !has_dib && !has_bitmap {
+                            return Err("PNG in clipboard but invalid data".to_string());
+                        }
+                        // Re-open clipboard to try other formats
+                        if OpenClipboard(std::ptr::null_mut()) == 0 {
+                            return Err("Failed to reopen clipboard".to_string());
+                        }
+                        fmt = if has_dibv5 { CF_DIBV5 } else { CF_DIB };
+                    } else {
+                        GlobalUnlock(handle);
+                    }
+                }
+            }
+
+            let handle = GetClipboardData(fmt);
+            if handle.is_null() {
+                CloseClipboard();
+                return Err("Failed to get clipboard data".to_string());
+            }
+
+            let ptr = GlobalLock(handle);
+            if ptr.is_null() {
+                CloseClipboard();
+                return Err("Failed to lock clipboard memory".to_string());
+            }
+
+            let size = GlobalSize(handle);
+            let dib_bytes: Vec<u8> = std::slice::from_raw_parts(ptr as *const u8, size).to_vec();
+            GlobalUnlock(handle);
+            CloseClipboard();
+
+            // DIB starts with BITMAPINFOHEADER - convert to PNG via BMP file format
+            // BMP file = 14-byte file header + DIB data
+            let file_size = (14 + dib_bytes.len()) as u32;
+            // Read pixel data offset from DIB header (header size + color table)
+            let header_size = u32::from_le_bytes([dib_bytes[0], dib_bytes[1], dib_bytes[2], dib_bytes[3]]);
+            let bit_count = u16::from_le_bytes([dib_bytes[14], dib_bytes[15]]);
+            let compression = u32::from_le_bytes([dib_bytes[16], dib_bytes[17], dib_bytes[18], dib_bytes[19]]);
+            let clr_used = u32::from_le_bytes([dib_bytes[36], dib_bytes[37], dib_bytes[38], dib_bytes[39]]);
+
+            let color_table_size = if bit_count <= 8 {
+                let entries = if clr_used > 0 { clr_used } else { 1u32 << bit_count };
+                entries * 4
+            } else if compression == 3 || compression == 6 {
+                // BI_BITFIELDS or BI_ALPHABITFIELDS
+                if fmt == CF_DIBV5 { 0u32 } else { 12u32 }
+            } else {
+                0u32
+            };
+
+            let pixel_offset: u32 = 14 + header_size + color_table_size;
+
+            let mut bmp: Vec<u8> = Vec::with_capacity(14 + dib_bytes.len());
+            // BMP signature
+            bmp.push(b'B'); bmp.push(b'M');
+            bmp.extend_from_slice(&file_size.to_le_bytes());
+            bmp.extend_from_slice(&0u16.to_le_bytes()); // reserved1
+            bmp.extend_from_slice(&0u16.to_le_bytes()); // reserved2
+            bmp.extend_from_slice(&pixel_offset.to_le_bytes());
+            bmp.extend_from_slice(&dib_bytes);
+
+            // Use image crate to decode BMP and re-encode as PNG
+            match image::load_from_memory_with_format(&bmp, image::ImageFormat::Bmp) {
+                Ok(img) => {
+                    let mut png_bytes: Vec<u8> = Vec::new();
+                    img.write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png)
+                        .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+                    let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
+                    Ok(format!("data:image/png;base64,{}", b64))
+                }
+                Err(e) => Err(format!("Failed to decode clipboard BMP: {}", e)),
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Clipboard image reading not supported on this platform".to_string())
+    }
+}
+
+/// Read a local image file from disk and return it as a base64 data URI
+#[tauri::command]
+async fn read_local_image(path: String) -> Result<String, String> {
+    let bytes = std::fs::read(&path)
+        .map_err(|e| format!("Failed to read image file: {}", e))?;
+
+    let lower = path.to_lowercase();
+    let mime = if lower.ends_with(".png") { "image/png" }
+               else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") { "image/jpeg" }
+               else if lower.ends_with(".webp") { "image/webp" }
+               else if lower.ends_with(".gif") { "image/gif" }
+               else if lower.ends_with(".bmp") { "image/bmp" }
+               else if lower.ends_with(".tiff") || lower.ends_with(".tif") { "image/tiff" }
+               else { "image/jpeg" };
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{};base64,{}", mime, b64))
+}
+
 #[tauri::command]
 async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     use tauri_plugin_updater::UpdaterExt;
@@ -1112,11 +1358,11 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            http_post, http_get, upload_image, url_to_base64,
+            http_post, http_get, upload_image, upload_to_replicate, url_to_base64,
             save_file, load_file, list_dir, delete_file, ensure_dir,
             detect_autodesk_installs, install_3dsmax_plugin, install_revit_plugin, install_autocad_plugin,
             remove_old_autodesk_plugins, get_app_data_dir,
-            save_image_to_documents,
+            save_image_to_documents, read_local_image, read_clipboard_image,
             check_update, install_update
         ])
         .run(tauri::generate_context!())

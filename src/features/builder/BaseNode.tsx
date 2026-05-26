@@ -3,13 +3,13 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { 
   Eye, Maximize2, Upload,
   FileInput, Wand2, X, Sun, Moon, Users, 
-  Maximize, Palette, Scissors, RefreshCw, Loader2,
-  AlertCircle
+  Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
+import { ExportModal } from '../../components/ExportModal';
 import './BaseNode.css';
 import './BaseNode.glass.css';
-import type { ProcessingType, BuilderNodeData, NodeType, NodeState } from './types';
+import type { ProcessingType, BuilderNodeData } from './types';
 
 interface BaseNodeProps extends NodeProps {
   data: BuilderNodeData;
@@ -33,8 +33,8 @@ const PROCESSING_CONFIG: Record<ProcessingType, { icon: React.ReactNode; color: 
 export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const nodeData = data;
   const displayImage = nodeData.image || nodeData.outputData?.image;
-  const nodeType = nodeData.type as NodeType;
-  const nodeState = (nodeData.state || 'idle') as NodeState;
+  const nodeType = nodeData.type;
+  const nodeState = nodeData.state || 'idle';
   
   // Determine node type flags (BaseNode only handles Source and Result nodes)
   const isSource = nodeType === 'source';
@@ -51,6 +51,17 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [exportTarget, setExportTarget] = useState<{ url: string; name: string } | null>(null);
+  const [lightbox, setLightbox] = useState<'preview' | 'expand' | null>(null);
+  const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
+
+  const handleExportClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const imageUrl = displayImage;
+    if (imageUrl) {
+      setExportTarget({ url: imageUrl, name: `${nodeData.label || nodeData.type}_${Date.now()}` });
+    }
+  };
 
   const processFiles = async (files: File[]) => {
     if (!files.length) return;
@@ -178,13 +189,22 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
               )}
             </div>
           </div>
-          {!isSource && nodeData.onDelete && (
-            <div className="node-actions">
-              <button className="node-action-btn delete" onClick={nodeData.onDelete} title="Delete">
+          <div className="node-actions">
+            {displayImage && (
+              <button
+                className="node-action-btn download"
+                onClick={handleExportClick}
+                title="Export Image"
+              >
+                <Download size={12} />
+              </button>
+            )}
+            {!isSource && nodeData.onDelete && (
+              <button className="node-action-btn delete" onClick={(e) => { e.stopPropagation(); nodeData.onDelete?.(); }} title="Delete">
                 <X size={12} />
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Content Section */}
@@ -200,13 +220,37 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
             >
               {displayImage ? (
                 <>
-                  <img src={displayImage} alt={nodeData.label} />
+                  <img
+                    src={displayImage}
+                    alt={nodeData.label}
+                    onLoad={(e) => {
+                      const img = e.currentTarget;
+                      setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
+                    }}
+                  />
+                  {imgDims && (
+                    <div className="image-res-badge">{imgDims.w}×{imgDims.h}</div>
+                  )}
+                  {/* Watermark indicator for result nodes */}
+                  {isResult && (
+                    <div className="watermark-badge" title="Watermarked">
+                      <Copyright size={10} />
+                    </div>
+                  )}
                   <div className="image-overlay">
                     <div className="image-actions">
-                      <button className="image-action-btn preview" title="Preview">
+                      <button
+                        className="image-action-btn preview"
+                        title="Preview"
+                        onClick={(e) => { e.stopPropagation(); setLightbox('preview'); }}
+                      >
                         <Eye size={14} />
                       </button>
-                      <button className="image-action-btn expand" title="Expand">
+                      <button
+                        className="image-action-btn expand"
+                        title="Full Screen"
+                        onClick={(e) => { e.stopPropagation(); setLightbox('expand'); }}
+                      >
                         <Maximize2 size={14} />
                       </button>
                       {isSource && (
@@ -260,6 +304,54 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
       </div>
 
       <Handle type="source" position={Position.Right} id="source" className="anarchy-handle" />
+
+      {/* Export Modal */}
+      {exportTarget && (
+        <ExportModal
+          imageUrl={exportTarget.url}
+          imageName={exportTarget.name}
+          onClose={() => setExportTarget(null)}
+        />
+      )}
+
+      {/* Lightbox */}
+      {lightbox && displayImage && (
+        <div
+          className={`node-lightbox ${lightbox === 'expand' ? 'node-lightbox--fullscreen' : ''}`}
+          onClick={() => setLightbox(null)}
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <img
+            src={displayImage}
+            alt={nodeData.label}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: lightbox === 'expand' ? '95vw' : '70vw',
+              maxHeight: lightbox === 'expand' ? '95vh' : '70vh',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+            }}
+          />
+          <button
+            onClick={() => setLightbox(null)}
+            style={{
+              position: 'absolute', top: 16, right: 16,
+              background: 'rgba(255,255,255,0.1)', border: 'none',
+              borderRadius: '50%', width: 32, height: 32,
+              cursor: 'pointer', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Prompt display outside node boundary for result nodes */}
       {isResult && nodeData.prompt && (

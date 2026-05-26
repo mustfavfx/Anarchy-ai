@@ -12,8 +12,8 @@ import { ChangelogModal } from './ChangelogModal';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import './DashboardPage.css';
 
-// Pick a curated set of quick presets from the library
-const QUICK_PRESETS = PRESET_PROMPTS.flatMap(g => g.prompts).slice(0, 12);
+// Pick one preset from each category for diversity
+const QUICK_PRESETS = PRESET_PROMPTS.map(g => g.prompts[0]);
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -81,11 +81,11 @@ export const DashboardPage: React.FC = () => {
               <span className="action-sub">Resume your work</span>
             </div>
           </button>
-          <button className="action-card" onClick={() => navigate('/generate')}>
-            <div className="action-icon"><Sparkles size={20} /></div>
+          <button className="action-card" onClick={() => navigate('/history')}>
+            <div className="action-icon"><History size={20} /></div>
             <div className="action-info">
-              <span className="action-title">Quick Generate</span>
-              <span className="action-sub">AI image generation</span>
+              <span className="action-title">History</span>
+              <span className="action-sub">View your generations</span>
             </div>
           </button>
           <button className="action-card" onClick={() => navigate('/library')}>
@@ -98,7 +98,7 @@ export const DashboardPage: React.FC = () => {
         </section>
 
         {/* Stats Row */}
-        {recentProjects.length > 0 && (
+        {(
           <section className="stats-row">
             <div className="stat-card">
               <Folder size={18} className="stat-icon" />
@@ -121,7 +121,8 @@ export const DashboardPage: React.FC = () => {
               <div className="stat-label">Connections</div>
             </div>
           </section>
-        )}
+        )
+        }
 
         {/* Quick Presets */}
         <section className="dashboard-section">
@@ -212,7 +213,7 @@ export const DashboardPage: React.FC = () => {
               <History size={24} className="info-card-icon" />
               <span className="info-card-title">Changelog</span>
             </button>
-            <button className="info-card" onClick={() => navigate('/settings')}>
+            <button className="info-card" onClick={() => navigate('/privacy')}>
               <Shield size={24} className="info-card-icon" />
               <span className="info-card-title">Privacy Policy</span>
             </button>

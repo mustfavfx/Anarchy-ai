@@ -35,6 +35,46 @@
   margin: 0;
 }
 
+.int-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.int-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(225, 29, 72, 0.1);
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: #ff6b6b;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.int-refresh-btn:hover:not(:disabled) {
+  background: rgba(225, 29, 72, 0.2);
+  border-color: rgba(225, 29, 72, 0.3);
+}
+
+.int-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.int-refresh-btn .spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .int-search {
   display: flex;
   align-items: center;
@@ -82,12 +122,12 @@
 .int-stat-val {
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  color: #f8fafc;
 }
 
 .int-stat-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -135,8 +175,8 @@
 
 /* ── Card ── */
 .int-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: #0a0a0c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   padding: 20px;
   cursor: pointer;

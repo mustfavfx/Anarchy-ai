@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Settings, Shield, Database,
   Check,
@@ -15,7 +15,6 @@ import './SettingsPage.css';
 
 interface AppSettings {
   theme: 'dark' | 'light';
-  language: string;
   notifications: boolean;
   soundEffects: boolean;
   saveLocation: string;
@@ -28,12 +27,11 @@ interface AppSettings {
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
-  language: 'en',
   notifications: true,
   soundEffects: false,
   saveLocation: '',
   apiKey: '',
-  defaultModel: 'google/nano-banana-2',
+  defaultModel: 'black-forest-labs/flux-2-pro',
   defaultUpscale: false,
   maxHistory: 500,
   clearOnExit: false,
@@ -52,8 +50,6 @@ export const SettingsPage: React.FC = () => {
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'up-to-date' | 'error'>('idle');
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClearData, setConfirmClearData] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [appVersion, setAppVersion] = useState('...');
 
   useEffect(() => {
@@ -459,18 +455,33 @@ export const SettingsPage: React.FC = () => {
                         className="setting-input save-location-input"
                         value={settings.saveLocation}
                         onChange={e => updateSetting('saveLocation', e.target.value)}
-                        placeholder="Select save location..."
+                        placeholder="Default: App data folder"
                         readOnly
                       />
                       <button 
                         className="btn-secondary browse-btn"
-                        onClick={() => {
-                          // Open folder picker - will be implemented with Tauri
-                          console.log('Browse for save location');
+                        onClick={async () => {
+                          try {
+                            const { open } = await import('@tauri-apps/plugin-dialog');
+                            const selected = await open({ directory: true, multiple: false });
+                            if (selected && typeof selected === 'string') {
+                              updateSetting('saveLocation', selected);
+                            }
+                          } catch { /* cancelled or unavailable */ }
                         }}
                       >
                         Browse
                       </button>
+                      {settings.saveLocation && (
+                        <button
+                          className="btn-secondary"
+                          title="Clear"
+                          onClick={() => updateSetting('saveLocation', '')}
+                          style={{ padding: '0 8px' }}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

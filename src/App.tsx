@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './styles/theme.css';
 import { AppShell } from './features/shell/AppShell';
-import { MultiBuilderPage } from './features/builder/MultiBuilderPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ProjectsPage } from './features/projects/ProjectsPage';
 import { GeneratePage } from './features/generate/GeneratePage';
@@ -26,7 +25,7 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/dashboard" element={<Navigate to="/" replace />} />
-              <Route path="/builder" element={<MultiBuilderPage />} />
+              <Route path="/builder" element={null} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/generate" element={<GeneratePage />} />
               <Route path="/lora" element={<LoraTrainingPage />} />

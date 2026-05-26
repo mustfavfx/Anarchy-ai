@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutGrid, FolderOpen, Hammer, Sparkles, Box, Library, History, Zap, Settings, User, ChevronLeft, ChevronRight, Bot, Wand2 } from 'lucide-react';
+import { LayoutGrid, FolderOpen, Hammer, Box, Library, History, Zap, Settings, User, ChevronLeft, ChevronRight, Bot, Wand2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { useAuth } from '../auth/AuthContext';

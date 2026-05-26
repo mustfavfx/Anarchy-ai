@@ -6,6 +6,66 @@
   background-color: #0a0a0c;
 }
 
+/* Enhanced Drag & Drop Styles */
+.canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(225, 29, 72, 0.1);
+  border: 3px dashed #e11d48;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: dropOverlayPulse 2s infinite;
+}
+
+.canvas-drop-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.canvas-drop-icon {
+  font-size: 48px;
+  animation: dropIconBounce 1s infinite;
+}
+
+@keyframes dropOverlayPulse {
+  0%, 100% {
+    background: rgba(225, 29, 72, 0.1);
+    border-color: #e11d48;
+  }
+  50% {
+    background: rgba(225, 29, 72, 0.2);
+    border-color: #f43f5e;
+  }
+}
+
+@keyframes dropIconBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
 /* Fix React Flow connection lines */
 .react-flow__connection-line {
   stroke: #e11d48 !important;
@@ -51,45 +111,7 @@
 }
 
 
-/* ── Drag & Drop overlay ── */
-.canvas-drop-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 100;
-  background: rgba(10, 10, 11, 0.75);
-  border: 2px dashed rgba(225, 29, 72, 0.6);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  backdrop-filter: blur(4px);
-  animation: dropPulse 1s ease-in-out infinite alternate;
-}
-
-@keyframes dropPulse {
-  from { border-color: rgba(225, 29, 72, 0.4); background: rgba(10, 10, 11, 0.7); }
-  to   { border-color: rgba(225, 29, 72, 0.9); background: rgba(225, 29, 72, 0.06); }
-}
-
-.canvas-drop-hint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 15px;
-  font-weight: 500;
-  user-select: none;
-}
-
-.canvas-drop-icon {
-  font-size: 40px;
-  line-height: 1;
-  filter: drop-shadow(0 0 12px rgba(225, 29, 72, 0.5));
-}
-
-/* Adjust Canvas Container to handle children layout */
+/* Canvas Container Layout */
 .canvas-container {
   flex: 1;
   height: 100%;
@@ -681,6 +703,7 @@
   transform: translateX(-50%);
   width: calc(100% - 48px);
   max-width: 720px;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -777,6 +800,30 @@
   opacity: 0.4;
   cursor: not-allowed;
   transform: none;
+}
+
+.export-all-btn {
+  height: 40px;
+  width: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.export-all-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.export-all-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* Prompt Bubble in Inspector */
@@ -949,32 +996,9 @@
 }
 
 /* ================================================================
-   REACT FLOW EDGES - Premium Connection Styling
+   REACT FLOW EDGES - Enhanced Styling (Complete)
    ================================================================ */
-.react-flow__edge-path {
-  stroke: url(#edge-gradient) !important;
-  stroke-width: 2px !important;
-  transition: all 0.3s ease;
-}
 
-.react-flow__edge:hover .react-flow__edge-path {
-  stroke-width: 3px !important;
-  filter: drop-shadow(0 0 4px rgba(225, 29, 72, 0.4));
-}
-
-.react-flow__edge.selected .react-flow__edge-path {
-  stroke: var(--accent-red) !important;
-  stroke-width: 3px !important;
-  filter: drop-shadow(0 0 6px rgba(225, 29, 72, 0.5));
-}
-
-/* Edge animated flow effect */
-.react-flow__connection-line {
-  stroke: var(--accent-red) !important;
-  stroke-width: 2px !important;
-  stroke-dasharray: 5, 5;
-  animation: flow-dash 1s linear infinite;
-}
 
 @keyframes flow-dash {
   from { stroke-dashoffset: 10; }
@@ -1089,20 +1113,23 @@
    ================================================================ */
 .builder-context-menu {
   position: fixed;
-  min-width: 250px;
-  padding: 10px;
+  min-width: 200px;
+  max-height: min(420px, calc(100vh - 24px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 5px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 1px;
   background: linear-gradient(180deg, rgba(20, 20, 26, 0.98) 0%, rgba(14, 14, 18, 0.96) 100%);
   border: 1px solid rgba(225, 29, 72, 0.25);
-  border-radius: 12px;
+  border-radius: 10px;
   backdrop-filter: blur(18px);
   box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.58),
+    0 14px 36px rgba(0, 0, 0, 0.58),
     0 0 0 1px rgba(225, 29, 72, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 30px rgba(225, 29, 72, 0.1);
+    0 0 24px rgba(225, 29, 72, 0.1);
   z-index: 1200;
   animation: menuSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1119,40 +1146,41 @@
 }
 
 .builder-context-menu .context-menu-title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: #e11d48;
-  padding: 4px 8px 6px;
+  padding: 3px 6px 4px;
   border-bottom: 1px solid rgba(225, 29, 72, 0.2);
   margin-bottom: 2px;
   background: rgba(225, 29, 72, 0.05);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .builder-context-menu .context-section-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(225, 29, 72, 0.6);
-  padding: 3px 8px;
+  padding: 2px 6px;
+  margin-top: 2px;
 }
 
 .builder-context-menu .context-item {
   width: 100%;
-  padding: 9px 10px;
+  padding: 5px 7px;
   border: none;
-  border-radius: 8px;
+  border-radius: 5px;
   background: transparent;
   color: rgba(255, 255, 255, 0.9);
   text-align: left;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   cursor: pointer;
   transition: all 0.15s ease;
   border: 1px solid transparent;
@@ -1180,28 +1208,12 @@
   transform: scale(1.1);
 }
 
-.builder-context-menu .context-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.builder-context-menu .context-main {
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.builder-context-menu .context-sub {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
-}
+/* .context-text and .context-sub removed - now using single-line layout */
 
 .builder-context-menu .context-item.danger {
   color: #fb7185;
 }
 
-.builder-context-menu .context-item.danger .context-main,
 .builder-context-menu .context-item.danger .context-icon {
   color: #fb7185;
 }
@@ -1234,47 +1246,7 @@
   object-fit: contain;
 }
 
-/* ── Prompt Bar ── */
-.builder-prompt-container {
-  position: absolute;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(720px, 90%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(10, 10, 12, 0.55);
-  backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 10px 10px 10px 18px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.03);
-  z-index: 50;
-  transition: border-color 0.2s;
-}
-
-.builder-prompt-container:focus-within {
-  border-color: rgba(225, 29, 72, 0.35);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(225, 29, 72, 0.12);
-}
-
-.builder-prompt-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.5;
-  min-width: 0;
-  resize: none;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
+/* ── Prompt Bar (Using existing styles above) ── */
 
 .builder-prompt-input::placeholder {
   color: rgba(255, 255, 255, 0.28);
@@ -1502,5 +1474,58 @@
 .btn-add-credit:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(225, 29, 72, 0.35);
+}
+
+/* ── React Flow Edge & Handle Connection Styles ─────────────────────────── */
+
+/* Ensure edges properly connect to handles */
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Make connection points (handles) more visible and connected */
+.react-flow__handle {
+  opacity: 1 !important;
+  z-index: 100 !important;
+}
+
+/* Ensure edges start/end exactly at handle positions */
+.react-flow__connection-line {
+  stroke: #e11d48 !important;
+  stroke-width: 2 !important;
+}
+
+/* Improve edge visibility during connection */
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #e11d48 !important;
+  stroke-width: 3 !important;
+  filter: drop-shadow(0 0 4px rgba(225, 29, 72, 0.5));
+}
+
+/* ── Responsive: prompt bar on small windows ── */
+@media (max-width: 600px) {
+  .builder-prompt-container {
+    bottom: 60px;
+    width: calc(100% - 16px);
+    padding: 4px 4px 4px 12px;
+    gap: 6px;
+    border-radius: 10px;
+  }
+  .builder-prompt-container .generate-btn span {
+    display: none;
+  }
+  .builder-prompt-container .generate-btn {
+    padding: 0 12px;
+    min-width: 40px;
+  }
+  .prompt-left-actions {
+    gap: 4px;
+  }
+  .prompt-left-actions button {
+    width: 28px;
+    height: 28px;
+  }
 }
 

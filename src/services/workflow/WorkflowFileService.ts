@@ -12,16 +12,29 @@ import type { Node, Edge } from '@xyflow/react';
 const FILE_EXTENSION = 'ana';
 const FILE_DESCRIPTION = 'Anarchy AI Project';
 const FILE_VERSION = 1;
+const PROGRAM_SIGNATURE = 'ANARCHY_AI_PROJECT_FILE';
+const PROGRAM_NAME = 'Anarchy AI';
+const PROGRAM_VERSION = '0.07';
 
 export interface WorkflowFile {
+  signature: string; // Program identity signature
   version: number;
+  fileVersion: number; // File format version
   appVersion: string;
+  program: string; // Program name
+  programVersion: string; // Program version
+  website: string; // Program website
   createdAt: number;
   updatedAt: number;
   name: string;
   nodes: SerializedNode[];
   edges: SerializedEdge[];
   thumbnail?: string; // Base64 encoded image preview
+  metadata?: {
+    nodeCount: number;
+    edgeCount: number;
+    exportedAt: string;
+  };
 }
 
 interface SerializedNode {
@@ -121,8 +134,14 @@ export async function saveWorkflow(
   let filePath = lastSavePath;
 
   if (needsDialog) {
+    const savedSettings = localStorage.getItem('anarchy_settings');
+    const saveLocation: string = savedSettings ? (JSON.parse(savedSettings).saveLocation || '') : '';
+    const baseName = (options?.name || 'untitled').replace(/\.ana$/i, '');
+    const defaultPath = saveLocation
+      ? `${saveLocation}\\${baseName}.ana`
+      : `${baseName}.ana`;
     const selected = await save({
-      defaultPath: options?.name || 'untitled.ana',
+      defaultPath,
       filters: [{ name: FILE_DESCRIPTION, extensions: [FILE_EXTENSION] }],
     });
     if (!selected) return null; // User cancelled
@@ -132,14 +151,24 @@ export async function saveWorkflow(
   if (!filePath) return null;
 
   const workflow: WorkflowFile = {
+    signature: PROGRAM_SIGNATURE,
     version: FILE_VERSION,
-    appVersion: '0.07',
+    fileVersion: FILE_VERSION,
+    appVersion: PROGRAM_VERSION,
+    program: PROGRAM_NAME,
+    programVersion: PROGRAM_VERSION,
+    website: 'https://anarchy-ai.com',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     name: options?.name || extractFilename(filePath),
     nodes: serializeNodes(nodes),
     edges: serializeEdges(edges),
     thumbnail: options?.thumbnail,
+    metadata: {
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      exportedAt: new Date().toISOString(),
+    },
   };
 
   const json = JSON.stringify(workflow, null, 2);
@@ -195,6 +224,11 @@ export async function loadWorkflow(): Promise<{
   // Version check
   if (!workflow.version || !workflow.nodes) {
     throw new Error('Invalid workflow file format');
+  }
+
+  // Validate program signature (if present - for backwards compatibility)
+  if (workflow.signature && workflow.signature !== PROGRAM_SIGNATURE) {
+    throw new Error('Invalid project file signature. This file may be corrupted or from a different program.');
   }
 
   lastSavePath = filePath;

@@ -1,6 +1,8 @@
 use std::path::Path;
 
 fn main() {
+    // Re-run build script when tauri.conf.json changes (e.g. CSP updates)
+    println!("cargo:rerun-if-changed=tauri.conf.json");
     // Check if icon exists before building Windows resource
     let icon_path = Path::new("icons/icon.ico");
     if icon_path.exists() {

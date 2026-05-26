@@ -55,7 +55,6 @@ export const GENERATION_COST = {
   standard: 3,     // flux-schnell ~$0.003 (cheapest)
   hd: 25,          // flux-dev ~$0.025
   '4k': 40,        // flux-1.1-pro ~$0.04
-  premium: 90,     // ideogram-v3 ~$0.09
   
   // Video Generation (per second)
   video480: 90,    // wan-2.1-i2v-480p ~$0.09/sec

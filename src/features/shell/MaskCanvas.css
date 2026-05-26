@@ -1,0 +1,394 @@
+/* ============================================
+   MaskCanvas Component Styles
+   ============================================ */
+
+.mask-canvas-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: #0a0a0b;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ── Empty State ───────────────────────────────────────────────────────────── */
+
+.mask-canvas-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 40px;
+}
+
+.mask-canvas-empty span {
+  font-size: 16px;
+}
+
+.mask-canvas-empty small {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+
+.mask-canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(20, 20, 25, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.mask-canvas-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mask-canvas-tool {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mask-canvas-tool:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.mask-canvas-tool.active {
+  background: rgba(225, 29, 72, 0.25);
+  color: #fecdd3;
+}
+
+.mask-canvas-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mask-canvas-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mask-canvas-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mask-canvas-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
+.mask-canvas-slider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+}
+
+.mask-canvas-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e11d48;
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+.mask-canvas-value {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 28px;
+  text-align: center;
+}
+
+.mask-canvas-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.mask-canvas-action {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mask-canvas-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.mask-canvas-action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.mask-canvas-action.clear {
+  color: #ef4444;
+}
+
+.mask-canvas-action.clear:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ── Canvas Wrapper ────────────────────────────────────────────────────────── */
+
+.mask-canvas-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0e0e12;
+  border-radius: 0 0 12px 12px;
+  min-height: 200px;
+}
+
+.mask-canvas-base-image {
+  position: absolute;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.mask-canvas-draw {
+  position: absolute;
+  z-index: 10;
+  pointer-events: all;
+  touch-action: none;
+}
+
+.mask-canvas-cursor {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(225, 29, 72, 0.8);
+  background: rgba(225, 29, 72, 0.15);
+  pointer-events: none;
+  z-index: 20;
+  transform: translate(-50%, -50%);
+  transition: width 0.1s, height 0.1s;
+}
+
+/* ── Generate Section ──────────────────────────────────────────────────────── */
+
+.mask-canvas-generate {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(20, 20, 25, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mask-canvas-prompt {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 13px;
+  outline: none;
+}
+
+.mask-canvas-prompt::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.mask-canvas-prompt:focus {
+  border-color: rgba(225, 29, 72, 0.4);
+}
+
+.mask-canvas-generate-btn {
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.mask-canvas-generate-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.mask-canvas-generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Hint ─────────────────────────────────────────────────────────────────── */
+
+.mask-canvas-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 20px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  z-index: 30;
+}
+
+.mask-canvas-hint span {
+  white-space: nowrap;
+}
+
+/* ============================================
+   Responsive - Small Screens
+   ============================================ */
+
+@media (max-width: 768px) {
+  .mask-canvas-toolbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .mask-canvas-tools {
+    gap: 4px;
+  }
+
+  .mask-canvas-tool {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mask-canvas-tool svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .mask-canvas-controls {
+    gap: 10px;
+  }
+
+  .mask-canvas-control {
+    gap: 6px;
+  }
+
+  .mask-canvas-slider {
+    width: 60px;
+  }
+
+  .mask-canvas-label {
+    font-size: 10px;
+  }
+
+  .mask-canvas-value {
+    font-size: 10px;
+    min-width: 24px;
+  }
+
+  .mask-canvas-actions {
+    gap: 4px;
+  }
+
+  .mask-canvas-action {
+    width: 28px;
+    height: 28px;
+  }
+
+  .mask-canvas-hint {
+    gap: 12px;
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+
+  .mask-canvas-generate {
+    padding: 10px 12px;
+  }
+
+  .mask-canvas-prompt {
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .mask-canvas-generate-btn {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mask-canvas-toolbar {
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .mask-canvas-controls {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .mask-canvas-slider {
+    width: 50px;
+  }
+
+  .mask-canvas-hint {
+    display: none;
+  }
+
+  .mask-canvas-generate {
+    flex-direction: column;
+  }
+
+  .mask-canvas-generate-btn {
+    width: 100%;
+  }
+}

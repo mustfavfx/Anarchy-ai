@@ -2,10 +2,10 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Image, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download } from 'lucide-react';
 import { ExportModal } from '../../components/ExportModal';
 import { AIControlPanel } from '../builder/AIControlPanel';
+import { MaskCanvas } from './MaskCanvas';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { ReplicateImageModel, ReplicateUpscaleModel } from '../../services/replicate';
 import { replicateService } from '../../services/replicate';
-import { maskService } from '../../services/mask/MaskService';
 import './RightSidebar.css';
 
 export const RightSidebar: React.FC = () => {
@@ -62,18 +62,9 @@ export const RightSidebar: React.FC = () => {
   // Compare split slider state
   const [compareSplit, setCompareSplit] = useState(50); // 0-100%, 50 = middle
   
-  // Mask/Draw mode state
-  const canvasRef        = useRef<HTMLCanvasElement>(null);
-  const wrapperRef       = useRef<HTMLDivElement>(null);
-  const [isDrawing, setIsDrawing]                 = useState(false);
-  const [maskPrompt, setMaskPrompt]               = useState('');
-  const [maskResult, setMaskResult]               = useState<string | null>(null);
-  const [isProcessingMask, setIsProcessingMask]   = useState(false);
-  const [maskTool, setMaskTool]                   = useState<'brush' | 'eraser' | 'lasso'>('brush');
-  const [maskOpacity, setMaskOpacity]             = useState(0.55);
-  const [cursorPos, setCursorPos]                 = useState<{ x: number; y: number } | null>(null);
-  const lassoPointsRef = useRef<{ x: number; y: number }[]>([]);
-  const [imgNaturalSize, setImgNaturalSize]        = useState<{ w: number; h: number } | null>(null);
+  // Mask/Draw mode state - now handled by MaskCanvas component
+  const [maskResult, setMaskResult] = useState<string | null>(null);
+  const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
 
   const handleModelChange = useCallback((model: ReplicateImageModel | ReplicateUpscaleModel) => {
     setConfig(prev => ({ ...prev, model }));
@@ -118,6 +109,7 @@ export const RightSidebar: React.FC = () => {
     prunaEnhanceDetails?: boolean;
     prunaEnhanceRealism?: boolean;
     prunaQuality?: number;
+    prunaOutputFormat?: string;
   }) => {
     setConfig(prev => ({
       ...prev,
@@ -127,212 +119,6 @@ export const RightSidebar: React.FC = () => {
     }));
   }, [setConfig]);
 
-  // Local wrapper that uses current selectedNode
-  const handleSetCompareSlot = (slot: 'A' | 'B') => {
-    if (selectedNode?.image) {
-      setCompareSlot(slot, selectedNode.image);
-    }
-  };
-
-  // Mask drawing state
-  const [brushSize, setBrushSize] = useState(30);
-  const historyRef      = useRef<ImageData[]>([]);
-  const historyIndexRef = useRef<number>(-1);
-  const [, forceUpdate] = useState<number>(0);
-  const lastPointRef    = useRef<{ x: number; y: number } | null>(null);
-
-  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (e.clientX - rect.left) * (canvas.width / rect.width),
-      y: (e.clientY - rect.top) * (canvas.height / rect.height),
-    };
-  };
-
-  // Resize canvas to match displayed image bounds (letter-box aware)
-  const syncCanvasSize = useCallback(() => {
-    const canvas  = canvasRef.current;
-    const wrapper = wrapperRef.current;
-    if (!canvas || !wrapper || !imgNaturalSize) return;
-    const { w, h } = imgNaturalSize;
-    const ww = wrapper.clientWidth;
-    const wh = wrapper.clientHeight;
-    const scale = Math.min(ww / w, wh / h);
-    const cw = Math.round(w * scale);
-    const ch = Math.round(h * scale);
-    if (canvas.width !== cw || canvas.height !== ch) {
-      canvas.width  = cw;
-      canvas.height = ch;
-      canvas.style.width  = `${cw}px`;
-      canvas.style.height = `${ch}px`;
-      canvas.style.left   = `${(ww - cw) / 2}px`;
-      canvas.style.top    = `${(wh - ch) / 2}px`;
-    }
-  }, [imgNaturalSize]);
-
-  useEffect(() => {
-    syncCanvasSize();
-    const obs = new ResizeObserver(syncCanvasSize);
-    if (wrapperRef.current) obs.observe(wrapperRef.current);
-    return () => obs.disconnect();
-  }, [syncCanvasSize]);
-
-  // Use state for undo/redo buttons instead of ref
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const [, setHistoryTrigger] = useState<number>(0);
-  
-  // Call this whenever history changes
-  const triggerHistoryUpdate = useCallback(() => {
-    setHistoryTrigger(t => t + 1);
-  }, []);
-  
-  // Update canUndo/canRedo when history changes
-  useEffect(() => {
-    setCanUndo(historyIndexRef.current > 0);
-    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [setHistoryTrigger]);
-
-  const pushHistory = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    // Remove future states if we're in middle of history
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
-    }
-    historyRef.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    historyIndexRef.current = historyRef.current.length - 1;
-    triggerHistoryUpdate();
-  }, [triggerHistoryUpdate]);
-
-  const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pt = getCanvasCoords(e);
-    if (!pt) return;
-
-    if (maskTool === 'lasso') {
-      lassoPointsRef.current = [pt];
-      setIsDrawing(true);
-      return;
-    }
-
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, brushSize / 2, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(225,29,72,${maskOpacity})`;
-    ctx.fill();
-    lastPointRef.current = pt;
-    setIsDrawing(true);
-  }, [brushSize, maskTool, maskOpacity]);
-
-  const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    const pt = getCanvasCoords(e);
-    if (!pt) return;
-
-    // Update cursor position for custom circle cursor
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    }
-
-    if (maskTool === 'lasso') {
-      lassoPointsRef.current.push(pt);
-      // Draw lasso preview
-      const ctx = canvasRef.current?.getContext('2d');
-      if (ctx) {
-        const pts = lassoPointsRef.current;
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = 'rgba(225,29,72,0.9)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
-        pts.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.stroke();
-        ctx.restore();
-      }
-      return;
-    }
-
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
-    ctx.lineWidth = brushSize;
-    ctx.lineCap   = 'round';
-    ctx.lineJoin  = 'round';
-    ctx.strokeStyle = `rgba(225,29,72,${maskOpacity})`;
-    ctx.beginPath();
-    if (lastPointRef.current) {
-      ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
-      ctx.lineTo(pt.x, pt.y);
-      ctx.stroke();
-    }
-    lastPointRef.current = pt;
-  }, [isDrawing, maskTool, brushSize, maskOpacity]);
-
-  const stopDrawing = useCallback(() => {
-    if (isDrawing && maskTool === 'lasso') {
-      const ctx  = canvasRef.current?.getContext('2d');
-      const pts  = lassoPointsRef.current;
-      if (ctx && pts.length > 2) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = `rgba(225,29,72,${maskOpacity})`;
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
-        pts.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-      lassoPointsRef.current = [];
-      pushHistory();
-    } else if (isDrawing) {
-      pushHistory();
-    }
-    lastPointRef.current = null;
-    setIsDrawing(false);
-    setCursorPos(null);
-  }, [isDrawing, maskTool, maskOpacity, pushHistory]);
-
-  const clearMask = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    pushHistory();
-    setMaskResult(null);
-  }, [pushHistory]);
-
-  const undo = useCallback(() => {
-    if (historyIndexRef.current <= 0) return;
-    historyIndexRef.current--;
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    const state = historyRef.current[historyIndexRef.current];
-    if (state) ctx.putImageData(state, 0, 0);
-    forceUpdate(n => n + 1);
-    triggerHistoryUpdate();
-  }, [triggerHistoryUpdate]);
-
-  const redo = useCallback(() => {
-    if (historyIndexRef.current >= historyRef.current.length - 1) return;
-    historyIndexRef.current++;
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    const state = historyRef.current[historyIndexRef.current];
-    if (state) ctx.putImageData(state, 0, 0);
-    forceUpdate(n => n + 1);
-    triggerHistoryUpdate();
-  }, [triggerHistoryUpdate]);
 
   // Keyboard shortcuts for preview zoom (only active in preview mode)
   useEffect(() => {
@@ -349,91 +135,13 @@ export const RightSidebar: React.FC = () => {
     return () => globalThis.removeEventListener('keydown', onKey);
   }, [previewMode, fitToStage]);
 
-  // Keyboard shortcuts for mask tools (only active in draw mode)
-  useEffect(() => {
-    if (previewMode !== 'draw') return;
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      if (e.key === 'b' || e.key === 'B') setMaskTool('brush');
-      if (e.key === 'l' || e.key === 'L') setMaskTool('lasso');
-      if (e.key === 'e' || e.key === 'E') setMaskTool('eraser');
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
-    };
-    globalThis.addEventListener('keydown', onKey);
-    return () => globalThis.removeEventListener('keydown', onKey);
-  }, [previewMode, undo, redo]);
+  // Handle mask generation
+  const handleMaskGenerate = useCallback(async (_maskDataUrl: string, prompt: string) => {
+    if (!selectedNode?.image || !prompt.trim()) return;
 
-  // Initialize canvas on mount / image change
-  const onCanvasReady = useCallback((canvas: HTMLCanvasElement | null) => {
-    canvasRef.current = canvas;
-    if (canvas && historyRef.current.length === 0) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        historyRef.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
-        historyIndexRef.current = 0;
-      }
-    }
-  }, []);
-
-  // Select All
-  const selectAll = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgba(225,29,72,${maskOpacity})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.restore();
-    pushHistory();
-  }, [maskOpacity, pushHistory]);
-
-  // Invert selection
-  const invertMask = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = imgData.data;
-    for (let i = 3; i < d.length; i += 4) {
-      d[i] = 255 - d[i];
-    }
-    ctx.putImageData(imgData, 0, 0);
-    pushHistory();
-  }, [pushHistory]);
-
-  // Build a black/white mask from the current painted canvas (alpha → white)
-  const buildBlackWhiteMask = async (): Promise<string | null> => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    
     try {
-      const result = await maskService.buildMask(canvas, {
-        threshold: 10,
-        blur: 2,
-        feather: 3,
-        detectEdges: true,
-        detectShapes: true,
-      });
-      
-      return result.maskData;
-    } catch {
-      return null;
-    }
-  };
-
-  const processMask = async () => {
-    if (!selectedNode?.image || !maskPrompt.trim()) return;
-
-    setIsProcessingMask(true);
-    try {
-      // Build a black/white mask (debug/log for now)
-      await buildBlackWhiteMask();
-      // Note: True inpainting requires a KIE endpoint that accepts a mask.
-      // For now we use img2img with the prompt; future work: pass mask separately.
       const result = await replicateService.generateImg2Img({
-        prompt: maskPrompt,
+        prompt,
         model: 'black-forest-labs/flux-kontext-pro' as ReplicateImageModel,
         strength: 0.85,
         resolution: 'Auto',
@@ -444,10 +152,9 @@ export const RightSidebar: React.FC = () => {
         setMaskResult(result.imageUrl);
       }
     } catch (error) {
-    } finally {
-      setIsProcessingMask(false);
+      console.error('Mask generation failed:', error);
     }
-  };
+  }, [selectedNode?.image]);
 
   return (
     <div className={`right-sidebar-wrapper ${isCollapsed ? 'collapsed' : ''}`}>
@@ -614,7 +321,15 @@ export const RightSidebar: React.FC = () => {
                       <button
                         type="button"
                         className={`compare-slot ${compareImages.A ? 'filled' : ''}`}
-                        onClick={() => !compareImages.A && handleSetCompareSlot('A')}
+                        onClick={() => {
+                          console.log('[Compare] Clicked A, selectedNode.id:', selectedNode?.id, 'image:', selectedNode?.image?.slice(0, 50));
+                          if (!compareImages.A && selectedNode?.image) {
+                            console.log('[Compare] Setting slot A with image:', selectedNode.image.slice(0, 50));
+                            setCompareSlot('A', selectedNode.image);
+                          } else {
+                            console.log('[Compare] Cannot set A - compareImages.A:', compareImages.A, 'selectedNode.image:', !!selectedNode?.image);
+                          }
+                        }}
                       >
                         {compareImages.A ? (
                           <>
@@ -639,7 +354,15 @@ export const RightSidebar: React.FC = () => {
                       <button
                         type="button"
                         className={`compare-slot ${compareImages.B ? 'filled' : ''}`}
-                        onClick={() => !compareImages.B && handleSetCompareSlot('B')}
+                        onClick={() => {
+                          console.log('[Compare] Clicked B, selectedNode.id:', selectedNode?.id, 'image:', selectedNode?.image?.slice(0, 50));
+                          if (!compareImages.B && selectedNode?.image) {
+                            console.log('[Compare] Setting slot B with image:', selectedNode.image.slice(0, 50));
+                            setCompareSlot('B', selectedNode.image);
+                          } else {
+                            console.log('[Compare] Cannot set B - compareImages.B:', compareImages.B, 'selectedNode.image:', !!selectedNode?.image);
+                          }
+                        }}
                       >
                         {compareImages.B ? (
                           <>
@@ -665,131 +388,24 @@ export const RightSidebar: React.FC = () => {
                 </div>
               )}
 
-              {/* MASK/DRAW MODE — Freepik style */}
+              {/* MASK/DRAW MODE — Using MaskCanvas Component */}
               {previewMode === 'draw' && (
-                <div className="mask-container">
-                  {selectedNode?.image ? (
-                    <>
-                      {/* ── Row 1: Tool selector ── */}
-                      <div className="mask-toolbar">
-                        <button
-                          className={`mask-tool ${maskTool === 'brush' ? 'active' : ''}`}
-                          onClick={() => setMaskTool('brush')}
-                          title="Brush (B)"
-                        >✎</button>
-                        <button
-                          className={`mask-tool ${maskTool === 'lasso' ? 'active' : ''}`}
-                          onClick={() => setMaskTool('lasso')}
-                          title="Lasso (L)"
-                        >⬡</button>
-                        <button
-                          className={`mask-tool ${maskTool === 'eraser' ? 'active' : ''}`}
-                          onClick={() => setMaskTool('eraser')}
-                          title="Eraser (E)"
-                        >⌫</button>
-
-                        <div className="mask-tool-divider" />
-
-                        <button className="mask-tool" onClick={selectAll}   title="Select All">▣</button>
-                        <button className="mask-tool" onClick={invertMask}  title="Invert">◪</button>
-
-                        <div className="mask-tool-divider" />
-
-                        <button className="mask-tool" onClick={undo} disabled={!canUndo} title="Undo">↶</button>
-                        <button className="mask-tool" onClick={redo} disabled={!canRedo} title="Redo">↷</button>
-                        <button className="mask-tool" onClick={clearMask} title="Clear">✕</button>
-                      </div>
-
-                      {/* ── Row 2: Size + Opacity (only for brush/eraser) ── */}
-                      {maskTool !== 'lasso' && (
-                        <div className="mask-toolbar mask-toolbar-slim">
-                          <span className="mask-brush-label">Size</span>
-                          <input
-                            type="range" min="4" max="120" value={brushSize}
-                            onChange={e => setBrushSize(Number(e.target.value))}
-                            className="mask-brush-slider"
-                          />
-                          <span className="mask-brush-label">{brushSize}</span>
-                          <div className="mask-tool-divider" />
-                          <span className="mask-brush-label">Opacity</span>
-                          <input
-                            type="range" min="10" max="100" value={Math.round(maskOpacity * 100)}
-                            onChange={e => setMaskOpacity(Number(e.target.value) / 100)}
-                            className="mask-brush-slider"
-                          />
-                          <span className="mask-brush-label">{Math.round(maskOpacity * 100)}%</span>
-                        </div>
-                      )}
-
-                      {/* ── Canvas area ── */}
-                      <div className="mask-canvas-wrapper" ref={wrapperRef}>
-                        <img
-                          src={selectedNode.image}
-                          alt="Base"
-                          className="mask-base-image"
-                          onLoad={e => {
-                            const t = e.currentTarget;
-                            setImgNaturalSize({ w: t.naturalWidth, h: t.naturalHeight });
-                          }}
-                        />
-                        <canvas
-                          ref={onCanvasReady}
-                          className="mask-canvas mask-canvas-absolute"
-                          style={{ cursor: maskTool === 'lasso' ? 'crosshair' : 'none' }}
-                          onMouseDown={startDrawing}
-                          onMouseMove={(e) => {
-                            const canvas = canvasRef.current;
-                            if (canvas) {
-                              const rect = canvas.getBoundingClientRect();
-                              setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                            }
-                            draw(e);
-                          }}
-                          onMouseUp={stopDrawing}
-                          onMouseLeave={() => { stopDrawing(); setCursorPos(null); }}
-                        />
-                        {/* Custom circle cursor */}
-                        {cursorPos && maskTool !== 'lasso' && (
-                          <div
-                            className="mask-cursor-circle"
-                            style={{
-                              left: cursorPos.x,
-                              top:  cursorPos.y,
-                              width:  brushSize,
-                              height: brushSize,
-                              borderColor: maskTool === 'eraser' ? 'rgba(255,255,255,0.9)' : 'rgba(225,29,72,0.9)',
-                            }}
-                          />
-                        )}
-                        {maskResult && (
-                          <img src={maskResult} alt="Result" className="mask-result-image" />
-                        )}
-                      </div>
-
-                      {/* ── Prompt + Generate ── */}
-                      <div className="mask-controls">
-                        <input
-                          type="text"
-                          placeholder="Describe what to paint in the selected area…"
-                          value={maskPrompt}
-                          onChange={e => setMaskPrompt(e.target.value)}
-                          className="mask-prompt-input"
-                          onKeyDown={e => { if (e.key === 'Enter' && !isProcessingMask && maskPrompt.trim()) processMask(); }}
-                        />
-                        <button
-                          className="mask-generate-btn"
-                          onClick={processMask}
-                          disabled={isProcessingMask || !maskPrompt.trim()}
-                        >
-                          {isProcessingMask ? 'Processing…' : 'Generate'}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="preview-stage-content">
-                      <Image size={26} />
-                      <span>No image selected</span>
-                      <small>Select a node with an image to start painting</small>
+                <div className="mask-container-v2">
+                  <MaskCanvas
+                    image={selectedNode?.image || null}
+                    onGenerate={handleMaskGenerate}
+                    showGenerateButton={true}
+                    className="sidebar-mask-canvas"
+                  />
+                  {maskResult && (
+                    <div className="mask-result-overlay">
+                      <img src={maskResult} alt="Generated Result" />
+                      <button
+                        className="mask-result-close"
+                        onClick={() => setMaskResult(null)}
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -849,7 +465,8 @@ export const RightSidebar: React.FC = () => {
             prunaFactor: config.prunaFactor,
             prunaEnhanceDetails: config.prunaEnhanceDetails,
             prunaEnhanceRealism: config.prunaEnhanceRealism,
-            prunaQuality: config.prunaQuality
+            prunaQuality: config.prunaQuality,
+            prunaOutputFormat: config.prunaOutputFormat,
           }}
           onParamsChange={handleParamsChange}
         />

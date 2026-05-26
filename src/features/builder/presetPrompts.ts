@@ -220,6 +220,33 @@ export const PRESET_PROMPTS: PresetGroup[] = [
     ],
   },
 
+  // ─── Style & Aesthetics ───────────────────────────────────────────
+  {
+    category: 'Style & Aesthetics',
+    prompts: [
+      {
+        label: 'Cinematic Film',
+        icon: 'Clapperboard',
+        text: 'Ultra cinematic architectural photography, anamorphic lens flare, atmospheric depth, subtle film grain, moody contrast, realistic exposure rolloff, award-winning ArchDaily visual style.',
+      },
+      {
+        label: 'Luxury Interior',
+        icon: 'Gem',
+        text: 'Luxury contemporary interior design, Italian furniture aesthetic, soft indirect lighting, natural stone surfaces, premium materials, elegant composition, high-end hospitality atmosphere.',
+      },
+      {
+        label: 'Dezeen Editorial',
+        icon: 'BookImage',
+        text: 'Professional architectural editorial photography, Dezeen magazine aesthetic, carefully balanced composition, realistic environmental context, premium architectural storytelling.',
+      },
+      {
+        label: 'Clay Render',
+        icon: 'CircleDashed',
+        text: 'Monochromatic clay render, white matte material override, soft studio lighting, architectural form study, clean shadows, concept visualization.',
+      },
+    ],
+  },
+
   // ─── Technical & Presentation ─────────────────────────────────────
   {
     category: 'Technical & Presentation',

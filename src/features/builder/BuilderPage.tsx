@@ -1,4 +1,5 @@
-import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ReactFlow,
   Background,
@@ -9,10 +10,9 @@ import {
   ReactFlowProvider,
   ConnectionLineType,
   SelectionMode,
-  getNodesBounds,
 } from '@xyflow/react';
 import { 
-  Search, Plus, GitBranch, Pencil,
+  Search, Plus, GitBranch,
   Sparkles,
   LayoutGrid,
   SplitSquareHorizontal,
@@ -26,10 +26,11 @@ import {
   Focus, PersonStanding, Cat,
   Users, Footprints, Car, Zap, Bird,
   Flower2, Sprout, TreePine,
-  Plane, MoveRight, ArrowDownFromLine, RotateCcw,
+  Plane, MoveRight, ArrowDownFromLine, RotateCcw, RotateCw,
   SwatchBook, PanelTop, Ruler, Scissors, Box, PenLine, Hexagon,
-  HardHat,
+  HardHat, Trash2, Maximize2,
   Copy, Clipboard as ClipboardIcon, X,
+  Clapperboard, Gem, BookImage, CircleDashed,
   type LucideIcon
 } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
@@ -38,13 +39,14 @@ import { GhostNode } from './GhostNode';
 import { useBuilderWorkflow, type ProcessingType } from './useBuilderWorkflow';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { downloadImage, downloadImagesBatch } from '../../utils/imageExport';
+import { exportImageWithDialog, exportImagesBatchWithDialog, exportNodesToPDFWithDialog } from '../../services/export';
 import { saveWorkflow, saveWorkflowAs, loadWorkflow } from '../../services/workflow';
 import { PRESET_PROMPTS } from './presetPrompts';
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { useAuth } from '../auth/AuthContext';
 import { checkCreditBalance, deductCredits, GENERATION_COST, DEV_MODE } from '../../services/credit/creditService';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import './BuilderPage.css';
 
 // Lucide icon map for preset prompts
@@ -57,6 +59,7 @@ const PRESET_ICON_MAP: Record<string, LucideIcon> = {
   Flower2, Sprout, TreePine,
   Plane, MoveRight, ArrowDownFromLine, RotateCcw,
   SwatchBook, PanelTop, Ruler, Scissors, Box, PenLine, Hexagon,
+  Clapperboard, Gem, BookImage, CircleDashed,
 };
 
 // Separate node types for proper handle positioning
@@ -72,12 +75,15 @@ interface BuilderContentProps {
   tabId?: string;
   projectPath?: string | null;
   onTitleChange?: (title: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // Inner component that uses React Flow hooks (must be inside ReactFlowProvider)
 export const BuilderContent: React.FC<BuilderContentProps> = ({ 
   tabId,
-  projectPath: initialProjectPath
+  projectPath: initialProjectPath,
+  onTitleChange,
+  onDirtyChange,
 }) => {
   const {
     nodes,
@@ -122,6 +128,32 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     nodeId?: string;
   } | null>(null);
   const [creditError, setCreditError] = useState<{ balance: number; needed: number } | null>(null);
+  const [confirmNewCanvas, setConfirmNewCanvas] = useState(false);
+  const isDirtyRef = useRef(false);
+  const [copiedNode, setCopiedNode] = useState<any>(null);
+  const isTauriRef = useRef(false);
+  const dropHandledRef = useRef(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+
+  useLayoutEffect(() => {
+    if (!contextMenu) {
+      setMenuStyle({ visibility: 'hidden' });
+      return;
+    }
+    if (!contextMenuRef.current) return;
+    const el = contextMenuRef.current;
+    const menuW = el.offsetWidth;
+    const menuH = el.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+    let left = contextMenu.x;
+    let top = contextMenu.y;
+    if (left + menuW + margin > vw) left = Math.max(margin, left - menuW);
+    if (top + menuH + margin > vh) top = Math.max(margin, vh - menuH - margin);
+    setMenuStyle({ left, top, visibility: 'visible' });
+  }, [contextMenu]);
   const { fitView, getViewport, fitBounds, getNode: getRFNode } = useReactFlow();
 
   // Register canvas focus callback so notifications can navigate to a node
@@ -228,28 +260,35 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showPresets]);
 
-  // Auto-apply preset prompt from Dashboard / History
+  const location = useLocation();
+
+  // Re-check sessionStorage on every navigation to /builder (component stays mounted)
   useEffect(() => {
+    if (location.pathname !== '/builder') return;
+
     const preset = sessionStorage.getItem(SESSION_KEYS.PRESET_PROMPT);
     if (preset) {
       sessionStorage.removeItem(SESSION_KEYS.PRESET_PROMPT);
       setPrompt(preset);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-load image from History "Send to Canvas"
-  useEffect(() => {
     const img = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
-    if (!img) return;
-    sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
-    const nodeId = createSourceNode(img);
-    setSelectedNodeId(nodeId);
-    setSelectedNode({ id: nodeId, type: 'source', image: img, prompt: undefined, state: 'ready' });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const hasWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
+    
+    // Only create source node from preset image if no workflow is being loaded
+    if (img && !hasWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
+      const nodeId = createSourceNode(img);
+      setSelectedNodeId(nodeId);
+      setSelectedNode({ id: nodeId, type: 'source', image: img, prompt: undefined, state: 'ready' });
+    }
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-load project if provided via props (from multi-tab) or sessionStorage
+  // Auto-load project if provided via props (once) or sessionStorage (on every navigation)
   useEffect(() => {
     const pathToLoad = initialProjectPath || sessionStorage.getItem(SESSION_KEYS.OPEN_PROJECT_PATH);
+    const rawWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
+
     if (pathToLoad) {
       sessionStorage.removeItem(SESSION_KEYS.OPEN_PROJECT_PATH);
       (async () => {
@@ -259,16 +298,37 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           if (wf.nodes) {
             setNodes(wf.nodes.map((n: any) => ({ id: n.id, type: n.type, position: n.position, data: n.data })));
             setEdges(wf.edges.map((e: any) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, animated: e.animated, style: e.style, data: e.data })));
+            const name = wf.name || pathToLoad.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Project';
+            onTitleChange?.(name);
+            skipDirtyRef.current = 2;
+            onDirtyChange?.(false);
             setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
-            addNotification({ type: 'success', title: 'Project Loaded', message: wf.name || 'Loaded' });
+            addNotification({ type: 'success', title: 'Project Loaded', message: name });
           }
         } catch (err) {
           console.error('[Builder] Auto-load failed:', err);
           addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
         }
       })();
+    } else if (rawWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.LOADED_WORKFLOW);
+      try {
+        const wf = JSON.parse(rawWorkflow);
+        if (wf.nodes) {
+          setNodes(wf.nodes.map((n: any) => ({ id: n.id, type: n.type, position: n.position, data: n.data })));
+          setEdges(wf.edges.map((e: any) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, animated: e.animated, style: e.style, data: e.data })));
+          const name = wf.name || 'Imported Project';
+          onTitleChange?.(name);
+          skipDirtyRef.current = 2;
+          onDirtyChange?.(false);
+          setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
+          addNotification({ type: 'success', title: 'Project Loaded', message: name });
+        }
+      } catch (err) {
+        console.error('[Builder] LOADED_WORKFLOW parse failed:', err);
+      }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync nodes/edges snapshot for Sidebar mini-map
   useEffect(() => {
@@ -286,7 +346,19 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         const image = event.payload?.image;
         if (!image) return;
 
-        const sourceId = createSourceNode(image);
+        // Map source identifier to a human-readable node label
+        const SOURCE_LABELS: Record<string, string> = {
+          autocad: 'AutoCAD',
+          revit: 'Revit',
+          '3dsmax': '3ds Max',
+          max: '3ds Max',
+          rhino: 'Rhino',
+          sketchup: 'SketchUp',
+        };
+        const rawSource = (event.payload?.source || '').toLowerCase();
+        const nodeLabel = SOURCE_LABELS[rawSource] || (rawSource ? rawSource.charAt(0).toUpperCase() + rawSource.slice(1) : 'External');
+
+        const sourceId = createSourceNode(image, nodeLabel);
         setSelectedNodeId(sourceId);
         setSelectedNode({
           id: sourceId,
@@ -327,10 +399,12 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // Sync selected node to AIConfigContext for Preview Panel
   useEffect(() => {
+    console.log('[BuilderPage] selectedNodeId changed:', selectedNodeId);
     if (selectedNodeId) {
       const node = nodes.find(n => n.id === selectedNodeId);
       if (node) {
         const data = node.data as any;
+        console.log('[BuilderPage] Updating selectedNode to:', node.id, 'image:', (data?.image || data?.outputData?.image)?.slice(0, 50));
         setSelectedNode({
           id: node.id,
           type: data?.type || null,
@@ -361,26 +435,35 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [selectedNodeId, nodes, setSelectedNode]);
   const hasFittedInitially = useRef(false);
   const hasCreatedSource = useRef(false);
+  const createSourceNodeRef = useRef(createSourceNode);
+  useEffect(() => { createSourceNodeRef.current = createSourceNode; }, [createSourceNode]);
 
   // Initial setup: wait for restore to complete, then add Source node only if canvas is empty
   useEffect(() => {
-    console.log('[Init] useEffect triggered, isRestored:', isRestored, 'nodes.length:', nodes.length);
-    if (!isRestored) return;                          // wait for localStorage restore
-    if (hasCreatedSource.current) return;             // only run once
+    if (!isRestored) return;
+    if (hasCreatedSource.current) return;
     hasCreatedSource.current = true;
-    console.log('[Init] Creating initial source node..., nodes.length:', nodes.length, 'createSourceNode type:', typeof createSourceNode);
-    if (nodes.length === 0) {
-      try {
-        console.log('[Init] About to call createSourceNode...');
-        const id = createSourceNode();
-        console.log('[Init] Created initial node:', id);
-      } catch (err) {
-        console.error('[Init] Failed to create initial node:', err);
-      }
-    } else {
-      console.log('[Init] Skipping node creation, nodes.length:', nodes.length);
-    }
+    // Defer 50ms so React flushes any pending setNodes from localStorage restore
+    setTimeout(() => {
+      setNodes(current => {
+        if (current.length === 0) {
+          // Schedule outside of setNodes updater to avoid nested state updates
+          setTimeout(() => createSourceNodeRef.current(), 0);
+        }
+        return current;
+      });
+    }, 50);
   }, [isRestored]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dirty state: notify parent when canvas changes after initial restore
+  // skipDirtyRef > 0 means the next N node/edge changes should be ignored (restore, load, save)
+  const skipDirtyRef = useRef(2); // skip initial restore triggers
+  useEffect(() => {
+    if (!isRestored) return;
+    if (skipDirtyRef.current > 0) { skipDirtyRef.current--; return; }
+    isDirtyRef.current = true;
+    onDirtyChange?.(true);
+  }, [nodes, edges]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fit view when nodes change significantly - zoom out to show more space
   useEffect(() => {
@@ -513,6 +596,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (event.button !== 0) return;
     setContextMenu(null);
+    console.log('[BuilderPage] onNodeClick:', node.id);
     setSelectedNodeId(node.id);
   }, [setSelectedNodeId]);
 
@@ -571,21 +655,64 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   useEffect(() => {
     if (!contextMenu) return;
 
-    const handleClose = () => setContextMenu(null);
+    const handleMouseDown = (e: MouseEvent) => {
+      // Only close on left-click (button 0) AND if click is outside the menu
+      if (e.button !== 0) return;
+      
+      // Check if click is inside the menu
+      const menuEl = contextMenuRef.current;
+      if (menuEl && e.target instanceof Node && menuEl.contains(e.target)) {
+        // Click is inside menu, don't close
+        return;
+      }
+      
+      // Click is outside menu, close it
+      setContextMenu(null);
+    };
+    
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setContextMenu(null);
     };
 
-    window.addEventListener('click', handleClose);
-    window.addEventListener('contextmenu', handleClose);
+    // Add listener immediately (no delay)
+    window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('keydown', handleEsc);
 
     return () => {
-      window.removeEventListener('click', handleClose);
-      window.removeEventListener('contextmenu', handleClose);
+      window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('keydown', handleEsc);
     };
   }, [contextMenu]);
+
+  // Copy/Paste functionality
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Copy node (Ctrl+C)
+      if (e.ctrlKey && e.key === 'c' && selectedNodeId) {
+        const node = nodes.find(n => n.id === selectedNodeId);
+        if (node && (node.data as any)?.image) {
+          setCopiedNode({
+            type: node.data.type,
+            image: (node.data as any).image,
+            prompt: (node.data as any).prompt
+          });
+          addNotification({ type: 'success', title: 'Node Copied', message: 'Press Ctrl+V to paste' });
+        }
+      }
+      
+      // Paste node (Ctrl+V)
+      if (e.ctrlKey && e.key === 'v' && copiedNode) {
+        const newNodeId = createSourceNode(copiedNode.image);
+        if (copiedNode.prompt) {
+          updateNodeData(newNodeId, { prompt: copiedNode.prompt });
+        }
+        addNotification({ type: 'success', title: 'Node Pasted', message: 'Image copied to canvas' });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId, nodes, copiedNode, createSourceNode, updateNodeData, addNotification]);
 
   const handleGenerate = async () => {
     // Check credit balance before generating (skip in DEV_MODE)
@@ -615,6 +742,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       negativePrompt: aiConfig.negativePrompt,
       disableSafetyChecker: aiConfig.disableSafetyChecker,
       upscaleFactor: aiConfig.upscaleFactor,
+      // Pruna AI settings
+      prunaMode: aiConfig.prunaMode,
+      prunaTarget: aiConfig.prunaTarget,
+      prunaFactor: aiConfig.prunaFactor,
+      prunaEnhanceDetails: aiConfig.prunaEnhanceDetails,
+      prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
+      prunaQuality: aiConfig.prunaQuality,
+      prunaOutputFormat: aiConfig.prunaOutputFormat,
     };
     
     const idleGhosts = nodes.filter(n => {
@@ -684,7 +819,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [nodes, edges, getViewport]);
 
   const contextNode = contextMenu?.type === 'node'
-    ? nodes.find(n => n.id === contextMenu.nodeId)
+    ? nodesWithCallbacks.find(n => n.id === contextMenu.nodeId)
     : undefined;
 
   const canSpawnFromContextNode = !!(
@@ -709,26 +844,36 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const thumbnail = await generateThumbnail();
       const path = await saveWorkflow(nodes, edges, { thumbnail });
       if (path) {
-        addNotification({ type: 'success', title: 'Project Saved', message: path.split(/[\\/]/).pop() || 'Saved' });
+        const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
+        addNotification({ type: 'success', title: 'Project Saved', message: name });
+        onTitleChange?.(name);
+        skipDirtyRef.current = 1;
+        isDirtyRef.current = false;
+        onDirtyChange?.(false);
       }
     } catch (err) {
       console.error('[Save] failed:', err);
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
     }
-  }, [nodes, edges, addNotification, generateThumbnail]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange]);
 
   const handleSaveAs = useCallback(async () => {
     try {
       const thumbnail = await generateThumbnail();
       const path = await saveWorkflowAs(nodes, edges, undefined, thumbnail);
       if (path) {
-        addNotification({ type: 'success', title: 'Project Saved', message: path.split(/[\\/]/).pop() || 'Saved' });
+        const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
+        addNotification({ type: 'success', title: 'Project Saved', message: name });
+        onTitleChange?.(name);
+        skipDirtyRef.current = 1;
+        isDirtyRef.current = false;
+        onDirtyChange?.(false);
       }
     } catch (err) {
       console.error('[Save As] failed:', err);
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
     }
-  }, [nodes, edges, addNotification, generateThumbnail]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange]);
 
   const handleLoad = useCallback(async () => {
     try {
@@ -736,6 +881,10 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       if (result) {
         setNodes(result.nodes);
         setEdges(result.edges);
+        onTitleChange?.(result.name);
+        skipDirtyRef.current = 2;
+        isDirtyRef.current = false;
+        onDirtyChange?.(false);
         addNotification({ type: 'success', title: 'Project Loaded', message: result.name });
         setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 100);
       }
@@ -743,20 +892,31 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       console.error('[Load] failed:', err);
       addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
     }
-  }, [setNodes, setEdges, addNotification, fitView]);
+  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange]);
 
   // ── New Canvas — clear autosave and start fresh ───────────────────────
-  const handleNewCanvas = useCallback(() => {
+  const doNewCanvas = useCallback(() => {
     try { localStorage.removeItem(BUILDER_AUTOSAVE_KEY); } catch {}
     setNodes([]);
     setEdges([]);
     setSelectedNodeId(null);
     setSelectedNode({ id: null, type: null, image: undefined, prompt: undefined, state: undefined });
+    skipDirtyRef.current = 2;
+    onDirtyChange?.(false);
+    isDirtyRef.current = false;
     setTimeout(() => {
       createSourceNode();
       setTimeout(() => fitView({ padding: 0.8, duration: 400 }), 100);
     }, 30);
-  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView]);
+  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange]);
+
+  const handleNewCanvas = useCallback(() => {
+    if (isDirtyRef.current) {
+      setConfirmNewCanvas(true);
+    } else {
+      doNewCanvas();
+    }
+  }, [doNewCanvas]);
 
   // ── Image file → data URL ─────────────────────────────────────────────
   const imageFileToDataUrl = useCallback((file: File): Promise<string> => {
@@ -770,18 +930,42 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, []);
 
   const spawnFromImage = useCallback(async (dataUrl: string) => {
+    console.log('[Spawn From Image] Creating source node with image');
     const nodeId = createSourceNode(dataUrl);
+    
+    // Position the new node better
+    setTimeout(() => {
+      setNodes(currentNodes => currentNodes.map(node => 
+        node.id === nodeId 
+          ? { 
+              ...node, 
+              position: {
+                x: 120,
+                y: 200 + currentNodes.filter(n => (n.data as any)?.type === 'source').length * 80
+              }
+            }
+          : node
+      ));
+    }, 50);
+    
     setSelectedNodeId(nodeId);
     setSelectedNode({ id: nodeId, type: 'source', image: dataUrl, prompt: undefined, state: 'ready' });
-    setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 100);
-  }, [createSourceNode, setSelectedNodeId, setSelectedNode, fitView]);
+    
+    setTimeout(() => {
+      fitView({ padding: 0.3, duration: 400 });
+    }, 200);
+    
+    console.log('[Spawn From Image] Source node created successfully:', nodeId);
+  }, [createSourceNode, setSelectedNodeId, setSelectedNode, fitView, setNodes]);
 
   // ── Drag & Drop image onto canvas ──────────────────────────────────
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('Files')) {
       e.preventDefault();
+      e.stopPropagation();
       e.dataTransfer.dropEffect = 'copy';
-      setIsDraggingFile(true);
+      // Only set overlay state in non-Tauri (web) mode
+      if (!isTauriRef.current) setIsDraggingFile(true);
     }
   }, []);
 
@@ -793,39 +977,117 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDraggingFile(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    for (const file of files.slice(0, 5)) {
+    // Skip if already handled by Tauri native handler
+    if (dropHandledRef.current) return;
+    // Also skip in Tauri env to let native handler work
+    const isTauriEnv = isTauriRef.current || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+    if (isTauriEnv) return;
+    const imageFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    for (const file of imageFiles.slice(0, 5)) {
       try {
         const dataUrl = await imageFileToDataUrl(file);
         await spawnFromImage(dataUrl);
-      } catch { /* skip invalid */ }
+      } catch (error) {
+        console.error('[Drag & Drop] Error processing file:', error);
+      }
     }
   }, [imageFileToDataUrl, spawnFromImage]);
 
-  // ── Native file drop (Tauri + HTML5) ─────────────────────────────────────
+  // ── Native file drop via Tauri's drag-drop API ──────────────────────────
   useEffect(() => {
-    const handleWindowDragOver = (e: DragEvent) => { e.preventDefault(); };
-    const handleWindowDrop = async (e: DragEvent) => {
-      e.preventDefault();
-      if (!e.dataTransfer) return;
-      const files = Array.from(e.dataTransfer.files);
-      for (const file of files.slice(0, 5)) {
-        if (file.type.startsWith('image/')) {
-          try {
-            const dataUrl = await imageFileToDataUrl(file);
-            await spawnFromImage(dataUrl);
-          } catch { /* skip invalid files */ }
-        }
+    let unlisten: (() => void) | undefined;
+    // Detect Tauri synchronously via window object to block HTML5 drop immediately
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      isTauriRef.current = true;
+    }
+
+    const setupTauriDrop = async () => {
+      try {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const appWindow = getCurrentWebviewWindow();
+        isTauriRef.current = true;
+        unlisten = await appWindow.onDragDropEvent(async (event) => {
+          const type = event.payload.type;
+          if (type === 'over' || type === 'enter') {
+            setIsDraggingFile(true);
+          } else if (type === 'leave') {
+            setIsDraggingFile(false);
+          } else if (type === 'drop') {
+            if (dropHandledRef.current) return;
+            dropHandledRef.current = true;
+            setIsDraggingFile(false);
+            const paths: string[] = (event.payload as any).paths ?? [];
+            const imageExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff'];
+            for (const filePath of paths.slice(0, 5)) {
+              const lower = filePath.toLowerCase();
+              if (!imageExts.some(ext => lower.endsWith(ext))) continue;
+              try {
+                const { invoke } = await import('@tauri-apps/api/core');
+                const dataUrl = await invoke<string>('read_local_image', { path: filePath });
+                await spawnFromImage(dataUrl);
+              } catch (err) {
+                console.error('[Tauri Drop] Failed to read file:', filePath, err);
+              }
+            }
+            setTimeout(() => { dropHandledRef.current = false; }, 500);
+          }
+        });
+      } catch {
+        // Fallback: Tauri API not available (dev mode web), use HTML5 events
+        const handleWindowDragOver = (e: DragEvent) => { e.preventDefault(); };
+        const handleWindowDrop = async (e: DragEvent) => {
+          e.preventDefault();
+          setIsDraggingFile(false);
+          if (!e.dataTransfer) return;
+          const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+          for (const file of files.slice(0, 5)) {
+            try {
+              const dataUrl = await imageFileToDataUrl(file);
+              await spawnFromImage(dataUrl);
+            } catch { /* skip */ }
+          }
+        };
+        window.addEventListener('dragover', handleWindowDragOver);
+        window.addEventListener('drop', handleWindowDrop);
+        unlisten = () => {
+          window.removeEventListener('dragover', handleWindowDragOver);
+          window.removeEventListener('drop', handleWindowDrop);
+        };
       }
     };
-    window.addEventListener('dragover', handleWindowDragOver);
-    window.addEventListener('drop', handleWindowDrop);
-    return () => {
-      window.removeEventListener('dragover', handleWindowDragOver);
-      window.removeEventListener('drop', handleWindowDrop);
-    };
+
+    setupTauriDrop();
+    return () => { unlisten?.(); };
   }, [spawnFromImage, imageFileToDataUrl]);
+
+  // ── Window-level contextmenu for Tauri (ReactFlow's onPaneContextMenu may not fire) ──
+  useEffect(() => {
+    const canvasEl = document.querySelector('.canvas-container');
+    if (!canvasEl) return;
+
+    const handleWindowContextMenu = (e: Event) => {
+      const me = e as MouseEvent;
+      if (!canvasEl.contains(me.target as Element)) return;
+      me.preventDefault();
+      me.stopPropagation();
+      const target = me.target as Element;
+      // ReactFlow sets data-id attribute on .react-flow__node wrapper
+      const nodeEl = target.closest('[data-id]') as HTMLElement | null;
+      const nodeId = nodeEl?.getAttribute('data-id') ?? undefined;
+      if (nodeId) setSelectedNodeId(nodeId);
+      setContextMenu({
+        x: me.clientX,
+        y: me.clientY,
+        type: nodeId ? 'node' : 'canvas',
+        ...(nodeId ? { nodeId } : {}),
+      });
+    };
+
+    window.addEventListener('contextmenu', handleWindowContextMenu, true);
+    return () => window.removeEventListener('contextmenu', handleWindowContextMenu, true);
+  }, [setSelectedNodeId]);
 
   // ── Keyboard shortcuts (Ctrl+S, Ctrl+Shift+S, Ctrl+O, Ctrl+V) ───────
   useEffect(() => {
@@ -858,46 +1120,84 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
       // Ctrl+V → paste image from clipboard
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        const isTauri = isTauriRef.current || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+        if (isTauri) {
+          try {
+            console.log('[Paste] Trying Tauri clipboard...');
+            const dataUrl = await invoke('read_clipboard_image') as string;
+            console.log('[Paste] Got image from Tauri clipboard');
+            await spawnFromImage(dataUrl);
+            return;
+          } catch (err) {
+            console.log('[Paste] No image in Tauri clipboard:', err);
+          }
+        }
+        // Web fallback: use Web Clipboard API
         try {
+          console.log('[Paste] Trying Web Clipboard API...');
           const items = await navigator.clipboard.read();
           for (const item of items) {
             const imgType = item.types.find(t => t.startsWith('image/'));
             if (imgType) {
               const blob = await item.getType(imgType);
               const dataUrl = await imageFileToDataUrl(new File([blob], 'paste.png', { type: imgType }));
+              console.log('[Paste] Got image from Web Clipboard');
               await spawnFromImage(dataUrl);
               break;
             }
           }
-        } catch { /* clipboard access denied or no image */ }
+        } catch (err) {
+          console.log('[Paste] Web Clipboard failed:', err);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave, handleSaveAs, handleLoad, handleNewCanvas, imageFileToDataUrl, spawnFromImage, undo, redo, canUndo, canRedo]);
 
-  const runContextAction = (action: 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-all' | 'save-project' | 'load-project') => {
+  const runContextAction = (action: 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-all' | 'export-pdf' | 'save-project' | 'load-project') => {
+    console.log('[Context Action]', action, 'contextNode:', contextNode?.id);
+    
     if (action === 'add-source') {
-      createSourceNode();
+      console.log('[Context Action] Creating source node...');
+      const nodeId = createSourceNode();
+      console.log('[Context Action] Source node created:', nodeId);
     }
 
     if (action === 'rearrange') {
+      console.log('[Context Action] Rearranging graph...');
       handleRearrange();
     }
 
     if (action === 'spawn-ghost' && contextNode) {
       const data = contextNode.data as any;
-      if (data?.onAddChild) data.onAddChild('render');
+      console.log('[Context Action] Spawning ghost from node:', contextNode.id, 'onAddChild:', !!data?.onAddChild);
+      if (data?.onAddChild) {
+        data.onAddChild('render');
+      } else {
+        console.warn('[Context Action] onAddChild not found on node:', contextNode.id);
+      }
     }
 
     if (action === 'retry-node' && contextNode) {
       const data = contextNode.data as any;
-      if (data?.onRetry) data.onRetry();
+      console.log('[Context Action] Retrying node:', contextNode.id, 'onRetry:', !!data?.onRetry);
+      if (data?.onRetry) {
+        data.onRetry();
+      } else {
+        console.warn('[Context Action] onRetry not found on node:', contextNode.id);
+      }
     }
 
     if (action === 'delete-node' && contextNode) {
       const data = contextNode.data as any;
-      if (data?.type !== 'source') deleteNode(contextNode.id);
+      console.log('[Context Action] Deleting node:', contextNode.id, 'type:', data?.type);
+      if (data?.type !== 'source') {
+        deleteNode(contextNode.id);
+      } else {
+        console.warn('[Context Action] Cannot delete source node:', contextNode.id);
+      }
     }
     
     if ((action === 'compare-a' || action === 'compare-b') && contextNode) {
@@ -915,9 +1215,22 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const imageUrl = data?.image || data?.outputData?.image;
       if (imageUrl) {
         const baseName = `${data?.type || 'node'}_${contextNode.id}`;
-        downloadImage(imageUrl, baseName).catch(err => {
+        // Use new export with save dialog
+        exportImageWithDialog(imageUrl, baseName).then((filePath) => {
+          if (filePath) {
+            addNotification({ 
+              type: 'success', 
+              title: 'Image Saved', 
+              message: `Saved to: ${filePath.split(/[\\/]/).pop()}` 
+            });
+          }
+        }).catch(err => {
           console.error('[Save Image] failed:', err);
-          alert('Failed to save image. Check console for details.');
+          addNotification({ 
+            type: 'error', 
+            title: 'Save Failed', 
+            message: err?.message || 'Failed to save image' 
+          });
         });
       }
     }
@@ -935,20 +1248,63 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         .map(n => {
           const d = n.data as any;
           const url = d?.image || d?.outputData?.image;
-          return url ? { url, name: `${d?.type || 'node'}_${n.id}` } : null;
+          return url ? { url, name: `${d?.type || 'node'}_${n.id}`, prompt: d?.prompt } : null;
         })
-        .filter((x): x is { url: string; name: string } => !!x);
+        .filter((x): x is { url: string; name: string; prompt?: string } => !!x);
 
       if (items.length === 0) {
         alert('No images found on canvas.');
       } else {
-        downloadImagesBatch(items).then(({ succeeded, failed }) => {
-          console.log(`[Export All] ${succeeded} saved, ${failed} failed`);
-          if (failed > 0) {
-            alert(`Exported ${succeeded} image(s). ${failed} failed (see console).`);
+        // Use new export with save dialog
+        exportImagesBatchWithDialog(items).then(({ succeeded, failed, paths }) => {
+          console.log(`[Export All] ${succeeded} saved, ${failed} failed`, paths);
+          if (succeeded > 0) {
+            addNotification({ 
+              type: 'success', 
+              title: 'Images Exported', 
+              message: `${succeeded} image(s) saved successfully` 
+            });
           }
+          if (failed > 0) {
+            addNotification({ 
+              type: 'error', 
+              title: 'Export Failed', 
+              message: `${failed} image(s) failed to export` 
+            });
+          }
+        }).catch(err => {
+          console.error('[Export All] error:', err);
+          addNotification({ 
+            type: 'error', 
+            title: 'Export Error', 
+            message: String(err) 
+          });
         });
       }
+    }
+
+    if (action === 'export-pdf') {
+      exportNodesToPDFWithDialog(nodes, {
+        title: 'Anarchy AI Canvas Export',
+        author: 'Anarchy AI',
+        subject: 'AI Generated Images from Canvas',
+        includeMetadata: true
+      }).then((filePath) => {
+        if (filePath) {
+          addNotification({ 
+            type: 'success', 
+            title: 'PDF Exported', 
+            message: `Saved to: ${filePath.split(/[\\/]/).pop()}` 
+          });
+        }
+      }).catch((err: any) => {
+        console.error('[PDF Export] failed:', err);
+        addNotification({ 
+          type: 'error', 
+          title: 'PDF Export Failed', 
+          message: err?.message || 'Failed to export PDF' 
+        });
+      });
     }
 
     setContextMenu(null);
@@ -990,6 +1346,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {/* Drag & Drop overlay */}
         {isDraggingFile && (
@@ -1098,13 +1455,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
         {contextMenu && (
           <div
+            ref={contextMenuRef}
             className="builder-context-menu"
-            style={{
-              position: 'fixed',
-              left: typeof window !== 'undefined' ? Math.min(contextMenu.x, window.innerWidth - 260) : contextMenu.x,
-              top: typeof window !== 'undefined' ? Math.min(contextMenu.y, window.innerHeight - 280) : contextMenu.y,
-              zIndex: 9999,
-            }}
+            style={{ position: 'fixed', zIndex: 9999, ...menuStyle }}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
           >
@@ -1121,10 +1474,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                   setContextMenu(null);
                 }}>
                   <Copy size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Copy Prompt</span>
-                    <span className="context-sub">Copy to clipboard</span>
-                  </span>
+                  <span className="context-main">Copy Prompt</span>
                 </button>
 
                 <button className="context-item" onClick={() => {
@@ -1132,10 +1482,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                   setContextMenu(null);
                 }}>
                   <ClipboardIcon size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Paste from Clipboard</span>
-                    <span className="context-sub">Paste text</span>
-                  </span>
+                  <span className="context-main">Paste from Clipboard</span>
                 </button>
 
                 <button className="context-item" onClick={() => {
@@ -1143,10 +1490,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                   setContextMenu(null);
                 }}>
                   <X size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Clear Prompt</span>
-                    <span className="context-sub">Remove all text</span>
-                  </span>
+                  <span className="context-main">Clear Prompt</span>
                 </button>
 
                 <div className="context-section-label">History</div>
@@ -1158,65 +1502,97 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                   }
                 }} disabled={!selectedNode || !(selectedNode.data as any)?.prompt}>
                   <RotateCcw size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Restore Last Prompt</span>
-                    <span className="context-sub">From selected node</span>
-                  </span>
+                  <span className="context-main">Restore Last Prompt</span>
                 </button>
               </>
             ) : contextMenu.type === 'canvas' ? (
               <>
                 <div className="context-section-label">Workflow</div>
 
-                <button className="context-item" onClick={(e) => {
-                  e.stopPropagation();
-                  runContextAction('add-source');
-                }}>
+                <button className="context-item" onClick={(e) => { e.stopPropagation(); console.log('[Menu Click] add-source'); runContextAction('add-source'); setContextMenu(null); }}>
                   <Plus size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Add Source Node</span>
-                    <span className="context-sub">Create new starting point</span>
-                  </span>
+                  <span className="context-main">Add Source Node</span>
                 </button>
 
-                <button className="context-item" onClick={() => runContextAction('rearrange')}>
+                <button className="context-item" onClick={async () => {
+                  setContextMenu(null);
+                  try {
+                    const items = await navigator.clipboard.read();
+                    for (const item of items) {
+                      const imgType = item.types.find(t => t.startsWith('image/'));
+                      if (imgType) {
+                        const blob = await item.getType(imgType);
+                        const dataUrl = await imageFileToDataUrl(new File([blob], 'paste.png', { type: imgType }));
+                        await spawnFromImage(dataUrl);
+                        break;
+                      }
+                    }
+                  } catch (err) {
+                    console.log('[Paste] Clipboard failed:', err);
+                    alert('No image found in clipboard');
+                  }
+                }}>
+                  <ClipboardIcon size={14} className="context-icon" />
+                  <span className="context-main">Paste Image</span>
+                </button>
+
+                <button className="context-item" onClick={(e) => { e.stopPropagation(); console.log('[Menu Click] rearrange'); runContextAction('rearrange'); setContextMenu(null); }}>
                   <LayoutGrid size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Rearrange Graph</span>
-                    <span className="context-sub">Auto-align all connected nodes</span>
-                  </span>
+                  <span className="context-main">Rearrange Graph</span>
+                </button>
+
+                <button className="context-item" onClick={() => { fitView({ padding: 0.2, duration: 400 }); setContextMenu(null); }}>
+                  <Maximize2 size={14} className="context-icon" />
+                  <span className="context-main">Fit to View</span>
+                </button>
+
+                <div className="context-section-label">Edit</div>
+
+                <button className="context-item" onClick={() => { if (canUndo) undo(); setContextMenu(null); }} disabled={!canUndo}>
+                  <RotateCcw size={14} className="context-icon" />
+                  <span className="context-main">Undo</span>
+                </button>
+
+                <button className="context-item" onClick={() => { if (canRedo) redo(); setContextMenu(null); }} disabled={!canRedo}>
+                  <RotateCw size={14} className="context-icon" />
+                  <span className="context-main">Redo</span>
+                </button>
+
+                <button className="context-item danger" onClick={() => { handleNewCanvas(); setContextMenu(null); }}>
+                  <X size={14} className="context-icon" />
+                  <span className="context-main">New Canvas</span>
                 </button>
 
                 <div className="context-section-label">Project</div>
 
-                <button className="context-item" onClick={() => runContextAction('save-project')}>
+                <button className="context-item" onClick={() => { runContextAction('save-project'); setContextMenu(null); }}>
                   <Save size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Save Project</span>
-                    <span className="context-sub">Ctrl+S</span>
-                  </span>
+                  <span className="context-main">Save Project</span>
                 </button>
 
-                <button className="context-item" onClick={() => runContextAction('load-project')}>
+                <button className="context-item" onClick={() => { runContextAction('load-project'); setContextMenu(null); }}>
                   <FolderOpen size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Open Project</span>
-                    <span className="context-sub">Ctrl+O</span>
-                  </span>
+                  <span className="context-main">Open Project</span>
                 </button>
 
                 <div className="context-section-label">Export</div>
 
                 <button
                   className="context-item"
-                  onClick={() => runContextAction('export-all')}
+                  onClick={() => { runContextAction('export-all'); setContextMenu(null); }}
                   disabled={!canvasHasAnyImage}
                 >
                   <FolderDown size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Export All Images</span>
-                    <span className="context-sub">Save every image on the canvas</span>
-                  </span>
+                  <span className="context-main">Export All Images</span>
+                </button>
+
+                <button
+                  className="context-item"
+                  onClick={() => { runContextAction('export-pdf'); setContextMenu(null); }}
+                  disabled={!canvasHasAnyImage}
+                >
+                  <Download size={14} className="context-icon" />
+                  <span className="context-main">Export to PDF</span>
                 </button>
               </>
             ) : (
@@ -1225,76 +1601,58 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
                 <button
                   className="context-item"
-                  onClick={() => runContextAction('spawn-ghost')}
+                  onClick={(e) => { e.stopPropagation(); console.log('[Menu Click] spawn-ghost'); runContextAction('spawn-ghost'); setContextMenu(null); }}
                   disabled={!canSpawnFromContextNode}
                 >
                   <GitBranch size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Add Render Child</span>
-                    <span className="context-sub">Spawn a new processing branch</span>
-                  </span>
+                  <span className="context-main">Add Render Child</span>
                 </button>
 
                 <button
                   className="context-item"
-                  onClick={() => runContextAction('retry-node')}
+                  onClick={() => { runContextAction('retry-node'); setContextMenu(null); }}
                   disabled={!canRetryContextNode}
                 >
                   <Sparkles size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Retry</span>
-                    <span className="context-sub">Run last prompt again</span>
-                  </span>
+                  <span className="context-main">Retry</span>
                 </button>
 
                 <button
                   className="context-item"
-                  onClick={() => runContextAction('save-node-image')}
+                  onClick={() => { runContextAction('save-node-image'); setContextMenu(null); }}
                   disabled={!contextNodeHasImage}
                 >
                   <Download size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Save Image</span>
-                    <span className="context-sub">Download this image to your computer</span>
-                  </span>
+                  <span className="context-main">Save Image</span>
                 </button>
 
                 <button
                   className="context-item danger"
-                  onClick={() => runContextAction('delete-node')}
+                  onClick={() => { runContextAction('delete-node'); setContextMenu(null); }}
                   disabled={!canDeleteContextNode}
                 >
-                  <Pencil size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Delete Node</span>
-                    <span className="context-sub">Remove selected node</span>
-                  </span>
+                  <Trash2 size={14} className="context-icon" />
+                  <span className="context-main">Delete Node</span>
                 </button>
                 
                 <div className="context-section-label">Compare</div>
                 
                 <button
                   className="context-item"
-                  onClick={() => runContextAction('compare-a')}
-                  disabled={!contextNode?.data?.image && !(contextNode?.data as any)?.outputData?.image}
+                  onClick={() => { runContextAction('compare-a'); setContextMenu(null); }}
+                  disabled={!contextNodeHasImage}
                 >
                   <SplitSquareHorizontal size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Set as Image A</span>
-                    <span className="context-sub">Add to compare slot A</span>
-                  </span>
+                  <span className="context-main">Set as Image A</span>
                 </button>
                 
                 <button
                   className="context-item"
-                  onClick={() => runContextAction('compare-b')}
-                  disabled={!contextNode?.data?.image && !(contextNode?.data as any)?.outputData?.image}
+                  onClick={() => { runContextAction('compare-b'); setContextMenu(null); }}
+                  disabled={!contextNodeHasImage}
                 >
                   <SplitSquareHorizontal size={14} className="context-icon" />
-                  <span className="context-text">
-                    <span className="context-main">Set as Image B</span>
-                    <span className="context-sub">Add to compare slot B</span>
-                  </span>
+                  <span className="context-main">Set as Image B</span>
                 </button>
               </>
             )}
@@ -1354,6 +1712,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
               </div>
             )}
           </div>
+          <button
+            className="export-all-btn"
+            onClick={() => runContextAction('export-all')}
+            disabled={!canvasHasAnyImage}
+            title="Export All Images"
+          >
+            <FolderDown size={16} />
+          </button>
           <button 
             className="generate-btn" 
             onClick={handleGenerate}
@@ -1365,6 +1731,18 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         </div>
         )}
       </div>
+
+      {/* Confirm New Canvas Modal */}
+      {confirmNewCanvas && (
+        <ConfirmModal
+          title="New Canvas"
+          message="You have unsaved changes. Start a new canvas anyway?"
+          confirmLabel="Discard & Continue"
+          danger
+          onConfirm={() => { setConfirmNewCanvas(false); doNewCanvas(); }}
+          onCancel={() => setConfirmNewCanvas(false)}
+        />
+      )}
 
       {/* Credit Error Modal */}
       {creditError && (

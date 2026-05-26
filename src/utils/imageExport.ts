@@ -162,8 +162,15 @@ export async function downloadImage(
   }
 
   // Convert data URI → blob → object URL for download
-  const res       = await fetch(dataUri);
-  const blob      = await res.blob();
+  // Note: fetch() doesn't work with data: URLs, so we parse manually
+  const byteString = atob(dataUri.split(',')[1]);
+  const mimeString = dataUri.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  const blob = new Blob([ab], { type: mimeString });
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href     = objectUrl;

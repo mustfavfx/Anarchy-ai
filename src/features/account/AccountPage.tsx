@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, Shield, LogOut, Check,
   Camera, Edit2, X, CreditCard, Lock,
-  Sparkles, Zap, Crown, ArrowUpRight, Loader2, Info, ChevronDown
+  Sparkles, ArrowUpRight, Loader2, Info, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -488,10 +488,6 @@ export const AccountPage: React.FC = () => {
                     <span className="cost-value">40 Credits</span>
                   </div>
                   <div className="cost-item">
-                    <span className="cost-name">Premium (ideogram-v3)</span>
-                    <span className="cost-value">90 Credits</span>
-                  </div>
-                  <div className="cost-item">
                     <span className="cost-name">Video 480p (per sec)</span>
                     <span className="cost-value">90 Credits</span>
                   </div>
@@ -580,7 +576,6 @@ export const AccountPage: React.FC = () => {
                     <tr><td>black-forest-labs/flux-1.1-pro</td><td>$0.04 / image</td><td>Best quality</td></tr>
                     <tr><td>black-forest-labs/flux-dev</td><td>$0.025 / image</td><td>12B parameters</td></tr>
                     <tr><td>black-forest-labs/flux-schnell</td><td>$0.003 / image</td><td>Fastest</td></tr>
-                    <tr><td>ideogram-ai/ideogram-v3-quality</td><td>$0.09 / image</td><td>Highest quality</td></tr>
                     <tr><td>recraft-ai/recraft-v3</td><td>$0.04 / image</td><td>SOTA model</td></tr>
                     <tr><td>bytedance/seedream-4.5</td><td>~$0.05</td><td>ByteDance</td></tr>
                     <tr><td>openai/gpt-image-2</td><td>~$0.10</td><td>OpenAI</td></tr>
@@ -639,7 +634,6 @@ export const AccountPage: React.FC = () => {
                     <tr><td>Standard</td><td>flux-schnell</td><td>3</td><td>$0.03</td></tr>
                     <tr><td>HD</td><td>flux-dev</td><td>25</td><td>$0.25</td></tr>
                     <tr><td>4K</td><td>flux-1.1-pro</td><td>40</td><td>$0.40</td></tr>
-                    <tr><td>Premium</td><td>ideogram-v3</td><td>90</td><td>$0.90</td></tr>
                     <tr><td>Video 480p</td><td>wan-2.1-i2v-480p</td><td>90 / sec</td><td>$0.90</td></tr>
                     <tr><td>Video 720p</td><td>wan-2.1-i2v-720p</td><td>250 / sec</td><td>$2.50</td></tr>
                     <tr><td>Upscale</td><td>real-esrgan</td><td>5</td><td>$0.05</td></tr>

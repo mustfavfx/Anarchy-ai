@@ -7,7 +7,7 @@ export default defineConfig({
   // Tauri configuration
   clearScreen: false,
   server: {
-    port: 5173,
+    port: 5174,
     strictPort: true,
     watch: {
       ignored: ["**/src-tauri/**"],
@@ -18,31 +18,19 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/replicate/, '/v1'),
         secure: false,
-        configureServer(server) {
-          server.middlewares.use((_options, _req, _res, next) => {
-            if (_req.url?.startsWith('/api')) {
-              _res.setHeader('Access-Control-Allow-Origin', '*');
-            }
-            next();
-          });
-          server.middlewares.use('/api', (_req, _res, next) => {
-            _res.setHeader('Access-Control-Allow-Origin', '*');
-            next();
-          });
-          server.middlewares.use('/api', (_req, _res, next) => {
-            _res.setHeader('Access-Control-Allow-Origin', '*');
-            next();
-          });
+        // Forward all headers including Authorization
+        headers: {
+          'Access-Control-Allow-Origin': '*',
         },
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
+            console.error('[Vite Proxy] Error:', err);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to:', req.url);
+            console.log('[Vite Proxy] ->', req.method, req.url, '->', 'https://api.replicate.com' + proxyReq.path);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from:', req.url, '->', proxyRes.statusCode);
+            console.log('[Vite Proxy] <-', proxyRes.statusCode, req.url);
           });
         },
       },

@@ -152,25 +152,149 @@ export const IntegrationsPage: React.FC = () => {
   const [showInstructions, setShowInstructions] = useState(false);
   const [detectedInstalls, setDetectedInstalls] = useState<AutodeskInstall[]>([]);
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
 
-  // Load installed versions from localStorage (simulated)
+  // Load installed versions and detect actual installations
   useEffect(() => {
-    const saved = localStorage.getItem('anarchy_plugins');
-    if (saved) {
-      const installed = JSON.parse(saved);
-      setPlugins(prev => prev.map(p => {
-        const inst = installed[p.id];
-        if (inst) {
-          return {
-            ...p,
-            version: inst.version,
-            status: inst.version === p.latestVersion ? 'installed' : 'update'
-          };
+    const checkPluginInstallations = async () => {
+      const saved = localStorage.getItem('anarchy_plugins');
+      let installedPlugins: any = {};
+      
+      if (saved) {
+        installedPlugins = JSON.parse(saved);
+      }
+
+      // Check actual installation status for each plugin
+      const updatedPlugins = await Promise.all(PLUGINS.map(async (plugin) => {
+        let actualStatus: 'installed' | 'available' | 'update' = 'available';
+        let detectedVersion = '0.0';
+
+        try {
+          // Check if plugin is actually installed on the system
+          if (plugin.id === '3dsmax' || plugin.id === 'revit' || plugin.id === 'autocad') {
+            const installs = await invoke<AutodeskInstall[]>('detect_autodesk_installs', {
+              target: plugin.id,
+            });
+            
+            if (installs.length > 0) {
+              // Plugin is detected in system
+              const savedPlugin = installedPlugins[plugin.id];
+              if (savedPlugin) {
+                detectedVersion = savedPlugin.version || plugin.latestVersion;
+                actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
+              } else {
+                // Detected but not in localStorage - assume latest version
+                detectedVersion = plugin.latestVersion;
+                actualStatus = 'installed';
+                
+                // Update localStorage with detected installation
+                installedPlugins[plugin.id] = {
+                  version: plugin.latestVersion,
+                  installedAt: Date.now(),
+                  paths: installs.map(i => i.path),
+                  detected: true
+                };
+              }
+            }
+          } else {
+            // For other plugins, check localStorage only
+            const savedPlugin = installedPlugins[plugin.id];
+            if (savedPlugin) {
+              detectedVersion = savedPlugin.version || plugin.latestVersion;
+              actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to detect ${plugin.name} installation:`, error);
+          // Fallback to localStorage check
+          const savedPlugin = installedPlugins[plugin.id];
+          if (savedPlugin) {
+            detectedVersion = savedPlugin.version || plugin.latestVersion;
+            actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
+          }
         }
-        return p;
+
+        return {
+          ...plugin,
+          version: detectedVersion,
+          status: actualStatus
+        };
       }));
-    }
+
+      // Update localStorage with any new detections
+      localStorage.setItem('anarchy_plugins', JSON.stringify(installedPlugins));
+      setPlugins(updatedPlugins);
+    };
+
+    checkPluginInstallations();
   }, []);
+
+  // Manual refresh function
+  const refreshPluginStatus = async () => {
+    setIsScanning(true);
+    try {
+      const saved = localStorage.getItem('anarchy_plugins');
+      let installedPlugins: any = {};
+      
+      if (saved) {
+        installedPlugins = JSON.parse(saved);
+      }
+
+      const updatedPlugins = await Promise.all(PLUGINS.map(async (plugin) => {
+        let actualStatus: 'installed' | 'available' | 'update' = 'available';
+        let detectedVersion = '0.0';
+
+        try {
+          if (plugin.id === '3dsmax' || plugin.id === 'revit' || plugin.id === 'autocad') {
+            const installs = await invoke<AutodeskInstall[]>('detect_autodesk_installs', {
+              target: plugin.id,
+            });
+            
+            if (installs.length > 0) {
+              const savedPlugin = installedPlugins[plugin.id];
+              if (savedPlugin) {
+                detectedVersion = savedPlugin.version || plugin.latestVersion;
+                actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
+              } else {
+                detectedVersion = plugin.latestVersion;
+                actualStatus = 'installed';
+                installedPlugins[plugin.id] = {
+                  version: plugin.latestVersion,
+                  installedAt: Date.now(),
+                  paths: installs.map(i => i.path),
+                  detected: true
+                };
+              }
+            }
+          } else {
+            const savedPlugin = installedPlugins[plugin.id];
+            if (savedPlugin) {
+              detectedVersion = savedPlugin.version || plugin.latestVersion;
+              actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to detect ${plugin.name} installation:`, error);
+          const savedPlugin = installedPlugins[plugin.id];
+          if (savedPlugin) {
+            detectedVersion = savedPlugin.version || plugin.latestVersion;
+            actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
+          }
+        }
+
+        return {
+          ...plugin,
+          version: detectedVersion,
+          status: actualStatus
+        };
+      }));
+
+      localStorage.setItem('anarchy_plugins', JSON.stringify(installedPlugins));
+      setPlugins(updatedPlugins);
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const loadDetectedInstalls = async (plugin: Plugin) => {
     if (plugin.id !== '3dsmax' && plugin.id !== 'revit' && plugin.id !== 'autocad') {
@@ -309,14 +433,25 @@ export const IntegrationsPage: React.FC = () => {
           </div>
           <p className="int-subtitle">Connect Anarchy AI with your architectural software</p>
         </div>
-        <div className="int-search">
-          <Search size={14} />
-          <input
-            type="text"
-            placeholder="Search plugins..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div className="int-header-right">
+          <button 
+            className="int-refresh-btn"
+            onClick={refreshPluginStatus}
+            disabled={isScanning}
+            title="Scan computer for installed plugins"
+          >
+            <RefreshCw size={16} className={isScanning ? 'spin' : ''} />
+            {isScanning ? 'Scanning...' : 'Refresh'}
+          </button>
+          <div className="int-search">
+            <Search size={14} />
+            <input
+              type="text"
+              placeholder="Search plugins..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 

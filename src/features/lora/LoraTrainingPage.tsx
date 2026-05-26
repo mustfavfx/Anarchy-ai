@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, X, Check, Loader2, Sparkles } from 'lucide-react';
+import { Play, Sparkles } from 'lucide-react';
 import { loraTrainingService, type LoraTrainingRequest, type LoraTrainingStatus } from '../../services/lora/LoraTrainingService';
 import { useAuth } from '../auth/AuthContext';
 import './LoraTrainingPage.css';

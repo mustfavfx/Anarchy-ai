@@ -1,137 +1,116 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Download, Image as ImageIcon, Loader2, Eye, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, Download, Image as ImageIcon, Loader2, Eye, X, Send, Layers } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { ExportModal } from '../../components/ExportModal';
-import { getHistory } from '../../services/history/HistoryService';
+import { getHistory, type HistoryEntry } from '../../services/history/HistoryService';
+import { SESSION_KEYS } from '../../utils/storageKeys';
 import './LibraryPage.css';
 
-interface LibraryAsset {
+// A source group containing the source image and all its generated results
+interface SourceGroup {
   id: string;
-  name: string;
-  project: string;
-  type: 'source' | 'result' | 'reference';
-  image: string;
-  prompt?: string;
+  sourceImage: string;
+  sourcePrompt?: string;
+  results: ResultItem[];
   createdAt: number;
+  project?: string;
 }
 
-type FilterType = 'all' | 'source' | 'result' | 'reference';
+interface ResultItem {
+  id: string;
+  image: string;
+  prompt?: string;
+  type: string;
+  createdAt: number;
+  historyId: string;
+}
+
 
 export const LibraryPage: React.FC = () => {
-  const [assets, setAssets] = useState<LibraryAsset[]>([]);
+  const navigate = useNavigate();
+  const [sourceGroups, setSourceGroups] = useState<SourceGroup[]>([]);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<FilterType>('all');
+  // Filter feature can be added later - currently showing all sources
   const [loading, setLoading] = useState(true);
-  const [preview, setPreview] = useState<LibraryAsset | null>(null);
-  const [exportTarget, setExportTarget] = useState<LibraryAsset | null>(null);
+  const [selectedSource, setSelectedSource] = useState<SourceGroup | null>(null);
+  const [exportTarget, setExportTarget] = useState<{ image: string; name: string } | null>(null);
 
-  const loadAssets = useCallback(async () => {
+  // Group history entries by source image
+  const loadSourceGroups = useCallback(async () => {
     setLoading(true);
     try {
-      const appData: string = await invoke('get_app_data_dir');
-      const dir = `${appData}\\projects`;
-      await invoke('ensure_dir', { path: dir });
-      const files: string[] = await invoke('list_dir', { path: dir, extension: 'ana' });
-
-      const allAssets: LibraryAsset[] = [];
-
-      // Load from project files
-      for (const fp of files) {
-        try {
-          const contents: string = await invoke('load_file', { path: fp });
-          const wf = JSON.parse(contents);
-          const projectName = wf.name || fp.replace(/\\\\/g, '/').split('/').pop()?.replace('.ana', '') || 'Unknown';
-
-          for (const node of wf.nodes || []) {
-            const d = node.data;
-            if (!d) continue;
-
-            const img = d.image || d.outputData?.image;
-            if (!img || typeof img !== 'string') continue;
-
-            const nodeType: 'source' | 'result' | 'reference' =
-              d.type === 'source' ? 'source' :
-              d.type === 'result' ? 'result' : 'reference';
-
-            allAssets.push({
-              id: `${fp}-${node.id}`,
-              name: d.label || d.prompt?.slice(0, 30) || `${nodeType} ${node.id}`,
-              project: projectName,
-              type: nodeType,
-              image: img,
-              prompt: d.prompt,
-              createdAt: d.createdAt || wf.createdAt || 0,
-            });
-          }
-        } catch {
-          // skip corrupt files
-        }
-      }
-
-      // Load from History
       const historyEntries = getHistory();
+      const sourceMap = new Map<string, SourceGroup>();
+      
       for (const entry of historyEntries) {
-        // Add output image as asset
-        if (entry.outputImage) {
-          allAssets.push({
-            id: `hist-${entry.id}-out`,
-            name: entry.label || entry.prompt?.slice(0, 30) || 'History Output',
-            project: entry.project || 'History',
-            type: 'result',
+        const sourceKey = entry.inputImage || 'no-source';
+        
+        // Create or get source group
+        if (!sourceMap.has(sourceKey)) {
+          sourceMap.set(sourceKey, {
+            id: `source-${entry.id}`,
+            sourceImage: sourceKey === 'no-source' ? entry.outputImage! : sourceKey,
+            sourcePrompt: entry.prompt,
+            results: [],
+            createdAt: entry.timestamp,
+            project: entry.project,
+          });
+        }
+        
+        // Add result to the source group
+        const group = sourceMap.get(sourceKey)!;
+        if (entry.outputImage && entry.outputImage !== sourceKey) {
+          group.results.push({
+            id: `result-${entry.id}`,
             image: entry.outputImage,
             prompt: entry.prompt,
+            type: entry.type,
             createdAt: entry.timestamp,
-          });
-        }
-        // Add input image as asset (if different from output)
-        if (entry.inputImage && entry.inputImage !== entry.outputImage) {
-          allAssets.push({
-            id: `hist-${entry.id}-in`,
-            name: `${entry.label || 'Input'} (Source)`,
-            project: entry.project || 'History',
-            type: 'source',
-            image: entry.inputImage,
-            prompt: entry.prompt,
-            createdAt: entry.timestamp,
+            historyId: entry.id,
           });
         }
       }
-
-      allAssets.sort((a, b) => b.createdAt - a.createdAt);
-      setAssets(allAssets);
+      
+      // Convert to array and sort by date
+      const groups = Array.from(sourceMap.values())
+        .filter(g => g.results.length > 0) // Only show sources with results
+        .sort((a, b) => b.createdAt - a.createdAt);
+      
+      setSourceGroups(groups);
     } catch (err) {
       console.error('[Library] Load failed:', err);
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadAssets(); }, [loadAssets]);
+  useEffect(() => { loadSourceGroups(); }, [loadSourceGroups]);
 
-  // Reload when history changes (e.g. new generation completed)
+  // Reload when history changes
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'anarchy_history') loadAssets();
+      if (e.key === 'anarchy_history') loadSourceGroups();
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [loadAssets]);
+  }, [loadSourceGroups]);
 
-  const filtered = assets.filter(a => {
-    if (filter !== 'all' && a.type !== filter) return false;
-    if (search && !a.name.toLowerCase().includes(search.toLowerCase()) && !a.project.toLowerCase().includes(search.toLowerCase())) return false;
+  // Filter source groups by search
+  const filtered = sourceGroups.filter(group => {
+    if (search && !group.sourcePrompt?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const handleExport = (e: React.MouseEvent, asset: LibraryAsset) => {
+  const handleExport = (e: React.MouseEvent, image: string, name: string) => {
     e.stopPropagation();
-    setExportTarget(asset);
+    setExportTarget({ image, name });
   };
 
-  const counts = {
-    all: assets.length,
-    source: assets.filter(a => a.type === 'source').length,
-    result: assets.filter(a => a.type === 'result').length,
-    reference: assets.filter(a => a.type === 'reference').length,
+  const handleSendToCanvas = (e: React.MouseEvent, image: string, prompt?: string) => {
+    e.stopPropagation();
+    sessionStorage.setItem(SESSION_KEYS.PRESET_IMAGE, image);
+    if (prompt) sessionStorage.setItem(SESSION_KEYS.PRESET_PROMPT, prompt);
+    navigate('/builder');
   };
 
   return (
@@ -148,17 +127,8 @@ export const LibraryPage: React.FC = () => {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div className="filter-chips">
-            {(['all', 'source', 'result', 'reference'] as FilterType[]).map(f => (
-              <button
-                key={f}
-                className={`filter-chip ${filter === f ? 'active' : ''}`}
-                onClick={() => setFilter(f)}
-              >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-                <span className="chip-count">{counts[f]}</span>
-              </button>
-            ))}
+          <div className="library-stats">
+            <span className="stats-text">{filtered.length} source{filtered.length !== 1 ? 's' : ''}</span>
           </div>
         </div>
         <div className="library-stats">
@@ -174,59 +144,96 @@ export const LibraryPage: React.FC = () => {
       ) : filtered.length === 0 ? (
         <div className="library-empty">
           <ImageIcon size={40} />
-          <h3>{search || filter !== 'all' ? 'No matching assets' : 'Library is empty'}</h3>
-          <p>{search || filter !== 'all' ? 'Try different search or filters' : 'Generate images in the Builder to see them here'}</p>
+          <h3>{search ? 'No matching sources' : 'Library is empty'}</h3>
+          <p>{search ? 'Try different search terms' : 'Generate images in the Builder to see them here'}</p>
         </div>
       ) : (
         <div className="assets-grid">
-          {filtered.map(asset => (
+          {filtered.map(group => (
             <div
-              key={asset.id}
-              className="asset-card"
-              onClick={() => setPreview(asset)}
+              key={group.id}
+              className="asset-card source-card"
+              onClick={() => setSelectedSource(group)}
             >
               <div className="asset-image-box">
-                <img src={asset.image} alt={asset.name} loading="lazy" />
-                <div className={`asset-type-tag ${asset.type}`}>
-                  {asset.type}
+                <img src={group.sourceImage} alt="Source" loading="lazy" />
+                <div className="asset-type-tag source">
+                  Source
+                </div>
+                <div className="result-count-badge">
+                  <Layers size={12} />
+                  <span>{group.results.length} results</span>
                 </div>
                 <div className="asset-hover-actions">
-                  <button className="asset-action-btn" onClick={(e) => { e.stopPropagation(); setPreview(asset); }} title="Preview">
+                  <button className="asset-action-btn" onClick={(e) => { e.stopPropagation(); setSelectedSource(group); }} title="View Results">
                     <Eye size={14} />
                   </button>
-                  <button className="asset-action-btn" onClick={(e) => handleExport(e, asset)} title="Export">
-                    <Download size={14} />
+                  <button className="asset-action-btn" onClick={(e) => handleSendToCanvas(e, group.sourceImage, group.sourcePrompt)} title="Send to Canvas">
+                    <Send size={14} />
                   </button>
                 </div>
               </div>
               <div className="asset-details">
-                <h4 className="asset-name">{asset.name}</h4>
-                <p className="asset-project">{asset.project}</p>
+                <h4 className="asset-name">{group.sourcePrompt?.slice(0, 40) || 'Source Image'}{group.sourcePrompt && group.sourcePrompt.length > 40 ? '...' : ''}</h4>
+                <p className="asset-project">{group.results.length} generated results</p>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Preview Modal */}
-      {preview && (
-        <div className="library-preview-overlay" onClick={() => setPreview(null)}>
-          <div className="library-preview-modal" onClick={e => e.stopPropagation()}>
-            <button className="preview-close" onClick={() => setPreview(null)}>
+      {/* Source & Results Modal */}
+      {selectedSource && (
+        <div className="library-preview-overlay" onClick={() => setSelectedSource(null)}>
+          <div className="library-preview-modal results-modal" onClick={e => e.stopPropagation()}>
+            <button className="preview-close" onClick={() => setSelectedSource(null)}>
               <X size={18} />
             </button>
-            <div className="preview-image-wrap">
-              <img src={preview.image} alt={preview.name} />
-            </div>
-            <div className="preview-info">
-              <h3>{preview.name}</h3>
-              <p className="preview-project">{preview.project}</p>
-              {preview.prompt && <p className="preview-prompt">{preview.prompt}</p>}
-              <div className="preview-actions">
-                <button className="preview-download-btn" onClick={(e) => handleExport(e, preview)}>
-                  <Download size={14} />
-                  <span>Export</span>
+            
+            {/* Source Section */}
+            <div className="source-section">
+              <h3 className="section-title">Source Image</h3>
+              <div className="source-image-wrap">
+                <img src={selectedSource.sourceImage} alt="Source" />
+              </div>
+              {selectedSource.sourcePrompt && (
+                <p className="source-prompt">{selectedSource.sourcePrompt}</p>
+              )}
+              <div className="source-actions">
+                <button className="preview-download-btn" onClick={(e) => handleSendToCanvas(e, selectedSource.sourceImage, selectedSource.sourcePrompt)}>
+                  <Send size={14} />
+                  <span>Send to Canvas</span>
                 </button>
+                <button className="preview-download-btn" onClick={(e) => handleExport(e, selectedSource.sourceImage, 'source-image')}>
+                  <Download size={14} />
+                  <span>Export Source</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Results Grid */}
+            <div className="results-section">
+              <h3 className="section-title">Generated Results ({selectedSource.results.length})</h3>
+              <div className="results-grid">
+                {selectedSource.results.map(result => (
+                  <div key={result.id} className="result-item">
+                    <div className="result-image-box">
+                      <img src={result.image} alt={result.type} loading="lazy" />
+                      <div className="result-hover-actions">
+                        <button className="result-action-btn" onClick={(e) => handleSendToCanvas(e, result.image, result.prompt)} title="Send to Canvas">
+                          <Send size={12} />
+                        </button>
+                        <button className="result-action-btn" onClick={(e) => handleExport(e, result.image, `result-${result.type}`)} title="Export">
+                          <Download size={12} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="result-info">
+                      <span className="result-type">{result.type}</span>
+                      <span className="result-date">{new Date(result.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

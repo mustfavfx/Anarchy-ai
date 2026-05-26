@@ -432,6 +432,22 @@
   opacity: 1;
 }
 
+/* Resolution Badge */
+.image-res-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ccc;
+  font-size: 9px;
+  font-family: monospace;
+  padding: 2px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 5;
+  line-height: 1;
+}
+
 /* Image Overlay - actions on hover */
 .image-overlay {
   position: absolute;
