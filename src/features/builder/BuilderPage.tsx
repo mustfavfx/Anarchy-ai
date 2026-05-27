@@ -109,6 +109,25 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     canRedo
   } = useBuilderWorkflow(tabId);
 
+  // Sanitize onNodesChange to prevent NaN position errors
+  const handleNodesChange = useCallback((changes: any[]) => {
+    const sanitizedChanges = changes.filter(change => {
+      if (change.type === 'position' && change.position) {
+        const hasValidPosition = 
+          typeof change.position.x === 'number' && !isNaN(change.position.x) &&
+          typeof change.position.y === 'number' && !isNaN(change.position.y);
+        if (!hasValidPosition) {
+          console.warn('[Builder] Filtering out position change with NaN:', change.id);
+          return false;
+        }
+      }
+      return true;
+    });
+    if (sanitizedChanges.length > 0) {
+      onNodesChange(sanitizedChanges);
+    }
+  }, [onNodesChange]);
+
   const getConfig = useAIConfigStore((state) => state.getConfig);
   const setSelectedNode = useAIConfigStore((state) => state.setSelectedNode);
   const setCompareSlot = useAIConfigStore((state) => state.setCompareSlot);
@@ -184,8 +203,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const canvas = await htmlToCanvas(viewport);
       if (!canvas) return undefined;
 
-      // Scale down to thumbnail size (max 300px width)
-      const maxWidth = 300;
+      // Scale down to thumbnail size (max 600px width for better quality)
+      const maxWidth = 600;
       const scale = Math.min(maxWidth / canvas.width, 1);
       const thumbWidth = Math.round(canvas.width * scale);
       const thumbHeight = Math.round(canvas.height * scale);
@@ -196,8 +215,12 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const ctx = thumbCanvas.getContext('2d');
       if (!ctx) return undefined;
 
+      // Enable high quality scaling
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
       ctx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
-      return thumbCanvas.toDataURL('image/jpeg', 0.85);
+      return thumbCanvas.toDataURL('image/jpeg', 0.92);
     } catch (err) {
       console.warn('[Thumbnail] Generation failed:', err);
       return undefined;
@@ -227,14 +250,36 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           const htmlNode = node as HTMLElement;
           const nodeRect = htmlNode.getBoundingClientRect();
           const img = htmlNode.querySelector('img');
-          if (img && img.complete) {
+          if (img) {
             const promise = new Promise<void>((res) => {
-              try {
-                const x = nodeRect.left - rect.left;
-                const y = nodeRect.top - rect.top;
-                ctx.drawImage(img, x, y, nodeRect.width, nodeRect.height);
-              } catch {}
-              res();
+              // Wait for image to load if not complete
+              const drawImage = () => {
+                try {
+                  const x = nodeRect.left - rect.left;
+                  const y = nodeRect.top - rect.top;
+                  ctx.drawImage(img!, x, y, nodeRect.width, nodeRect.height);
+                } catch (err) {
+                  console.warn('[Thumbnail] Failed to draw image:', err);
+                }
+                res();
+              };
+              
+              if (img.complete) {
+                drawImage();
+              } else {
+                img.onload = drawImage;
+                img.onerror = () => {
+                  console.warn('[Thumbnail] Image failed to load');
+                  res();
+                };
+                // Timeout after 2 seconds
+                setTimeout(() => {
+                  if (!img.complete) {
+                    console.warn('[Thumbnail] Image load timeout');
+                    res();
+                  }
+                }, 2000);
+              }
             });
             promises.push(promise);
           }
@@ -274,9 +319,62 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
     const img = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
     const hasWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
+    const presetWorkflow = sessionStorage.getItem(SESSION_KEYS.PRESET_WORKFLOW);
     
+    // Handle full workflow restoration from Library/History
+    if (presetWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.PRESET_WORKFLOW);
+      try {
+        const wf = JSON.parse(presetWorkflow);
+        if (wf.nodes && wf.nodes.length > 0) {
+          // Restore nodes with their original data
+          setNodes(wf.nodes.map((n: any) => ({ 
+            id: n.id, 
+            type: n.type || 'baseNode', 
+            position: n.position, 
+            width: n.width || 480,
+            data: n.data 
+          })));
+          // Restore edges
+          if (wf.edges) {
+            setEdges(wf.edges.map((e: any) => ({ 
+              id: e.id, 
+              source: e.source, 
+              target: e.target, 
+              sourceHandle: e.sourceHandle, 
+              targetHandle: e.targetHandle, 
+              type: e.type, 
+              animated: e.animated, 
+              style: e.style, 
+              data: e.data 
+            })));
+          }
+          // Set source image if provided separately
+          if (img) {
+            sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
+            // Find the source node and update its image
+            const sourceNode = wf.nodes.find((n: any) => n.data?.type === 'source');
+            if (sourceNode) {
+              setTimeout(() => {
+                setNodes(currentNodes => currentNodes.map(node => 
+                  node.id === sourceNode.id 
+                    ? { ...node, data: { ...node.data, image: img, state: 'ready' } }
+                    : node
+                ));
+              }, 100);
+            }
+          }
+          skipDirtyRef.current = 2;
+          onDirtyChange?.(false);
+          setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
+          addNotification({ type: 'success', title: 'Workflow Restored', message: `${wf.nodes.length} nodes loaded` });
+        }
+      } catch (err) {
+        console.error('[Builder] PRESET_WORKFLOW parse failed:', err);
+      }
+    }
     // Only create source node from preset image if no workflow is being loaded
-    if (img && !hasWorkflow) {
+    else if (img && !hasWorkflow) {
       sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
       const nodeId = createSourceNode(img);
       setSelectedNodeId(nodeId);
@@ -508,9 +606,18 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, [executeNode, nodes, addNotification]);
 
-  // Bind callbacks to nodes
+  // Bind callbacks to nodes - filter out nodes with invalid positions
   const nodesWithCallbacks = useMemo(() => {
-    return nodes.map(node => ({
+    return nodes.filter(node => {
+      // Filter out nodes with invalid positions to prevent SVG NaN errors
+      const hasValidPosition = node.position && 
+        typeof node.position.x === 'number' && !isNaN(node.position.x) &&
+        typeof node.position.y === 'number' && !isNaN(node.position.y);
+      if (!hasValidPosition) {
+        console.warn('[Builder] Filtering out node with invalid position:', node.id);
+      }
+      return hasValidPosition;
+    }).map(node => ({
       ...node,
       data: {
         ...node.data,
@@ -984,6 +1091,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     // Also skip in Tauri env to let native handler work
     const isTauriEnv = isTauriRef.current || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
     if (isTauriEnv) return;
+    
+    // Handle dropped files
     const imageFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     for (const file of imageFiles.slice(0, 5)) {
       try {
@@ -993,7 +1102,24 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         console.error('[Drag & Drop] Error processing file:', error);
       }
     }
-  }, [imageFileToDataUrl, spawnFromImage]);
+    
+    // Handle dropped URLs from browser (images dragged from websites)
+    const urlData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    if (urlData && !imageFiles.length) {
+      const imageUrl = urlData.trim();
+      if (imageUrl.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
+        try {
+          // Create a node with the URL directly
+          const nodeId = createSourceNode(imageUrl);
+          setSelectedNodeId(nodeId);
+          setSelectedNode({ id: nodeId, type: 'source', image: imageUrl, prompt: undefined, state: 'ready' });
+          addNotification({ type: 'success', title: 'Image Added', message: 'From URL' });
+        } catch (error) {
+          console.error('[Drag & Drop] Error loading URL:', error);
+        }
+      }
+    }
+  }, [imageFileToDataUrl, spawnFromImage, createSourceNode, setSelectedNodeId, setSelectedNode, addNotification]);
 
   // ── Native file drop via Tauri's drag-drop API ──────────────────────────
   useEffect(() => {
@@ -1379,7 +1505,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             proOptions={{ hideAttribution: true }}
             nodes={nodesWithCallbacks}
             edges={edges}
-            onNodesChange={onNodesChange}
+            onNodesChange={handleNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={onNodeClick}
@@ -1435,21 +1561,26 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
               size={1} 
               color="rgba(255, 255, 255, 0.05)" 
             />
-            <MiniMap
-              position="bottom-right"
-              nodeColor={() => 'rgba(225, 29, 72, 0.6)'}
-              maskColor="rgba(0, 0, 0, 0.6)"
-              style={{
-                background: 'rgba(10, 10, 12, 0.85)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '10px',
-                width: 120,
-                height: 80,
-                marginBottom: 80,
-              }}
-              zoomable
-              pannable
-            />
+            {nodesWithCallbacks.length > 0 && nodesWithCallbacks.every(n => 
+              typeof n.position?.x === 'number' && !isNaN(n.position.x) &&
+              typeof n.position?.y === 'number' && !isNaN(n.position.y)
+            ) && (
+              <MiniMap
+                position="bottom-right"
+                nodeColor={() => 'rgba(225, 29, 72, 0.6)'}
+                maskColor="rgba(0, 0, 0, 0.6)"
+                style={{
+                  background: 'rgba(10, 10, 12, 0.85)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '10px',
+                  width: 120,
+                  height: 80,
+                  marginBottom: 80,
+                }}
+                zoomable
+                pannable
+              />
+            )}
           </ReactFlow>
         )}
 
