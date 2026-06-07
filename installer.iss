@@ -1,6 +1,6 @@
 ; Inno Setup Script for Anarchy AI
 #define AppName "Anarchy AI"
-#define AppVersion "0.0.7"
+#define AppVersion "0.0.8"
 #define AppPublisher "Anarchy AI Team"
 #define AppExeName "Anarchy AI.exe"
 
