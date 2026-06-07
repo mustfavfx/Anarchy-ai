@@ -11,7 +11,20 @@ import { PRESET_PROMPTS } from '../builder/presetPrompts';
 import { DocumentationModal } from './DocumentationModal';
 import { ChangelogModal } from './ChangelogModal';
 import { SESSION_KEYS } from '../../utils/storageKeys';
+import { useResolvedImage } from '../../hooks/useResolvedImage';
 import './DashboardPage.css';
+
+const ProjectImage: React.FC<{ url?: string; alt: string }> = ({ url, alt }) => {
+  const resolved = useResolvedImage(url);
+  if (!url) {
+    return (
+      <div className="recent-project-no-img">
+        <ImageIcon size={24} />
+      </div>
+    );
+  }
+  return <img src={resolved || ''} alt={alt} />;
+};
 
 // Pick one preset from each category for diversity
 const QUICK_PRESETS = PRESET_PROMPTS.map(g => g.prompts[0]);
@@ -183,13 +196,7 @@ export const DashboardPage: React.FC = () => {
                   onClick={openProject}
                 >
                   <div className="recent-project-thumb">
-                    {project.thumbnailUrl ? (
-                      <img src={project.thumbnailUrl} alt={project.name} />
-                    ) : (
-                      <div className="recent-project-no-img">
-                        <ImageIcon size={24} />
-                      </div>
-                    )}
+                    <ProjectImage url={project.thumbnailUrl} alt={project.name} />
                     <div className={`recent-status ${project.status}`}>{project.status}</div>
                   </div>
                   <div className="recent-project-info">

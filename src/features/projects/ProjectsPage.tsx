@@ -6,7 +6,20 @@ import { listProjects, deleteProject, renameProject, duplicateProject, timeAgo, 
 import { loadWorkflow } from '../../services/workflow';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { SESSION_KEYS } from '../../utils/storageKeys';
+import { useResolvedImage } from '../../hooks/useResolvedImage';
 import './ProjectsPage.css';
+
+const ProjectImage: React.FC<{ url?: string; alt: string; className?: string }> = ({ url, alt, className }) => {
+  const resolved = useResolvedImage(url);
+  if (!url) {
+    return (
+      <div className={`project-no-image ${className || ''}`}>
+        <ImageIcon size={className?.includes('small') ? 18 : 32} />
+      </div>
+    );
+  }
+  return <img src={resolved || ''} alt={alt} className={className} />;
+};
 
 export const ProjectsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -197,13 +210,7 @@ export const ProjectsPage: React.FC = () => {
               onClick={() => handleOpenProject(project)}
             >
               <div className="project-image-box">
-                {project.thumbnailUrl ? (
-                  <img src={project.thumbnailUrl} alt={project.name} />
-                ) : (
-                  <div className="project-no-image">
-                    <ImageIcon size={32} />
-                  </div>
-                )}
+                <ProjectImage url={project.thumbnailUrl} alt={project.name} />
                 <div className={`status-tag ${project.status}`}>
                   {project.status}
                 </div>
@@ -253,13 +260,7 @@ export const ProjectsPage: React.FC = () => {
               onClick={() => handleOpenProject(project)}
             >
               <div className="list-item-thumb">
-                {project.thumbnailUrl ? (
-                  <img src={project.thumbnailUrl} alt={project.name} />
-                ) : (
-                  <div className="project-no-image small">
-                    <ImageIcon size={18} />
-                  </div>
-                )}
+                <ProjectImage url={project.thumbnailUrl} alt={project.name} className="small" />
               </div>
               <div className="list-item-info">
                 <h3 className="project-display-title">{project.name}</h3>

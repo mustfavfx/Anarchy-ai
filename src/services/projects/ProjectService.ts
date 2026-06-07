@@ -77,14 +77,27 @@ export async function listProjects(): Promise<ProjectMeta[]> {
       const sourceNodes = wf.nodes.filter(n => n.data?.type === 'source');
       const outputNodes = wf.nodes.filter(n => n.data?.type === 'result' || n.data?.image);
       
-      // Use saved thumbnail if available, otherwise fall back to first node image
+      // Use saved thumbnail if available, otherwise fall back to first source node image, then any image
       let thumbnailUrl: string | undefined = wf.thumbnail;
       if (!thumbnailUrl) {
+        // Try source nodes first (the first image entering the canvas)
         for (const n of wf.nodes) {
-          const img = n.data?.image || n.data?.outputData?.image;
-          if (img && typeof img === 'string') {
-            thumbnailUrl = img;
-            break;
+          if (n.data?.type === 'source') {
+            const img = n.data?.image || n.data?.outputData?.image;
+            if (img && typeof img === 'string') {
+              thumbnailUrl = img;
+              break;
+            }
+          }
+        }
+        // Fallback to any node image if no source image is found
+        if (!thumbnailUrl) {
+          for (const n of wf.nodes) {
+            const img = n.data?.image || n.data?.outputData?.image;
+            if (img && typeof img === 'string') {
+              thumbnailUrl = img;
+              break;
+            }
           }
         }
       }
