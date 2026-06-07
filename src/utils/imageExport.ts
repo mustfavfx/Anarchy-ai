@@ -4,13 +4,17 @@
  * Works inside Tauri's webview (no extra plugins required).
  */
 
+import { logger } from './logger';
+
 export type ExportFormat = 'png' | 'jpg' | 'webp';
+export type ExportScale = 1 | 2 | 4;
 
 export interface ExportOptions {
   format?: ExportFormat;
   quality?: number;      // 0–1, used for jpg/webp
   baseName?: string;
   saveToDocuments?: boolean; // Tauri: save to Documents/Anarchy AI
+  scale?: ExportScale;   // 1x, 2x (2K), 4x (4K) upscaling
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -46,18 +50,28 @@ function loadImg(url: string): Promise<HTMLImageElement> {
 
 /**
  * Draw a data-URI onto a canvas and return converted data-URI.
+ * Supports upscaling for 2K/4K export.
  */
-function drawDataUri(dataUri: string, format: ExportFormat, quality: number): Promise<string> {
+function drawDataUri(dataUri: string, format: ExportFormat, quality: number, scale: number = 1): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width  = img.naturalWidth  || img.width  || 512;
-      canvas.height = img.naturalHeight || img.height || 512;
+      const w = img.naturalWidth || img.width || 512;
+      const h = img.naturalHeight || img.height || 512;
+      canvas.width  = Math.floor(w * scale);
+      canvas.height = Math.floor(h * scale);
       const ctx = canvas.getContext('2d');
       if (!ctx) { reject(new Error('Canvas 2D unavailable')); return; }
+      
+      // Enable smooth scaling for upscaling
+      if (scale > 1) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+      }
+      
       if (format === 'jpg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const mimeMap: Record<ExportFormat, string> = { png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg' };
       const mime = mimeMap[format];
       const q    = format === 'png' ? undefined : quality;
@@ -82,7 +96,8 @@ function drawDataUri(dataUri: string, format: ExportFormat, quality: number): Pr
 export async function convertImage(
   url: string,
   format: ExportFormat,
-  quality: number = 0.92
+  quality: number = 0.92,
+  scale: number = 1
 ): Promise<string> {
   if (!url) throw new Error('No image URL provided');
 
@@ -90,7 +105,7 @@ export async function convertImage(
   // blob: URLs are same-origin so canvas.toDataURL() is never tainted.
   if (url.startsWith('data:') || url.startsWith('blob:')) {
     try {
-      return await drawDataUri(url, format, quality);
+      return await drawDataUri(url, format, quality, scale);
     } catch {
       return url;
     }
@@ -106,7 +121,7 @@ export async function convertImage(
       const { invoke } = await import('@tauri-apps/api/core');
       const dataUri: string = await invoke('url_to_base64', { url });
       if (dataUri?.startsWith('data:')) {
-        return await drawDataUri(dataUri, format, quality);
+        return await drawDataUri(dataUri, format, quality, scale);
       }
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : String(err));
@@ -131,13 +146,46 @@ export async function downloadImage(
 
   const format  = options.format  ?? extFromUrl(url) ?? extFromMime('');
   const quality = options.quality ?? 0.92;
+  const scale   = options.scale   ?? 1;
 
   const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-').slice(0, 19);
+  const scaleSuffix = scale > 1 ? `_${scale}x` : '';
   const ext       = format === 'jpg' ? 'jpg' : format;
-  const fileName  = `${sanitize(baseName)}_${timestamp}.${ext}`;
+  const fileName  = `${sanitize(baseName)}${scaleSuffix}_${timestamp}.${ext}`;
 
   // Convert to data URI (no fetch calls — canvas-based)
-  const dataUri = await convertImage(url, format, quality);
+  const dataUri = await convertImage(url, format, quality, scale);
+
+  const isTauri = globalThis.window !== undefined && '__TAURI_INTERNALS__' in globalThis;
+
+  if (isTauri) {
+    if (options.saveToDocuments) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('save_image_to_documents', { dataUri, fileName });
+      return;
+    } else {
+      try {
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const selectedPath = await save({
+          defaultPath: fileName,
+          filters: [{
+            name: `${format.toUpperCase()} Image`,
+            extensions: [ext]
+          }]
+        });
+
+        if (!selectedPath) {
+          return; // user cancelled
+        }
+
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('save_image_to_path', { path: selectedPath, dataUri });
+        return;
+      } catch (err) {
+        logger.error('[downloadImage] Tauri save failed, falling back:', err);
+      }
+    }
+  }
 
   // Pass 3 fallback: convertImage returned the original URL because canvas
   // conversion failed. Do a direct anchor download (browser/Tauri handles it).
@@ -168,7 +216,7 @@ export async function downloadImage(
   const ab = new ArrayBuffer(byteString.length);
   const ia = new Uint8Array(ab);
   for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
+    ia[i] = byteString.codePointAt(i) ?? 0;
   }
   const blob = new Blob([ab], { type: mimeString });
   const objectUrl = URL.createObjectURL(blob);
@@ -203,7 +251,7 @@ export async function downloadImagesBatch(
       succeeded++;
       await new Promise(r => setTimeout(r, 250));
     } catch (err) {
-      console.error('[downloadImagesBatch] failed:', url, err);
+      logger.error('[downloadImagesBatch] failed:', url, err);
       failed++;
     }
   }

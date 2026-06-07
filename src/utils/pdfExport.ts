@@ -1,4 +1,6 @@
 import jsPDF from 'jspdf';
+import { logger } from './logger';
+import { getLocalImage } from '../services/history/HistoryService';
 
 export interface PDFExportOptions {
   title?: string;
@@ -15,8 +17,76 @@ export interface PDFExportOptions {
   };
 }
 
+type Margins = { top: number; right: number; bottom: number; left: number };
+type ImageItem = { url: string; name?: string; prompt?: string };
+type PageDims = { pageWidth: number; pageHeight: number; contentWidth: number; contentHeight: number };
+
+async function loadImage(url: string): Promise<HTMLImageElement> {
+  let resolvedUrl = url;
+  if (url && url.startsWith('idb://')) {
+    const cached = await getLocalImage(url);
+    if (cached) resolvedUrl = cached;
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = resolvedUrl;
+  });
+  return img;
+}
+
+function calcFit(img: HTMLImageElement, dims: PageDims): { w: number; h: number } {
+  const ar = img.width / img.height;
+  let w = dims.contentWidth;
+  let h = w / ar;
+  if (h > dims.contentHeight) { h = dims.contentHeight; w = h * ar; }
+  return { w, h };
+}
+
+function addPromptToPDF(
+  pdf: jsPDF, prompt: string, textY: number,
+  dims: PageDims, margins: Margins
+): void {
+  if (textY > dims.pageHeight - margins.bottom - 20) pdf.addPage();
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(100);
+  const lines = pdf.splitTextToSize(prompt, dims.contentWidth);
+  pdf.text(lines, margins.left, textY + 10);
+}
+
+async function addImagePage(
+  pdf: jsPDF, imageData: ImageItem, index: number,
+  dims: PageDims, margins: Margins, includeMetadata: boolean
+): Promise<void> {
+  if (index > 0) pdf.addPage();
+  try {
+    const img = await loadImage(imageData.url);
+    const { w, h } = calcFit(img, dims);
+    const x = (dims.pageWidth - w) / 2;
+    const y = margins.top + 20;
+    if (imageData.name) {
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(imageData.name, dims.pageWidth / 2, margins.top, { align: 'center' });
+    }
+    pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'MEDIUM');
+    if (includeMetadata && imageData.prompt) {
+      addPromptToPDF(pdf, imageData.prompt, y + h + 10, dims, margins);
+    }
+  } catch (error) {
+    logger.error(`Failed to process image ${index}:`, error);
+    pdf.setFontSize(12);
+    pdf.setTextColor(255, 0, 0);
+    pdf.text(`Failed to load image: ${imageData.name || 'Unknown'}`, margins.left, margins.top + 30);
+  }
+}
+
 export async function exportImagesToPDF(
-  images: { url: string; name?: string; prompt?: string }[],
+  images: ImageItem[],
   options: PDFExportOptions = {}
 ): Promise<void> {
   const {
@@ -29,109 +99,25 @@ export async function exportImagesToPDF(
   } = options;
 
   try {
-    // Create PDF document
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-
-    // Set document metadata
-    pdf.setProperties({
-      title,
-      author,
-      subject,
-      keywords,
-      creator: 'Anarchy AI'
-    });
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    pdf.setProperties({ title, author, subject, keywords, creator: 'Anarchy AI' });
 
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const contentWidth = pageWidth - margins.left - margins.right;
-    const contentHeight = pageHeight - margins.top - margins.bottom;
+    const dims: PageDims = {
+      pageWidth, pageHeight,
+      contentWidth: pageWidth - margins.left - margins.right,
+      contentHeight: pageHeight - margins.top - margins.bottom,
+    };
 
-    // Process each image
     for (let i = 0; i < images.length; i++) {
-      const imageData = images[i];
-      
-      // Add new page for each image (except first one)
-      if (i > 0) {
-        pdf.addPage();
-      }
-
-      try {
-        // Load image
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-          img.src = imageData.url;
-        });
-
-        // Calculate image dimensions to fit page
-        const imgWidth = img.width;
-        const imgHeight = img.height;
-        const aspectRatio = imgWidth / imgHeight;
-
-        let finalWidth = contentWidth;
-        let finalHeight = finalWidth / aspectRatio;
-
-        // If image is too tall, limit by height
-        if (finalHeight > contentHeight) {
-          finalHeight = contentHeight;
-          finalWidth = finalHeight * aspectRatio;
-        }
-
-        // Center image on page
-        const x = (pageWidth - finalWidth) / 2;
-        const y = margins.top + 20; // Add some space for title
-
-        // Add image name as title
-        if (imageData.name) {
-          pdf.setFontSize(16);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(imageData.name, pageWidth / 2, margins.top, { align: 'center' });
-        }
-
-        // Add image to PDF
-        pdf.addImage(img, 'JPEG', x, y, finalWidth, finalHeight, undefined, 'MEDIUM');
-
-        // Add metadata if requested
-        if (includeMetadata && imageData.prompt) {
-          const textY = y + finalHeight + 10;
-          
-          // Check if we need a new page for metadata
-          if (textY > pageHeight - margins.bottom - 20) {
-            pdf.addPage();
-          }
-
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setTextColor(100);
-          
-          // Split long prompts into multiple lines
-          const lines = pdf.splitTextToSize(imageData.prompt, contentWidth);
-          pdf.text(lines, margins.left, textY + 10);
-        }
-
-      } catch (error) {
-        console.error(`Failed to process image ${i}:`, error);
-        
-        // Add error message to PDF
-        pdf.setFontSize(12);
-        pdf.setTextColor(255, 0, 0);
-        pdf.text(`Failed to load image: ${imageData.name || 'Unknown'}`, margins.left, margins.top + 30);
-      }
+      await addImagePage(pdf, images[i], i, dims, margins, includeMetadata);
     }
 
-    // Save PDF
     const filename = `${title.replaceAll(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     pdf.save(filename);
-
   } catch (error) {
-    console.error('PDF export failed:', error);
+    logger.error('PDF export failed:', error);
     throw new Error('Failed to export PDF');
   }
 }

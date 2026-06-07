@@ -32,12 +32,21 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "'self' ipc: http://ipc.localhost tauri: https: http: ws: wss:",
+        "img-src": "'self' data: blob: https: http:",
+        "style-src": "'self' 'unsafe-inline'",
+        "script-src": "'self' 'unsafe-eval'",
+        "font-src": "'self' data:",
+        "frame-src": "'self'",
+        "worker-src": "'self' blob:"
+      }
     }
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgyQkU4NjI4MUIxRTgzODQKUldTRWd4NGJLSWErZ25zQU44bExXRy9VM3dSSS9hWjFmUHBuZ1dXbW1PQzIzb0IzZlhjNHJ2TDMK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENFQjc5RDI4NDkwMDg1MzQKUldRMGhRQkpLSjIzenFBK3JmejN6dHhpQWRaMGpJNFh3QkNtbUxOaEd0ZlQxZkNyWEYvWmRERUcK",
       "endpoints": [
         "https://github.com/mustfavfx/Anarchy-ai/releases/latest/download/latest.json"
       ]
@@ -46,7 +55,33 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [],
+    "icon": [
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "icons/ana-file.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "custom-hooks.nsh"
+      }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "ana"
+        ],
+        "name": "Anarchy AI Project",
+        "description": "Anarchy AI Project File",
+        "mimeType": "application/x-anarchy-project",
+        "role": "Editor"
+      }
+    ],
     "createUpdaterArtifacts": true
   }
 }

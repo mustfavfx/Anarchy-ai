@@ -3,6 +3,8 @@
  * Export and import all app data for easy transfer between devices
  */
 
+import { logger } from '../../utils/logger';
+
 export interface AppDataExport {
   version: string;
   exportedAt: string;
@@ -45,7 +47,7 @@ export const DataMigrationService = {
     a.download = `anarchy-ai-backup-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(url);
   },
 
@@ -77,7 +79,7 @@ export const DataMigrationService = {
 
       return true;
     } catch (error) {
-      console.error('[DataMigration] Import failed:', error);
+      logger.error('[DataMigration] Import failed:', error);
       return false;
     }
   },
@@ -86,19 +88,12 @@ export const DataMigrationService = {
    * Import from file
    */
   async importFromFile(file: File): Promise<boolean> {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        if (content) {
-          resolve(this.importFromJSON(content));
-        } else {
-          resolve(false);
-        }
-      };
-      reader.onerror = () => resolve(false);
-      reader.readAsText(file);
-    });
+    try {
+      const content = await file.text();
+      return this.importFromJSON(content);
+    } catch {
+      return false;
+    }
   },
 
   /**

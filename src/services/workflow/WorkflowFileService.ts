@@ -60,12 +60,9 @@ interface SerializedEdge {
 // ── Serialization helpers ────────────────────────────────────────────────────
 
 /** Strip runtime callbacks from node data before saving */
-function stripCallbacks(data: Record<string, any>): Record<string, any> {
-  const {
-    onAddChild, onImageUpload, onDelete, onExecute, onRetry,
-    ...rest
-  } = data;
-  return rest;
+function stripCallbacks(data: Record<string, unknown>): Record<string, unknown> {
+  const CALLBACK_KEYS = new Set(['onAddChild', 'onImageUpload', 'onDelete', 'onExecute', 'onRetry']);
+  return Object.fromEntries(Object.entries(data).filter(([k]) => !CALLBACK_KEYS.has(k)));
 }
 
 function serializeNodes(nodes: Node[]): SerializedNode[] {
@@ -127,11 +124,12 @@ let lastSavePath: string | null = null;
 export async function saveWorkflow(
   nodes: Node[],
   edges: Edge[],
-  options?: { forceDialog?: boolean; name?: string; thumbnail?: string }
+  options?: { forceDialog?: boolean; name?: string; thumbnail?: string; filePath?: string | null }
 ): Promise<string | null> {
-  const needsDialog = options?.forceDialog || !lastSavePath;
+  const pathToCheck = options?.filePath !== undefined ? options.filePath : lastSavePath;
+  const needsDialog = options?.forceDialog || !pathToCheck;
 
-  let filePath = lastSavePath;
+  let filePath = pathToCheck;
 
   if (needsDialog) {
     const savedSettings = localStorage.getItem('anarchy_settings');
@@ -195,9 +193,10 @@ export async function saveWorkflowAs(
   nodes: Node[],
   edges: Edge[],
   name?: string,
-  thumbnail?: string
+  thumbnail?: string,
+  filePath?: string | null
 ): Promise<string | null> {
-  return saveWorkflow(nodes, edges, { forceDialog: true, name, thumbnail });
+  return saveWorkflow(nodes, edges, { forceDialog: true, name, thumbnail, filePath });
 }
 
 /**
@@ -245,6 +244,11 @@ export function getCurrentFilePath(): string | null {
   return lastSavePath;
 }
 
+/** Set the active save path */
+export function setCurrentFilePath(path: string | null): void {
+  lastSavePath = path;
+}
+
 /** Reset save path (e.g. when creating a new project) */
 export function resetFilePath(): void {
   lastSavePath = null;
@@ -255,5 +259,5 @@ export function resetFilePath(): void {
 function extractFilename(path: string): string {
   const parts = path.replaceAll('\\', '/').split('/');
   const file = parts.at(-1) || 'untitled';
-  return file.replaceAll(/\.ana$/i, '');
+  return file.replace(/\.ana$/i, '');
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { Search, Grid, List as ListIcon, Plus, Trash2, FolderOpen, Image as ImageIcon, Loader2, Copy, Pencil, ArrowUpDown } from 'lucide-react';
 import { listProjects, deleteProject, renameProject, duplicateProject, timeAgo, type ProjectMeta } from '../../services/projects/ProjectService';
@@ -25,7 +26,7 @@ export const ProjectsPage: React.FC = () => {
       const list = await listProjects();
       setProjects(list);
     } catch (err) {
-      console.error('[Projects] Failed to list:', err);
+      logger.error('[Projects] Failed to list:', err);
     }
     setLoading(false);
   }, []);
@@ -59,7 +60,7 @@ export const ProjectsPage: React.FC = () => {
       await deleteProject(project.filePath);
       setProjects(prev => prev.filter(p => p.filePath !== project.filePath));
     } catch (err) {
-      console.error('[Projects] Delete failed:', err);
+      logger.error('[Projects] Delete failed:', err);
     }
     setDeletingPath(null);
   };
@@ -77,7 +78,7 @@ export const ProjectsPage: React.FC = () => {
         navigate('/builder');
       }
     } catch (err) {
-      console.error('[Projects] Import failed:', err);
+      logger.error('[Projects] Import failed:', err);
     }
   };
 
@@ -87,7 +88,7 @@ export const ProjectsPage: React.FC = () => {
       await renameProject(renameTarget.filePath, renameValue.trim());
       await refresh();
     } catch (err) {
-      console.error('[Projects] Rename failed:', err);
+      logger.error('[Projects] Rename failed:', err);
     }
     setRenameTarget(null);
     setRenameValue('');
@@ -99,7 +100,7 @@ export const ProjectsPage: React.FC = () => {
       await duplicateProject(project.filePath);
       await refresh();
     } catch (err) {
-      console.error('[Projects] Duplicate failed:', err);
+      logger.error('[Projects] Duplicate failed:', err);
     }
   };
 
@@ -233,6 +234,9 @@ export const ProjectsPage: React.FC = () => {
                   <span>{project.outputCount} outputs</span>
                   <span>{project.refCount} refs</span>
                 </div>
+                <div className="project-path-text" title={project.filePath}>
+                  {project.filePath}
+                </div>
                 <div className="project-footer">
                   <span className="updated-text">Updated {timeAgo(project.updatedAt)}</span>
                 </div>
@@ -263,6 +267,9 @@ export const ProjectsPage: React.FC = () => {
                   <span>{project.sourceCount} sources</span>
                   <span>{project.outputCount} outputs</span>
                   <span>{project.refCount} refs</span>
+                </div>
+                <div className="project-path-text list-path" title={project.filePath}>
+                  {project.filePath}
                 </div>
               </div>
               <div className={`status-tag ${project.status}`}>{project.status}</div>

@@ -1,120 +1,209 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Download, Image as ImageIcon, Loader2, Eye, X, Send, Layers } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../../utils/logger';
+import { 
+  Search, FolderOpen, Loader2, X, 
+  Trash2, Edit3, Copy, Layers, FileDown,
+  Calendar, Clock, Image as ImageIcon
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { invoke } from '@tauri-apps/api/core';
-import { ExportModal } from '../../components/ExportModal';
-import { getHistory, type HistoryEntry } from '../../services/history/HistoryService';
+import { ConfirmModal } from '../../components/ConfirmModal';
+import { 
+  listProjects, 
+  deleteProject, 
+  duplicateProject, 
+  renameProject, 
+  timeAgo, 
+  type ProjectMeta 
+} from '../../services/projects/ProjectService';
 import { SESSION_KEYS } from '../../utils/storageKeys';
+import { exportImagesToPDFWithDialog } from '../../services/export';
+import { useNotificationStore } from '../../stores/notificationStore';
+import { invoke } from '@tauri-apps/api/core';
+import { useResolvedImage } from '../../hooks/useResolvedImage';
 import './LibraryPage.css';
 
-// A source group containing the source image and all its generated results
-interface SourceGroup {
-  id: string;
-  sourceImage: string;
-  sourcePrompt?: string;
-  results: ResultItem[];
-  createdAt: number;
-  project?: string;
+type FilterType = 'all' | 'active' | 'draft';
+
+interface ProjectThumbnailProps {
+  url: string | undefined;
+  alt: string;
+  className?: string;
+  large?: boolean;
 }
 
-interface ResultItem {
-  id: string;
-  image: string;
-  prompt?: string;
-  type: string;
-  createdAt: number;
-  historyId: string;
-}
+const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({ url, alt, className, large }) => {
+  const resolvedUrl = useResolvedImage(url);
 
+  if (!resolvedUrl) {
+    return (
+      <div className={`project-placeholder ${large ? 'large' : ''}`}>
+        <FolderOpen size={large ? 64 : 32} />
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={resolvedUrl} 
+      alt={alt} 
+      loading="lazy"
+      className={className}
+    />
+  );
+};
 
 export const LibraryPage: React.FC = () => {
   const navigate = useNavigate();
-  const [sourceGroups, setSourceGroups] = useState<SourceGroup[]>([]);
+  const addNotification = useNotificationStore(state => state.addNotification);
+  const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [search, setSearch] = useState('');
-  // Filter feature can be added later - currently showing all sources
+  const [filter, setFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
-  const [selectedSource, setSelectedSource] = useState<SourceGroup | null>(null);
-  const [exportTarget, setExportTarget] = useState<{ image: string; name: string } | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectMeta | null>(null);
+  
+  // Dialog/Modal states
+  const [renamingProject, setRenamingProject] = useState<ProjectMeta | null>(null);
+  const [newName, setNewName] = useState('');
+  const [confirmDeletePath, setConfirmDeletePath] = useState<string | null>(null);
+  const [confirmDeleteName, setConfirmDeleteName] = useState<string>('');
 
-  // Group history entries by source image
-  const loadSourceGroups = useCallback(async () => {
+  const loadProjects = useCallback(async () => {
     setLoading(true);
     try {
-      const historyEntries = getHistory();
-      const sourceMap = new Map<string, SourceGroup>();
+      const list = await listProjects();
+      setProjects(list);
       
-      for (const entry of historyEntries) {
-        const sourceKey = entry.inputImage || 'no-source';
-        
-        // Create or get source group
-        if (!sourceMap.has(sourceKey)) {
-          sourceMap.set(sourceKey, {
-            id: `source-${entry.id}`,
-            sourceImage: sourceKey === 'no-source' ? entry.outputImage! : sourceKey,
-            sourcePrompt: entry.prompt,
-            results: [],
-            createdAt: entry.timestamp,
-            project: entry.project,
-          });
-        }
-        
-        // Add result to the source group
-        const group = sourceMap.get(sourceKey)!;
-        if (entry.outputImage && entry.outputImage !== sourceKey) {
-          group.results.push({
-            id: `result-${entry.id}`,
-            image: entry.outputImage,
-            prompt: entry.prompt,
-            type: entry.type,
-            createdAt: entry.timestamp,
-            historyId: entry.id,
-          });
+      // Update selected project metadata if it is open
+      if (selectedProject) {
+        const updated = list.find(p => p.filePath === selectedProject.filePath);
+        if (updated) {
+          setSelectedProject(updated);
+        } else {
+          setSelectedProject(null);
         }
       }
-      
-      // Convert to array and sort by date
-      const groups = Array.from(sourceMap.values())
-        .filter(g => g.results.length > 0) // Only show sources with results
-        .sort((a, b) => b.createdAt - a.createdAt);
-      
-      setSourceGroups(groups);
     } catch (err) {
-      console.error('[Library] Load failed:', err);
+      logger.error('[Library] Failed to load projects:', err);
     }
     setLoading(false);
+  }, [selectedProject]);
+
+  useEffect(() => {
+    loadProjects();
   }, []);
 
-  useEffect(() => { loadSourceGroups(); }, [loadSourceGroups]);
-
-  // Reload when history changes
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'anarchy_history') loadSourceGroups();
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [loadSourceGroups]);
-
-  // Filter source groups by search
-  const filtered = sourceGroups.filter(group => {
-    if (search && !group.sourcePrompt?.toLowerCase().includes(search.toLowerCase())) return false;
+  // Filter projects by search query and category tab
+  const filteredProjects = projects.filter(p => {
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filter === 'active' && p.status !== 'active') return false;
+    if (filter === 'draft' && p.status !== 'draft') return false;
     return true;
   });
 
-  const handleExport = (e: React.MouseEvent, image: string, name: string) => {
-    e.stopPropagation();
-    setExportTarget({ image, name });
+  // Action handlers
+  const handleOpenProject = async (filePath: string) => {
+    try {
+      sessionStorage.setItem(SESSION_KEYS.OPEN_PROJECT_PATH, filePath);
+      navigate('/builder');
+    } catch (err) {
+      logger.error('[Library] Open project failed:', err);
+    }
   };
 
-  const handleSendToCanvas = (e: React.MouseEvent, image: string, prompt?: string) => {
+  const handleDuplicate = async (e: React.MouseEvent, filePath: string) => {
     e.stopPropagation();
-    sessionStorage.setItem(SESSION_KEYS.PRESET_IMAGE, image);
-    if (prompt) sessionStorage.setItem(SESSION_KEYS.PRESET_PROMPT, prompt);
-    navigate('/builder');
+    try {
+      await duplicateProject(filePath);
+      loadProjects();
+    } catch (err) {
+      logger.error('[Library] Duplicate project failed:', err);
+    }
+  };
+
+  const handleRenameClick = (e: React.MouseEvent, project: ProjectMeta) => {
+    e.stopPropagation();
+    setRenamingProject(project);
+    setNewName(project.name);
+  };
+
+  const handleRenameConfirm = async () => {
+    if (renamingProject && newName.trim()) {
+      try {
+        await renameProject(renamingProject.filePath, newName.trim());
+        setRenamingProject(null);
+        setNewName('');
+        loadProjects();
+      } catch (err) {
+        logger.error('[Library] Rename project failed:', err);
+      }
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, project: ProjectMeta) => {
+    e.stopPropagation();
+    setConfirmDeletePath(project.filePath);
+    setConfirmDeleteName(project.name);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (confirmDeletePath) {
+      try {
+        await deleteProject(confirmDeletePath);
+        setConfirmDeletePath(null);
+        setSelectedProject(null);
+        loadProjects();
+      } catch (err) {
+        logger.error('[Library] Delete project failed:', err);
+      }
+    }
+  };
+
+  const handleExportPDF = async (e: React.MouseEvent, project: ProjectMeta) => {
+    e.stopPropagation();
+    try {
+      const contents = await invoke<string>('load_file', { path: project.filePath });
+      const wf = JSON.parse(contents);
+      const outputNodes = wf.nodes.filter((n: any) => n.data?.image || n.data?.outputData?.image);
+      const images = outputNodes
+        .map((n: any) => {
+          const img = n.data?.image || n.data?.outputData?.image;
+          return { url: img, name: n.data?.label || 'Render', prompt: n.data?.prompt };
+        })
+        .filter((img: any) => !!img.url);
+
+      if (images.length > 0) {
+        const filePath = await exportImagesToPDFWithDialog(images, { 
+          title: `Anarchy AI — Project Export: ${project.name}`,
+          author: 'Anarchy AI',
+          subject: 'AI Generated Images from Library'
+        });
+        if (filePath) {
+          addNotification({ 
+            type: 'success', 
+            title: 'PDF Exported', 
+            message: `Saved to: ${filePath.split(/[\\/]/).pop()}` 
+          });
+        }
+      } else {
+        addNotification({
+          type: 'warning',
+          title: 'Export Failed',
+          message: 'No render outputs found in this project to export.'
+        });
+      }
+    } catch (err: any) {
+      logger.error('[Library] PDF export failed:', err);
+      addNotification({ 
+        type: 'error', 
+        title: 'PDF Export Failed', 
+        message: err?.message || 'Failed to export PDF' 
+      });
+    }
   };
 
   return (
     <div className="library-page">
+      {/* Control bar */}
       <div className="library-controls">
         <div className="header-left-group">
           <h1 className="page-title">Library</h1>
@@ -122,128 +211,220 @@ export const LibraryPage: React.FC = () => {
             <Search size={14} />
             <input
               type="text"
-              placeholder="Search assets..."
+              placeholder="Search projects..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div className="library-stats">
-            <span className="stats-text">{filtered.length} source{filtered.length !== 1 ? 's' : ''}</span>
-          </div>
         </div>
-        <div className="library-stats">
-          <span className="stats-text">{filtered.length} asset{filtered.length !== 1 ? 's' : ''}</span>
+
+        {/* Filter chips */}
+        <div className="library-filter-group">
+          <button 
+            className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            All ({projects.length})
+          </button>
+          <button 
+            className={`filter-chip ${filter === 'active' ? 'active' : ''}`}
+            onClick={() => setFilter('active')}
+          >
+            Active ({projects.filter(p => p.status === 'active').length})
+          </button>
+          <button 
+            className={`filter-chip ${filter === 'draft' ? 'active' : ''}`}
+            onClick={() => setFilter('draft')}
+          >
+            Drafts ({projects.filter(p => p.status === 'draft').length})
+          </button>
         </div>
       </div>
 
       {loading ? (
         <div className="library-loading">
           <Loader2 size={24} className="spin" />
-          <span>Scanning projects...</span>
+          <span>Scanning saved projects...</span>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filteredProjects.length === 0 ? (
         <div className="library-empty">
           <ImageIcon size={40} />
-          <h3>{search ? 'No matching sources' : 'Library is empty'}</h3>
-          <p>{search ? 'Try different search terms' : 'Generate images in the Builder to see them here'}</p>
+          <h3>{search || filter !== 'all' ? 'No matching projects' : 'No saved projects yet'}</h3>
+          <p>
+            {search || filter !== 'all'
+              ? 'Try adjusting your search or filters'
+              : 'Create a design on the Builder Canvas and save it to see your projects here'}
+          </p>
         </div>
       ) : (
         <div className="assets-grid">
-          {filtered.map(group => (
-            <div
-              key={group.id}
-              className="asset-card source-card"
-              onClick={() => setSelectedSource(group)}
-            >
-              <div className="asset-image-box">
-                <img src={group.sourceImage} alt="Source" loading="lazy" />
-                <div className="asset-type-tag source">
-                  Source
+          {filteredProjects.map(project => {
+            return (
+              <div
+                key={project.filePath}
+                className="asset-card source-card"
+                onClick={() => setSelectedProject(project)}
+              >
+                <div className="asset-image-box">
+                  <ProjectThumbnail url={project.thumbnailUrl} alt={project.name} />
+
+                  <div className={`project-status-badge ${project.status}`}>
+                    {project.status === 'active' ? 'Active' : 'Draft'}
+                  </div>
+
+                  <div className="result-count-badge">
+                    <Layers size={12} />
+                    <span>{project.outputCount} outputs</span>
+                  </div>
+
+                  {/* Actions overlay */}
+                  <div className="asset-hover-actions" onClick={e => e.stopPropagation()}>
+                    <button className="asset-action-btn" onClick={() => handleOpenProject(project.filePath)} title="Open Project">
+                      <FolderOpen size={14} />
+                    </button>
+                    <button className="asset-action-btn" onClick={(e) => handleRenameClick(e, project)} title="Rename">
+                      <Edit3 size={14} />
+                    </button>
+                    <button className="asset-action-btn" onClick={(e) => handleDuplicate(e, project.filePath)} title="Duplicate">
+                      <Copy size={14} />
+                    </button>
+                    <button className="asset-action-btn danger" onClick={(e) => handleDeleteClick(e, project)} title="Delete">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="result-count-badge">
-                  <Layers size={12} />
-                  <span>{group.results.length} results</span>
-                </div>
-                <div className="asset-hover-actions">
-                  <button className="asset-action-btn" onClick={(e) => { e.stopPropagation(); setSelectedSource(group); }} title="View Results">
-                    <Eye size={14} />
-                  </button>
-                  <button className="asset-action-btn" onClick={(e) => handleSendToCanvas(e, group.sourceImage, group.sourcePrompt)} title="Send to Canvas">
-                    <Send size={14} />
-                  </button>
+
+                <div className="asset-details">
+                  <h4 className="asset-name" title={project.name}>{project.name}</h4>
+                  <div className="project-meta-row">
+                    <span className="project-node-count">{project.sourceCount} nodes</span>
+                    <span className="project-time-badge">{timeAgo(project.updatedAt)}</span>
+                  </div>
                 </div>
               </div>
-              <div className="asset-details">
-                <h4 className="asset-name">{group.sourcePrompt?.slice(0, 40) || 'Source Image'}{group.sourcePrompt && group.sourcePrompt.length > 40 ? '...' : ''}</h4>
-                <p className="asset-project">{group.results.length} generated results</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Source & Results Modal */}
-      {selectedSource && (
-        <div className="library-preview-overlay" onClick={() => setSelectedSource(null)}>
+      {/* Project Details Modal */}
+      {selectedProject && (
+        <div className="library-preview-overlay" onClick={() => setSelectedProject(null)}>
           <div className="library-preview-modal results-modal" onClick={e => e.stopPropagation()}>
-            <button className="preview-close" onClick={() => setSelectedSource(null)}>
+            <button className="preview-close" onClick={() => setSelectedProject(null)}>
               <X size={18} />
             </button>
             
-            {/* Source Section */}
+            {/* Modal Left: Preview Image */}
             <div className="source-section">
-              <h3 className="section-title">Source Image</h3>
-              <div className="source-image-wrap">
-                <img src={selectedSource.sourceImage} alt="Source" />
+              <h3 className="section-title">Project Thumbnail</h3>
+              <div className="source-image-wrap project-preview-img-wrap">
+                <ProjectThumbnail url={selectedProject.thumbnailUrl} alt={selectedProject.name} large />
               </div>
-              {selectedSource.sourcePrompt && (
-                <p className="source-prompt">{selectedSource.sourcePrompt}</p>
-              )}
-              <div className="source-actions">
-                <button className="preview-download-btn" onClick={(e) => handleSendToCanvas(e, selectedSource.sourceImage, selectedSource.sourcePrompt)}>
-                  <Send size={14} />
-                  <span>Send to Canvas</span>
+              <div className="source-actions flex-wrap" style={{ gap: 8 }}>
+                <button className="preview-download-btn w-full" onClick={() => handleOpenProject(selectedProject.filePath)}>
+                  <FolderOpen size={14} />
+                  <span>Open in Builder</span>
                 </button>
-                <button className="preview-download-btn" onClick={(e) => handleExport(e, selectedSource.sourceImage, 'source-image')}>
-                  <Download size={14} />
-                  <span>Export Source</span>
+                <button className="preview-download-btn secondary flex-1" onClick={(e) => handleRenameClick(e, selectedProject)}>
+                  <Edit3 size={14} />
+                  <span>Rename</span>
+                </button>
+                <button className="preview-download-btn secondary flex-1" onClick={(e) => handleDuplicate(e, selectedProject.filePath)}>
+                  <Copy size={14} />
+                  <span>Duplicate</span>
+                </button>
+                {selectedProject.outputCount > 0 && (
+                  <button className="preview-download-btn secondary w-full" onClick={(e) => handleExportPDF(e, selectedProject)} title="Export all renders to PDF">
+                    <FileDown size={14} />
+                    <span>Export Project to PDF</span>
+                  </button>
+                )}
+                <button className="preview-download-btn danger w-full" onClick={(e) => handleDeleteClick(e, selectedProject)}>
+                  <Trash2 size={14} />
+                  <span>Delete Project</span>
                 </button>
               </div>
             </div>
             
-            {/* Results Grid */}
-            <div className="results-section">
-              <h3 className="section-title">Generated Results ({selectedSource.results.length})</h3>
-              <div className="results-grid">
-                {selectedSource.results.map(result => (
-                  <div key={result.id} className="result-item">
-                    <div className="result-image-box">
-                      <img src={result.image} alt={result.type} loading="lazy" />
-                      <div className="result-hover-actions">
-                        <button className="result-action-btn" onClick={(e) => handleSendToCanvas(e, result.image, result.prompt)} title="Send to Canvas">
-                          <Send size={12} />
-                        </button>
-                        <button className="result-action-btn" onClick={(e) => handleExport(e, result.image, `result-${result.type}`)} title="Export">
-                          <Download size={12} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="result-info">
-                      <span className="result-type">{result.type}</span>
-                      <span className="result-date">{new Date(result.createdAt).toLocaleDateString()}</span>
-                    </div>
+            {/* Modal Right: Details / Specs */}
+            <div className="results-section project-details-section">
+              <h3 className="section-title">Project Details</h3>
+              
+              <div className="project-spec-card">
+                <h2 className="project-spec-title">{selectedProject.name}</h2>
+                <span className={`project-status-tag ${selectedProject.status}`}>{selectedProject.status}</span>
+                
+                <div className="project-stats-grid">
+                  <div className="stat-box">
+                    <span className="stat-label">Source Images</span>
+                    <span className="stat-value">{selectedProject.sourceCount}</span>
                   </div>
-                ))}
+                  <div className="stat-box">
+                    <span className="stat-label">Render Outputs</span>
+                    <span className="stat-value">{selectedProject.outputCount}</span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">Workflow Connections</span>
+                    <span className="stat-value">{selectedProject.refCount}</span>
+                  </div>
+                </div>
+
+                <div className="project-spec-list">
+                  <div className="spec-item">
+                    <Calendar size={13} />
+                    <span className="spec-label">Created:</span>
+                    <span className="spec-value">{new Date(selectedProject.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  </div>
+                  <div className="spec-item">
+                    <Clock size={13} />
+                    <span className="spec-label">Modified:</span>
+                    <span className="spec-value">{new Date(selectedProject.updatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  </div>
+                  <div className="spec-item file-path-item" title={selectedProject.filePath}>
+                    <FolderOpen size={13} />
+                    <span className="spec-label">Location:</span>
+                    <span className="spec-value file-path-text">{selectedProject.filePath}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
-      {exportTarget && (
-        <ExportModal
-          imageUrl={exportTarget.image}
-          imageName={exportTarget.name}
-          onClose={() => setExportTarget(null)}
+
+      {/* Rename Dialog Modal */}
+      {renamingProject && (
+        <div className="library-preview-overlay rename-overlay" onClick={() => setRenamingProject(null)}>
+          <div className="library-preview-modal rename-modal" onClick={e => e.stopPropagation()}>
+            <h3>Rename Project</h3>
+            <p className="modal-subtext">Enter a new name for your project file.</p>
+            <input
+              className="col-new-input"
+              style={{ width: '100%', marginBottom: 20 }}
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="Project name..."
+              onKeyDown={e => { if (e.key === 'Enter') handleRenameConfirm(); }}
+              autoFocus
+            />
+            <div className="rename-dialog-actions">
+              <button className="send-option-cancel" onClick={() => setRenamingProject(null)}>Cancel</button>
+              <button className="col-create-btn" onClick={handleRenameConfirm} disabled={!newName.trim()}>Rename</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeletePath && (
+        <ConfirmModal
+          title="Delete Project"
+          message={`Delete project "${confirmDeleteName}"? This will permanently delete the project file from disk.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setConfirmDeletePath(null)}
         />
       )}
     </div>

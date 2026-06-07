@@ -15,6 +15,7 @@ import {
   type DocFile 
 } from '../../services/docs';
 import { DocViewer } from '../../components/DocViewer';
+import { SupportModal } from './SupportModal';
 
 // ── Data (outside component for reference stability) ────────────────────────
 
@@ -45,6 +46,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
   const [videoTutorialsData, setVideoTutorialsData] = useState<DocFile[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<DocCategory[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<DocFile[]>([]);
+  const [showSupport, setShowSupport] = useState(false);
   
   // Viewer state
   const [activeDoc, setActiveDoc] = useState<{ title: string; content: string } | null>(null);
@@ -95,6 +97,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="doc-modal-overlay" onClick={onClose}>
       <div className="doc-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -226,14 +229,16 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
                 <h4>Need Help?</h4>
                 <p>Contact support or join our community</p>
               </div>
-              <a href="#" className="doc-help-link">
+              <button className="doc-help-link" onClick={() => setShowSupport(true)}>
                 Get Support <ExternalLink size={14} />
-              </a>
+              </button>
             </div>
           </div>
         </div>
         )}
       </div>
     </div>
+    <SupportModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
+    </>
   );
 };

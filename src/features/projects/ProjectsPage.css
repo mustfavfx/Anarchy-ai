@@ -470,3 +470,20 @@
   min-width: 70px;
   text-align: right;
 }
+
+/* Project path text styling */
+.project-path-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: ltr;
+  text-align: left;
+}
+
+.project-path-text.list-path {
+  margin-top: 4px;
+  max-width: 500px;
+}

@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { Plus, X, FileText, FolderOpen } from 'lucide-react';
+import { Plus, X, FileText } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { BuilderContent } from './BuilderPage';
-import { listProjects, type ProjectMeta } from '../../services/projects/ProjectService';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import './MultiBuilderPage.css';
 
@@ -20,9 +20,16 @@ interface Tab {
   projectPath: string | null;
   isDirty: boolean;
   everEdited: boolean;
+  initialWorkflow?: any;
+  initialImage?: string;
 }
 
 const generateTabId = () => `tab-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+const normalizePath = (p: string | null | undefined): string | null => {
+  if (!p) return null;
+  return p.replace(/\\/g, '/').toLowerCase();
+};
 
 function loadPersistedTabs(): { tabs: Tab[]; activeTabId: string | null } {
   try {
@@ -38,48 +45,186 @@ function loadPersistedTabs(): { tabs: Tab[]; activeTabId: string | null } {
 }
 
 export const MultiBuilderPage: React.FC = () => {
+  const location = useLocation();
   const [tabs, setTabs] = useState<Tab[]>(() => loadPersistedTabs().tabs);
   const [activeTabId, setActiveTabId] = useState<string | null>(() => loadPersistedTabs().activeTabId);
-  const [showNewTabMenu, setShowNewTabMenu] = useState(false);
-  const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [closeConfirm, setCloseConfirm] = useState<CloseConfirm | null>(null);
+
+  // Helper to remove legacy keys and orphaned tab autosaves
+  const cleanupOrphanedAutosaves = useCallback((currentTabs: Tab[]) => {
+    try {
+      // 1. Remove deprecated legacy keys that are no longer used but might be taking up space
+      localStorage.removeItem('anarchy_workflows');
+      localStorage.removeItem('anarchy_library');
+
+      // 2. Build set of active tab IDs
+      const activeTabIds = new Set(currentTabs.map(t => t.id));
+
+      // 3. Find and remove all orphaned autosave keys in localStorage
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('anarchy_builder_silent_autosave_')) {
+          const tabId = key.replace('anarchy_builder_silent_autosave_', '');
+          if (tabId && !activeTabIds.has(tabId)) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+
+      if (keysToRemove.length > 0) {
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        console.log(`[StorageCleanup] Removed ${keysToRemove.length} orphaned autosave key(s).`);
+      }
+    } catch (err) {
+      console.warn('[StorageCleanup] Failed to clean up orphaned autosaves:', err);
+    }
+  }, []);
+
+  // Run startup cleanup once on mount
+  useEffect(() => {
+    cleanupOrphanedAutosaves(tabs);
+  }, [cleanupOrphanedAutosaves]);
 
   // Persist tabs to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(tabs));
-  }, [tabs]);
+    try {
+      localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(tabs));
+    } catch (err) {
+      console.warn('[MultiBuilderPage] Failed to save tabs to localStorage:', err);
+      // Try to clean up orphaned autosaves to free up space
+      cleanupOrphanedAutosaves(tabs);
+      try {
+        localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(tabs));
+      } catch (retryErr) {
+        console.error('[MultiBuilderPage] Still failing to save tabs after cleanup:', retryErr);
+      }
+    }
+  }, [tabs, cleanupOrphanedAutosaves]);
 
   useEffect(() => {
-    if (activeTabId) localStorage.setItem(ACTIVE_TAB_KEY, activeTabId);
+    if (activeTabId) {
+      try {
+        localStorage.setItem(ACTIVE_TAB_KEY, activeTabId);
+      } catch (err) {
+        console.warn('[MultiBuilderPage] Failed to save activeTabId to localStorage:', err);
+      }
+    }
   }, [activeTabId]);
 
-  // Load projects for the new tab menu
+  // Check for a file passed via command line arguments on startup
   useEffect(() => {
-    const loadProjects = async () => {
+    const checkStartupFile = async () => {
       try {
-        const all = await listProjects();
-        setProjects(all);
-      } catch {
-        // No projects yet
+        const { invoke } = await import('@tauri-apps/api/core');
+        const path = await invoke<string | null>('get_startup_file');
+        if (path) {
+          console.log('[Startup] Found startup file path:', path);
+          
+          setTabs(prev => {
+            const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(path));
+            if (existing) {
+              setTimeout(() => setActiveTabId(existing.id), 0);
+              return prev;
+            }
+            const newTab: Tab = {
+              id: generateTabId(),
+              title: 'Loading...',
+              projectPath: path,
+              isDirty: false,
+              everEdited: false,
+            };
+            setTimeout(() => setActiveTabId(newTab.id), 0);
+            return [...prev, newTab];
+          });
+        }
+      } catch (err) {
+        console.error('Failed to get startup file:', err);
       }
     };
-    loadProjects();
+
+    checkStartupFile();
   }, []);
 
   // Handle opening a project from session or create initial tab
   useEffect(() => {
+    if (location.pathname !== '/builder') return;
+
     const projectPath = sessionStorage.getItem(SESSION_KEYS.OPEN_PROJECT_PATH);
+    const loadedWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
+    const presetWorkflow = sessionStorage.getItem(SESSION_KEYS.PRESET_WORKFLOW);
+    const presetImage = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
+
     if (projectPath) {
       sessionStorage.removeItem(SESSION_KEYS.OPEN_PROJECT_PATH);
+      
+      setTabs(prev => {
+        const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(projectPath));
+        if (existing) {
+          setTimeout(() => setActiveTabId(existing.id), 0);
+          return prev;
+        }
+        const newTab: Tab = {
+          id: generateTabId(),
+          title: 'Loading...',
+          projectPath: projectPath,
+          isDirty: false,
+          everEdited: false,
+        };
+        setTimeout(() => setActiveTabId(newTab.id), 0);
+        return [...prev, newTab];
+      });
+    } else if (loadedWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.LOADED_WORKFLOW);
+      try {
+        const wf = JSON.parse(loadedWorkflow);
+        const newTab: Tab = {
+          id: generateTabId(),
+          title: wf.name || 'Imported Project',
+          projectPath: null,
+          isDirty: false,
+          everEdited: false,
+          initialWorkflow: wf,
+        };
+        setTabs(prev => [...prev, newTab]);
+        setTimeout(() => setActiveTabId(newTab.id), 0);
+      } catch (err) {
+        console.error('Failed to parse loaded workflow:', err);
+      }
+    } else if (presetWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.PRESET_WORKFLOW);
+      const img = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
+      if (img) {
+        sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
+      }
+      try {
+        const wf = JSON.parse(presetWorkflow);
+        const newTab: Tab = {
+          id: generateTabId(),
+          title: wf.name || 'Preset Workflow',
+          projectPath: null,
+          isDirty: false,
+          everEdited: false,
+          initialWorkflow: wf,
+          initialImage: img || undefined,
+        };
+        setTabs(prev => [...prev, newTab]);
+        setTimeout(() => setActiveTabId(newTab.id), 0);
+      } catch (err) {
+        console.error('Failed to parse preset workflow:', err);
+      }
+    } else if (presetImage) {
+      sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
       const newTab: Tab = {
         id: generateTabId(),
-        title: 'Loading...',
-        projectPath: projectPath,
+        title: 'Preset Image',
+        projectPath: null,
         isDirty: false,
         everEdited: false,
+        initialImage: presetImage,
       };
       setTabs(prev => [...prev, newTab]);
-      setActiveTabId(newTab.id);
+      setTimeout(() => setActiveTabId(newTab.id), 0);
     } else if (tabs.length === 0) {
       const newTab: Tab = {
         id: generateTabId(),
@@ -91,7 +236,7 @@ export const MultiBuilderPage: React.FC = () => {
       setTabs([newTab]);
       setActiveTabId(newTab.id);
     }
-  }, []);
+  }, [tabs.length, location.pathname]);  
 
   const createNewTab = useCallback(() => {
     const newTab: Tab = {
@@ -103,34 +248,13 @@ export const MultiBuilderPage: React.FC = () => {
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
-    setShowNewTabMenu(false);
   }, []);
-
-  const createTabFromProject = useCallback((project: ProjectMeta) => {
-    const newTab: Tab = {
-      id: generateTabId(),
-      title: project.name,
-      projectPath: project.filePath,
-      isDirty: false,
-      everEdited: false,
-    };
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
-    setShowNewTabMenu(false);
-  }, []);
-
-  const requestCloseTab = useCallback((tabId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const tab = tabs.find(t => t.id === tabId);
-    if (tab && tab.everEdited) {
-      setCloseConfirm({ tabId, title: tab.title });
-    } else {
-      doCloseTab(tabId);
-    }
-  }, [tabs]);
 
   const doCloseTab = useCallback((tabId: string) => {
     setCloseConfirm(null);
+    try {
+      localStorage.removeItem(`anarchy_builder_silent_autosave_${tabId}`);
+    } catch {}
     setTabs(prev => {
       const newTabs = prev.filter(t => t.id !== tabId);
       if (activeTabId === tabId && newTabs.length > 0) {
@@ -152,6 +276,16 @@ export const MultiBuilderPage: React.FC = () => {
     });
   }, [activeTabId]);
 
+  const requestCloseTab = useCallback((tabId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab && tab.everEdited) {
+      setCloseConfirm({ tabId, title: tab.title });
+    } else {
+      doCloseTab(tabId);
+    }
+  }, [tabs, doCloseTab]);
+
   const updateTabTitle = useCallback((tabId: string, title: string) => {
     setTabs(prev => prev.map(tab =>
       tab.id === tabId ? { ...tab, title } : tab
@@ -161,6 +295,12 @@ export const MultiBuilderPage: React.FC = () => {
   const updateTabDirty = useCallback((tabId: string, dirty: boolean) => {
     setTabs(prev => prev.map(tab =>
       tab.id === tabId ? { ...tab, isDirty: dirty, everEdited: dirty ? true : tab.everEdited } : tab
+    ));
+  }, []);
+
+  const updateTabProjectPath = useCallback((tabId: string, projectPath: string | null) => {
+    setTabs(prev => prev.map(tab =>
+      tab.id === tabId ? { ...tab, projectPath } : tab
     ));
   }, []);
 
@@ -193,15 +333,96 @@ export const MultiBuilderPage: React.FC = () => {
     dragTabId.current = null;
   }, []);
 
+  const [showAppCloseConfirm, setShowAppCloseConfirm] = useState(false);
+
+  // Listen to save completed events (to close tab or proceed in sequential app close)
+  useEffect(() => {
+    const handleSaveCompleted = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tabId: string; success: boolean }>;
+      const { tabId, success } = customEvent.detail;
+      if (success) {
+        doCloseTab(tabId);
+      }
+    };
+
+    window.addEventListener('anarchy:save-completed', handleSaveCompleted);
+    return () => {
+      window.removeEventListener('anarchy:save-completed', handleSaveCompleted);
+    };
+  }, [doCloseTab]);
+
+  // Listen to app close request event
+  useEffect(() => {
+    const handleAppClose = () => {
+      setShowAppCloseConfirm(true);
+    };
+    window.addEventListener('anarchy:trigger-app-close', handleAppClose);
+    return () => window.removeEventListener('anarchy:trigger-app-close', handleAppClose);
+  }, []);
+
+  const handleAppDontSaveAndClose = async () => {
+    setShowAppCloseConfirm(false);
+    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+    (window as any).__anarchy_force_close = true;
+    await getCurrentWebviewWindow().close();
+  };
+
+  const handleAppSaveAndClose = async () => {
+    setShowAppCloseConfirm(false);
+    const dirtyTabs = tabs.filter(t => t.isDirty);
+    if (dirtyTabs.length === 0) {
+      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      (window as any).__anarchy_force_close = true;
+      await getCurrentWebviewWindow().close();
+      return;
+    }
+
+    let currentIndex = 0;
+
+    const saveNext = async () => {
+      if (currentIndex >= dirtyTabs.length) {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        (window as any).__anarchy_force_close = true;
+        await getCurrentWebviewWindow().close();
+        return;
+      }
+
+      const tab = dirtyTabs[currentIndex];
+      setActiveTabId(tab.id);
+
+      const onSaveCompleted = async (e: Event) => {
+        const customEvent = e as CustomEvent<{ tabId: string; success: boolean }>;
+        if (customEvent.detail.tabId !== tab.id) return;
+
+        window.removeEventListener('anarchy:save-completed', onSaveCompleted);
+
+        if (customEvent.detail.success) {
+          currentIndex++;
+          setTimeout(saveNext, 100);
+        } else {
+          console.log('[AppClose] Save cancelled or failed for tab:', tab.id, '- aborted app exit.');
+        }
+      };
+
+      window.addEventListener('anarchy:save-completed', onSaveCompleted);
+
+      // Trigger save on this tab
+      window.dispatchEvent(new CustomEvent('anarchy:trigger-save-tab', {
+        detail: { tabId: tab.id, closeAfterSave: true }
+      }));
+    };
+
+    saveNext();
+  };
+
   return (
     <div className="multi-builder-container">
       {/* Tabs Bar */}
       <div className="builder-tabs-bar">
         <div className="builder-tabs-scroll">
           {tabs.map((tab) => (
-            <button
+            <div
               key={tab.id}
-              type="button"
               draggable
               className={`builder-tab ${activeTabId === tab.id ? 'active' : ''} ${tab.isDirty ? 'dirty' : ''}`}
               onClick={() => setActiveTabId(tab.id)}
@@ -213,12 +434,13 @@ export const MultiBuilderPage: React.FC = () => {
               <span className="tab-title">{tab.title}</span>
               {tab.isDirty && <span className="dirty-indicator">●</span>}
               <button
+                type="button"
                 className="tab-close-btn"
-                onClick={(e) => requestCloseTab(tab.id, e)}
+                onClick={(e) => { e.stopPropagation(); requestCloseTab(tab.id, e); }}
               >
                 <X size={12} />
               </button>
-            </button>
+            </div>
           ))}
         </div>
         
@@ -227,40 +449,10 @@ export const MultiBuilderPage: React.FC = () => {
           <button
             className="new-tab-btn"
             title="New Tab"
-            onClick={() => {
-              if (projects.length > 0) {
-                setShowNewTabMenu(v => !v);
-              } else {
-                createNewTab();
-              }
-            }}
+            onClick={createNewTab}
           >
             <Plus size={16} />
           </button>
-
-          {/* New Tab Menu — only shown when projects exist */}
-          {showNewTabMenu && (
-            <div className="new-tab-menu">
-              <div className="new-tab-header">Open Project</div>
-              <button className="new-tab-option" onClick={createNewTab}>
-                <FileText size={14} />
-                <span>New Empty Tab</span>
-              </button>
-              <div className="new-tab-divider" />
-              <div className="new-tab-projects">
-                {projects.slice(0, 10).map(project => (
-                  <button
-                    key={project.filePath}
-                    className="new-tab-project-item"
-                    onClick={() => createTabFromProject(project)}
-                  >
-                    <FolderOpen size={14} />
-                    <span>{project.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -276,8 +468,12 @@ export const MultiBuilderPage: React.FC = () => {
               <BuilderContent
                 tabId={tab.id}
                 projectPath={tab.projectPath}
+                initialWorkflow={tab.initialWorkflow}
+                initialImage={tab.initialImage}
                 onTitleChange={(title) => updateTabTitle(tab.id, title)}
                 onDirtyChange={(dirty) => updateTabDirty(tab.id, dirty)}
+                onProjectPathChange={(path) => updateTabProjectPath(tab.id, path)}
+                isActive={activeTabId === tab.id}
               />
             </ReactFlowProvider>
           </div>
@@ -308,9 +504,43 @@ export const MultiBuilderPage: React.FC = () => {
               <button
                 className="tab-close-dialog-btn primary"
                 onClick={() => {
-                  // TODO: trigger save then close
-                  doCloseTab(closeConfirm.tabId);
+                  window.dispatchEvent(new CustomEvent('anarchy:trigger-save-tab', {
+                    detail: { tabId: closeConfirm.tabId, closeAfterSave: true }
+                  }));
+                  setCloseConfirm(null);
                 }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* App Close Confirmation Dialog */}
+      {showAppCloseConfirm && (
+        <div className="tab-close-overlay" onClick={() => setShowAppCloseConfirm(false)}>
+          <div className="tab-close-dialog" onClick={e => e.stopPropagation()}>
+            <div className="tab-close-dialog-title">Save changes before exiting?</div>
+            <div className="tab-close-dialog-msg">
+              You have unsaved changes in your tabs.
+            </div>
+            <div className="tab-close-dialog-actions">
+              <button
+                className="tab-close-dialog-btn secondary"
+                onClick={handleAppDontSaveAndClose}
+              >
+                Don't Save
+              </button>
+              <button
+                className="tab-close-dialog-btn secondary"
+                onClick={() => setShowAppCloseConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="tab-close-dialog-btn primary"
+                onClick={handleAppSaveAndClose}
               >
                 Save
               </button>

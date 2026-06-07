@@ -104,7 +104,7 @@ export const SettingsService = {
     if (theme === 'dark') return true;
     if (theme === 'light') return false;
     // System preference
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
   },
 
   /**
@@ -113,7 +113,11 @@ export const SettingsService = {
   updateSettings(updates: Partial<AppSettings>): void {
     const current = this.getSettings();
     const merged = { ...current, ...updates };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    } catch (err) {
+      console.warn('[SettingsService] Failed to save settings to localStorage:', err);
+    }
   },
 
   /**
@@ -125,8 +129,8 @@ export const SettingsService = {
         callback(this.getSettings());
       }
     };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
+    globalThis.addEventListener('storage', handler);
+    return () => globalThis.removeEventListener('storage', handler);
   }
 };
 

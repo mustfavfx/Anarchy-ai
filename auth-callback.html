@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authenticating with Anarchy AI...</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0b10;
+      --card-bg: rgba(20, 21, 33, 0.6);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-primary: #ffffff;
+      --text-secondary: #94a3b8;
+      --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+      --glow-color: rgba(99, 102, 241, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient background glow */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--glow-color) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .logo-container {
+      margin-bottom: 30px;
+      display: inline-flex;
+      position: relative;
+    }
+
+    .logo-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80px;
+      height: 80px;
+      background: var(--accent-gradient);
+      filter: blur(20px);
+      opacity: 0.6;
+      border-radius: 50%;
+      z-index: -1;
+      animation: pulse 3s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.4; }
+      100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.7; }
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      background: #1e1e2f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      font-family: 'Outfit', sans-serif;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
+      color: #fff;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 24px;
+      line-height: 1.3;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+
+    .status-text {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    .loader {
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      border-top-color: #6366f1;
+      animation: spin 1s ease-in-out infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 14px 28px;
+      background: var(--accent-gradient);
+      color: white;
+      font-weight: 600;
+      font-size: 15px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      margin-top: 10px;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeInUp 0.5s 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="card">
+      <div class="logo-container">
+        <div class="logo-glow"></div>
+        <div class="logo">A</div>
+      </div>
+
+      <div id="loader-icon" class="loader"></div>
+      
+      <h1 id="title">Signing in...</h1>
+      <p id="status" class="status-text">Connecting securely with your Anarchy AI desktop app.</p>
+
+      <a id="action-btn" class="btn" href="#">Open Anarchy AI</a>
+
+      <div class="footer">
+        Anarchy AI Architectural Visualizer
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function parseHashAndRedirect() {
+      // Get hash parameters from URL
+      const hash = window.location.hash;
+      const search = window.location.search;
+      
+      // If there's no auth info in URL, check if we have it in search (for some callback styles)
+      if (!hash && !search) {
+        document.getElementById('loader-icon').style.display = 'none';
+        document.getElementById('title').textContent = 'Authentication Failed';
+        document.getElementById('status').textContent = 'No authentication details were found in the redirect URL.';
+        return;
+      }
+
+      // Supabase OAuth passes data in the URL hash fragment
+      // Example: #access_token=...&refresh_token=...
+      const payload = hash || search;
+
+      // Construct deep link protocol redirect
+      // Protocol is registry associated as anarchy-ai://
+      const deepLinkUrl = `anarchy-ai://auth-callback${payload}`;
+
+      // Set manual button target just in case auto-redirect fails
+      const actionBtn = document.getElementById('action-btn');
+      actionBtn.href = deepLinkUrl;
+
+      // Auto redirect
+      setTimeout(() => {
+        window.location.href = deepLinkUrl;
+        
+        // Update UI
+        document.getElementById('title').textContent = 'Authentication Complete';
+        document.getElementById('status').innerHTML = 'You can safely close this browser tab now.<br><br>If the application did not open automatically, click the button below.';
+        document.getElementById('loader-icon').style.display = 'none';
+      }, 800);
+    }
+
+    // Run callback parser on page load
+    window.addEventListener('DOMContentLoaded', parseHashAndRedirect);
+  </script>
+</body>
+</html>

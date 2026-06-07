@@ -2,8 +2,8 @@
  * VizGhostAttachEdge - Custom edge for AI processing graph
  * 
  * Features:
- * - Smooth bezier curves with 0.16 curvature
- * - Visually "plugs into" node handle
+ * - Smooth bezier curves (no corners)
+ * - Brand red dashed lines
  * - Glow effect when data is flowing
  * - Arrow markers showing direction
  */
@@ -11,16 +11,82 @@
 import React, { memo } from 'react';
 import { 
   BaseEdge, 
-  EdgeLabelRenderer, 
   type EdgeProps,
-  getSmoothStepPath
+  Position
 } from '@xyflow/react';
-import type { DataPacket } from './types';
-
-interface EdgeData {
-  packet?: DataPacket;
-  isActive: boolean;
-  lastUpdate: number;
+// Manual bezier path calculation to avoid getBezierPath/getControlWithCurvature errors
+function getBezierPathManual(
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  sourcePosition: Position = Position.Right,
+  targetPosition: Position = Position.Left,
+  curvature: number = 0.5
+): [string, number, number] {
+  const distanceX = Math.abs(targetX - sourceX);
+  const distanceY = Math.abs(targetY - sourceY);
+  
+  // Control point offset based on distance and curvature
+  const offset = Math.max(distanceX, distanceY) * curvature;
+  
+  let sourceControlX: number;
+  let sourceControlY: number;
+  let targetControlX: number;
+  let targetControlY: number;
+  
+  // Calculate control points based on handle positions
+  switch (sourcePosition) {
+    case Position.Left:
+      sourceControlX = sourceX - offset;
+      sourceControlY = sourceY;
+      break;
+    case Position.Right:
+      sourceControlX = sourceX + offset;
+      sourceControlY = sourceY;
+      break;
+    case Position.Top:
+      sourceControlX = sourceX;
+      sourceControlY = sourceY - offset;
+      break;
+    case Position.Bottom:
+      sourceControlX = sourceX;
+      sourceControlY = sourceY + offset;
+      break;
+    default:
+      sourceControlX = sourceX + offset;
+      sourceControlY = sourceY;
+  }
+  
+  switch (targetPosition) {
+    case Position.Left:
+      targetControlX = targetX - offset;
+      targetControlY = targetY;
+      break;
+    case Position.Right:
+      targetControlX = targetX + offset;
+      targetControlY = targetY;
+      break;
+    case Position.Top:
+      targetControlX = targetX;
+      targetControlY = targetY - offset;
+      break;
+    case Position.Bottom:
+      targetControlX = targetX;
+      targetControlY = targetY + offset;
+      break;
+    default:
+      targetControlX = targetX - offset;
+      targetControlY = targetY;
+  }
+  
+  const path = `M ${sourceX} ${sourceY} C ${sourceControlX} ${sourceControlY}, ${targetControlX} ${targetControlY}, ${targetX} ${targetY}`;
+  
+  // Label position at midpoint
+  const labelX = (sourceX + targetX) / 2;
+  const labelY = (sourceY + targetY) / 2;
+  
+  return [path, labelX, labelY];
 }
 
 const VizGhostAttachEdge = memo(({
@@ -33,43 +99,31 @@ const VizGhostAttachEdge = memo(({
   targetPosition,
   style = {},
   markerEnd,
-  data,
 }: EdgeProps) => {
-  const { packet, isActive } = (data as unknown as EdgeData) || {};
-  
-  // Generate smooth path
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  // Generate smooth bezier curve - optimal curvature for perfect curves
+  const [edgePath] = getBezierPathManual(
     sourceX,
     sourceY,
-    sourcePosition,
     targetX,
     targetY,
+    sourcePosition,
     targetPosition,
-    borderRadius: 16,
-    offset: 0,
-  });
+    0.35 // Perfect curve balance (not too tight, not too loose)
+  );
 
-  // Determine visual state
-  const hasData = !!packet?.image;
-  const isFlowing = isActive && hasData;
-  
-  // Dynamic styles based on data state
+  // Simple edge style - no glow, no shadow
   const edgeStyle: React.CSSProperties = {
     ...style,
-    strokeWidth: isFlowing ? 3 : 2,
-    stroke: isFlowing 
-      ? 'rgba(59, 130, 246, 0.8)' // Blue glow for data flow
-      : 'rgba(255, 255, 255, 0.3)',
-    opacity: hasData ? 1 : 0.4,
-    filter: isFlowing ? 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.6))' : 'none',
+    strokeWidth: 2,
+    stroke: '#e11d48', // Brand red
+    opacity: 0.8,
+    strokeDasharray: '5 5',
+    strokeLinecap: 'round',
+    filter: 'none', // No glow effect
     transition: 'all 0.3s ease',
   };
 
-  // Animated dash pattern for flowing data
-  const animatedStyle: React.CSSProperties = isFlowing ? {
-    strokeDasharray: '8 4',
-    animation: 'edgeFlow 1s linear infinite',
-  } : {};
+  // No animation - static simple edge
 
   return (
     <>
@@ -77,58 +131,12 @@ const VizGhostAttachEdge = memo(({
       <BaseEdge 
         id={id} 
         path={edgePath} 
-        style={{ ...edgeStyle, ...animatedStyle }} 
+        style={edgeStyle} 
         markerEnd={markerEnd}
       />
       
-      {/* Glow layer when active */}
-      {isFlowing && (
-        <BaseEdge
-          id={`${id}-glow`}
-          path={edgePath}
-          style={{
-            stroke: 'rgba(59, 130, 246, 0.3)',
-            strokeWidth: 8,
-            fill: 'none',
-            filter: 'blur(4px)',
-            opacity: 0.6,
-          }}
-        />
-      )}
+      {/* Simple edge without glow or labels */}
 
-      {/* Data packet indicator */}
-      <EdgeLabelRenderer>
-        {isFlowing && (
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              fontSize: 10,
-              fontWeight: 600,
-              pointerEvents: 'none',
-              color: 'rgba(59, 130, 246, 0.9)',
-              background: 'rgba(0, 0, 0, 0.6)',
-              padding: '2px 6px',
-              borderRadius: 4,
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-            }}
-          >
-            {packet?.metadata.operationType}
-          </div>
-        )}
-      </EdgeLabelRenderer>
-
-      {/* CSS for animation */}
-      <style>{`
-        @keyframes edgeFlow {
-          from {
-            stroke-dashoffset: 12;
-          }
-          to {
-            stroke-dashoffset: 0;
-          }
-        }
-      `}</style>
     </>
   );
 });

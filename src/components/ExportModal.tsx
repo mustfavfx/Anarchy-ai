@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, FolderOpen, Image as ImageIcon, Check, Loader2, FileImage } from 'lucide-react';
-import { exportImage, getImageDimensions, type ExportFormat } from '../utils/imageExport';
+import { exportImage, getImageDimensions, convertImage, type ExportFormat, type ExportScale } from '../utils/imageExport';
+import { save } from '@tauri-apps/plugin-dialog';
 import './ExportModal.css';
 
 export interface ExportModalProps {
@@ -25,6 +26,7 @@ const FORMATS: FormatOption[] = [
 export const ExportModal: React.FC<ExportModalProps> = ({ imageUrl, imageName = 'anarchy-image', onClose }) => {
   const [format, setFormat]   = useState<ExportFormat>('png');
   const [quality, setQuality] = useState(92);
+  const [scale, setScale]   = useState<ExportScale>(1);
   const [dims, setDims]       = useState<{ w: number; h: number } | null>(null);
   const [status, setStatus]   = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -46,11 +48,42 @@ export const ExportModal: React.FC<ExportModalProps> = ({ imageUrl, imageName = 
     setStatus('loading');
     setErrorMsg('');
     try {
+      const isTauri = globalThis.window !== undefined && '__TAURI_INTERNALS__' in globalThis;
+
+      if (!saveToDocuments && isTauri) {
+        const extension = format;
+        const defaultPath = `${imageName}.${extension}`;
+        
+        const selectedPath = await save({
+          defaultPath,
+          filters: [{
+            name: `${format.toUpperCase()} Image`,
+            extensions: [extension]
+          }]
+        });
+
+        if (!selectedPath) {
+          setStatus('idle');
+          return;
+        }
+
+        const qualityVal = quality / 100;
+        const dataUri = await convertImage(imageUrl, format, qualityVal, scale);
+        
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('save_image_to_path', { path: selectedPath, dataUri });
+
+        setStatus('done');
+        setTimeout(() => setStatus('idle'), 2000);
+        return;
+      }
+
       await exportImage(imageUrl, {
         format,
         quality: quality / 100,
         baseName: imageName,
         saveToDocuments,
+        scale,
       });
       setStatus('done');
       setTimeout(() => setStatus('idle'), 2000);
@@ -131,6 +164,39 @@ export const ExportModal: React.FC<ExportModalProps> = ({ imageUrl, imageName = 
           </div>
         )}
 
+        {/* Upscale selector - 2K/4K export */}
+        <div className="export-section">
+          <div className="export-label-row">
+            <label className="export-label">Resolution</label>
+            {dims && scale > 1 && (
+              <span className="export-dims-upscaled">{dims.w * scale} × {dims.h * scale} px</span>
+            )}
+          </div>
+          <div className="export-scale-grid">
+            <button
+              className={`export-scale-btn ${scale === 1 ? 'active' : ''}`}
+              onClick={() => setScale(1)}
+            >
+              <span className="scale-name">1×</span>
+              <span className="scale-desc">Original</span>
+            </button>
+            <button
+              className={`export-scale-btn ${scale === 2 ? 'active' : ''}`}
+              onClick={() => setScale(2)}
+            >
+              <span className="scale-name">2×</span>
+              <span className="scale-desc">2K Quality</span>
+            </button>
+            <button
+              className={`export-scale-btn ${scale === 4 ? 'active' : ''}`}
+              onClick={() => setScale(4)}
+            >
+              <span className="scale-name">4×</span>
+              <span className="scale-desc">4K Quality</span>
+            </button>
+          </div>
+        </div>
+
         {/* Status feedback */}
         {status === 'error' && (
           <div className="export-error">{errorMsg}</div>
@@ -144,18 +210,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({ imageUrl, imageName = 
             disabled={status === 'loading'}
           >
             {status === 'loading' ? (
-              <><Loader2 size={14} className="spin" /> Exporting…</>
+              <><Loader2 size={14} className="spin" /> Saving…</>
             ) : status === 'done' ? (
               <><Check size={14} /> Saved!</>
             ) : (
-              <><Download size={14} /> Download</>
+              <><Download size={14} /> Save</>
             )}
           </button>
           <button
             className="export-btn secondary"
             onClick={() => handleExport(true)}
             disabled={status === 'loading'}
-            title="Save to Documents/Anarchy AI"
+            title="Save directly to Documents/Anarchy AI"
           >
             <FolderOpen size={14} />
             <span>Save to Documents</span>
@@ -164,7 +230,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ imageUrl, imageName = 
 
         <p className="export-footer-note">
           <ImageIcon size={11} />
-          Download saves to your browser downloads folder. "Save to Documents" saves to Documents/Anarchy AI.
+          "Save" prompts for a custom file location on your system. "Save to Documents" saves directly to Documents/Anarchy AI.
         </p>
 
       </div>

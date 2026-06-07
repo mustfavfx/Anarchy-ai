@@ -106,7 +106,7 @@ namespace AnarchyRevit
                 string b64 = Convert.ToBase64String(bytes);
                 string dataUrl = "data:image/png;base64," + b64;
 
-                string json = "{\"type\":\"EXTERNAL_IMAGE_NODE\",\"image\":\"" + dataUrl + "\"}";
+                string json = "{\"type\":\"EXTERNAL_IMAGE_NODE\",\"image\":\"" + dataUrl + "\",\"source\":\"revit\"}";
                 byte[] payload = Encoding.UTF8.GetBytes(json);
 
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create("http://localhost:14400/upload-view");

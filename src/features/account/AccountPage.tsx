@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { logger } from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, Shield, LogOut, Check,
@@ -83,13 +84,14 @@ export const AccountPage: React.FC = () => {
   // Load user credit data
   useEffect(() => {
     if (!authUser?.id) return;
+    console.log('[Account] Current user_id:', authUser.id);
 
     setIsLoadingCredit(true);
     getUserCredit(authUser.id)
       .then(data => {
         setCredit(data);
       })
-      .catch(err => console.error('[Account] Failed to load credit:', err))
+      .catch(err => logger.error('[Account] Failed to load credit:', err))
       .finally(() => setIsLoadingCredit(false));
 
     // Load transaction history
@@ -102,7 +104,7 @@ export const AccountPage: React.FC = () => {
     setAccount(prev => {
       const updated = { ...prev, name: tempName };
       localStorage.setItem('anarchy_account', JSON.stringify(updated));
-      window.dispatchEvent(new Event('anarchy-account-updated'));
+      globalThis.dispatchEvent(new Event('anarchy-account-updated'));
       return updated;
     });
     setEditingName(false);
@@ -123,7 +125,7 @@ export const AccountPage: React.FC = () => {
       setAccount(prev => {
         const updated = { ...prev, avatarUrl };
         localStorage.setItem('anarchy_account', JSON.stringify(updated));
-        window.dispatchEvent(new Event('anarchy-account-updated'));
+        globalThis.dispatchEvent(new Event('anarchy-account-updated'));
         return updated;
       });
     };
@@ -142,7 +144,7 @@ export const AccountPage: React.FC = () => {
     );
     keysToRemove.forEach(key => localStorage.removeItem(key));
     
-    window.dispatchEvent(new Event('anarchy-account-updated'));
+    globalThis.dispatchEvent(new Event('anarchy-account-updated'));
     await signOut();
   };
 
@@ -165,7 +167,7 @@ export const AccountPage: React.FC = () => {
         key.startsWith('sb-') || key.includes('supabase') || key === 'user' || key === 'anarchy_account'
       );
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      window.dispatchEvent(new Event('anarchy-account-updated'));
+      globalThis.dispatchEvent(new Event('anarchy-account-updated'));
       await signOut();
     } catch (error) {
       setAccountStatus(
@@ -296,12 +298,13 @@ export const AccountPage: React.FC = () => {
 
                 <div className="account-setting-item">
                   <div className="account-setting-content">
-                    <label>Email Address</label>
+                    <label htmlFor="account-email">Email Address</label>
                     <span className="account-desc">Used for notifications and account recovery</span>
                   </div>
                   <div className="account-input-group">
                     <Mail size={14} />
                     <input
+                      id="account-email"
                       className="account-input"
                       value={account.email}
                       onChange={(e) => updateAccount('email', e.target.value)}
@@ -311,7 +314,7 @@ export const AccountPage: React.FC = () => {
 
                 <div className="account-setting-item">
                   <div className="account-setting-content">
-                    <label>Member Since</label>
+                    <span className="account-label">Member Since</span>
                     <span className="account-desc">Account creation date</span>
                   </div>
                   <span className="account-value">{account.createdAt}</span>
@@ -326,7 +329,7 @@ export const AccountPage: React.FC = () => {
 
                 <div className="account-setting-item password-change-item">
                   <div className="account-setting-content">
-                    <label>Change Password</label>
+                    <span className="account-label">Change Password</span>
                     <span className="account-desc">Update your login password without exposing any API credentials</span>
                   </div>
                   <div className="password-change-group">
@@ -367,7 +370,7 @@ export const AccountPage: React.FC = () => {
                 </div>
                 <div className="account-danger-item">
                   <div className="account-setting-content">
-                    <label className="danger-label">Sign Out</label>
+                    <span className="danger-label">Sign Out</span>
                     <span className="account-desc">End the current session. Your data will be preserved.</span>
                   </div>
                   <button className="btn-danger" onClick={handleSignOut}>
@@ -378,7 +381,7 @@ export const AccountPage: React.FC = () => {
 
                 <div className="account-danger-item">
                   <div className="account-setting-content">
-                    <label className="danger-label">Switch Account</label>
+                    <span className="danger-label">Switch Account</span>
                     <span className="account-desc">Sign in with a different email. Your data will be preserved.</span>
                   </div>
                   <button className="btn-secondary" onClick={handleSwitchAccount}>
@@ -388,7 +391,7 @@ export const AccountPage: React.FC = () => {
                 </div>
                 <div className="account-danger-item">
                   <div className="account-setting-content">
-                    <label className="danger-label">Delete Account</label>
+                    <span className="danger-label">Delete Account</span>
                     <span className="account-desc">Permanently remove account data from this device</span>
                   </div>
                   <button className="btn-danger" onClick={handleDeleteAccount} disabled={isDeletingAccount}>
@@ -422,6 +425,9 @@ export const AccountPage: React.FC = () => {
                         <>{(credit?.balance || 0).toLocaleString()} Credits</>
                       )}
                     </span>
+                    <span style={{ fontSize: 10, opacity: 0.5, display: 'block', marginTop: 4 }}>
+                      ID: {authUser?.id?.slice(0, 8)}...
+                    </span>
                   </div>
                   <button
                     className="btn-add-credit"
@@ -446,9 +452,13 @@ export const AccountPage: React.FC = () => {
 
               {/* Cost Info */}
               <div className="account-card">
-                <div 
+                <div
                   className="account-card-header collapsible"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setIsCostsExpanded(!isCostsExpanded)}
+                  onKeyDown={(e) => e.key === 'Enter' && setIsCostsExpanded(!isCostsExpanded)}
+                  aria-expanded={isCostsExpanded}
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="header-left">
@@ -476,28 +486,60 @@ export const AccountPage: React.FC = () => {
 
                 <div className={`cost-breakdown ${isCostsExpanded ? 'expanded' : 'collapsed'}`}>
                   <div className="cost-item">
-                    <span className="cost-name">Standard (flux-schnell)</span>
+                    <span className="cost-name">FLUX 2 Pro</span>
+                    <span className="cost-value">1 Credit</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">Seedream 4.5</span>
+                    <span className="cost-value">1 Credit</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">FLUX Kontext Pro</span>
+                    <span className="cost-value">1 Credit</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">Grok Imagine</span>
+                    <span className="cost-value">1 Credit</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">GPT Image 2 (low/medium)</span>
+                    <span className="cost-value">1 Credit</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">GPT Image 2 (high/auto)</span>
+                    <span className="cost-value">2 Credits</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">Nano Banana 2 (1K/2K)</span>
+                    <span className="cost-value">2 Credits</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">Nano Banana 2 (4K)</span>
                     <span className="cost-value">3 Credits</span>
                   </div>
                   <div className="cost-item">
-                    <span className="cost-name">HD (flux-dev)</span>
-                    <span className="cost-value">25 Credits</span>
+                    <span className="cost-name">Nano Banana Pro (1K/2K)</span>
+                    <span className="cost-value">3 Credits</span>
                   </div>
                   <div className="cost-item">
-                    <span className="cost-name">4K (flux-1.1-pro)</span>
-                    <span className="cost-value">40 Credits</span>
+                    <span className="cost-name">Nano Banana Pro (4K)</span>
+                    <span className="cost-value">5 Credits</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">Topaz Labs Upscale</span>
+                    <span className="cost-value">2 Credits</span>
+                  </div>
+                  <div className="cost-item">
+                    <span className="cost-name">Real-ESRGAN / Clarity</span>
+                    <span className="cost-value">1 Credit</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Video 480p (per sec)</span>
-                    <span className="cost-value">90 Credits</span>
+                    <span className="cost-value">14 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Video 720p (per sec)</span>
-                    <span className="cost-value">250 Credits</span>
-                  </div>
-                  <div className="cost-item">
-                    <span className="cost-name">Upscale</span>
-                    <span className="cost-value">5 Credits</span>
+                    <span className="cost-value">38 Credits</span>
                   </div>
                 </div>
               </div>
@@ -549,8 +591,18 @@ export const AccountPage: React.FC = () => {
 
       {/* Pricing Details Modal */}
       {showPricingDetails && (
-        <div className="modal-overlay" onClick={() => setShowPricingDetails(false)}>
-          <div className="pricing-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowPricingDetails(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setShowPricingDetails(false)}
+        >
+          <div
+            className="pricing-modal"
+            role="dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="pricing-modal-header">
               <h2>Detailed Pricing Information</h2>
               <button className="close-btn" onClick={() => setShowPricingDetails(false)}>

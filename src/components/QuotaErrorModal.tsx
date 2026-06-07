@@ -28,17 +28,17 @@ export const QuotaErrorModal: React.FC<QuotaErrorModalProps> = ({
           <div className="quota-error-icon">
             <Sparkles size={32} />
           </div>
-          <h2>تم بلوغ الحد</h2>
-          <p className="quota-error-message">{error.messageAr}</p>
+          <h2>Limit Reached</h2>
+          <p className="quota-error-message">{error.message}</p>
         </div>
 
         <div className="quota-error-details">
           <div className="quota-stat">
-            <span className="quota-stat-label">الاستخدام الحالي</span>
+            <span className="quota-stat-label">Current Usage</span>
             <span className="quota-stat-value">{error.current}</span>
           </div>
           <div className="quota-stat">
-            <span className="quota-stat-label">الحد المسموح</span>
+            <span className="quota-stat-label">Allowed Limit</span>
             <span className="quota-stat-value">{error.limit === -1 ? '∞' : error.limit}</span>
           </div>
         </div>
@@ -46,12 +46,12 @@ export const QuotaErrorModal: React.FC<QuotaErrorModalProps> = ({
         <div className="quota-upgrade-card">
           <div className="upgrade-header">
             <Crown size={24} />
-            <h3>ترقية إلى {upgradePlan.nameAr}</h3>
+            <h3>Upgrade to {upgradePlan.name}</h3>
           </div>
-          <p className="upgrade-desc">احصل على المزيد من التوليدات والمميزات المتقدمة</p>
+          <p className="upgrade-desc">Get more generations and premium features</p>
 
           <ul className="upgrade-features">
-            {upgradePlan.featuresAr.slice(0, 4).map((feature, idx) => (
+            {upgradePlan.features.slice(0, 4).map((feature, idx) => (
               <li key={idx}>
                 <span className="feature-check">✓</span>
                 {feature}
@@ -59,19 +59,21 @@ export const QuotaErrorModal: React.FC<QuotaErrorModalProps> = ({
             ))}
           </ul>
 
-          <div className="upgrade-price">{upgradePlan.priceAr}</div>
+          <div className="upgrade-price">
+            {upgradePlan.priceUsd === 0 ? 'Free' : `$${upgradePlan.priceUsd}/month`}
+          </div>
 
           <button
             className="btn-upgrade-now"
             onClick={() => onUpgrade(error.upgradePlan)}
           >
             <ArrowUpRight size={18} />
-            ترقية الآن
+            Upgrade Now
           </button>
         </div>
 
         <button className="btn-continue-free" onClick={onClose}>
-          متابعة بالخطة المجانية
+          Continue with Free Plan
         </button>
       </div>
     </div>

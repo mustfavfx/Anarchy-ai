@@ -189,6 +189,58 @@ Set `VITE_REPLICATE_API_TOKEN` in your system environment variables.
 3. Copy your token
 4. Paste in `.env` file
 
+## Auth & Billing Setup (Optional)
+
+The app includes a complete **Auth & Credit-based Billing system** powered by Supabase + Stripe.
+
+### Prerequisites
+- Supabase account (free): https://supabase.com
+- Stripe account (free for testing): https://stripe.com
+
+### Quick Setup (10 minutes)
+
+```bash
+# 1. Install Supabase CLI
+npm install -g supabase
+
+# 2. Login and link project
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+
+# 3. Deploy Edge Functions
+supabase functions deploy create-checkout-session
+supabase functions deploy stripe-webhook
+
+# 4. Set secrets
+supabase secrets set STRIPE_SECRET_KEY=sk_test_...
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+supabase secrets set APP_URL=http://localhost:5173
+```
+
+### Run Database Migrations
+
+Open Supabase Dashboard → SQL Editor and run:
+
+```sql
+-- Full migrations in: supabase/migrations/
+-- Quick version in: supabase/QUICKSTART.md
+```
+
+### Configure Frontend
+
+Add to `.env`:
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
+```
+
+### Test Purchase
+
+Use Stripe test card: `4242 4242 4242 4242` (any future expiry/CVC)
+
+**📖 Full Guide:** See `supabase/SETUP_GUIDE.md`
+**⚡ Quick Start:** See `supabase/QUICKSTART.md`
+
 ## Storage
 
 All data is stored locally in browser localStorage:
@@ -202,6 +254,9 @@ All data is stored locally in browser localStorage:
 - **React 18** - UI library
 - **TypeScript** - Type safety
 - **Vite** - Build tool
+- **Tauri** - Desktop app runtime
+- **Supabase** - Auth & Database
+- **Stripe** - Payment processing
 - **React Flow** - Node-based workflow
 - **Lucide React** - Icons
 - **Replicate API** - AI image generation

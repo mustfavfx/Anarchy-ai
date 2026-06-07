@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight, Play, Plus, FolderOpen, Folder,
   Layers, Image as ImageIcon, GitBranch, Clock,
-  Sparkles, PenLine, Zap, FileText, History, Shield
+  PenLine, Zap, FileText, History, Shield
 } from 'lucide-react';
 import { listProjects, timeAgo, type ProjectMeta } from '../../services/projects/ProjectService';
+import { getHistoryStats } from '../../services/history/HistoryService';
 import { PRESET_PROMPTS } from '../builder/presetPrompts';
 import { DocumentationModal } from './DocumentationModal';
 import { ChangelogModal } from './ChangelogModal';
@@ -18,6 +19,7 @@ const QUICK_PRESETS = PRESET_PROMPTS.map(g => g.prompts[0]);
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [recentProjects, setRecentProjects] = useState<ProjectMeta[]>([]);
+  const [totalProjectCount, setTotalProjectCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showDocumentation, setShowDocumentation] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
@@ -25,6 +27,7 @@ export const DashboardPage: React.FC = () => {
   const loadProjects = useCallback(async () => {
     try {
       const all = await listProjects();
+      setTotalProjectCount(all.length);
       setRecentProjects(all.slice(0, 4));
     } catch {
       // No projects yet — fine
@@ -39,9 +42,9 @@ export const DashboardPage: React.FC = () => {
     navigate('/builder');
   };
 
-  const totalSources = recentProjects.reduce((s, p) => s + p.sourceCount, 0);
-  const totalOutputs = recentProjects.reduce((s, p) => s + p.outputCount, 0);
-  const totalRefs = recentProjects.reduce((s, p) => s + p.refCount, 0);
+  const historyStats = getHistoryStats();
+  const totalOutputs = historyStats.total;
+  const totalStarred = historyStats.starred;
 
   return (
     <div className="dashboard-page">
@@ -98,31 +101,28 @@ export const DashboardPage: React.FC = () => {
         </section>
 
         {/* Stats Row */}
-        {(
-          <section className="stats-row">
-            <div className="stat-card">
-              <Folder size={18} className="stat-icon" />
-              <div className="stat-value">{recentProjects.length}</div>
-              <div className="stat-label">Projects</div>
-            </div>
-            <div className="stat-card">
-              <ImageIcon size={18} className="stat-icon" />
-              <div className="stat-value">{totalSources}</div>
-              <div className="stat-label">Sources</div>
-            </div>
-            <div className="stat-card">
-              <Zap size={18} className="stat-icon" />
-              <div className="stat-value">{totalOutputs}</div>
-              <div className="stat-label">Outputs</div>
-            </div>
-            <div className="stat-card">
-              <GitBranch size={18} className="stat-icon" />
-              <div className="stat-value">{totalRefs}</div>
-              <div className="stat-label">Connections</div>
-            </div>
-          </section>
-        )
-        }
+        <section className="stats-row">
+          <div className="stat-card" role="button" tabIndex={0} onClick={() => navigate('/projects')} onKeyDown={e => e.key === 'Enter' && navigate('/projects')}>
+            <Folder size={18} className="stat-icon" />
+            <div className="stat-value">{loading ? '—' : totalProjectCount}</div>
+            <div className="stat-label">Projects</div>
+          </div>
+          <div className="stat-card" role="button" tabIndex={0} onClick={() => navigate('/library')} onKeyDown={e => e.key === 'Enter' && navigate('/library')}>
+            <ImageIcon size={18} className="stat-icon" />
+            <div className="stat-value">{totalOutputs}</div>
+            <div className="stat-label">Total Generations</div>
+          </div>
+          <div className="stat-card" role="button" tabIndex={0} onClick={() => navigate('/history')} onKeyDown={e => e.key === 'Enter' && navigate('/history')}>
+            <Zap size={18} className="stat-icon" />
+            <div className="stat-value">{historyStats.todayCount}</div>
+            <div className="stat-label">Today</div>
+          </div>
+          <div className="stat-card" role="button" tabIndex={0} onClick={() => navigate('/history')} onKeyDown={e => e.key === 'Enter' && navigate('/history')}>
+            <GitBranch size={18} className="stat-icon" />
+            <div className="stat-value">{totalStarred}</div>
+            <div className="stat-label">Starred</div>
+          </div>
+        </section>
 
         {/* Quick Presets */}
         <section className="dashboard-section">
@@ -160,23 +160,27 @@ export const DashboardPage: React.FC = () => {
               View all <ChevronRight size={14} />
             </button>
           </div>
-          {loading ? (
-            <div className="dash-loading">Loading...</div>
-          ) : recentProjects.length === 0 ? (
-            <div className="dash-empty">
-              <ImageIcon size={32} />
-              <p>No projects yet. Create one in the Builder!</p>
-            </div>
-          ) : (
-            <div className="recent-projects-grid">
-              {recentProjects.map(project => (
-                <div
-                  key={project.filePath}
-                  className="recent-project-card"
-                  onClick={() => {
+          {(() => {
+            if (loading) return <div className="dash-loading">Loading...</div>;
+            if (recentProjects.length === 0) return (
+              <div className="dash-empty">
+                <ImageIcon size={32} />
+                <p>No projects yet. Create one in the Builder!</p>
+              </div>
+            );
+            return (
+              <div className="recent-projects-grid">
+                {recentProjects.map(project => {
+                  const openProject = () => {
                     sessionStorage.setItem(SESSION_KEYS.OPEN_PROJECT_PATH, project.filePath);
                     navigate('/builder');
-                  }}
+                  };
+                  return (
+                <button
+                  key={project.filePath}
+                  className="recent-project-card"
+                  type="button"
+                  onClick={openProject}
                 >
                   <div className="recent-project-thumb">
                     {project.thumbnailUrl ? (
@@ -196,10 +200,12 @@ export const DashboardPage: React.FC = () => {
                     </div>
                     <span className="recent-project-time">{timeAgo(project.updatedAt)}</span>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </section>
 
         {/* Info Cards */}

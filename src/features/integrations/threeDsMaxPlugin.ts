@@ -64,7 +64,7 @@ fn sendViewportToAnarchy = (
 		py_cmd += "try:\n"
 		py_cmd += "    with open(r'" + temp_path + "', 'rb') as f: data = base64.b64encode(f.read()).decode()\n"
 		py_cmd += "    url = 'http://localhost:14400/upload-view'\n"
-		py_cmd += "    payload = json.dumps({'type': 'EXTERNAL_IMAGE_NODE', 'image': 'data:image/jpeg;base64,' + data}).encode('utf-8')\n"
+		py_cmd += "    payload = json.dumps({'type': 'EXTERNAL_IMAGE_NODE', 'image': 'data:image/jpeg;base64,' + data, 'source': '3dsmax'}).encode('utf-8')\n"
 		py_cmd += "    req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})\n"
 		py_cmd += "    urllib.request.urlopen(req, timeout=2)\n"
 		py_cmd += "    print('Anarchy: Viewport Image Sent Successfully!')\n"

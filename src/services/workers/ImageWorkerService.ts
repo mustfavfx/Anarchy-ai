@@ -4,10 +4,11 @@
  */
 
 import type { ImageProcessMessage, ImageProcessResult } from '../../workers/imageWorker';
+import { logger } from '../../utils/logger';
 
 class ImageWorkerService {
   private worker: Worker | null = null;
-  private callbacks: Map<string, (result: ImageProcessResult) => void> = new Map();
+  private readonly callbacks: Map<string, (result: ImageProcessResult) => void> = new Map();
   private messageId = 0;
 
   constructor() {
@@ -15,7 +16,7 @@ class ImageWorkerService {
   }
 
   private initWorker() {
-    if (typeof window !== 'undefined' && typeof Worker !== 'undefined') {
+    if (globalThis.window !== undefined && globalThis.Worker !== undefined) {
       try {
         // Create worker from the TypeScript file
         // Note: In production, this would be built separately
@@ -32,7 +33,7 @@ class ImageWorkerService {
           }
         };
       } catch (error) {
-        console.error('Failed to initialize image worker:', error);
+        logger.error('Failed to initialize image worker:', error);
       }
     }
   }

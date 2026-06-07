@@ -4,6 +4,8 @@
  * Docs: https://replicate.com/docs
  */
 
+import { logger } from '../../utils/logger';
+
 // ── Image Models ──────────────────────────────────────────────────────────────
 export type ReplicateImageModel =
   | 'google/nano-banana-2'              // Nano Banana 2 (Gemini 3.1 Flash)
@@ -14,7 +16,7 @@ export type ReplicateImageModel =
   | 'bytedance/seedance-2.0'            // Seedance 2.0 - video (used via generateVideo)
   | 'xai/grok-imagine-image'            // Grok Imagine Image - xAI
   | 'black-forest-labs/flux-kontext-pro' // FLUX Kontext Pro - character consistency
-  | 'stability-ai/stable-diffusion-3.5'; // Stable Diffusion 3.5
+  | 'stability-ai/stable-diffusion-3.5-large'; // Stable Diffusion 3.5 Large
 
 // ── Upscale Models ────────────────────────────────────────────────────────────
 export type ReplicateUpscaleModel =
@@ -65,6 +67,9 @@ export interface ReplicateGenerationParams {
   loraScale?: number;
   styleType?: string;
   stylePreset?: string;
+  cfg?: number; // Guidance scale for SD 3.5 (range 1-10, default 5)
+  nodeId?: string;
+  userId?: string;
 }
 
 export interface ReplicateChatMessage {
@@ -170,7 +175,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     defaultSteps: 28,
     stepsRange: [1, 50],
     maxReferenceImages: 8,
-    resolutions: ['Match Input', '0.5K', '1K', '2K', '4K'],
+    resolutions: ['0.5K', '1K', '2K', '4K'],
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
     pricePerImage: 0.05,
   },
@@ -259,8 +264,8 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
     pricePerImage: 0.03,
   },
-  // ── 9. Stable Diffusion 3.5 ──────────────────────────────────────────────
-  'stability-ai/stable-diffusion-3.5': {
+  // ── 9. Stable Diffusion 3.5 Large ────────────────────────────────────────
+  'stability-ai/stable-diffusion-3.5-large': {
     supportsImg2Img: true,
     supportsMultiImage: false,
     supportsSeed: true,
@@ -268,13 +273,13 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     supportsNegativePrompt: true,
     supportsUpscale: false,
     supportsLoRA: false,
-    supportsReferenceStrength: true, // Uses strength for img2img
+    supportsReferenceStrength: true,
     defaultSteps: 28,
     stepsRange: [20, 50],
     maxReferenceImages: 1,
     resolutions: ['Auto'],
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '9:21'],
-    pricePerImage: 0.035, // ~$0.035 per image
+    pricePerImage: 0.065, // $0.065 per image (official Replicate price)
   },
   // ── 10. Topaz Labs Image Upscale ──────────────────────────────────────────
   'topazlabs/image-upscale': {
@@ -469,8 +474,16 @@ function resolutionToPixels(res: string): number {
 // ── Detect Tauri runtime ─────────────────────────────────────────────────────
 function isTauriRuntime(): boolean {
   if (typeof window === 'undefined') return false;
+  // Check for Tauri protocol (tauri:// or other custom protocols)
+  const isTauriProtocol = window.location.protocol.startsWith('tauri') || 
+                          window.location.protocol === 'app:' ||
+                          window.location.protocol === 'file:' && !!(window as any).__TAURI__;
   // withGlobalTauri:true sets window.__TAURI__; fallback to __TAURI_INTERNALS__
-  return !!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__;
+  const hasTauriGlobal = !!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__;
+  // Check for Tauri-specific navigator properties
+  const isTauriEnv = typeof (window as any).__TAURI_IPC__ !== 'undefined' ||
+                     typeof (window as any).__TAURI_METADATA__ !== 'undefined';
+  return isTauriProtocol || hasTauriGlobal || isTauriEnv;
 }
 
 // ── Supabase proxy URL (only when NOT inside Tauri) ──────────────────────────
@@ -519,46 +532,61 @@ async function proxyGet(proxyUrl: string, replicatePath: string): Promise<any> {
 
 // ── Tauri / direct fetch helpers (used when no proxy configured) ──────────────
 async function apiPost(url: string, headers: Record<string,string>, body: unknown): Promise<any> {
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('http_post', { url, headers, body });
-  } catch (invokeErr) {
+  const tauriDetected = isTauriRuntime();
+  logger.log('[ReplicateService] apiPost called, Tauri detected:', tauriDetected);
+  logger.log('[ReplicateService] apiPost body payload:', JSON.stringify(body, null, 2));
+  
+  if (tauriDetected) {
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-      return res.json();
-    } catch (fetchErr: any) {
-      // Detect CORS errors and provide helpful message
-      if (fetchErr?.message?.includes('Failed to fetch') || fetchErr?.message?.includes('CORS')) {
-        const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-        if (isLocalhost) {
-          throw new Error(
-            'CORS Error: Cannot connect to Replicate API directly from browser. ' +
-            'Please use one of these options:\n' +
-            '1. Run in Tauri mode: npm run tauri dev\n' +
-            '2. Configure Supabase proxy in .env\n' +
-            '3. Check that Vite dev proxy is working (/api/replicate)'
-          );
-        }
-      }
-      throw fetchErr;
+      logger.log('[ReplicateService] Attempting Tauri invoke...');
+      const { invoke } = await import('@tauri-apps/api/core');
+      logger.log('[ReplicateService] Import successful, calling http_post...');
+      const result = await invoke('http_post', { url, headers, body });
+      logger.log('[ReplicateService] http_post successful');
+      return result;
+    } catch (invokeErr: any) {
+      logger.error('[ReplicateService] Tauri invoke failed:', invokeErr);
+      throw invokeErr;
     }
+  }
+  
+  // Not in Tauri - use Vite proxy to avoid CORS
+  logger.log('[ReplicateService] Not in Tauri, using Vite proxy...');
+  try {
+    // Convert full URL to proxy path
+    const proxyUrl = url.replace('https://api.replicate.com/v1', '/api/replicate');
+    logger.log('[ReplicateService] Proxy URL:', proxyUrl);
+    
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    return res.json();
+  } catch (fetchErr: any) {
+    logger.error('[ReplicateService] Proxy fetch failed:', fetchErr);
+    throw fetchErr;
   }
 }
 
 async function apiGet(url: string, headers: Record<string,string>): Promise<any> {
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('http_get', { url, headers });
-  } catch (invokeErr) {
-    const res = await fetch(url, { headers });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-    return res.json();
+  const tauriDetected = isTauriRuntime();
+  
+  if (tauriDetected) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke('http_get', { url, headers });
+    } catch {
+      // Fall through to proxy
+    }
   }
+  
+  // Use Vite proxy
+  const proxyUrl = url.replace('https://api.replicate.com/v1', '/api/replicate');
+  const res = await fetch(proxyUrl, { headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return res.json();
 }
 
 // ── Service Class ─────────────────────────────────────────────────────────────
@@ -566,6 +594,7 @@ class ReplicateService {
   private config: ReplicateApiConfig;
   private lastRequestTime = 0;
   private readonly minRequestInterval = 12_000; // 12s between requests (5 req/min safe)
+  private webhookUrl: string = '';
 
   constructor() {
     // Detect environment
@@ -604,9 +633,24 @@ class ReplicateService {
       maxRetries: 3,
     };
     
+    // Webhook URL for async predictions (set via environment or settings)
+    this.webhookUrl = import.meta.env.VITE_REPLICATE_WEBHOOK_URL ?? '';
+    logger.log('[ReplicateService] VITE_REPLICATE_WEBHOOK_URL:', this.webhookUrl || '(not set)');
+    
+    if (!this.webhookUrl) {
+      // Auto-construct from Supabase URL (works in dev and production)
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      logger.log('[ReplicateService] VITE_SUPABASE_URL:', supabaseUrl || '(not set)');
+      if (supabaseUrl) {
+        this.webhookUrl = `${supabaseUrl}/functions/v1/replicate_webhook`;
+      }
+    }
+    
+    logger.log('[ReplicateService] Final webhookUrl:', this.webhookUrl || '(empty - webhook disabled)');
+    
     // Debug logging in dev mode
     if (isDev) {
-      console.log('[ReplicateService] Mode:', inTauri ? 'Tauri' : 'Browser', '| Base URL:', baseUrl);
+      logger.log('[ReplicateService] Mode:', inTauri ? 'Tauri' : 'Browser', '| Base URL:', baseUrl);
     }
   }
 
@@ -681,6 +725,13 @@ class ReplicateService {
         : await apiGet(`${this.config.baseUrl}${path}`, headers);
       if (data.status === 'succeeded') return data;
       if (data.status === 'failed' || data.status === 'canceled') {
+        logger.error('[ReplicateService] Prediction failed:', {
+          status: data.status,
+          error: data.error,
+          logs: data.logs,
+          input: data.input,
+          model: data.version,
+        });
         throw new Error(`Prediction ${data.status}: ${JSON.stringify(data.error ?? data.logs ?? 'unknown error')}`);
       }
     }
@@ -735,7 +786,9 @@ class ReplicateService {
   // ── Submit a prediction and wait for result (with rate-limit retry) ──────
   private async runPrediction(
     modelId: string,
-    input: Record<string, any>
+    input: Record<string, any>,
+    nodeId?: string,
+    userId?: string
   ): Promise<any> {
     const proxy = getProxyUrl();
     const headers = {
@@ -748,10 +801,33 @@ class ReplicateService {
     const version = ReplicateService.MODEL_VERSIONS[modelId];
     const path = version ? '/predictions' : `/models/${modelId}/predictions`;
     const url  = `${this.config.baseUrl}${path}`;
-    const body = version ? { version, input } : { input };
+    const body: Record<string, unknown> = version ? { version, input } : { input };
+    
+    // Add webhook URL if configured
+    if (this.webhookUrl) {
+      // Add node_id and user_id as query parameters to webhook URL
+      // (Replicate API does not support metadata field)
+      const finalNodeId = (nodeId || input.node_id || input.nodeId || 'unknown') as string;
+      const finalUserId = (userId || input.user_id || input.userId || 'anonymous') as string;
+      const webhookWithParams = `${this.webhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}`;
+      
+      body.webhook = webhookWithParams;
+      body.webhook_events_filter = ['completed'];
+      
+      logger.log('[ReplicateService] Including webhook:', webhookWithParams);
+    }
+    
+    logger.log('[ReplicateService] Submitting prediction:', {
+      model: modelId,
+      path,
+      inputKeys: Object.keys(input),
+      hasImages: input.image_input || input.image || input.input_images ? 'yes' : 'no',
+      hasWebhook: !!this.webhookUrl,
+      hasMetadata: !!body.metadata,
+    });
 
 
-    const maxRetries = 3;
+    const maxRetries = 4;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         await this.throttle();
@@ -761,12 +837,24 @@ class ReplicateService {
 
         if (prediction.status === 'succeeded') return prediction;
         if (prediction.status === 'failed') {
+          logger.error('[ReplicateService] Immediate prediction failure:', {
+            model: modelId,
+            error: prediction.error,
+            logs: prediction.logs,
+            input: prediction.input,
+          });
           throw new Error(`Prediction failed: ${JSON.stringify(prediction.error ?? prediction)}`);
         }
         return this.pollPrediction(prediction.id);
       } catch (err: any) {
         const errMsg = err?.message || String(err);
-        const isRetryable = errMsg.includes('429')
+        // E003 = Replicate "Service is currently unavailable due to high demand"
+        const isHighDemand = errMsg.includes('E003')
+          || errMsg.includes('high demand')
+          || errMsg.includes('currently unavailable')
+          || errMsg.includes('422');
+        const isRetryable = isHighDemand
+          || errMsg.includes('429')
           || errMsg.includes('Connection aborted')
           || errMsg.includes('RemoteDisconnected')
           || errMsg.includes('Remote end closed')
@@ -774,14 +862,75 @@ class ReplicateService {
           || errMsg.includes('503');
         if (isRetryable && attempt < maxRetries) {
           const retryMatch = errMsg.match(/"retry_after"\s*:\s*(\d+)/);
-          const waitSec = retryMatch ? Number.parseInt(retryMatch[1], 10) + 1 : (attempt + 1) * 15;
+          // High-demand errors need longer waits: 20s, 40s, 60s, 80s
+          const waitSec = retryMatch
+            ? Number.parseInt(retryMatch[1], 10) + 1
+            : isHighDemand ? (attempt + 1) * 20 : (attempt + 1) * 15;
+          logger.log(`[ReplicateService] Retryable error (attempt ${attempt + 1}/${maxRetries}), waiting ${waitSec}s...`, errMsg.substring(0, 120));
           await new Promise(r => setTimeout(r, waitSec * 1000));
           continue;
         }
         throw err;
       }
     }
-    throw new Error('Max retries exceeded for rate limiting');
+    throw new Error('Max retries exceeded — Replicate service is currently under high demand. Please try again in a few minutes.');
+  }
+
+  // ── Submit prediction with webhook (async, no polling) ────────────────────
+  private async submitPredictionWithWebhook(
+    model: string,
+    input: Record<string, any>,
+    metadata: { nodeId: string; userId: string; workflowId?: string }
+  ): Promise<{ id: string; status: string }> {
+    const proxy = getProxyUrl();
+    const url   = proxy
+      ? `${proxy}/models/${model}/predictions`
+      : `${this.config.baseUrl}/models/${model}/predictions`;
+    
+    const headers: Record<string, string> = {
+      'Authorization': `Token ${this.config.apiKey}`,
+      'Content-Type':  'application/json',
+    };
+    
+    // Replicate webhook events we want to receive
+    const body = {
+      input,
+      webhook: this.webhookUrl,
+      webhook_events_filter: ['start', 'completed'],
+      // Store metadata for the webhook to use
+      metadata: {
+        node_id: metadata.nodeId,
+        user_id: metadata.userId,
+        workflow_id: metadata.workflowId,
+        app: 'anarchy-ai',
+      },
+    };
+
+    logger.log('[ReplicateService] Submitting with webhook:', {
+      model,
+      webhook: this.webhookUrl,
+      nodeId: metadata.nodeId,
+    });
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Replicate API error: ${res.status} - ${text}`);
+    }
+
+    const data = await res.json();
+    
+    logger.log('[ReplicateService] Prediction submitted:', {
+      id: data.id,
+      status: data.status,
+    });
+
+    return { id: data.id, status: data.status };
   }
 
   // ── Extract first image URL from prediction output ────────────────────────
@@ -805,10 +954,29 @@ class ReplicateService {
     if (images.length > 0) {
       input.image_input = images; // array format forces edit mode
     }
-    // Add resolution (512, 1K, 2K, 4K)
+    // Add resolution mapping for Nano Banana
+    // Nano Banana uses: 512, 1K, 2K, 4K directly
+    const resolutionMap: Record<string, string> = {
+      '1K': '1K',
+      '2K': '2K',
+      '4K': '4K',
+    };
+    
+    // Debug logging
+    logger.log('[NanoBanana] Original resolution param:', params.resolution);
+    
     if (params.resolution && params.resolution !== 'Auto') {
-      input.resolution = params.resolution;
+      const mappedResolution = resolutionMap[params.resolution] || params.resolution;
+      input.resolution = mappedResolution;
+      logger.log('[NanoBanana] Mapped resolution:', mappedResolution);
+    } else {
+      // Default to 1K if not specified
+      input.resolution = '1K';
+      logger.log('[NanoBanana] Using default resolution: 1K');
     }
+    
+    logger.log('[NanoBanana] Final input:', JSON.stringify(input, null, 2));
+    
     // Only add aspect_ratio for text-to-image (no images)
     if (images.length === 0 && params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
@@ -841,21 +1009,31 @@ class ReplicateService {
     // FLUX 2 Pro uses megapixels + aspect_ratio instead of width/height
     if (params.model === 'black-forest-labs/flux-2-pro') {
       const mpMap: Record<string, string> = {
-        'Match Input': 'match_input_image',
         '0.5K': '0.5 MP',
         '1K':   '1 MP',
         '2K':   '2 MP',
         '4K':   '4 MP',
       };
       input.resolution   = mpMap[params.resolution ?? '1K'] ?? '1 MP';
-      input.aspect_ratio = params.aspectRatio ?? '1:1';
-      if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
+      
+      // Handle aspect ratio - if images provided and aspect ratio is Auto/Match Input, use match_input_image
       if (images.length > 0) {
+        // When editing with reference images, respect the original aspect ratio
+        if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input') {
+          input.aspect_ratio = 'match_input_image';
+        } else {
+          input.aspect_ratio = params.aspectRatio;
+        }
         input.input_images = images;
         if (meta.supportsReferenceStrength && params.strength != null) {
           input.prompt_strength = params.strength;
         }
+      } else {
+        // Text-to-image mode
+        input.aspect_ratio = params.aspectRatio ?? '1:1';
       }
+      
+      if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
     } else {
       // Other FLUX models (dev, schnell) use width/height
       const base = resolutionToPixels(params.resolution ?? 'Auto');
@@ -906,10 +1084,32 @@ class ReplicateService {
     const start = Date.now();
     const input = this.buildInput(params, []);
 
-    const prediction = await this.runPrediction(params.model, input);
+    const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId);
     const imageUrl   = this.extractImageUrl(prediction.output);
 
     return this.buildResult(params, imageUrl, {}, start);
+  }
+
+  // ── Async Generation with Webhook (no waiting) ────────────────────────────
+  async generateWithWebhook(
+    params: ReplicateGenerationParams,
+    metadata: { nodeId: string; userId: string; workflowId?: string }
+  ): Promise<{ predictionId: string; status: string }> {
+    this.updateApiKey();
+    
+    if (!this.webhookUrl) {
+      throw new Error('Webhook URL not configured. Set VITE_REPLICATE_WEBHOOK_URL env var.');
+    }
+
+    const input = this.buildInput(params, []);
+    
+    // Submit prediction with webhook
+    const prediction = await this.submitPredictionWithWebhook(params.model, input, metadata);
+    
+    return {
+      predictionId: prediction.id,
+      status: prediction.status,
+    };
   }
 
   // ── Image-to-Image (with multiple reference images) ───────────────────────
@@ -928,7 +1128,7 @@ class ReplicateService {
 
     const input = this.buildInput(params, imgSlice);
 
-    const prediction = await this.runPrediction(params.model, input);
+    const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId);
     const imageUrl   = this.extractImageUrl(prediction.output);
 
     return this.buildResult(params, imageUrl, input, start);
@@ -1004,16 +1204,19 @@ class ReplicateService {
   ): Record<string, any> {
     const input: Record<string, any> = { prompt: params.prompt };
     
-    // SD 3.5 uses 'image' for img2img
+    // SD 3.5 img2img: pass source image + strength
     if (images.length > 0) {
       input.image = images[0];
-      // strength: how much to change (0.0 = same, 1.0 = complete change)
-      input.strength = params.referenceStrength ?? 0.75;
+      // prompt_strength controls how much to change (0=keep original, 1=ignore original)
+      // Default 0.45 for closer match to input image
+      input.prompt_strength = params.strength ?? 0.45;
+    } else if (params.aspectRatio && params.aspectRatio !== 'Auto') {
+      input.aspect_ratio = params.aspectRatio;
     }
     
-    // SD 3.5 supports 'aspect_ratio' for text-to-image
-    if (!images.length && params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio;
+    // SD 3.5 supports cfg (guidance scale) - range 1-10, default 5
+    if (params.cfg != null) {
+      input.cfg = params.cfg;
     }
     
     // SD 3.5 supports negative_prompt
@@ -1044,7 +1247,7 @@ class ReplicateService {
     if (m === 'openai/gpt-image-2')             return this.buildGptImageInput(params, images);
     if (m === 'bytedance/seedance-2.0')         return this.buildSeedreamInput(params, images); // same structure
     if (m === 'xai/grok-imagine-image')          return this.buildGrokInput(params, images);
-    if (m === 'stability-ai/stable-diffusion-3.5') return this.buildStableDiffusionInput(params, images);
+    if (m === 'stability-ai/stable-diffusion-3.5-large') return this.buildStableDiffusionInput(params, images);
     return this.buildGeneralInput(params);
   }
 

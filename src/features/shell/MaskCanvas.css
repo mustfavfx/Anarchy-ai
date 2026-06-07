@@ -286,6 +286,133 @@
 }
 
 /* ============================================
+   Crop Tool Styles
+   ============================================ */
+
+.crop-overlay {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: 15;
+}
+
+.crop-border {
+  position: absolute;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  z-index: 16;
+  cursor: move;
+  box-sizing: border-box;
+}
+
+/* Rule-of-thirds grid */
+.crop-grid-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+}
+
+.crop-grid-h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.crop-grid-v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+/* Corner handles */
+.crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  z-index: 17;
+}
+
+.crop-handle-tl { top: -7px;  left: -7px;  cursor: nwse-resize; }
+.crop-handle-tr { top: -7px;  right: -7px; cursor: nesw-resize; }
+.crop-handle-bl { bottom: -7px; left: -7px;  cursor: nesw-resize; }
+.crop-handle-br { bottom: -7px; right: -7px; cursor: nwse-resize; }
+
+.crop-handle-t { top: -7px; left: calc(50% - 7px); cursor: ns-resize; }
+.crop-handle-b { bottom: -7px; left: calc(50% - 7px); cursor: ns-resize; }
+.crop-handle-l { top: calc(50% - 7px); left: -7px; cursor: ew-resize; }
+.crop-handle-r { top: calc(50% - 7px); right: -7px; cursor: ew-resize; }
+
+/* Crop size label */
+.crop-size-label {
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Apply / Cancel buttons */
+.crop-actions {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  z-index: 20;
+  transform: translateX(-100%);
+  margin-left: -4px;
+}
+
+.crop-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.crop-btn-apply {
+  background: #16a34a;
+  color: white;
+}
+
+.crop-btn-apply:hover {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+.crop-btn-cancel {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0 8px;
+}
+
+.crop-btn-cancel:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+/* Crop tool active state */
+.mask-canvas-tool.active[title="Crop (C)"] {
+  background: rgba(22, 163, 74, 0.25);
+  color: #86efac;
+}
+
+/* ============================================
    Responsive - Small Screens
    ============================================ */
 

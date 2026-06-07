@@ -1,4 +1,5 @@
-import React, { useCallback, useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo, memo } from 'react';
+import { logger } from '../../utils/logger';
 import { useLocation } from 'react-router-dom';
 import {
   ReactFlow,
@@ -8,59 +9,262 @@ import {
   type Node,
   useReactFlow,
   ReactFlowProvider,
-  ConnectionLineType,
   SelectionMode,
 } from '@xyflow/react';
-import { 
-  Search, Plus, GitBranch,
-  Sparkles,
-  LayoutGrid,
-  SplitSquareHorizontal,
-  Download,
-  FolderDown,
-  Save,
-  FolderOpen,
-  BookOpen,
-  Camera, Building, Moon, Lightbulb, Sun, Sunset, SunDim, Palette,
-  CloudRain, Leaf, Snowflake, CloudFog, SunMedium,
-  Focus, PersonStanding, Cat,
-  Users, Footprints, Car, Zap, Bird,
-  Flower2, Sprout, TreePine,
-  Plane, MoveRight, ArrowDownFromLine, RotateCcw, RotateCw,
-  SwatchBook, PanelTop, Ruler, Scissors, Box, PenLine, Hexagon,
-  HardHat, Trash2, Maximize2,
-  Copy, Clipboard as ClipboardIcon, X,
-  Clapperboard, Gem, BookImage, CircleDashed,
-  type LucideIcon
-} from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import { BaseNode } from './BaseNode';
 import { GhostNode } from './GhostNode';
+import VizGhostAttachEdge from './VizGhostAttachEdge';
 import { useBuilderWorkflow, type ProcessingType } from './useBuilderWorkflow';
+import { sanitizeEdges } from './types';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { exportImageWithDialog, exportImagesBatchWithDialog, exportNodesToPDFWithDialog } from '../../services/export';
-import { saveWorkflow, saveWorkflowAs, loadWorkflow } from '../../services/workflow';
-import { PRESET_PROMPTS } from './presetPrompts';
+import { exportImageWithDialog, exportImagesBatchWithDialog, exportNodesToPDFWithDialog, exportImageToDXFWithDialog, saveDXFFromServer, urlToDataUri, exportImagesToPDFWithDialog } from '../../services/export';
+import { watermarkService } from '../../services/watermark/WatermarkService';
+import { saveWorkflow, saveWorkflowAs, loadWorkflow, resetFilePath } from '../../services/workflow';
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { useAuth } from '../auth/AuthContext';
-import { checkCreditBalance, deductCredits, GENERATION_COST, DEV_MODE } from '../../services/credit/creditService';
+import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE } from '../../services/credit/creditService';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { cacheLocalImage, getLocalImage } from '../../services/history/HistoryService';
+import { BuilderContextMenu } from './components/BuilderContextMenu';
+import { BuilderPromptBar } from './components/BuilderPromptBar';
+import { CreditErrorModal } from './components/CreditErrorModal';
 import './BuilderPage.css';
 
-// Lucide icon map for preset prompts
-const PRESET_ICON_MAP: Record<string, LucideIcon> = {
-  Camera, Sparkles, Building, HardHat,
-  Moon, Lightbulb, Sun, Sunset, SunDim, Palette,
-  CloudRain, Leaf, Snowflake, CloudFog, SunMedium,
-  Search, Focus, PersonStanding, Cat,
-  Users, Footprints, Car, Zap, Bird,
-  Flower2, Sprout, TreePine,
-  Plane, MoveRight, ArrowDownFromLine, RotateCcw,
-  SwatchBook, PanelTop, Ruler, Scissors, Box, PenLine, Hexagon,
-  Clapperboard, Gem, BookImage, CircleDashed,
+// ── Module-level helpers (outside component to avoid nesting warnings) ─────
+
+const SOURCE_LABELS: Record<string, string> = {
+  autocad: 'AutoCAD', revit: 'Revit',
+  '3dsmax': '3ds Max', max: '3ds Max',
+  rhino: 'Rhino', sketchup: 'SketchUp',
 };
+
+function resolveSourceLabel(raw: string): string {
+  const lower = raw.toLowerCase();
+  return SOURCE_LABELS[lower] ?? (lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : 'External');
+}
+
+function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges: any[] } {
+  const TYPE_LABELS: Record<string, string> = {
+    source: 'Source',
+    render: 'AI Render',
+    detail: 'Detail Edit',
+    upscale: 'Upscale',
+    people: 'Add People',
+    daynight: 'Day to Night',
+    lighting: 'Lighting',
+    material: 'Materials',
+    local: 'Local Edit',
+    variation: 'Variation'
+  };
+
+  const nodes = (nodeTree.nodes || []).map((n: any) => {
+    const rfType = n.type === 'ghost' ? 'ghostNode' : 'baseNode';
+    
+    const lineage = {
+      parentId: n.parentId || null,
+      rootSourceId: nodeTree.sourceNodeId,
+      generation: 0,
+      branchIndex: 0,
+      processingType: n.processingType || 'source',
+      ancestry: [] as string[]
+    };
+
+    const outputPacket = n.image ? {
+      image: n.image,
+      prompt: n.prompt,
+      metadata: {
+        timestamp: nodeTree.createdAt || Date.now(),
+        operationType: n.processingType || 'source',
+        format: 'png'
+      }
+    } : undefined;
+
+    return {
+      id: n.id,
+      type: rfType,
+      position: n.position || { x: 200, y: 200 },
+      width: 260,
+      data: {
+        label: TYPE_LABELS[n.processingType || ''] || n.processingType || 'Node',
+        type: n.type,
+        processingType: n.processingType || 'source',
+        state: n.state || 'ready',
+        image: n.image,
+        prompt: n.prompt,
+        createdAt: nodeTree.createdAt || Date.now(),
+        lineage,
+        outputData: outputPacket,
+        inputData: undefined,
+        config: {}
+      }
+    };
+  });
+
+  const edges: any[] = [];
+  (nodeTree.nodes || []).forEach((n: any) => {
+    if (n.parentId) {
+      edges.push({
+        id: `e-${n.parentId}-${n.id}-0`,
+        source: n.parentId,
+        target: n.id,
+        sourceHandle: 'source',
+        targetHandle: 'ghost-target-0',
+        type: 'default',
+        animated: false,
+        label: null,
+        style: { 
+          strokeWidth: 2,
+          stroke: '#e11d48',
+          opacity: 0.8,
+          strokeDasharray: '5 5',
+          strokeLinecap: 'round'
+        },
+        data: {
+          isActive: true,
+          lastUpdate: nodeTree.createdAt || Date.now()
+        }
+      });
+    }
+  });
+
+  // Link parent's outputData to inputData of children
+  nodes.forEach((node: any) => {
+    if (node.data.lineage.parentId) {
+      const parent = nodes.find((p: any) => p.id === node.data.lineage.parentId);
+      if (parent) {
+        node.data.inputData = parent.data.outputData;
+      }
+    }
+  });
+
+  return { nodes, edges };
+}
+
+function drawNodeImage(
+  img: HTMLImageElement, nodeRect: DOMRect, rect: DOMRect,
+  ctx: CanvasRenderingContext2D, res: () => void
+) {
+  try {
+    ctx.drawImage(img, nodeRect.left - rect.left, nodeRect.top - rect.top, nodeRect.width, nodeRect.height);
+  } catch (err) {
+    logger.warn('[Thumbnail] Failed to draw image:', err);
+  }
+  res();
+}
+
+function makeNodeImagePromise(
+  img: HTMLImageElement, nodeRect: DOMRect, rect: DOMRect, ctx: CanvasRenderingContext2D
+): Promise<void> {
+  return new Promise<void>((res) => {
+    const draw = () => drawNodeImage(img, nodeRect, rect, ctx, res);
+    if (img.complete) { draw(); return; }
+    img.onload = draw;
+    img.onerror = () => { logger.warn('[Thumbnail] Image failed to load'); res(); };
+    setTimeout(() => { if (!img.complete) { logger.warn('[Thumbnail] Image load timeout'); res(); } }, 2000);
+  });
+}
+
+function htmlToCanvas(element: HTMLElement): Promise<HTMLCanvasElement | null> {
+  return new Promise((resolve) => {
+    try {
+      const rect = element.getBoundingClientRect();
+      const canvas = document.createElement('canvas');
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(null); return; }
+      ctx.fillStyle = '#0f0f0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const nodeEls = element.querySelectorAll('.react-flow__node');
+      const promises: Promise<void>[] = [];
+      nodeEls.forEach((node) => {
+        const htmlNode = node as HTMLElement;
+        const nodeRect = htmlNode.getBoundingClientRect();
+        const img = htmlNode.querySelector('img');
+        if (img) promises.push(makeNodeImagePromise(img, nodeRect, rect, ctx));
+      });
+      Promise.all(promises).then(() => resolve(canvas));
+    } catch { resolve(null); }
+  });
+}
+
+function makeSourceOutput(url: string) {
+  if (!url) return undefined;
+  return { image: url, prompt: undefined, metadata: { timestamp: Date.now(), operationType: 'source' as const } };
+}
+
+function isValidPosition(node: Node): boolean {
+  const p = node.position;
+  if (!p) return false;
+  if (typeof p.x !== 'number' || Number.isNaN(p.x)) return false;
+  if (typeof p.y !== 'number' || Number.isNaN(p.y)) return false;
+  return true;
+}
+
+function positionExtraNode(sourceId: string, baseX: number, baseY: number, index: number) {
+  return (curr: Node[]) => curr.map(n =>
+    n.id === sourceId ? { ...n, position: { x: baseX, y: baseY + 170 * (index + 1) } } : n
+  );
+}
+
+function positionExternalNode(sourceId: string) {
+  return (curr: Node[]) => curr.map(n =>
+    n.id === sourceId
+      ? { ...n, position: { x: 120, y: 260 + curr.filter(s => (s.data as any)?.type === 'source').length * 40 } }
+      : n
+  );
+}
+
+function patchNodeImage(sourceNodeId: string, img: string) {
+  return (curr: Node[]) => curr.map(n =>
+    n.id === sourceNodeId ? { ...n, data: { ...n.data, image: img, state: 'ready' } } : n
+  );
+}
+
+function patchSpawnedNode(nodeId: string) {
+  return (curr: Node[]) => curr.map(n =>
+    n.id === nodeId
+      ? { ...n, position: { x: 120, y: 200 + curr.filter(s => (s.data as any)?.type === 'source').length * 80 } }
+      : n
+  );
+}
+
+// createSourceIfEmpty removed as empty initialization is now handled directly by the workflow hook
+
+const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff'];
+
+async function processDroppedFiles(
+  paths: string[],
+  spawnFromImage: (url: string) => Promise<void>
+): Promise<void> {
+  for (const filePath of paths.slice(0, 5)) {
+    const lower = filePath.toLowerCase();
+    if (!IMAGE_EXTS.some(ext => lower.endsWith(ext))) continue;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const dataUrl = await invoke<string>('read_local_image', { path: filePath });
+      await spawnFromImage(dataUrl);
+    } catch (err) {
+      logger.error('[Tauri Drop] Failed to read file:', filePath, err);
+    }
+  }
+}
+
+async function processWebDropFiles(
+  files: File[],
+  imageFileToDataUrl: (f: File) => Promise<string>,
+  spawnFromImage: (url: string) => Promise<void>
+): Promise<void> {
+  for (const file of files.slice(0, 5)) {
+    try {
+      const dataUrl = await imageFileToDataUrl(file);
+      await spawnFromImage(dataUrl);
+    } catch { /* skip */ }
+  }
+}
 
 // Separate node types for proper handle positioning
 const nodeTypes = {
@@ -68,23 +272,59 @@ const nodeTypes = {
   ghostNode: GhostNode,    // Ghost/Processing nodes with multiple inputs
 };
 
-const BUILDER_AUTOSAVE_KEY = STORAGE_KEYS.BUILDER_AUTOSAVE;
+// Custom Connection Line component to avoid getBezierPath errors
+const CustomConnectionLine = memo(({ fromX, fromY, toX, toY }: { fromX: number; fromY: number; toX: number; toY: number }) => {
+  // Simple straight line for connection (avoid bezier errors)
+  const path = `M ${fromX} ${fromY} L ${toX} ${toY}`;
+  
+  return (
+    <g>
+      <path
+        d={path}
+        stroke="#e11d48"
+        strokeWidth={2}
+        strokeDasharray="5 5"
+        fill="none"
+        style={{ pointerEvents: 'none' }}
+      />
+    </g>
+  );
+});
+
+// Custom edge types for data flow visualization
+const edgeTypes = {
+  default: VizGhostAttachEdge,  // Custom bezier edge with brand styling
+};
 
 // Props for multi-tab support
 interface BuilderContentProps {
   tabId?: string;
   projectPath?: string | null;
+  initialWorkflow?: any;
+  initialImage?: string;
   onTitleChange?: (title: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onProjectPathChange?: (path: string | null) => void;
+  isActive?: boolean;
 }
 
 // Inner component that uses React Flow hooks (must be inside ReactFlowProvider)
 export const BuilderContent: React.FC<BuilderContentProps> = ({ 
   tabId,
   projectPath: initialProjectPath,
+  initialWorkflow,
+  initialImage,
   onTitleChange,
   onDirtyChange,
+  onProjectPathChange,
+  isActive = true,
 }) => {
+  const [currentFilePath, setCurrentFilePathState] = useState<string | null>(initialProjectPath ?? null);
+  const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    setCurrentFilePathState(initialProjectPath ?? null);
+  }, [initialProjectPath]);
   const {
     nodes,
     edges,
@@ -94,6 +334,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     selectedNodeId,
     setSelectedNodeId,
     updateNodeData,
+    updateNodeImageAndPropagate,
     addChildNode,
     createSourceNode,
     spawnGhostNode,
@@ -114,10 +355,10 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const sanitizedChanges = changes.filter(change => {
       if (change.type === 'position' && change.position) {
         const hasValidPosition = 
-          typeof change.position.x === 'number' && !isNaN(change.position.x) &&
-          typeof change.position.y === 'number' && !isNaN(change.position.y);
+          typeof change.position.x === 'number' && !Number.isNaN(change.position.x) &&
+          typeof change.position.y === 'number' && !Number.isNaN(change.position.y);
         if (!hasValidPosition) {
-          console.warn('[Builder] Filtering out position change with NaN:', change.id);
+          logger.warn('[Builder] Filtering out position change with NaN:', change.id);
           return false;
         }
       }
@@ -129,20 +370,99 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [onNodesChange]);
 
   const getConfig = useAIConfigStore((state) => state.getConfig);
+  const buildGenConfig = (aiConfig: ReturnType<typeof getConfig>) => ({
+    model: aiConfig.model,
+    resolution: aiConfig.resolution,
+    aspectRatio: aiConfig.aspectRatio,
+    steps: aiConfig.steps,
+    cfg: aiConfig.cfg,
+    seed: aiConfig.seed,
+    strength: aiConfig.strength,
+    referenceStrength: aiConfig.referenceStrength,
+    negativePrompt: aiConfig.negativePrompt,
+    disableSafetyChecker: aiConfig.disableSafetyChecker,
+    upscaleFactor: aiConfig.upscaleFactor,
+    prunaMode: aiConfig.prunaMode,
+    prunaTarget: aiConfig.prunaTarget,
+    prunaFactor: aiConfig.prunaFactor,
+    prunaEnhanceDetails: aiConfig.prunaEnhanceDetails,
+    prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
+    prunaQuality: aiConfig.prunaQuality,
+    prunaOutputFormat: aiConfig.prunaOutputFormat,
+  });
+  const liveModel      = useAIConfigStore((state) => state.config.model);
+  const liveResolution = useAIConfigStore((state) => state.config.resolution);
+  const liveQuality    = useAIConfigStore((state) => (state.config as any).qualityVariant ?? 'auto');
+  const livePruna      = useAIConfigStore((state) => state.config.prunaTarget);
   const setSelectedNode = useAIConfigStore((state) => state.setSelectedNode);
   const setCompareSlot = useAIConfigStore((state) => state.setCompareSlot);
   const setConfig = useAIConfigStore((state) => state.setConfig);
   const isEnlargedView = useAIConfigStore((state) => state.isEnlargedView);
   const setWorkflowSnapshot = useAIConfigStore((state) => state.setWorkflowSnapshot);
   const setFocusNodeFn = useAIConfigStore((state) => state.setFocusNodeFn);
+  const setNodeImageUpdateFn = useAIConfigStore((state) => state.setNodeImageUpdateFn);
   const addNotification = useNotificationStore((state) => state.addNotification);
   const { user: authUser } = useAuth();
+
+  const applyWatermarkToSource = useCallback(async (url: string): Promise<string> => {
+    if (!url) return url;
+    const aiConfig = useAIConfigStore.getState().config;
+    const wmText = (aiConfig.watermarkText || '').trim();
+    const wmEnabled = aiConfig.enableWatermark &&
+      (aiConfig.watermarkType === 'image' ? !!aiConfig.watermarkImage : wmText.length > 0);
+    if (!wmEnabled) return url;
+    try {
+      let imageForWm = url;
+      if (imageForWm.startsWith('http')) {
+        imageForWm = await invoke<string>('url_to_base64', { url: imageForWm });
+      }
+      return await watermarkService.applyWatermark(imageForWm, {
+        type: aiConfig.watermarkType || 'text',
+        text: wmText || 'Anarchy AI',
+        watermarkImage: aiConfig.watermarkImage,
+        watermarkImageSize: aiConfig.watermarkImageSize ?? 80,
+        position: aiConfig.watermarkPosition ?? 'bottom-right',
+        opacity: aiConfig.watermarkOpacity ?? 0.5,
+        fontSize: aiConfig.watermarkFontSize ?? 24,
+      });
+    } catch (err) {
+      logger.warn('[Watermark] Source node watermark failed:', err);
+      return url;
+    }
+  }, []);
   const [prompt, setPrompt] = useState('');
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [showPresets, setShowPresets] = useState(false);
+
+  // Monitor spacebar events for Figma-like canvas panning
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' && !isSpacePressed) {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        setIsSpacePressed(true);
+        e.preventDefault(); // Prevent page scrolling
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ') {
+        setIsSpacePressed(false);
+      }
+    };
+
+    globalThis.addEventListener('keydown', handleKeyDown);
+    globalThis.addEventListener('keyup', handleKeyUp);
+    return () => {
+      globalThis.removeEventListener('keydown', handleKeyDown);
+      globalThis.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isSpacePressed]);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
+    canvasX?: number;
+    canvasY?: number;
     type: 'canvas' | 'node' | 'prompt';
     nodeId?: string;
   } | null>(null);
@@ -152,28 +472,16 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const [copiedNode, setCopiedNode] = useState<any>(null);
   const isTauriRef = useRef(false);
   const dropHandledRef = useRef(false);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
 
-  useLayoutEffect(() => {
-    if (!contextMenu) {
-      setMenuStyle({ visibility: 'hidden' });
-      return;
-    }
-    if (!contextMenuRef.current) return;
-    const el = contextMenuRef.current;
-    const menuW = el.offsetWidth;
-    const menuH = el.offsetHeight;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const margin = 8;
-    let left = contextMenu.x;
-    let top = contextMenu.y;
-    if (left + menuW + margin > vw) left = Math.max(margin, left - menuW);
-    if (top + menuH + margin > vh) top = Math.max(margin, vh - menuH - margin);
-    setMenuStyle({ left, top, visibility: 'visible' });
-  }, [contextMenu]);
-  const { fitView, getViewport, fitBounds, getNode: getRFNode } = useReactFlow();
+  const { fitView, getViewport, fitBounds, getNode: getRFNode, screenToFlowPosition, setViewport } = useReactFlow();
+
+  // Register node image update callback so RightSidebar crop/edit updates node data in canvas
+  useEffect(() => {
+    setNodeImageUpdateFn((nodeId: string, image: string) => {
+      updateNodeImageAndPropagate(nodeId, image);
+    });
+    return () => setNodeImageUpdateFn(null);
+  }, [setNodeImageUpdateFn, updateNodeImageAndPropagate]);
 
   // Register canvas focus callback so notifications can navigate to a node
   useEffect(() => {
@@ -222,291 +530,179 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       ctx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
       return thumbCanvas.toDataURL('image/jpeg', 0.92);
     } catch (err) {
-      console.warn('[Thumbnail] Generation failed:', err);
+      logger.warn('[Thumbnail] Generation failed:', err);
       return undefined;
     }
   }, []);
 
-  // Helper to convert DOM element to canvas
-  const htmlToCanvas = (element: HTMLElement): Promise<HTMLCanvasElement | null> => {
-    return new Promise((resolve) => {
-      try {
-        const rect = element.getBoundingClientRect();
-        const canvas = document.createElement('canvas');
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { resolve(null); return; }
-
-        // Fill background
-        ctx.fillStyle = '#0f0f0f';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Get all nodes as images
-        const nodes = element.querySelectorAll('.react-flow__node');
-        const promises: Promise<void>[] = [];
-
-        nodes.forEach((node) => {
-          const htmlNode = node as HTMLElement;
-          const nodeRect = htmlNode.getBoundingClientRect();
-          const img = htmlNode.querySelector('img');
-          if (img) {
-            const promise = new Promise<void>((res) => {
-              // Wait for image to load if not complete
-              const drawImage = () => {
-                try {
-                  const x = nodeRect.left - rect.left;
-                  const y = nodeRect.top - rect.top;
-                  ctx.drawImage(img!, x, y, nodeRect.width, nodeRect.height);
-                } catch (err) {
-                  console.warn('[Thumbnail] Failed to draw image:', err);
-                }
-                res();
-              };
-              
-              if (img.complete) {
-                drawImage();
-              } else {
-                img.onload = drawImage;
-                img.onerror = () => {
-                  console.warn('[Thumbnail] Image failed to load');
-                  res();
-                };
-                // Timeout after 2 seconds
-                setTimeout(() => {
-                  if (!img.complete) {
-                    console.warn('[Thumbnail] Image load timeout');
-                    res();
-                  }
-                }, 2000);
-              }
-            });
-            promises.push(promise);
-          }
-        });
-
-        Promise.all(promises).then(() => resolve(canvas));
-      } catch {
-        resolve(null);
-      }
-    });
-  };
-
-  // Close presets popup on outside click
-  useEffect(() => {
-    if (!showPresets) return;
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.prompt-presets-wrapper')) {
-        setShowPresets(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showPresets]);
+  // htmlToCanvas is defined as a module-level function above the component
 
   const location = useLocation();
 
   // Re-check sessionStorage on every navigation to /builder (component stays mounted)
+  const applyWorkflow = (wf: any, fallbackName: string) => {
+    if (!wf.nodes) return;
+    const mappedNodes = wf.nodes.map((n: any) => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
+    setNodes(mappedNodes);
+    const mappedEdges = (wf.edges ?? []).map((e: any) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle || 'source', targetHandle: e.targetHandle, type: e.type, animated: e.animated, style: e.style, data: e.data }));
+    setEdges(sanitizeEdges(mappedNodes, mappedEdges));
+    const name = wf.name || fallbackName;
+    onTitleChange?.(name);
+    skipDirtyRef.current = 2;
+    onDirtyChange?.(false);
+    
+    // Reset hasFittedInitially so we re-fit once the newly loaded nodes are measured!
+    hasFittedInitially.current = false;
+    
+    setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
+    addNotification({ type: 'success', title: 'Project Loaded', message: name });
+  };
+
+  const restorePresetImage = (wf: any, img: string) => {
+    sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
+    const sourceNode = wf.nodes.find((n: any) => n.data?.type === 'source');
+    if (!sourceNode) return;
+    setTimeout(() => setNodes(patchNodeImage(sourceNode.id, img)), 100);
+  };
+
   useEffect(() => {
     if (location.pathname !== '/builder') return;
 
     const preset = sessionStorage.getItem(SESSION_KEYS.PRESET_PROMPT);
-    if (preset) {
-      sessionStorage.removeItem(SESSION_KEYS.PRESET_PROMPT);
-      setPrompt(preset);
-    }
-
-    const img = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
-    const hasWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
-    const presetWorkflow = sessionStorage.getItem(SESSION_KEYS.PRESET_WORKFLOW);
-    
-    // Handle full workflow restoration from Library/History
-    if (presetWorkflow) {
-      sessionStorage.removeItem(SESSION_KEYS.PRESET_WORKFLOW);
-      try {
-        const wf = JSON.parse(presetWorkflow);
-        if (wf.nodes && wf.nodes.length > 0) {
-          // Restore nodes with their original data
-          setNodes(wf.nodes.map((n: any) => ({ 
-            id: n.id, 
-            type: n.type || 'baseNode', 
-            position: n.position, 
-            width: n.width || 480,
-            data: n.data 
-          })));
-          // Restore edges
-          if (wf.edges) {
-            setEdges(wf.edges.map((e: any) => ({ 
-              id: e.id, 
-              source: e.source, 
-              target: e.target, 
-              sourceHandle: e.sourceHandle, 
-              targetHandle: e.targetHandle, 
-              type: e.type, 
-              animated: e.animated, 
-              style: e.style, 
-              data: e.data 
-            })));
-          }
-          // Set source image if provided separately
-          if (img) {
-            sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
-            // Find the source node and update its image
-            const sourceNode = wf.nodes.find((n: any) => n.data?.type === 'source');
-            if (sourceNode) {
-              setTimeout(() => {
-                setNodes(currentNodes => currentNodes.map(node => 
-                  node.id === sourceNode.id 
-                    ? { ...node, data: { ...node.data, image: img, state: 'ready' } }
-                    : node
-                ));
-              }, 100);
-            }
-          }
-          skipDirtyRef.current = 2;
-          onDirtyChange?.(false);
-          setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
-          addNotification({ type: 'success', title: 'Workflow Restored', message: `${wf.nodes.length} nodes loaded` });
-        }
-      } catch (err) {
-        console.error('[Builder] PRESET_WORKFLOW parse failed:', err);
-      }
-    }
-    // Only create source node from preset image if no workflow is being loaded
-    else if (img && !hasWorkflow) {
-      sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
-      const nodeId = createSourceNode(img);
-      setSelectedNodeId(nodeId);
-      setSelectedNode({ id: nodeId, type: 'source', image: img, prompt: undefined, state: 'ready' });
-    }
+    if (preset) { sessionStorage.removeItem(SESSION_KEYS.PRESET_PROMPT); setPrompt(preset); }
   }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-load project if provided via props (once) or sessionStorage (on every navigation)
+  // Auto-load project if provided via props (once)
   useEffect(() => {
-    const pathToLoad = initialProjectPath || sessionStorage.getItem(SESSION_KEYS.OPEN_PROJECT_PATH);
-    const rawWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
+    if (hasLoadedRef.current) return;
+
+    const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+    const hasAutosave = (() => {
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          const data = JSON.parse(saved);
+          return !!(data.nodes && data.nodes.length > 0);
+        }
+      } catch {}
+      return false;
+    })();
+
+    const pathToLoad = initialProjectPath;
+
+    if (hasAutosave) {
+      hasLoadedRef.current = true;
+      if (pathToLoad) {
+        setCurrentFilePathState(pathToLoad);
+        onProjectPathChange?.(pathToLoad);
+      }
+      return;
+    }
 
     if (pathToLoad) {
-      sessionStorage.removeItem(SESSION_KEYS.OPEN_PROJECT_PATH);
+      hasLoadedRef.current = true;
       (async () => {
         try {
-          const contents: string = await invoke('load_file', { path: pathToLoad });
+          const contents = await invoke<string>('load_file', { path: pathToLoad });
           const wf = JSON.parse(contents);
-          if (wf.nodes) {
-            setNodes(wf.nodes.map((n: any) => ({ id: n.id, type: n.type, position: n.position, data: n.data })));
-            setEdges(wf.edges.map((e: any) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, animated: e.animated, style: e.style, data: e.data })));
-            const name = wf.name || pathToLoad.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Project';
-            onTitleChange?.(name);
-            skipDirtyRef.current = 2;
-            onDirtyChange?.(false);
-            setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
-            addNotification({ type: 'success', title: 'Project Loaded', message: name });
-          }
+          const fallback = pathToLoad.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') ?? 'Project';
+          setCurrentFilePathState(pathToLoad);
+          onProjectPathChange?.(pathToLoad);
+          applyWorkflow(wf, fallback);
         } catch (err) {
-          console.error('[Builder] Auto-load failed:', err);
+          logger.error('[Builder] Auto-load failed:', err);
           addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
         }
       })();
-    } else if (rawWorkflow) {
-      sessionStorage.removeItem(SESSION_KEYS.LOADED_WORKFLOW);
+    } else if (initialWorkflow) {
+      hasLoadedRef.current = true;
       try {
-        const wf = JSON.parse(rawWorkflow);
-        if (wf.nodes) {
-          setNodes(wf.nodes.map((n: any) => ({ id: n.id, type: n.type, position: n.position, data: n.data })));
-          setEdges(wf.edges.map((e: any) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, animated: e.animated, style: e.style, data: e.data })));
-          const name = wf.name || 'Imported Project';
-          onTitleChange?.(name);
-          skipDirtyRef.current = 2;
-          onDirtyChange?.(false);
-          setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
-          addNotification({ type: 'success', title: 'Project Loaded', message: name });
+        let wf = initialWorkflow;
+        if (wf.sourceNodeId || (wf.nodes && wf.nodes.length > 0 && !wf.nodes[0].data)) {
+          wf = convertNodeTreeToWorkflow(wf);
         }
-      } catch (err) {
-        console.error('[Builder] LOADED_WORKFLOW parse failed:', err);
-      }
+        if (wf.nodes?.length > 0) {
+          applyWorkflow(wf, wf.name || 'Imported Project');
+          if (initialImage) {
+            restorePresetImage(wf, initialImage);
+          }
+        }
+      } catch (err) { logger.error('[Builder] initialWorkflow load failed:', err); }
+    } else if (initialImage) {
+      hasLoadedRef.current = true;
+      applyWatermarkToSource(initialImage).then(watermarked => {
+        const nodeId = createSourceNode(watermarked);
+        setSelectedNodeId(nodeId);
+        setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
+      });
     }
-  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location.pathname, initialProjectPath, tabId, onProjectPathChange, initialWorkflow, initialImage]);
 
   // Sync nodes/edges snapshot for Sidebar mini-map
   useEffect(() => {
     setWorkflowSnapshot({ nodes, edges });
   }, [nodes, edges, setWorkflowSnapshot]);
 
+  // Re-measure container and fit view when tab becomes active
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-
-    import('@tauri-apps/api/event').then(({ listen }) => {
-      if (cancelled) return;
-
-      listen<{ image: string; source: string }>('anarchy://external-image', (event) => {
-        const image = event.payload?.image;
-        if (!image) return;
-
-        // Map source identifier to a human-readable node label
-        const SOURCE_LABELS: Record<string, string> = {
-          autocad: 'AutoCAD',
-          revit: 'Revit',
-          '3dsmax': '3ds Max',
-          max: '3ds Max',
-          rhino: 'Rhino',
-          sketchup: 'SketchUp',
-        };
-        const rawSource = (event.payload?.source || '').toLowerCase();
-        const nodeLabel = SOURCE_LABELS[rawSource] || (rawSource ? rawSource.charAt(0).toUpperCase() + rawSource.slice(1) : 'External');
-
-        const sourceId = createSourceNode(image, nodeLabel);
-        setSelectedNodeId(sourceId);
-        setSelectedNode({
-          id: sourceId,
-          type: 'source',
-          image,
-          prompt: undefined,
-          state: 'ready',
-        });
-
+    if (isActive) {
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
         setTimeout(() => {
-          setNodes(currentNodes => currentNodes.map(sourceNode => (
-            sourceNode.id === sourceId
-              ? {
-                  ...sourceNode,
-                  position: {
-                    x: 120,
-                    y: 260 + currentNodes.filter(n => (n.data as any)?.type === 'source').length * 40,
-                  },
-                }
-              : sourceNode
-          )));
           fitView({ padding: 0.3, duration: 400 });
-        }, 0);
-      }).then((dispose) => {
-        unlisten = dispose;
-      });
-    }).catch((error) => {
-      console.warn('[3ds Max Bridge] Tauri event listener unavailable:', error);
-    });
+        }, 150);
+      }, 100);
+    }
+  }, [isActive, fitView]);
 
-    return () => {
-      cancelled = true;
-      unlisten?.();
+  const handleExternalImage = useCallback((image: string, rawSource: string) => {
+    const nodeLabel = resolveSourceLabel(rawSource);
+    applyWatermarkToSource(image).then(watermarked => {
+      const sourceId = createSourceNode(watermarked, nodeLabel);
+      setSelectedNodeId(sourceId);
+      setSelectedNode({ id: sourceId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
+      setTimeout(() => {
+        setNodes(positionExternalNode(sourceId));
+        fitView({ padding: 0.3, duration: 400 });
+      }, 0);
+    });
+  }, [createSourceNode, setSelectedNodeId, setSelectedNode, setNodes, fitView, applyWatermarkToSource]);
+
+  useEffect(() => {
+    const handleGlobalEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ image: string; source: string }>;
+      const activeTabId = localStorage.getItem('anarchy_builder_active_tab');
+      
+      // Only process the external image if this tab is the active tab
+      if (tabId && tabId === activeTabId) {
+        const { image, source } = customEvent.detail;
+        if (image) {
+          handleExternalImage(image, source);
+        }
+      }
     };
-  }, [createSourceNode, fitView, setNodes, setSelectedNode, setSelectedNodeId]);
+
+    window.addEventListener('anarchy:external-image-global', handleGlobalEvent);
+    return () => {
+      window.removeEventListener('anarchy:external-image-global', handleGlobalEvent);
+    };
+  }, [tabId, handleExternalImage]);
 
   // Viewport restore removed — always start fresh
 
   // Sync selected node to AIConfigContext for Preview Panel
   useEffect(() => {
-    console.log('[BuilderPage] selectedNodeId changed:', selectedNodeId);
+    logger.log('[BuilderPage] selectedNodeId changed:', selectedNodeId);
     if (selectedNodeId) {
       const node = nodes.find(n => n.id === selectedNodeId);
       if (node) {
         const data = node.data as any;
-        console.log('[BuilderPage] Updating selectedNode to:', node.id, 'image:', (data?.image || data?.outputData?.image)?.slice(0, 50));
+        logger.log('[BuilderPage] Updating selectedNode to:', node.id, 'image:', (data?.image || data?.outputData?.image)?.slice(0, 50));
         setSelectedNode({
           id: node.id,
           type: data?.type || null,
           image: data?.image || data?.outputData?.image,
+          originalImage: data?.originalImage,
           prompt: data?.prompt,
           state: data?.state,
         });
@@ -523,35 +719,40 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           id: sourceOrResult.id,
           type: data?.type,
           image: data?.image || data?.outputData?.image,
+          originalImage: data?.originalImage,
           prompt: data?.prompt,
           state: data?.state,
         });
       } else {
-        setSelectedNode({ id: null, type: null, image: undefined, prompt: undefined, state: undefined });
+        setSelectedNode({ id: null, type: null, image: undefined, originalImage: undefined, prompt: undefined, state: undefined });
       }
     }
   }, [selectedNodeId, nodes, setSelectedNode]);
   const hasFittedInitially = useRef(false);
-  const hasCreatedSource = useRef(false);
-  const createSourceNodeRef = useRef(createSourceNode);
-  useEffect(() => { createSourceNodeRef.current = createSourceNode; }, [createSourceNode]);
 
-  // Initial setup: wait for restore to complete, then add Source node only if canvas is empty
+  // Restore viewport from localStorage if available, preventing fitView jump on mount
+  const hasRestoredViewport = useRef(false);
   useEffect(() => {
-    if (!isRestored) return;
-    if (hasCreatedSource.current) return;
-    hasCreatedSource.current = true;
-    // Defer 50ms so React flushes any pending setNodes from localStorage restore
-    setTimeout(() => {
-      setNodes(current => {
-        if (current.length === 0) {
-          // Schedule outside of setNodes updater to avoid nested state updates
-          setTimeout(() => createSourceNodeRef.current(), 0);
+    if (!isRestored || hasRestoredViewport.current) return;
+    
+    try {
+      const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.viewport) {
+          const { x, y, zoom } = data.viewport;
+          if (typeof x === 'number' && typeof y === 'number' && typeof zoom === 'number') {
+            setViewport({ x, y, zoom });
+            hasFittedInitially.current = true; // Block manual fitView jump
+          }
         }
-        return current;
-      });
-    }, 50);
-  }, [isRestored]); // eslint-disable-line react-hooks/exhaustive-deps
+      }
+    } catch (err) {
+      logger.warn('[Builder] Failed to restore viewport:', err);
+    }
+    hasRestoredViewport.current = true;
+  }, [isRestored, setViewport, tabId]);
 
   // Dirty state: notify parent when canvas changes after initial restore
   // skipDirtyRef > 0 means the next N node/edge changes should be ignored (restore, load, save)
@@ -563,15 +764,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     onDirtyChange?.(true);
   }, [nodes, edges]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fit view when nodes change significantly - zoom out to show more space
-  useEffect(() => {
-    if (nodes.length > 0 && !hasFittedInitially.current) {
-      setTimeout(() => {
-        fitView({ padding: 0.8, duration: 400 });
-        hasFittedInitially.current = true;
-      }, 100);
-    }
-  }, [nodes.length, fitView]);
+
 
   // Execute with notifications wrapper
   const executeWithNotifications = useCallback(async (
@@ -591,6 +784,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         message: nodePrompt.length > 40 ? nodePrompt.slice(0, 40) + '...' : nodePrompt,
         nodeId,
         imageUrl: resultImage,
+        duration: 6000,
+        category: 'generation',
       });
 
       // History logging now happens inside useBuilderWorkflow where fresh image is available
@@ -601,111 +796,126 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         title: 'Generation Failed',
         message: errorMsg,
         nodeId,
+        duration: 0,
+        category: 'generation',
       });
       throw error;
     }
   }, [executeNode, nodes, addNotification]);
 
-  // Bind callbacks to nodes - filter out nodes with invalid positions
-  const nodesWithCallbacks = useMemo(() => {
-    return nodes.filter(node => {
-      // Filter out nodes with invalid positions to prevent SVG NaN errors
-      const hasValidPosition = node.position && 
-        typeof node.position.x === 'number' && !isNaN(node.position.x) &&
-        typeof node.position.y === 'number' && !isNaN(node.position.y);
-      if (!hasValidPosition) {
-        console.warn('[Builder] Filtering out node with invalid position:', node.id);
-      }
-      return hasValidPosition;
-    }).map(node => ({
+  const makeImageUploadHandler = (nodeId: string) => (url: string) => {
+    if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, state: 'idle', outputData: undefined }); return; }
+    applyWatermarkToSource(url).then(async (watermarked) => {
+      const imageKey = `idb://${crypto.randomUUID()}`;
+      await cacheLocalImage(imageKey, watermarked);
+      updateNodeData(nodeId, { image: imageKey, originalImage: imageKey, state: 'ready', outputData: makeSourceOutput(imageKey) });
+    });
+  };
+
+  const spawnExtraSources = useCallback((node: Node, watermarkedUrls: string[]) => {
+    watermarkedUrls.slice(1).forEach((wUrl, index) => {
+      const sourceId = createSourceNode(wUrl);
+      setTimeout(() => {
+        setNodes(positionExtraNode(sourceId, node.position.x, node.position.y, index));
+      }, 0);
+    });
+  }, [createSourceNode, setNodes]);
+
+  const handleRetryExecution = useCallback(async (nodeId: string, prompt: string, config: any) => {
+    try {
+      await executeWithNotifications(nodeId, prompt, config);
+    } catch {
+      // ignored
+    }
+  }, [executeWithNotifications]);
+
+  const makeImagesUploadHandler = (node: Node) => (urls: string[]) => {
+    if (!urls.length) return;
+    Promise.all(urls.map(u => applyWatermarkToSource(u))).then(async (watermarkedUrls) => {
+      const watermarked = watermarkedUrls[0];
+      const imageKey = `idb://${crypto.randomUUID()}`;
+      await cacheLocalImage(imageKey, watermarked);
+      updateNodeData(node.id, { image: imageKey, originalImage: imageKey, state: 'ready', outputData: makeSourceOutput(imageKey) });
+      spawnExtraSources(node, watermarkedUrls);
+      setSelectedNode({ id: node.id, type: 'source', image: imageKey, originalImage: imageKey, prompt: undefined, state: 'ready' });
+    });
+  };
+
+  const makeRetryHandler = (node: Node) => {
+    const d = node.data as any;
+    if (d.state !== 'error' || d.type !== 'ghost') return undefined;
+    return () => {
+      if (!d.prompt) return;
+      updateNodeData(node.id, { state: 'idle', errorMessage: undefined });
+      setTimeout(() => handleRetryExecution(node.id, d.prompt, d.config), 50);
+    };
+  };
+
+  // Bind callbacks to nodes - filter out nodes with invalid/unmeasured positions
+  const nodesWithCallbacks = useMemo(() => nodes
+    .filter(node => {
+      if (isValidPosition(node)) return true;
+      // Only warn for truly invalid positions, not just unmeasured (newly added) nodes
+      const p = node.position;
+      const hasInvalidPos = !p || typeof p.x !== 'number' || Number.isNaN(p.x) || typeof p.y !== 'number' || Number.isNaN(p.y);
+      if (hasInvalidPos) logger.warn('[Builder] Filtering out node with invalid position:', node.id);
+      return false;
+    })
+    .map(node => ({
       ...node,
       data: {
         ...node.data,
-        onAddChild: (processingType: ProcessingType) => addChildNode(node.id, processingType),
-        onImageUpload: node.data.type === 'source' 
-          ? (url: string) => {
-              updateNodeData(node.id, {
-                image: url,
-                state: url ? 'ready' : 'idle',
-                outputData: url ? {
-                  image: url,
-                  prompt: undefined,
-                  metadata: {
-                    timestamp: Date.now(),
-                    operationType: 'source',
-                  },
-                } : undefined,
-              });
-            }
-          : undefined,
-        onImagesUpload: node.data.type === 'source'
-          ? (urls: string[]) => {
-              if (!urls.length) return;
+        onAddChild:     (processingType: ProcessingType) => addChildNode(node.id, processingType),
+        onImageUpload:  node.data.type === 'source' ? makeImageUploadHandler(node.id) : undefined,
+        onImagesUpload: node.data.type === 'source' ? makeImagesUploadHandler(node) : undefined,
+        onDelete:       node.data.type === 'source' ? undefined : () => deleteNode(node.id),
+        onRetry:        makeRetryHandler(node),
+        onExecute:      node.data.type === 'ghost' ? (promptText: string) => {
+          const aiConfig = getConfig();
+          const genConfig = buildGenConfig(aiConfig);
+          executeWithNotifications(node.id, promptText, genConfig).catch(() => {});
+        } : undefined,
+      },
+    })),
+  [nodes, addChildNode, updateNodeData, deleteNode, executeWithNotifications, selectedNodeId, createSourceNode, setNodes, setSelectedNode, applyWatermarkToSource, getConfig]);
 
-              updateNodeData(node.id, {
-                image: urls[0],
-                state: 'ready',
-                outputData: {
-                  image: urls[0],
-                  prompt: undefined,
-                  metadata: {
-                    timestamp: Date.now(),
-                    operationType: 'source',
-                  },
-                },
-              });
-
-              urls.slice(1).forEach((url, index) => {
-                const sourceId = createSourceNode(url);
-                setTimeout(() => {
-                  setNodes(currentNodes => currentNodes.map(sourceNode => (
-                    sourceNode.id === sourceId
-                      ? {
-                          ...sourceNode,
-                          position: {
-                            x: node.position.x,
-                            y: node.position.y + 170 * (index + 1),
-                          },
-                        }
-                      : sourceNode
-                  )));
-                }, 0);
-              });
-
-              setSelectedNode({
-                id: node.id,
-                type: 'source',
-                image: urls[0],
-                prompt: undefined,
-                state: 'ready',
-              });
-            }
-          : undefined,
-        onDelete: node.data.type !== 'source' 
-          ? () => deleteNode(node.id)
-          : undefined,
-        onRetry: (node.data.state === 'error' && node.data.type === 'ghost')
-          ? () => {
-              const storedPrompt = (node.data as any).prompt;
-              const storedConfig = (node.data as any).config;
-              if (!storedPrompt) return;
-              // Reset to idle then re-execute
-              updateNodeData(node.id, { state: 'idle', errorMessage: undefined });
-              setTimeout(() => {
-                executeWithNotifications(node.id, storedPrompt, storedConfig).catch(() => {});
-              }, 50);
-            }
-          : undefined,
+  // Fit view when nodes are measured to center them perfectly on initial load
+  useEffect(() => {
+    if (nodesWithCallbacks.length > 0 && !hasFittedInitially.current) {
+      const allMeasured = nodesWithCallbacks.every(n => n.measured && typeof n.measured.width === 'number' && n.measured.width > 0);
+      if (allMeasured) {
+        fitView({ padding: 0.3, duration: 0 });
+        hasFittedInitially.current = true;
       }
-    }));
-  }, [nodes, addChildNode, updateNodeData, deleteNode, executeWithNotifications, selectedNodeId]);
+    }
+  }, [nodesWithCallbacks, fitView]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (event.button !== 0) return;
     setContextMenu(null);
-    console.log('[BuilderPage] onNodeClick:', node.id);
+    logger.log('[BuilderPage] onNodeClick:', node.id);
     setSelectedNodeId(node.id);
   }, [setSelectedNodeId]);
+
+  // Sync ReactFlow selection → selectedNodeId (covers drag-select, keyboard, etc.)
+  const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[]; edges: any[] }) => {
+    if (selectedNodes.length === 1) {
+      const node = selectedNodes[0];
+      const data = node.data as any;
+      const img = data?.image || data?.outputData?.image;
+      setSelectedNodeId(node.id);
+      setSelectedNode({
+        id: node.id,
+        type: data?.type || null,
+        image: img,
+        originalImage: data?.originalImage,
+        prompt: data?.prompt,
+        state: data?.state,
+      });
+    } else if (selectedNodes.length === 0) {
+      setSelectedNodeId(null);
+    }
+  }, [setSelectedNodeId, setSelectedNode]);
 
   const onPaneClick = useCallback((event: React.MouseEvent) => {
     if (event.button !== 0) return;
@@ -718,7 +928,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         node.data.type === 'ghost' &&
         node.data.state === 'idle' &&
         typeof node.data.createdAt === 'number' &&
-        now - (node.data.createdAt as number) < 3000
+        now - node.data.createdAt < 3000
       ) {
         deleteNode(node.id);
       }
@@ -730,12 +940,18 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     event.preventDefault();
     event.stopPropagation();
     setSelectedNodeId(null);
+    const clientX = (event as MouseEvent).clientX ?? (event as React.MouseEvent).clientX;
+    const clientY = (event as MouseEvent).clientY ?? (event as React.MouseEvent).clientY;
+    // Convert screen coordinates to canvas coordinates
+    const canvasPos = screenToFlowPosition({ x: clientX, y: clientY });
     setContextMenu({
-      x: (event as MouseEvent).clientX ?? (event as React.MouseEvent).clientX,
-      y: (event as MouseEvent).clientY ?? (event as React.MouseEvent).clientY,
+      x: clientX,
+      y: clientY,
+      canvasX: canvasPos.x,
+      canvasY: canvasPos.y,
       type: 'canvas',
     });
-  }, [setSelectedNodeId]);
+  }, [setSelectedNodeId, screenToFlowPosition]);
 
   const onPromptContextMenu = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -759,71 +975,33 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, [setSelectedNodeId]);
 
-  useEffect(() => {
-    if (!contextMenu) return;
 
-    const handleMouseDown = (e: MouseEvent) => {
-      // Only close on left-click (button 0) AND if click is outside the menu
-      if (e.button !== 0) return;
-      
-      // Check if click is inside the menu
-      const menuEl = contextMenuRef.current;
-      if (menuEl && e.target instanceof Node && menuEl.contains(e.target)) {
-        // Click is inside menu, don't close
-        return;
-      }
-      
-      // Click is outside menu, close it
-      setContextMenu(null);
-    };
-    
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setContextMenu(null);
-    };
 
-    // Add listener immediately (no delay)
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('keydown', handleEsc);
 
-    return () => {
-      window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('keydown', handleEsc);
-    };
-  }, [contextMenu]);
+  const executeGhost = useCallback((ghostId: string, genConfig: ReturnType<typeof buildGenConfig>) => {
+    executeWithNotifications(ghostId, prompt, genConfig).catch(() => {});
+    setPrompt('');
+  }, [executeWithNotifications, prompt, setPrompt]);
 
-  // Copy/Paste functionality
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Copy node (Ctrl+C)
-      if (e.ctrlKey && e.key === 'c' && selectedNodeId) {
-        const node = nodes.find(n => n.id === selectedNodeId);
-        if (node && (node.data as any)?.image) {
-          setCopiedNode({
-            type: node.data.type,
-            image: (node.data as any).image,
-            prompt: (node.data as any).prompt
-          });
-          addNotification({ type: 'success', title: 'Node Copied', message: 'Press Ctrl+V to paste' });
-        }
-      }
-      
-      // Paste node (Ctrl+V)
-      if (e.ctrlKey && e.key === 'v' && copiedNode) {
-        const newNodeId = createSourceNode(copiedNode.image);
-        if (copiedNode.prompt) {
-          updateNodeData(newNodeId, { prompt: copiedNode.prompt });
-        }
-        addNotification({ type: 'success', title: 'Node Pasted', message: 'Image copied to canvas' });
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeId, nodes, copiedNode, createSourceNode, updateNodeData, addNotification]);
+  const spawnAndExecute = (genConfig: ReturnType<typeof buildGenConfig>) => {
+    const existingParent =
+      nodes.find(n => { const d = n.data as any; return (d.type === 'source' || d.type === 'result') && !!d.image; }) ??
+      nodes.find(n => (n.data as any)?.type === 'source');
+    const parentId = existingParent ? existingParent.id : createSourceNode();
+    setTimeout(() => {
+      const ghostId = spawnGhostNode(parentId, 'render');
+      if (ghostId) setTimeout(() => executeGhost(ghostId, genConfig), 50);
+    }, 50);
+  };
 
   const handleGenerate = async () => {
-    // Check credit balance before generating (skip in DEV_MODE)
-    const cost = GENERATION_COST.standard;
+    const aiConfig = getConfig();
+    const cost = getModelCost(aiConfig.model, {
+      resolution: aiConfig.resolution,
+      qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
+      prunaTarget: aiConfig.prunaTarget,
+    });
+
     if (authUser?.id && !DEV_MODE) {
       const creditCheck = await checkCreditBalance(authUser.id, cost);
       if (!creditCheck.hasEnough) {
@@ -832,76 +1010,26 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
     }
 
-    const aiConfig = getConfig();
     const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
-    const hasUpscaleFactor = aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1;
+    if (!prompt.trim() && !(isUpscaler && aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1)) return;
 
-    if (!prompt.trim() && !(isUpscaler && hasUpscaleFactor)) return;
-    const genConfig = {
-      model: aiConfig.model,
-      resolution: aiConfig.resolution,
-      aspectRatio: aiConfig.aspectRatio,
-      steps: aiConfig.steps,
-      cfg: aiConfig.cfg,
-      seed: aiConfig.seed,
-      strength: aiConfig.strength,
-      referenceStrength: aiConfig.referenceStrength,
-      negativePrompt: aiConfig.negativePrompt,
-      disableSafetyChecker: aiConfig.disableSafetyChecker,
-      upscaleFactor: aiConfig.upscaleFactor,
-      // Pruna AI settings
-      prunaMode: aiConfig.prunaMode,
-      prunaTarget: aiConfig.prunaTarget,
-      prunaFactor: aiConfig.prunaFactor,
-      prunaEnhanceDetails: aiConfig.prunaEnhanceDetails,
-      prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
-      prunaQuality: aiConfig.prunaQuality,
-      prunaOutputFormat: aiConfig.prunaOutputFormat,
-    };
-    
-    const idleGhosts = nodes.filter(n => {
-      const d = n.data as any;
-      return d.type === 'ghost' && d.state === 'idle';
-    });
-    
-    // Deduct credits for each generation
-    const ghostCount = idleGhosts.length > 0 ? idleGhosts.length : 1;
-    const totalCost = cost * ghostCount;
+    const genConfig = buildGenConfig(aiConfig);
+    const idleGhosts = nodes.filter(n => { const d = n.data as any; return d.type === 'ghost' && d.state === 'idle'; });
+    const totalCost = cost * (idleGhosts.length > 0 ? idleGhosts.length : 1);
 
-    // Deduct credits (skip in DEV_MODE)
     if (authUser?.id && !DEV_MODE) {
       const deduct = await deductCredits(authUser.id, totalCost, `Generation: ${prompt.slice(0, 30)}...`);
       if (!deduct.success) {
-        addNotification({ type: 'error', title: 'فشل الخصم', message: deduct.error || 'رصيد غير كافٍ' });
+        addNotification({ type: 'error', title: 'Deduction Failed', message: deduct.error ?? 'Insufficient balance' });
         return;
       }
-      // Credit deducted successfully
     }
 
     if (idleGhosts.length > 0) {
-      // Execute existing idle ghost nodes
-      idleGhosts.forEach(g => {
-        executeWithNotifications(g.id, prompt, genConfig).catch(() => {});
-      });
+      idleGhosts.forEach(g => executeWithNotifications(g.id, prompt, genConfig).catch(() => {}));
       setPrompt('');
     } else {
-      // Find existing source/result nodes to spawn ghost from
-      const existingParent = nodes.find(n => {
-        const d = n.data as any;
-        return (d.type === 'source' || d.type === 'result') && !!d.image;
-      }) || nodes.find(n => (n.data as any)?.type === 'source');
-
-      const parentId = existingParent ? existingParent.id : createSourceNode();
-
-      setTimeout(() => {
-        const ghostId = spawnGhostNode(parentId, 'render');
-        if (ghostId) {
-          setTimeout(() => {
-            executeWithNotifications(ghostId, prompt, genConfig).catch(() => {});
-            setPrompt('');
-          }, 50);
-        }
-      }, 50);
+      spawnAndExecute(genConfig);
     }
   };
 
@@ -912,9 +1040,10 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const saveBuilderViewport = useCallback(() => {
     try {
-      const saved = localStorage.getItem(BUILDER_AUTOSAVE_KEY);
+      const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+      const saved = localStorage.getItem(key);
       const data = saved ? JSON.parse(saved) : {};
-      localStorage.setItem(BUILDER_AUTOSAVE_KEY, JSON.stringify({
+      localStorage.setItem(key, JSON.stringify({
         ...data,
         nodes,
         edges,
@@ -923,72 +1052,108 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     } catch {
       // Silent fail
     }
-  }, [nodes, edges, getViewport]);
+  }, [nodes, edges, getViewport, tabId]);
+
+  // Silent background file autosave to disk project path
+  useEffect(() => {
+    if (!isRestored) return;
+    if (!currentFilePath) return;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const thumbnail = await generateThumbnail();
+        await saveWorkflow(nodes, edges, { thumbnail, filePath: currentFilePath });
+      } catch (err) {
+        logger.warn('[Autosave] Background disk save failed:', err);
+      }
+    }, 5000); // Debounce 5s for disk autosaving
+
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, isRestored, generateThumbnail, currentFilePath]);
 
   const contextNode = contextMenu?.type === 'node'
     ? nodesWithCallbacks.find(n => n.id === contextMenu.nodeId)
     : undefined;
 
-  const canSpawnFromContextNode = !!(
-    contextNode &&
-    (((contextNode.data as any)?.type === 'source') || ((contextNode.data as any)?.type === 'result'))
-  );
 
-  const canRetryContextNode = !!(
-    contextNode &&
-    (contextNode.data as any)?.type === 'ghost' &&
-    (contextNode.data as any)?.state === 'error'
-  );
-
-  const canDeleteContextNode = !!(
-    contextNode &&
-    (contextNode.data as any)?.type !== 'source'
-  );
 
   // ── Save / Load handlers ──────────────────────────────────────────────
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (): Promise<string | null> => {
     try {
       const thumbnail = await generateThumbnail();
-      const path = await saveWorkflow(nodes, edges, { thumbnail });
+      const path = await saveWorkflow(nodes, edges, { thumbnail, filePath: currentFilePath });
       if (path) {
         const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
         addNotification({ type: 'success', title: 'Project Saved', message: name });
         onTitleChange?.(name);
+        setCurrentFilePathState(path);
+        onProjectPathChange?.(path);
         skipDirtyRef.current = 1;
         isDirtyRef.current = false;
         onDirtyChange?.(false);
+        return path;
       }
+      return null;
     } catch (err) {
-      console.error('[Save] failed:', err);
+      logger.error('[Save] failed:', err);
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
+      return null;
     }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange]);
 
-  const handleSaveAs = useCallback(async () => {
+  const handleSaveAs = useCallback(async (): Promise<string | null> => {
     try {
       const thumbnail = await generateThumbnail();
-      const path = await saveWorkflowAs(nodes, edges, undefined, thumbnail);
+      const path = await saveWorkflowAs(nodes, edges, undefined, thumbnail, currentFilePath);
       if (path) {
         const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
         addNotification({ type: 'success', title: 'Project Saved', message: name });
         onTitleChange?.(name);
+        setCurrentFilePathState(path);
+        onProjectPathChange?.(path);
         skipDirtyRef.current = 1;
         isDirtyRef.current = false;
         onDirtyChange?.(false);
+        return path;
       }
+      return null;
     } catch (err) {
-      console.error('[Save As] failed:', err);
+      logger.error('[Save As] failed:', err);
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
+      return null;
     }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange]);
+
+  // Listen to external save triggers (like closing the tab, closing the app, etc.)
+  useEffect(() => {
+    const handleTriggerSave = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ tabId: string; closeAfterSave?: boolean }>;
+      if (customEvent.detail?.tabId !== tabId) return;
+
+      const path = await handleSave();
+      if (customEvent.detail?.closeAfterSave) {
+        window.dispatchEvent(new CustomEvent('anarchy:save-completed', {
+          detail: { tabId, success: !!path }
+        }));
+      }
+    };
+
+    window.addEventListener('anarchy:trigger-save-tab', handleTriggerSave);
+    return () => {
+      window.removeEventListener('anarchy:trigger-save-tab', handleTriggerSave);
+    };
+  }, [tabId, handleSave]);
+  // Consolidated keyboard shortcuts handled globally below to prevent duplicate events
 
   const handleLoad = useCallback(async () => {
     try {
       const result = await loadWorkflow();
       if (result) {
         setNodes(result.nodes);
-        setEdges(result.edges);
+        setEdges(sanitizeEdges(result.nodes, result.edges || []));
         onTitleChange?.(result.name);
+        setCurrentFilePathState(result.filePath);
+        onProjectPathChange?.(result.filePath);
         skipDirtyRef.current = 2;
         isDirtyRef.current = false;
         onDirtyChange?.(false);
@@ -996,14 +1161,20 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 100);
       }
     } catch (err) {
-      console.error('[Load] failed:', err);
+      logger.error('[Load] failed:', err);
       addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
     }
-  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange]);
+  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange, onProjectPathChange]);
 
   // ── New Canvas — clear autosave and start fresh ───────────────────────
   const doNewCanvas = useCallback(() => {
-    try { localStorage.removeItem(BUILDER_AUTOSAVE_KEY); } catch {}
+    try {
+      const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+      localStorage.removeItem(key);
+    } catch {}
+    resetFilePath();
+    setCurrentFilePathState(null);
+    onProjectPathChange?.(null);
     setNodes([]);
     setEdges([]);
     setSelectedNodeId(null);
@@ -1015,7 +1186,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       createSourceNode();
       setTimeout(() => fitView({ padding: 0.8, duration: 400 }), 100);
     }, 30);
-  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange]);
+  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange, tabId, onProjectPathChange]);
 
   const handleNewCanvas = useCallback(() => {
     if (isDirtyRef.current) {
@@ -1036,34 +1207,17 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, []);
 
-  const spawnFromImage = useCallback(async (dataUrl: string) => {
-    console.log('[Spawn From Image] Creating source node with image');
-    const nodeId = createSourceNode(dataUrl);
+  const spawnFromImage = useCallback(async (dataUrl: string, position?: { x: number; y: number }) => {
+    logger.log('[Spawn From Image] Creating source node with image');
+    const watermarked = await applyWatermarkToSource(dataUrl);
+    const nodeId = createSourceNode(watermarked, undefined, position);
     
-    // Position the new node better
-    setTimeout(() => {
-      setNodes(currentNodes => currentNodes.map(node => 
-        node.id === nodeId 
-          ? { 
-              ...node, 
-              position: {
-                x: 120,
-                y: 200 + currentNodes.filter(n => (n.data as any)?.type === 'source').length * 80
-              }
-            }
-          : node
-      ));
-    }, 50);
-    
+    setTimeout(() => setNodes(patchSpawnedNode(nodeId)), 50);
     setSelectedNodeId(nodeId);
-    setSelectedNode({ id: nodeId, type: 'source', image: dataUrl, prompt: undefined, state: 'ready' });
-    
-    setTimeout(() => {
-      fitView({ padding: 0.3, duration: 400 });
-    }, 200);
-    
-    console.log('[Spawn From Image] Source node created successfully:', nodeId);
-  }, [createSourceNode, setSelectedNodeId, setSelectedNode, fitView, setNodes]);
+    setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
+    setTimeout(() => { fitView({ padding: 0.3, duration: 400 }); }, 200);
+    logger.log('[Spawn From Image] Source node created successfully:', nodeId);
+  }, [createSourceNode, setSelectedNodeId, setSelectedNode, fitView, setNodes, applyWatermarkToSource]);
 
   // ── Drag & Drop image onto canvas ──────────────────────────────────
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1089,7 +1243,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     // Skip if already handled by Tauri native handler
     if (dropHandledRef.current) return;
     // Also skip in Tauri env to let native handler work
-    const isTauriEnv = isTauriRef.current || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+    const isTauriEnv = isTauriRef.current || (typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis);
     if (isTauriEnv) return;
     
     // Handle dropped files
@@ -1099,7 +1253,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         const dataUrl = await imageFileToDataUrl(file);
         await spawnFromImage(dataUrl);
       } catch (error) {
-        console.error('[Drag & Drop] Error processing file:', error);
+        logger.error('[Drag & Drop] Error processing file:', error);
       }
     }
     
@@ -1107,25 +1261,50 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const urlData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
     if (urlData && !imageFiles.length) {
       const imageUrl = urlData.trim();
-      if (imageUrl.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
+      if (/\.(jpg|jpeg|png|webp|gif|bmp)$/i.exec(imageUrl)) {
         try {
-          // Create a node with the URL directly
-          const nodeId = createSourceNode(imageUrl);
+          const watermarked = await applyWatermarkToSource(imageUrl);
+          const nodeId = createSourceNode(watermarked);
           setSelectedNodeId(nodeId);
-          setSelectedNode({ id: nodeId, type: 'source', image: imageUrl, prompt: undefined, state: 'ready' });
+          setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
           addNotification({ type: 'success', title: 'Image Added', message: 'From URL' });
         } catch (error) {
-          console.error('[Drag & Drop] Error loading URL:', error);
+          logger.error('[Drag & Drop] Error loading URL:', error);
         }
       }
     }
-  }, [imageFileToDataUrl, spawnFromImage, createSourceNode, setSelectedNodeId, setSelectedNode, addNotification]);
+  }, [imageFileToDataUrl, spawnFromImage, createSourceNode, setSelectedNodeId, setSelectedNode, addNotification, applyWatermarkToSource]);
+
+  const handleTauriDragDrop = useCallback(async (event: any) => {
+    const type = event.payload.type;
+    if (type === 'over' || type === 'enter') {
+      setIsDraggingFile(true);
+    } else if (type === 'leave') {
+      setIsDraggingFile(false);
+    } else if (type === 'drop') {
+      if (dropHandledRef.current) return;
+      dropHandledRef.current = true;
+      setIsDraggingFile(false);
+      const paths: string[] = (event.payload as any).paths ?? [];
+      await processDroppedFiles(paths, spawnFromImage);
+      setTimeout(() => { dropHandledRef.current = false; }, 500);
+    }
+  }, [spawnFromImage]);
+
+  const handleWindowDrop = useCallback(async (e: DragEvent) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    if (!e.dataTransfer) return;
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    await processWebDropFiles(files, imageFileToDataUrl, spawnFromImage);
+  }, [imageFileToDataUrl, spawnFromImage]);
 
   // ── Native file drop via Tauri's drag-drop API ──────────────────────────
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let active = true;
+    let disposeFn: (() => void) | undefined;
     // Detect Tauri synchronously via window object to block HTML5 drop immediately
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    if (typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis) {
       isTauriRef.current = true;
     }
 
@@ -1134,59 +1313,37 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
         const appWindow = getCurrentWebviewWindow();
         isTauriRef.current = true;
-        unlisten = await appWindow.onDragDropEvent(async (event) => {
-          const type = event.payload.type;
-          if (type === 'over' || type === 'enter') {
-            setIsDraggingFile(true);
-          } else if (type === 'leave') {
-            setIsDraggingFile(false);
-          } else if (type === 'drop') {
-            if (dropHandledRef.current) return;
-            dropHandledRef.current = true;
-            setIsDraggingFile(false);
-            const paths: string[] = (event.payload as any).paths ?? [];
-            const imageExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff'];
-            for (const filePath of paths.slice(0, 5)) {
-              const lower = filePath.toLowerCase();
-              if (!imageExts.some(ext => lower.endsWith(ext))) continue;
-              try {
-                const { invoke } = await import('@tauri-apps/api/core');
-                const dataUrl = await invoke<string>('read_local_image', { path: filePath });
-                await spawnFromImage(dataUrl);
-              } catch (err) {
-                console.error('[Tauri Drop] Failed to read file:', filePath, err);
-              }
-            }
-            setTimeout(() => { dropHandledRef.current = false; }, 500);
-          }
-        });
+        const dispose = await appWindow.onDragDropEvent(handleTauriDragDrop);
+        if (!active) {
+          dispose();
+        } else {
+          disposeFn = dispose;
+        }
       } catch {
         // Fallback: Tauri API not available (dev mode web), use HTML5 events
         const handleWindowDragOver = (e: DragEvent) => { e.preventDefault(); };
-        const handleWindowDrop = async (e: DragEvent) => {
-          e.preventDefault();
-          setIsDraggingFile(false);
-          if (!e.dataTransfer) return;
-          const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-          for (const file of files.slice(0, 5)) {
-            try {
-              const dataUrl = await imageFileToDataUrl(file);
-              await spawnFromImage(dataUrl);
-            } catch { /* skip */ }
-          }
+        globalThis.addEventListener('dragover', handleWindowDragOver);
+        globalThis.addEventListener('drop', handleWindowDrop);
+        const dispose = () => {
+          globalThis.removeEventListener('dragover', handleWindowDragOver);
+          globalThis.removeEventListener('drop', handleWindowDrop);
         };
-        window.addEventListener('dragover', handleWindowDragOver);
-        window.addEventListener('drop', handleWindowDrop);
-        unlisten = () => {
-          window.removeEventListener('dragover', handleWindowDragOver);
-          window.removeEventListener('drop', handleWindowDrop);
-        };
+        if (!active) {
+          dispose();
+        } else {
+          disposeFn = dispose;
+        }
       }
     };
 
     setupTauriDrop();
-    return () => { unlisten?.(); };
-  }, [spawnFromImage, imageFileToDataUrl]);
+    return () => {
+      active = false;
+      if (disposeFn) {
+        disposeFn();
+      }
+    };
+  }, [handleTauriDragDrop, handleWindowDrop]);
 
   // ── Window-level contextmenu for Tauri (ReactFlow's onPaneContextMenu may not fire) ──
   useEffect(() => {
@@ -1201,245 +1358,424 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const target = me.target as Element;
       // ReactFlow sets data-id attribute on .react-flow__node wrapper
       const nodeEl = target.closest('[data-id]') as HTMLElement | null;
-      const nodeId = nodeEl?.getAttribute('data-id') ?? undefined;
+      const nodeId = nodeEl?.dataset['id'] ?? undefined;
       if (nodeId) setSelectedNodeId(nodeId);
+
+      const canvasPos = screenToFlowPosition({ x: me.clientX, y: me.clientY });
+
       setContextMenu({
         x: me.clientX,
         y: me.clientY,
+        canvasX: canvasPos.x,
+        canvasY: canvasPos.y,
         type: nodeId ? 'node' : 'canvas',
         ...(nodeId ? { nodeId } : {}),
       });
     };
 
-    window.addEventListener('contextmenu', handleWindowContextMenu, true);
-    return () => window.removeEventListener('contextmenu', handleWindowContextMenu, true);
-  }, [setSelectedNodeId]);
+    globalThis.addEventListener('contextmenu', handleWindowContextMenu, true);
+    return () => globalThis.removeEventListener('contextmenu', handleWindowContextMenu, true);
+  }, [setSelectedNodeId, screenToFlowPosition]);
 
   // ── Keyboard shortcuts (Ctrl+S, Ctrl+Shift+S, Ctrl+O, Ctrl+V) ───────
-  useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT' ||
-          (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+  const pasteFromTauriClipboard = useCallback(async (): Promise<boolean> => {
+    try {
+      const dataUrl = await invoke<string>('read_clipboard_image');
+      await spawnFromImage(dataUrl);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [spawnFromImage]);
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        handleNewCanvas();
-        return;
+  const pasteFromWebClipboard = useCallback(async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find(t => t.startsWith('image/'));
+        if (!imgType) continue;
+        const blob = await item.getType(imgType);
+        const dataUrl = await imageFileToDataUrl(new File([blob], 'paste.png', { type: imgType }));
+        await spawnFromImage(dataUrl);
+        break;
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        if (canUndo) undo();
-        return;
+    } catch (err) {
+      logger.log('[Paste] Web Clipboard failed:', err);
+    }
+  }, [imageFileToDataUrl, spawnFromImage]);
+
+  useEffect(() => {
+    const handlePasteShortcut = async () => {
+      const isTauri = isTauriRef.current || '__TAURI_INTERNALS__' in globalThis;
+      if (isTauri) {
+        const done = await pasteFromTauriClipboard();
+        if (done) return;
       }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        if (canRedo) redo();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (e.shiftKey) handleSaveAs(); else handleSave();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-        e.preventDefault();
-        handleLoad();
-      }
-      // Ctrl+V → paste image from clipboard
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        e.preventDefault();
-        const isTauri = isTauriRef.current || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
-        if (isTauri) {
-          try {
-            console.log('[Paste] Trying Tauri clipboard...');
-            const dataUrl = await invoke('read_clipboard_image') as string;
-            console.log('[Paste] Got image from Tauri clipboard');
-            await spawnFromImage(dataUrl);
-            return;
-          } catch (err) {
-            console.log('[Paste] No image in Tauri clipboard:', err);
+      await pasteFromWebClipboard();
+    };
+
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      // Handle Delete / Backspace key deletions (no Ctrl modifier needed)
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNodeId) {
+          const node = nodes.find(n => n.id === selectedNodeId);
+          if (node && (node.data as any)?.type !== 'source') {
+            e.preventDefault();
+            deleteNode(selectedNodeId);
+            setSelectedNodeId(null);
           }
         }
-        // Web fallback: use Web Clipboard API
-        try {
-          console.log('[Paste] Trying Web Clipboard API...');
-          const items = await navigator.clipboard.read();
-          for (const item of items) {
-            const imgType = item.types.find(t => t.startsWith('image/'));
-            if (imgType) {
-              const blob = await item.getType(imgType);
-              const dataUrl = await imageFileToDataUrl(new File([blob], 'paste.png', { type: imgType }));
-              console.log('[Paste] Got image from Web Clipboard');
-              await spawnFromImage(dataUrl);
-              break;
+        return;
+      }
+
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (!ctrl) return;
+
+      const key = e.key.toLowerCase();
+
+      switch (key) {
+        case 'c':
+          if (selectedNodeId) {
+            const node = nodes.find(n => n.id === selectedNodeId);
+            if (node && (node.data as any)?.image) {
+              e.preventDefault();
+              setCopiedNode({
+                type: node.data.type,
+                image: (node.data as any).image,
+                prompt: (node.data as any).prompt
+              });
+              addNotification({ type: 'success', title: 'Node Copied', message: 'Press Ctrl+V to paste' });
             }
           }
-        } catch (err) {
-          console.log('[Paste] Web Clipboard failed:', err);
-        }
+          break;
+        case 'v':
+          e.preventDefault();
+          if (copiedNode) {
+            const newNodeId = createSourceNode(copiedNode.image);
+            if (copiedNode.prompt) {
+              updateNodeData(newNodeId, { prompt: copiedNode.prompt });
+            }
+            addNotification({ type: 'success', title: 'Node Pasted', message: 'Image copied to canvas' });
+          } else {
+            await handlePasteShortcut();
+          }
+          break;
+        case 'n':
+          e.preventDefault();
+          handleNewCanvas();
+          break;
+        case 'z':
+          e.preventDefault();
+          if (e.shiftKey) {
+            if (canRedo) redo();
+          } else {
+            if (canUndo) undo();
+          }
+          break;
+        case 'y':
+          e.preventDefault();
+          if (canRedo) redo();
+          break;
+        case 's':
+          e.preventDefault();
+          if (e.shiftKey) {
+            await handleSaveAs();
+          } else {
+            await handleSave();
+          }
+          break;
+        case 'o':
+          e.preventDefault();
+          handleLoad();
+          break;
+        default:
+          break;
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSave, handleSaveAs, handleLoad, handleNewCanvas, imageFileToDataUrl, spawnFromImage, undo, redo, canUndo, canRedo]);
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleKeyDown);
+  }, [
+    handleSave,
+    handleSaveAs,
+    handleLoad,
+    handleNewCanvas,
+    pasteFromTauriClipboard,
+    pasteFromWebClipboard,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    selectedNodeId,
+    nodes,
+    deleteNode,
+    setSelectedNodeId,
+    copiedNode,
+    setCopiedNode,
+    createSourceNode,
+    updateNodeData,
+    addNotification
+  ]);
 
-  const runContextAction = (action: 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-all' | 'export-pdf' | 'save-project' | 'load-project') => {
-    console.log('[Context Action]', action, 'contextNode:', contextNode?.id);
-    
-    if (action === 'add-source') {
-      console.log('[Context Action] Creating source node...');
-      const nodeId = createSourceNode();
-      console.log('[Context Action] Source node created:', nodeId);
+  const handleContextAddSource = () => {
+    const position = contextMenu?.canvasX !== undefined && contextMenu?.canvasY !== undefined
+      ? { x: contextMenu.canvasX, y: contextMenu.canvasY }
+      : undefined;
+    createSourceNode(undefined, undefined, position);
+  };
+
+  const handleContextSpawnGhost = () => {
+    const data = contextNode?.data as any;
+    if (data?.onAddChild) data.onAddChild('render');
+    else logger.warn('[Context Action] onAddChild not found on node:', contextNode?.id);
+  };
+
+  const handleContextRetryNode = () => {
+    const data = contextNode?.data as any;
+    if (data?.onRetry) data.onRetry();
+    else logger.warn('[Context Action] onRetry not found on node:', contextNode?.id);
+  };
+
+  const handleContextDeleteNode = () => {
+    const data = contextNode?.data as any;
+    if (data?.type === 'source') { logger.warn('[Context Action] Cannot delete source node:', contextNode?.id); return; }
+    if (contextNode) deleteNode(contextNode.id);
+  };
+
+  const handleContextCompare = (slot: 'A' | 'B') => {
+    const data = contextNode?.data as any;
+    const imageUrl = data?.image ?? data?.outputData?.image;
+    if (imageUrl) {
+      setCompareSlot(slot, imageUrl);
+      setConfig(prev => ({ ...prev }));
     }
+  };
 
-    if (action === 'rearrange') {
-      console.log('[Context Action] Rearranging graph...');
-      handleRearrange();
-    }
+  const handleContextSaveNodeImage = () => {
+    const data = contextNode?.data as any;
+    const imageUrl = data?.image ?? data?.outputData?.image;
+    if (!imageUrl) return;
+    const baseName = `${data?.type || 'node'}_${contextNode!.id}`;
+    exportImageWithDialog(imageUrl, baseName)
+      .then(filePath => filePath && addNotification({ type: 'success', title: 'Image Saved', message: `Saved to: ${filePath.split(/[\\/]/).pop()}` }))
+      .catch(err => { logger.error('[Save Image] failed:', err); addNotification({ type: 'error', title: 'Save Failed', message: err?.message || 'Failed to save image' }); });
+  };
 
-    if (action === 'spawn-ghost' && contextNode) {
-      const data = contextNode.data as any;
-      console.log('[Context Action] Spawning ghost from node:', contextNode.id, 'onAddChild:', !!data?.onAddChild);
-      if (data?.onAddChild) {
-        data.onAddChild('render');
-      } else {
-        console.warn('[Context Action] onAddChild not found on node:', contextNode.id);
+  const handleContextExportDXF = () => {
+    const data = contextNode?.data as any;
+    const imageUrl = data?.image ?? data?.outputData?.image;
+    if (!imageUrl) return;
+    const baseName = `${data?.type || 'node'}_${contextNode!.id}`;
+    exportImageToDXFWithDialog(imageUrl, baseName)
+      .then(filePath => filePath && addNotification({ type: 'success', title: 'CAD File Saved', message: `Saved to: ${filePath.split(/[\\/]/).pop()}` }))
+      .catch(err => { logger.error('[Export CAD] failed:', err); addNotification({ type: 'error', title: 'Export Failed', message: err?.message || 'Failed to export CAD file' }); });
+  };
+
+  // ── Analyze Floor Plan → CAD via local Image2CAD FastAPI server ────────────
+  const handleContextAnalyzePlan = async () => {
+    const data = contextNode?.data as any;
+    const imageUrl: string = data?.image ?? data?.outputData?.image;
+    if (!imageUrl) return;
+
+    addNotification({ type: 'success', title: 'Analyzing Floor Plan...', message: 'Sending to Image2CAD engine, please wait.' });
+
+    try {
+      // 1. Resolve IndexedDB image cache (idb://) if needed
+      let resolvedUrl = imageUrl;
+      if (imageUrl.startsWith('idb://')) {
+        const cached = await getLocalImage(imageUrl);
+        if (!cached) throw new Error('Could not retrieve image from local database');
+        resolvedUrl = cached;
       }
-    }
 
-    if (action === 'retry-node' && contextNode) {
-      const data = contextNode.data as any;
-      console.log('[Context Action] Retrying node:', contextNode.id, 'onRetry:', !!data?.onRetry);
-      if (data?.onRetry) {
-        data.onRetry();
-      } else {
-        console.warn('[Context Action] onRetry not found on node:', contextNode.id);
+      // Convert to base64 if it is remote or local file path
+      let base64Uri = resolvedUrl;
+      if (!resolvedUrl.startsWith('data:')) {
+        base64Uri = await urlToDataUri(resolvedUrl);
       }
-    }
 
-    if (action === 'delete-node' && contextNode) {
-      const data = contextNode.data as any;
-      console.log('[Context Action] Deleting node:', contextNode.id, 'type:', data?.type);
-      if (data?.type !== 'source') {
-        deleteNode(contextNode.id);
-      } else {
-        console.warn('[Context Action] Cannot delete source node:', contextNode.id);
+      // 2. Call Tauri native Rust command to send the image to the local FastAPI server
+      const responseText = await invoke<string>('analyze_floor_plan', { imageBase64: base64Uri });
+      const result = JSON.parse(responseText);
+
+      // 3. Show native save dialog and save the file via the ExportService helper
+      const dxfUrl = `http://127.0.0.1:8000${result.dxf_url}`;
+      const baseName = `floor_plan_${contextNode!.id}`;
+      const filePath = await saveDXFFromServer(dxfUrl, baseName);
+
+      if (!filePath) {
+        addNotification({ type: 'info', title: 'Export Cancelled', message: 'CAD export was cancelled.' });
+        return;
       }
-    }
-    
-    if ((action === 'compare-a' || action === 'compare-b') && contextNode) {
-      const data = contextNode.data as any;
-      const imageUrl = data?.image || data?.outputData?.image;
-      if (imageUrl) {
-        setCompareSlot(action === 'compare-a' ? 'A' : 'B', imageUrl);
-        // Switch to compare mode in sidebar
-        setConfig(prev => ({ ...prev })); // Trigger re-render
-      }
-    }
 
-    if (action === 'save-node-image' && contextNode) {
-      const data = contextNode.data as any;
-      const imageUrl = data?.image || data?.outputData?.image;
-      if (imageUrl) {
-        const baseName = `${data?.type || 'node'}_${contextNode.id}`;
-        // Use new export with save dialog
-        exportImageWithDialog(imageUrl, baseName).then((filePath) => {
-          if (filePath) {
-            addNotification({ 
-              type: 'success', 
-              title: 'Image Saved', 
-              message: `Saved to: ${filePath.split(/[\\/]/).pop()}` 
-            });
-          }
-        }).catch(err => {
-          console.error('[Save Image] failed:', err);
-          addNotification({ 
-            type: 'error', 
-            title: 'Save Failed', 
-            message: err?.message || 'Failed to save image' 
-          });
-        });
-      }
-    }
+      const { lines, circles } = result.entities ?? {};
+      addNotification({
+        type:    'success',
+        title:   'Floor Plan → CAD Complete ✓',
+        message: `Saved to: ${filePath.split(/[\\/]/).pop()} (Lines: ${lines ?? 0} Circles: ${circles ?? 0})`,
+      });
 
-    if (action === 'save-project') {
-      handleSave();
-    }
-
-    if (action === 'load-project') {
-      handleLoad();
-    }
-
-    if (action === 'export-all') {
-      const items = nodes
-        .map(n => {
-          const d = n.data as any;
-          const url = d?.image || d?.outputData?.image;
-          return url ? { url, name: `${d?.type || 'node'}_${n.id}`, prompt: d?.prompt } : null;
-        })
-        .filter((x): x is { url: string; name: string; prompt?: string } => !!x);
-
-      if (items.length === 0) {
-        alert('No images found on canvas.');
-      } else {
-        // Use new export with save dialog
-        exportImagesBatchWithDialog(items).then(({ succeeded, failed, paths }) => {
-          console.log(`[Export All] ${succeeded} saved, ${failed} failed`, paths);
-          if (succeeded > 0) {
-            addNotification({ 
-              type: 'success', 
-              title: 'Images Exported', 
-              message: `${succeeded} image(s) saved successfully` 
-            });
-          }
-          if (failed > 0) {
-            addNotification({ 
-              type: 'error', 
-              title: 'Export Failed', 
-              message: `${failed} image(s) failed to export` 
-            });
-          }
-        }).catch(err => {
-          console.error('[Export All] error:', err);
-          addNotification({ 
-            type: 'error', 
-            title: 'Export Error', 
-            message: String(err) 
-          });
-        });
-      }
-    }
-
-    if (action === 'export-pdf') {
-      exportNodesToPDFWithDialog(nodes, {
-        title: 'Anarchy AI Canvas Export',
-        author: 'Anarchy AI',
-        subject: 'AI Generated Images from Canvas',
-        includeMetadata: true
-      }).then((filePath) => {
-        if (filePath) {
-          addNotification({ 
-            type: 'success', 
-            title: 'PDF Exported', 
-            message: `Saved to: ${filePath.split(/[\\/]/).pop()}` 
-          });
-        }
-      }).catch((err: any) => {
-        console.error('[PDF Export] failed:', err);
-        addNotification({ 
-          type: 'error', 
-          title: 'PDF Export Failed', 
-          message: err?.message || 'Failed to export PDF' 
-        });
+    } catch (err: any) {
+      logger.error('[Analyze Plan] failed:', err);
+      addNotification({
+        type:    'error',
+        title:   'Analyze Plan Failed',
+        message: err?.message || String(err) || 'Unknown error',
       });
     }
+  };
 
+  const handleContextExportAll = () => {
+    const items = nodes
+      .map(n => {
+        const d = n.data as any;
+        const url = d?.image ?? d?.outputData?.image;
+        if (!url) return null;
+        const item: { url: string; name: string; prompt?: string } = { url: String(url), name: `${d?.type || 'node'}_${n.id}` };
+        if (d?.prompt) item.prompt = String(d.prompt);
+        return item;
+      })
+      .filter((x): x is { url: string; name: string; prompt?: string } => x !== null);
+
+    if (items.length === 0) { alert('No images found on canvas.'); return; }
+    exportImagesBatchWithDialog(items)
+      .then(({ succeeded, failed }) => {
+        if (succeeded > 0) addNotification({ type: 'success', title: 'Images Exported', message: `${succeeded} image(s) saved successfully` });
+        if (failed > 0)    addNotification({ type: 'error',   title: 'Export Failed',   message: `${failed} image(s) failed to export` });
+      })
+      .catch(err => { logger.error('[Export All] error:', err); addNotification({ type: 'error', title: 'Export Error', message: String(err) }); });
+  };
+
+  const handleContextExportPDF = () => {
+    exportNodesToPDFWithDialog(nodes, { title: 'Anarchy AI Canvas Export', author: 'Anarchy AI', subject: 'AI Generated Images from Canvas', includeMetadata: true })
+      .then(filePath => filePath && addNotification({ type: 'success', title: 'PDF Exported', message: `Saved to: ${filePath.split(/[\\/]/).pop()}` }))
+      .catch((err: any) => { logger.error('[PDF Export] failed:', err); addNotification({ type: 'error', title: 'PDF Export Failed', message: err?.message || 'Failed to export PDF' }); });
+  };
+
+  const handleContextOpenImagesFolder = async () => {
+    const data = contextNode?.data as any;
+    const imageUrl = data?.image ?? data?.outputData?.image;
+    
+    try {
+      if (!imageUrl) {
+        await invoke('open_images_folder');
+        return;
+      }
+
+      // Resolve IndexedDB image cache (idb://) if needed
+      let resolvedUrl = imageUrl;
+      if (imageUrl.startsWith('idb://')) {
+        const cached = await getLocalImage(imageUrl);
+        if (!cached) throw new Error('Could not retrieve image from local database');
+        resolvedUrl = cached;
+      }
+
+      // Convert to base64 if it is a remote or local file path
+      let base64Uri = resolvedUrl;
+      if (!resolvedUrl.startsWith('data:')) {
+        base64Uri = await urlToDataUri(resolvedUrl);
+      }
+
+      // Determine extension and file name
+      const ext = base64Uri.split(';')[0].split('/')[1] || 'png';
+      const cleanExt = ext === 'jpeg' ? 'jpg' : ext;
+      const fileName = `${data?.type || 'node'}_${contextNode!.id}.${cleanExt}`;
+
+      // Save to standard Documents/Anarchy AI directory
+      const filePath = await invoke<string>('save_image_to_documents', {
+        dataUri: base64Uri,
+        fileName
+      });
+
+      // Highlight the saved file in Windows Explorer / Finder
+      await invoke('show_in_explorer', { path: filePath });
+
+    } catch (err: any) {
+      logger.error('[Open Images Folder] failed:', err);
+      // Fallback: just open the folder
+      invoke('open_images_folder').catch(() => {});
+    }
+  };
+
+  const handleContextExportNodePDF = async () => {
+    const data = contextNode?.data as any;
+    const imageUrl = data?.image ?? data?.outputData?.image;
+    if (!imageUrl) return;
+
+    addNotification({ type: 'info', title: 'Exporting PDF...', message: 'Preparing PDF document, please wait.' });
+
+    try {
+      let resolvedUrl = imageUrl;
+      if (imageUrl.startsWith('idb://')) {
+        const cached = await getLocalImage(imageUrl);
+        if (!cached) throw new Error('Could not retrieve image from local database');
+        resolvedUrl = cached;
+      }
+
+      const baseName = `${data?.type || 'node'}_${contextNode!.id}`;
+      const item = {
+        url: resolvedUrl,
+        name: baseName,
+        prompt: data?.prompt ? String(data.prompt) : undefined
+      };
+
+      const filePath = await exportImagesToPDFWithDialog([item], {
+        title: `Anarchy AI Export - ${baseName}`,
+        author: 'Anarchy AI',
+        subject: 'AI Generated Image',
+        includeMetadata: true
+      });
+
+      if (filePath) {
+        addNotification({
+          type: 'success',
+          title: 'PDF Exported ✓',
+          message: `Saved to: ${filePath.split(/[\\/]/).pop()}`
+        });
+      }
+    } catch (err: any) {
+      logger.error('[Node PDF Export] failed:', err);
+      addNotification({
+        type: 'error',
+        title: 'PDF Export Failed',
+        message: err?.message || String(err) || 'Failed to export PDF'
+      });
+    }
+  };
+
+  type ContextAction = 
+    | 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' 
+    | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-dxf' | 'analyze-plan' 
+    | 'export-all' | 'export-pdf' | 'save-project' | 'load-project'
+    | 'open-images-folder' | 'export-node-pdf';
+
+  const runContextAction = (action: ContextAction) => {
+    logger.log('[Context Action]', action, 'contextNode:', contextNode?.id);
+    const actionMap: Record<ContextAction, () => void> = {
+      'add-source':     handleContextAddSource,
+      'rearrange':      handleRearrange,
+      'spawn-ghost':    handleContextSpawnGhost,
+      'retry-node':     handleContextRetryNode,
+      'delete-node':    handleContextDeleteNode,
+      'compare-a':      () => handleContextCompare('A'),
+      'compare-b':      () => handleContextCompare('B'),
+      'save-node-image': handleContextSaveNodeImage,
+      'export-dxf':     handleContextExportDXF,
+      'analyze-plan':   handleContextAnalyzePlan,
+      'export-all':     handleContextExportAll,
+      'export-pdf':     handleContextExportPDF,
+      'save-project':   handleSave,
+      'load-project':   handleLoad,
+      'open-images-folder': handleContextOpenImagesFolder,
+      'export-node-pdf': handleContextExportNodePDF,
+    };
+    actionMap[action]?.();
     setContextMenu(null);
   };
 
-  const contextNodeHasImage = !!(
-    contextNode &&
-    ((contextNode.data as any)?.image || (contextNode.data as any)?.outputData?.image)
-  );
+
   const canvasHasAnyImage = nodes.some(n => {
     const d = n.data as any;
     return !!(d?.image || d?.outputData?.image);
@@ -1450,7 +1786,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   // Check if we can generate
   const aiConfig = getConfig();
   const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
-  const hasUpscaleFactor = aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1;
+  const hasUpscaleFactor = !!(aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1);
   // Check for any ghost node (upscaler needs a target node to process)
   const hasGhostNode = nodes.some(n => (n.data as any)?.type === 'ghost');
   // Check if there's a source node with an image (for upscaler input)
@@ -1473,6 +1809,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onContextMenu={(e) => e.preventDefault()}
+        role="application"
+        aria-label="Builder canvas"
       >
         {/* Drag & Drop overlay */}
         {isDraggingFile && (
@@ -1509,41 +1847,39 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={onNodeClick}
+            onSelectionChange={onSelectionChange}
             onPaneClick={onPaneClick}
             onPaneContextMenu={onPaneContextMenu}
             onNodeContextMenu={onNodeContextMenu}
             onMoveEnd={saveBuilderViewport}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             fitViewOptions={{ padding: 0.2, minZoom: 0.01, maxZoom: 2, duration: 300 }}
             colorMode="dark"
             minZoom={0.01}
             maxZoom={2}
-            connectionLineType={ConnectionLineType.Bezier}
-            connectionLineStyle={{
-              stroke: '#e11d48',
-              strokeWidth: 2,
-            }}
+            // Note: ConnectionLineType.Bezier removed - causes errors in @xyflow/react v12
+            // Custom connection line to avoid getBezierPath errors
+            connectionLineComponent={CustomConnectionLine}
             defaultEdgeOptions={{
               type: 'default',
               animated: false,
+              label: null, // Prevent any labels on edges
               style: { 
-                strokeWidth: 2,
-                strokeDasharray: '8, 6',
-              },
-              markerEnd: {
-                type: 'arrowclosed',
-                width: 10,
-                height: 10,
-                color: 'rgba(255,255,255,0.35)'
+                strokeWidth: 2.5,
+                stroke: '#e11d48',
+                strokeDasharray: '6 4',
+                strokeLinecap: 'round',
               }
             }}
             // Smoothness & Performance optimizations
+            onlyRenderVisibleElements={true}
             panOnScroll={false}
             zoomOnScroll={true}
             zoomOnPinch={true}
             zoomOnDoubleClick={false}
-            panOnDrag={[1, 2]}
-            selectionOnDrag={true}
+            panOnDrag={isSpacePressed ? true : [1, 2]}
+            selectionOnDrag={!isSpacePressed}
             selectionMode={SelectionMode.Partial}
             multiSelectionKeyCode={['Shift', 'Control']}
             deleteKeyCode={['Delete', 'Backspace']}
@@ -1562,12 +1898,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
               color="rgba(255, 255, 255, 0.05)" 
             />
             {nodesWithCallbacks.length > 0 && nodesWithCallbacks.every(n => 
-              typeof n.position?.x === 'number' && !isNaN(n.position.x) &&
-              typeof n.position?.y === 'number' && !isNaN(n.position.y)
+              typeof n.position?.x === 'number' && !Number.isNaN(n.position.x) &&
+              typeof n.position?.y === 'number' && !Number.isNaN(n.position.y)
             ) && (
               <MiniMap
                 position="bottom-right"
-                nodeColor={() => 'rgba(225, 29, 72, 0.6)'}
+                nodeColor={() => 'rgba(225, 29, 72, 0.8)'}
+                nodeStrokeColor={() => 'rgba(225, 29, 72, 1)'}
+                nodeBorderRadius={2}
                 maskColor="rgba(0, 0, 0, 0.6)"
                 style={{
                   background: 'rgba(10, 10, 12, 0.85)',
@@ -1584,282 +1922,45 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           </ReactFlow>
         )}
 
-        {contextMenu && (
-          <div
-            ref={contextMenuRef}
-            className="builder-context-menu"
-            style={{ position: 'fixed', zIndex: 9999, ...menuStyle }}
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            <div className="context-menu-title">
-              {contextMenu.type === 'canvas' ? 'Canvas Menu' : contextMenu.type === 'node' ? 'Node Menu' : 'Prompt Menu'}
-            </div>
-
-            {contextMenu.type === 'prompt' ? (
-              <>
-                <div className="context-section-label">Text Actions</div>
-
-                <button className="context-item" onClick={() => {
-                  navigator.clipboard.writeText(prompt);
-                  setContextMenu(null);
-                }}>
-                  <Copy size={14} className="context-icon" />
-                  <span className="context-main">Copy Prompt</span>
-                </button>
-
-                <button className="context-item" onClick={() => {
-                  navigator.clipboard.readText().then(text => setPrompt(text as string));
-                  setContextMenu(null);
-                }}>
-                  <ClipboardIcon size={14} className="context-icon" />
-                  <span className="context-main">Paste from Clipboard</span>
-                </button>
-
-                <button className="context-item" onClick={() => {
-                  setPrompt('');
-                  setContextMenu(null);
-                }}>
-                  <X size={14} className="context-icon" />
-                  <span className="context-main">Clear Prompt</span>
-                </button>
-
-                <div className="context-section-label">History</div>
-
-                <button className="context-item" onClick={() => {
-                  if (selectedNode && (selectedNode.data as any)?.prompt) {
-                    setPrompt((selectedNode.data as any).prompt);
-                    setContextMenu(null);
-                  }
-                }} disabled={!selectedNode || !(selectedNode.data as any)?.prompt}>
-                  <RotateCcw size={14} className="context-icon" />
-                  <span className="context-main">Restore Last Prompt</span>
-                </button>
-              </>
-            ) : contextMenu.type === 'canvas' ? (
-              <>
-                <div className="context-section-label">Workflow</div>
-
-                <button className="context-item" onClick={(e) => { e.stopPropagation(); console.log('[Menu Click] add-source'); runContextAction('add-source'); setContextMenu(null); }}>
-                  <Plus size={14} className="context-icon" />
-                  <span className="context-main">Add Source Node</span>
-                </button>
-
-                <button className="context-item" onClick={async () => {
-                  setContextMenu(null);
-                  try {
-                    const items = await navigator.clipboard.read();
-                    for (const item of items) {
-                      const imgType = item.types.find(t => t.startsWith('image/'));
-                      if (imgType) {
-                        const blob = await item.getType(imgType);
-                        const dataUrl = await imageFileToDataUrl(new File([blob], 'paste.png', { type: imgType }));
-                        await spawnFromImage(dataUrl);
-                        break;
-                      }
-                    }
-                  } catch (err) {
-                    console.log('[Paste] Clipboard failed:', err);
-                    alert('No image found in clipboard');
-                  }
-                }}>
-                  <ClipboardIcon size={14} className="context-icon" />
-                  <span className="context-main">Paste Image</span>
-                </button>
-
-                <button className="context-item" onClick={(e) => { e.stopPropagation(); console.log('[Menu Click] rearrange'); runContextAction('rearrange'); setContextMenu(null); }}>
-                  <LayoutGrid size={14} className="context-icon" />
-                  <span className="context-main">Rearrange Graph</span>
-                </button>
-
-                <button className="context-item" onClick={() => { fitView({ padding: 0.2, duration: 400 }); setContextMenu(null); }}>
-                  <Maximize2 size={14} className="context-icon" />
-                  <span className="context-main">Fit to View</span>
-                </button>
-
-                <div className="context-section-label">Edit</div>
-
-                <button className="context-item" onClick={() => { if (canUndo) undo(); setContextMenu(null); }} disabled={!canUndo}>
-                  <RotateCcw size={14} className="context-icon" />
-                  <span className="context-main">Undo</span>
-                </button>
-
-                <button className="context-item" onClick={() => { if (canRedo) redo(); setContextMenu(null); }} disabled={!canRedo}>
-                  <RotateCw size={14} className="context-icon" />
-                  <span className="context-main">Redo</span>
-                </button>
-
-                <button className="context-item danger" onClick={() => { handleNewCanvas(); setContextMenu(null); }}>
-                  <X size={14} className="context-icon" />
-                  <span className="context-main">New Canvas</span>
-                </button>
-
-                <div className="context-section-label">Project</div>
-
-                <button className="context-item" onClick={() => { runContextAction('save-project'); setContextMenu(null); }}>
-                  <Save size={14} className="context-icon" />
-                  <span className="context-main">Save Project</span>
-                </button>
-
-                <button className="context-item" onClick={() => { runContextAction('load-project'); setContextMenu(null); }}>
-                  <FolderOpen size={14} className="context-icon" />
-                  <span className="context-main">Open Project</span>
-                </button>
-
-                <div className="context-section-label">Export</div>
-
-                <button
-                  className="context-item"
-                  onClick={() => { runContextAction('export-all'); setContextMenu(null); }}
-                  disabled={!canvasHasAnyImage}
-                >
-                  <FolderDown size={14} className="context-icon" />
-                  <span className="context-main">Export All Images</span>
-                </button>
-
-                <button
-                  className="context-item"
-                  onClick={() => { runContextAction('export-pdf'); setContextMenu(null); }}
-                  disabled={!canvasHasAnyImage}
-                >
-                  <Download size={14} className="context-icon" />
-                  <span className="context-main">Export to PDF</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="context-section-label">Node Actions</div>
-
-                <button
-                  className="context-item"
-                  onClick={(e) => { e.stopPropagation(); console.log('[Menu Click] spawn-ghost'); runContextAction('spawn-ghost'); setContextMenu(null); }}
-                  disabled={!canSpawnFromContextNode}
-                >
-                  <GitBranch size={14} className="context-icon" />
-                  <span className="context-main">Add Render Child</span>
-                </button>
-
-                <button
-                  className="context-item"
-                  onClick={() => { runContextAction('retry-node'); setContextMenu(null); }}
-                  disabled={!canRetryContextNode}
-                >
-                  <Sparkles size={14} className="context-icon" />
-                  <span className="context-main">Retry</span>
-                </button>
-
-                <button
-                  className="context-item"
-                  onClick={() => { runContextAction('save-node-image'); setContextMenu(null); }}
-                  disabled={!contextNodeHasImage}
-                >
-                  <Download size={14} className="context-icon" />
-                  <span className="context-main">Save Image</span>
-                </button>
-
-                <button
-                  className="context-item danger"
-                  onClick={() => { runContextAction('delete-node'); setContextMenu(null); }}
-                  disabled={!canDeleteContextNode}
-                >
-                  <Trash2 size={14} className="context-icon" />
-                  <span className="context-main">Delete Node</span>
-                </button>
-                
-                <div className="context-section-label">Compare</div>
-                
-                <button
-                  className="context-item"
-                  onClick={() => { runContextAction('compare-a'); setContextMenu(null); }}
-                  disabled={!contextNodeHasImage}
-                >
-                  <SplitSquareHorizontal size={14} className="context-icon" />
-                  <span className="context-main">Set as Image A</span>
-                </button>
-                
-                <button
-                  className="context-item"
-                  onClick={() => { runContextAction('compare-b'); setContextMenu(null); }}
-                  disabled={!contextNodeHasImage}
-                >
-                  <SplitSquareHorizontal size={14} className="context-icon" />
-                  <span className="context-main">Set as Image B</span>
-                </button>
-              </>
-            )}
-          </div>
-        )}
+        <BuilderContextMenu
+          contextMenu={contextMenu}
+          onClose={() => setContextMenu(null)}
+          nodes={nodes}
+          selectedNode={selectedNode}
+          prompt={prompt}
+          setPrompt={setPrompt}
+          canUndo={!!canUndo}
+          canRedo={!!canRedo}
+          undo={undo}
+          redo={redo}
+          handleNewCanvas={handleNewCanvas}
+          onAction={runContextAction}
+          fitView={fitView}
+          imageFileToDataUrl={imageFileToDataUrl}
+          spawnFromImage={spawnFromImage}
+        />
 
         {/* Watermark */}
         <div className="builder-watermark">ANARCHY</div>
 
         {/* Full Width Prompt Bar - hide when swapped view */}
         {!isEnlargedView && (
-          <div className="builder-prompt-container">
-          <input 
-            type="text" 
-            className="builder-prompt-input"
-            placeholder="Describe what you want to create..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                handleGenerate();
-              }
-            }}
-            disabled={!canGenerate}
-            onContextMenu={onPromptContextMenu}
+          <BuilderPromptBar
+            prompt={prompt}
+            setPrompt={setPrompt}
+            canGenerate={canGenerate}
+            isUpscaler={isUpscaler}
+            hasUpscaleFactor={hasUpscaleFactor}
+            hasSourceWithImage={hasSourceWithImage}
+            canvasHasAnyImage={canvasHasAnyImage}
+            liveModel={liveModel}
+            liveResolution={liveResolution}
+            liveQuality={liveQuality}
+            livePruna={livePruna}
+            onGenerate={handleGenerate}
+            onExportAll={() => runContextAction('export-all')}
+            onPromptContextMenu={onPromptContextMenu}
           />
-          <div className="prompt-presets-wrapper">
-            <button
-              className="prompt-presets-btn"
-              onClick={() => setShowPresets(prev => !prev)}
-              title="Preset Prompts"
-            >
-              <BookOpen size={16} />
-            </button>
-            {showPresets && (
-              <div className="prompt-presets-popup">
-                <div className="presets-header">Preset Prompts</div>
-                {PRESET_PROMPTS.map((group) => (
-                  <div key={group.category} className="presets-group">
-                    <div className="presets-category">{group.category}</div>
-                    {group.prompts.map((p, i) => (
-                      <button
-                        key={i}
-                        className="preset-item"
-                        onClick={() => {
-                          setPrompt(p.text);
-                          setShowPresets(false);
-                        }}
-                      >
-                        <span className="preset-label">{(() => { const Icon = PRESET_ICON_MAP[p.icon]; return Icon ? <Icon size={16} className="preset-icon" /> : null; })()}{p.label}</span>
-                        <span className="preset-preview">{p.text.length > 70 ? p.text.slice(0, 70) + '...' : p.text}</span>
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            className="export-all-btn"
-            onClick={() => runContextAction('export-all')}
-            disabled={!canvasHasAnyImage}
-            title="Export All Images"
-          >
-            <FolderDown size={16} />
-          </button>
-          <button 
-            className="generate-btn" 
-            onClick={handleGenerate}
-            disabled={!canGenerate || (!prompt.trim() && !(isUpscaler && hasUpscaleFactor && hasSourceWithImage))}
-          >
-            <Sparkles size={16} />
-            <span>Generate</span>
-          </button>
-        </div>
         )}
       </div>
 
@@ -1877,25 +1978,11 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
       {/* Credit Error Modal */}
       {creditError && (
-        <div className="credit-error-overlay" onClick={() => setCreditError(null)}>
-          <div className="credit-error-modal" onClick={e => e.stopPropagation()}>
-            <h3>رصيد غير كافٍ</h3>
-            <p>الرصيد المتاح: {creditError.balance}</p>
-            <p>الرصيد المطلوب: {creditError.needed}</p>
-            <div className="credit-error-actions">
-              <button onClick={() => setCreditError(null)}>إلغاء</button>
-              <button
-                className="btn-add-credit"
-                onClick={() => {
-                  setCreditError(null);
-                  window.location.href = '/add-credit';
-                }}
-              >
-                إضافة رصيد
-              </button>
-            </div>
-          </div>
-        </div>
+        <CreditErrorModal
+          balance={creditError.balance}
+          needed={creditError.needed}
+          onClose={() => setCreditError(null)}
+        />
       )}
     </div>
   );

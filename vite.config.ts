@@ -8,7 +8,7 @@ export default defineConfig({
   clearScreen: false,
   server: {
     port: 5174,
-    strictPort: true,
+    strictPort: false,
     watch: {
       ignored: ["**/src-tauri/**"],
     },
@@ -38,7 +38,7 @@ export default defineConfig({
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {
-    target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
+    target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari16",
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_DEBUG,
   },

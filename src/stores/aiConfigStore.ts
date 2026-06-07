@@ -75,6 +75,7 @@ export interface SelectedNodeInfo {
   id: string | null;
   type: 'source' | 'ghost' | 'result' | null;
   image: string | undefined;
+  originalImage?: string | undefined;
   prompt: string | undefined;
   state: string | undefined;
 }
@@ -105,7 +106,7 @@ const DEFAULT_CONFIG: AIConfig = {
   watermarkType: 'text',
   watermarkText: 'Anarchy AI',
   watermarkImage: '',
-  watermarkImageSize: 80,
+  watermarkImageSize: 20,
   watermarkPosition: 'bottom-right',
   watermarkOpacity: 0.5,
   watermarkFontSize: 24,
@@ -185,6 +186,10 @@ interface AIConfigState {
   // Canvas focus callback — registered by BuilderPage
   focusNodeFn: ((nodeId: string) => void) | null;
   setFocusNodeFn: (fn: ((nodeId: string) => void) | null) => void;
+
+  // Node image update callback — registered by BuilderPage, called when crop/edit changes image
+  nodeImageUpdateFn: ((nodeId: string, image: string) => void) | null;
+  setNodeImageUpdateFn: (fn: ((nodeId: string, image: string) => void) | null) => void;
 }
 
 // ── Watermark Persistence Key ───────────────────────────────────────────────
@@ -248,6 +253,7 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
     id: null,
     type: null,
     image: undefined,
+    originalImage: undefined,
     prompt: undefined,
     state: undefined,
   },
@@ -287,6 +293,10 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   // Canvas focus callback
   focusNodeFn: null,
   setFocusNodeFn: (fn) => set({ focusNodeFn: fn }),
+
+  // Node image update callback
+  nodeImageUpdateFn: null,
+  setNodeImageUpdateFn: (fn) => set({ nodeImageUpdateFn: fn }),
 }));
 
 // ── Selectors (for performance) ───────────────────────────────────────────────

@@ -1,19 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Check, ArrowLeft, Loader2, Coins } from 'lucide-react';
+import { CreditCard, Check, ArrowLeft, Loader2, Coins, AlertCircle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { CREDIT_PACKAGES, addCredits, getUserCredit, type CreditPackage } from '../../services/credit/creditService';
+import { CREDIT_PACKAGES, getUserCredit, type CreditPackage } from '../../services/credit/creditService';
+import { supabase } from '../../services/supabase/supabaseClient';
+import { invoke } from '@tauri-apps/api/core';
 import './AddCreditPage.css';
 
 export const AddCreditPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedPackage, setSelectedPackage] = useState<CreditPackage>(CREDIT_PACKAGES[1]); // Default $10
-  const [customAmount, setCustomAmount] = useState<string>('25');
+  const [selectedPackage, setSelectedPackage] = useState<CreditPackage>(CREDIT_PACKAGES[0]); // Default $10
+  const [customAmount, setCustomAmount] = useState<string>('5');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [currentBalance, setCurrentBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Check for Stripe return params
+  useEffect(() => {
+    const params = new URLSearchParams(globalThis.location.search);
+    const sessionId = params.get('session_id');
+    const canceled = params.get('canceled');
+    
+    if (sessionId) {
+      // Payment successful - verify and refresh balance
+      setShowSuccess(true);
+      // Clear URL params
+      globalThis.history.replaceState({}, '', globalThis.location.pathname);
+      // Refresh balance after 2 seconds
+      setTimeout(() => {
+        if (user?.id) {
+          getUserCredit(user.id).then(credit => {
+            setCurrentBalance(credit?.balance || 0);
+          });
+        }
+      }, 2000);
+    } else if (canceled) {
+      setPurchaseError('Payment was canceled. You can try again.');
+      globalThis.history.replaceState({}, '', globalThis.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (user?.id) {
@@ -30,44 +57,73 @@ export const AddCreditPage: React.FC = () => {
     setShowSuccess(false);
   };
 
-  const calculateCustomCredits = (amount: number): number => {
-    // $1 = 10 credits base rate, with bonus for larger amounts
-    let baseCredits = amount * 10;
-    let bonus = 0;
-    if (amount >= 25) bonus = amount * 1.5; // 15% bonus
-    if (amount >= 50) bonus = amount * 2.5; // 25% bonus
-    if (amount >= 100) bonus = amount * 4;  // 40% bonus
-    return Math.floor(baseCredits + bonus);
+  const getCustomBonus = (amount: number): number => {
+    const base = Math.floor(amount * 10);
+    if (amount >= 100) return Math.floor(base * 0.15);
+    if (amount >= 50)  return Math.floor(base * 0.10);
+    if (amount >= 20)  return Math.floor(base * 0.075);
+    if (amount >= 5)   return Math.floor(base * 0.05);
+    return 0;
   };
+
+  const calculateCustomCredits = (amount: number): number => {
+    const base = Math.floor(amount * 10);
+    return base + getCustomBonus(amount);
+  };
+
+  const getPackageLabel = (pkg: CreditPackage): string => {
+    if (pkg.id === 'custom') return '';
+    const total = pkg.credits + pkg.bonus;
+    if (pkg.amount >= 1000) return `~${total.toLocaleString()} generations`;
+    if (pkg.amount >= 100)  return `~${total}+ generations`;
+    return `~${total} generations`;
+  };
+
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const handlePurchase = async () => {
     if (!user?.id) return;
-
+    setPurchaseError(null);
     setIsProcessing(true);
 
-    // Simulate payment processing (replace with Stripe/PayPal integration)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Get current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
 
-    const credits = selectedPackage.id === 'custom'
-      ? calculateCustomCredits(parseFloat(customAmount) || 0)
-      : selectedPackage.credits + selectedPackage.bonus;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const body: Record<string, unknown> = { packageId: selectedPackage.id };
+      if (selectedPackage.id === 'custom') {
+        body.customAmountUsd = Number.parseFloat(customAmount) || 0;
+      }
 
-    const amountUsd = selectedPackage.id === 'custom'
-      ? parseFloat(customAmount) || 0
-      : selectedPackage.amount;
+      const res = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
 
-    const success = await addCredits(user.id, credits, amountUsd, `demo_payment_${Date.now()}`);
+      const data = await res.json() as { url?: string; error?: string };
 
-    if (success) {
-      setCurrentBalance(prev => prev + credits);
-      setShowSuccess(true);
+      if (!res.ok || !data.url) {
+        throw new Error(data.error ?? 'Failed to create checkout session');
+      }
+
+      // Open Stripe Checkout in the system browser (Tauri)
+      await invoke('open_url', { url: data.url });
+
+    } catch (err) {
+      setPurchaseError(err instanceof Error ? err.message : 'Payment failed');
+    } finally {
+      setIsProcessing(false);
     }
-
-    setIsProcessing(false);
   };
 
   const totalCredits = selectedPackage.id === 'custom'
-    ? calculateCustomCredits(parseFloat(customAmount) || 0)
+    ? calculateCustomCredits(Number.parseFloat(customAmount) || 0)
     : selectedPackage.credits + selectedPackage.bonus;
 
   if (isLoading) {
@@ -93,6 +149,17 @@ export const AddCreditPage: React.FC = () => {
           <span className="title-separator">/</span>
           <span>Add Credit</span>
         </h1>
+        <button
+          className="btn-purchase header-purchase-btn"
+          onClick={handlePurchase}
+          disabled={isProcessing || (selectedPackage.id === 'custom' && (!customAmount || Number.parseFloat(customAmount) < 5))}
+        >
+          {isProcessing ? (
+            <><Loader2 size={14} className="spin" />Processing...</>
+          ) : (
+            <><CreditCard size={14} />Buy ${selectedPackage.id === 'custom' ? (Number.parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)}</>
+          )}
+        </button>
       </div>
 
       {/* Current Balance */}
@@ -126,19 +193,29 @@ export const AddCreditPage: React.FC = () => {
         <h3 className="section-title">Credit Amount</h3>
 
         <div className="packages-grid">
-          {CREDIT_PACKAGES.map(pkg => (
-            <button
-              key={pkg.id}
-              className={`package-card ${selectedPackage.id === pkg.id ? 'selected' : ''}`}
-              onClick={() => handlePackageSelect(pkg)}
-            >
-              {pkg.id === 'custom' ? (
-                <span className="package-custom">Custom</span>
-              ) : (
-                <span className="package-amount">${pkg.amount.toLocaleString()}</span>
-              )}
-            </button>
-          ))}
+          {CREDIT_PACKAGES.map(pkg => {
+            const total = pkg.credits + pkg.bonus;
+            return (
+              <button
+                key={pkg.id}
+                className={`package-card ${selectedPackage.id === pkg.id ? 'selected' : ''}`}
+                onClick={() => handlePackageSelect(pkg)}
+              >
+                {pkg.id === 'custom' ? (
+                  <span className="package-custom">Custom</span>
+                ) : (
+                  <>
+                    <span className="package-amount">${pkg.amount.toLocaleString()}</span>
+                    <span className="package-credits">
+                      {total.toLocaleString()} Credits
+                      {pkg.bonus > 0 && <span className="package-bonus"> +{pkg.bonus} bonus</span>}
+                    </span>
+                    <span className="package-desc">{getPackageLabel(pkg)}</span>
+                  </>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Custom Amount Input */}
@@ -157,19 +234,22 @@ export const AddCreditPage: React.FC = () => {
                 className="custom-amount-input"
               />
             </div>
-            <p className="minimum-note">Minimum $5</p>
+            {(() => {
+              const amt = Number.parseFloat(customAmount) || 0;
+              if (amt < 5) return <p className="minimum-note">Minimum $5</p>;
+              const base = Math.floor(amt * 10);
+              const bonus = getCustomBonus(amt);
+              const total = base + bonus;
+              return (
+                <div className="custom-credits-preview">
+                  <span className="custom-credits-total">{total.toLocaleString()} Credits</span>
+                  {bonus > 0 && <span className="custom-credits-bonus"> +{bonus} bonus included</span>}
+                  <span className="custom-credits-rate">~{total} generations</span>
+                </div>
+              );
+            })()}
           </div>
         )}
-      </div>
-
-      {/* Payment Method */}
-      <div className="credit-section">
-        <h3 className="section-title">Payment Method</h3>
-        <div className="payment-method-card">
-          <CreditCard size={20} />
-          <span>Default payment method will be used</span>
-          <button className="manage-payment-link">Manage payment methods</button>
-        </div>
       </div>
 
       {/* Notes */}
@@ -182,7 +262,7 @@ export const AddCreditPage: React.FC = () => {
       <div className="cost-info">
         <div className="cost-row">
           <span>Amount</span>
-          <span>${selectedPackage.id === 'custom' ? (parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)}</span>
+          <span>${selectedPackage.id === 'custom' ? (Number.parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)}</span>
         </div>
         <div className="cost-row">
           <span>Credits</span>
@@ -190,9 +270,17 @@ export const AddCreditPage: React.FC = () => {
         </div>
         <div className="cost-row highlight">
           <span>Total</span>
-          <span>${selectedPackage.id === 'custom' ? (parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)}</span>
+          <span>${selectedPackage.id === 'custom' ? (Number.parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)}</span>
         </div>
       </div>
+
+      {/* Error message */}
+      {purchaseError && (
+        <div className="purchase-error">
+          <AlertCircle size={14} />
+          <span>{purchaseError}</span>
+        </div>
+      )}
 
       {/* Action Buttons - Cloudflare Style */}
       <div className="credit-actions">
@@ -206,7 +294,7 @@ export const AddCreditPage: React.FC = () => {
         <button
           className="btn-purchase"
           onClick={handlePurchase}
-          disabled={isProcessing || (selectedPackage.id === 'custom' && (!customAmount || parseFloat(customAmount) < 5))}
+          disabled={isProcessing || (selectedPackage.id === 'custom' && (!customAmount || Number.parseFloat(customAmount) < 10))}
         >
           {isProcessing ? (
             <>
@@ -216,7 +304,7 @@ export const AddCreditPage: React.FC = () => {
           ) : (
             <>
               <CreditCard size={16} />
-              Buy ${selectedPackage.id === 'custom' ? (parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)} Credit
+              Buy ${selectedPackage.id === 'custom' ? (Number.parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)} Credit
             </>
           )}
         </button>

@@ -55,12 +55,12 @@ describe('aiConfigStore', () => {
     });
 
     it('should clear selected node when null passed', () => {
-      const { setSelectedNode } = useAIConfigStore.getState();
+      const { setSelectedNode, clearSelectedNode } = useAIConfigStore.getState();
       setSelectedNode({ id: 'node-123', type: 'source' as const, image: 'url1', prompt: 'test prompt', state: 'idle' as const });
       
-      setSelectedNode(null);
+      clearSelectedNode();
       
-      expect(useAIConfigStore.getState().selectedNode).toBeNull();
+      expect(useAIConfigStore.getState().selectedNode.id).toBeNull();
     });
   });
 
@@ -78,9 +78,9 @@ describe('aiConfigStore', () => {
       const { setCompareImages } = useAIConfigStore.getState();
       setCompareImages({ A: 'url1', B: 'url2' });
       
-      setCompareImages(null);
+      setCompareImages({ A: null, B: null });
       
-      expect(useAIConfigStore.getState().compareImages).toBeNull();
+      expect(useAIConfigStore.getState().compareImages).toEqual({ A: null, B: null });
     });
   });
 

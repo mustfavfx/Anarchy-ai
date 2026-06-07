@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import { 
-  Search, Download, Check, AlertCircle, 
-  RefreshCw, ExternalLink, Settings, Plug, Trash2
+  Download, Check, AlertCircle, 
+  ExternalLink, Settings, Plug, Trash2, RefreshCw
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { ANARCHY_3DSMAX_SCRIPT } from './threeDsMaxPlugin';
@@ -11,7 +12,7 @@ interface Plugin {
   id: string;
   name: string;
   description: string;
-  icon: '3dsmax' | 'revit' | 'sketchup' | 'archicad' | 'autocad';
+  icon: '3dsmax' | 'revit' | 'sketchup' | 'archicad';
   version: string;
   latestVersion: string;
   status: 'installed' | 'available' | 'update' | 'installing';
@@ -78,20 +79,14 @@ const PLUGINS: Plugin[] = [
     supportedVersions: '24, 25, 26, 27',
     features: ['3D Document export', 'BIMx integration', 'Surface sync', 'MEP support'],
     comingSoon: true
-  },
-  {
-    id: 'autocad',
-    name: 'AutoCAD',
-    description: 'AI rendering for 2D drawings and 3D models. Transform CAD views into presentation-ready visuals.',
-    icon: 'autocad',
-    version: '0.0',
-    latestVersion: '1.3.1',
-    status: 'available',
-    fileSize: '10 MB',
-    supportedVersions: '2022, 2023, 2024, 2025',
-    features: ['Modelspace rendering', 'Layout export', 'Layer support', 'Plot style sync']
   }
 ];
+
+// All versions supported for each Autodesk product
+const SUPPORTED_VERSIONS: Record<string, string[]> = {
+  '3dsmax': ['2022', '2023', '2024', '2025', '2026', '2027'],
+  'revit':  ['2022', '2023', '2024', '2025', '2026', '2027'],
+};
 
 const SoftwareLogo: React.FC<{ id: Plugin['icon'] }> = ({ id }) => {
   if (id === '3dsmax') {
@@ -124,104 +119,116 @@ const SoftwareLogo: React.FC<{ id: Plugin['icon'] }> = ({ id }) => {
     );
   }
 
-  if (id === 'archicad') {
-    return (
-      <div className="software-logo autodesk-logo logo-archicad">
-        <i className="autodesk-side" />
-        <i className="autodesk-shadow" />
-        <span>C</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="software-logo autodesk-logo logo-autocad">
+    <div className="software-logo autodesk-logo logo-archicad">
       <i className="autodesk-side" />
       <i className="autodesk-shadow" />
-      <span>A</span>
+      <span>C</span>
     </div>
   );
 };
 
+const AUTODESK_IDS = new Set(['3dsmax', 'revit']);
+
+async function resolvePluginStatus(
+  plugin: Plugin,
+  installedPlugins: Record<string, { version: string; installedAt: number; paths: string[]; detected?: boolean }>
+): Promise<{ version: string; status: 'installed' | 'available' | 'update'; installedPlugins: typeof installedPlugins }> {
+  let actualStatus: 'installed' | 'available' | 'update' = 'available';
+  let detectedVersion = '0.0';
+
+  try {
+    if (AUTODESK_IDS.has(plugin.id)) {
+      const installs = await invoke<AutodeskInstall[]>('detect_autodesk_installs', { target: plugin.id });
+      if (installs.length > 0) {
+        const saved = installedPlugins[plugin.id];
+        if (saved) {
+          detectedVersion = saved.version || plugin.latestVersion;
+          actualStatus = saved.version === plugin.latestVersion ? 'installed' : 'update';
+        } else {
+          const isInstalled = await invoke<boolean>('is_plugin_installed', { target: plugin.id });
+          if (isInstalled) {
+            detectedVersion = plugin.latestVersion;
+            actualStatus = 'installed';
+            installedPlugins[plugin.id] = { version: plugin.latestVersion, installedAt: Date.now(), paths: installs.map(i => i.path), detected: true };
+          } else {
+            actualStatus = 'available';
+          }
+        }
+      }
+    } else {
+      const saved = installedPlugins[plugin.id];
+      if (saved) {
+        detectedVersion = saved.version || plugin.latestVersion;
+        actualStatus = saved.version === plugin.latestVersion ? 'installed' : 'update';
+      }
+    }
+  } catch (error) {
+    logger.warn(`Failed to detect ${plugin.name} installation:`, error);
+    const saved = installedPlugins[plugin.id];
+    if (saved) {
+      detectedVersion = saved.version || plugin.latestVersion;
+      actualStatus = saved.version === plugin.latestVersion ? 'installed' : 'update';
+    }
+  }
+
+  return { version: detectedVersion, status: actualStatus, installedPlugins };
+}
+
+const handleOpenUrl = async (url: string) => {
+  try {
+    await invoke('open_url', { url });
+  } catch (err) {
+    window.open(url, '_blank');
+  }
+};
+
+const renderInstallMessage = (msg: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = msg.split(urlRegex);
+  return parts.map((part, index) => {
+    if (urlRegex.test(part)) {
+      return (
+        <a 
+          key={index} 
+          href={part} 
+          onClick={(e) => { e.preventDefault(); handleOpenUrl(part); }}
+          className="int-message-link"
+          style={{ color: 'var(--accent-red)', textDecoration: 'underline', cursor: 'pointer' }}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export const IntegrationsPage: React.FC = () => {
   const [plugins, setPlugins] = useState<Plugin[]>(PLUGINS);
-  const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'installed' | 'available'>('all');
   const [selected, setSelected] = useState<Plugin | null>(null);
   const [installMessage, setInstallMessage] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [detectedInstalls, setDetectedInstalls] = useState<AutodeskInstall[]>([]);
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
+  const [notified, setNotified] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('anarchy_plugin_notify') || '[]')); }
+    catch { return new Set(); }
+  });
 
   // Load installed versions and detect actual installations
   useEffect(() => {
     const checkPluginInstallations = async () => {
-      const saved = localStorage.getItem('anarchy_plugins');
-      let installedPlugins: any = {};
-      
-      if (saved) {
-        installedPlugins = JSON.parse(saved);
-      }
+      let installedPlugins: Record<string, any> = {};
+      try { installedPlugins = JSON.parse(localStorage.getItem('anarchy_plugins') || '{}'); } catch { /* ignore */ }
 
-      // Check actual installation status for each plugin
       const updatedPlugins = await Promise.all(PLUGINS.map(async (plugin) => {
-        let actualStatus: 'installed' | 'available' | 'update' = 'available';
-        let detectedVersion = '0.0';
-
-        try {
-          // Check if plugin is actually installed on the system
-          if (plugin.id === '3dsmax' || plugin.id === 'revit' || plugin.id === 'autocad') {
-            const installs = await invoke<AutodeskInstall[]>('detect_autodesk_installs', {
-              target: plugin.id,
-            });
-            
-            if (installs.length > 0) {
-              // Plugin is detected in system
-              const savedPlugin = installedPlugins[plugin.id];
-              if (savedPlugin) {
-                detectedVersion = savedPlugin.version || plugin.latestVersion;
-                actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
-              } else {
-                // Detected but not in localStorage - assume latest version
-                detectedVersion = plugin.latestVersion;
-                actualStatus = 'installed';
-                
-                // Update localStorage with detected installation
-                installedPlugins[plugin.id] = {
-                  version: plugin.latestVersion,
-                  installedAt: Date.now(),
-                  paths: installs.map(i => i.path),
-                  detected: true
-                };
-              }
-            }
-          } else {
-            // For other plugins, check localStorage only
-            const savedPlugin = installedPlugins[plugin.id];
-            if (savedPlugin) {
-              detectedVersion = savedPlugin.version || plugin.latestVersion;
-              actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
-            }
-          }
-        } catch (error) {
-          console.warn(`Failed to detect ${plugin.name} installation:`, error);
-          // Fallback to localStorage check
-          const savedPlugin = installedPlugins[plugin.id];
-          if (savedPlugin) {
-            detectedVersion = savedPlugin.version || plugin.latestVersion;
-            actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
-          }
-        }
-
-        return {
-          ...plugin,
-          version: detectedVersion,
-          status: actualStatus
-        };
+        const result = await resolvePluginStatus(plugin, installedPlugins);
+        installedPlugins = result.installedPlugins;
+        return { ...plugin, version: result.version, status: result.status };
       }));
 
-      // Update localStorage with any new detections
       localStorage.setItem('anarchy_plugins', JSON.stringify(installedPlugins));
       setPlugins(updatedPlugins);
     };
@@ -229,75 +236,10 @@ export const IntegrationsPage: React.FC = () => {
     checkPluginInstallations();
   }, []);
 
-  // Manual refresh function
-  const refreshPluginStatus = async () => {
-    setIsScanning(true);
-    try {
-      const saved = localStorage.getItem('anarchy_plugins');
-      let installedPlugins: any = {};
-      
-      if (saved) {
-        installedPlugins = JSON.parse(saved);
-      }
 
-      const updatedPlugins = await Promise.all(PLUGINS.map(async (plugin) => {
-        let actualStatus: 'installed' | 'available' | 'update' = 'available';
-        let detectedVersion = '0.0';
-
-        try {
-          if (plugin.id === '3dsmax' || plugin.id === 'revit' || plugin.id === 'autocad') {
-            const installs = await invoke<AutodeskInstall[]>('detect_autodesk_installs', {
-              target: plugin.id,
-            });
-            
-            if (installs.length > 0) {
-              const savedPlugin = installedPlugins[plugin.id];
-              if (savedPlugin) {
-                detectedVersion = savedPlugin.version || plugin.latestVersion;
-                actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
-              } else {
-                detectedVersion = plugin.latestVersion;
-                actualStatus = 'installed';
-                installedPlugins[plugin.id] = {
-                  version: plugin.latestVersion,
-                  installedAt: Date.now(),
-                  paths: installs.map(i => i.path),
-                  detected: true
-                };
-              }
-            }
-          } else {
-            const savedPlugin = installedPlugins[plugin.id];
-            if (savedPlugin) {
-              detectedVersion = savedPlugin.version || plugin.latestVersion;
-              actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
-            }
-          }
-        } catch (error) {
-          console.warn(`Failed to detect ${plugin.name} installation:`, error);
-          const savedPlugin = installedPlugins[plugin.id];
-          if (savedPlugin) {
-            detectedVersion = savedPlugin.version || plugin.latestVersion;
-            actualStatus = savedPlugin.version === plugin.latestVersion ? 'installed' : 'update';
-          }
-        }
-
-        return {
-          ...plugin,
-          version: detectedVersion,
-          status: actualStatus
-        };
-      }));
-
-      localStorage.setItem('anarchy_plugins', JSON.stringify(installedPlugins));
-      setPlugins(updatedPlugins);
-    } finally {
-      setIsScanning(false);
-    }
-  };
 
   const loadDetectedInstalls = async (plugin: Plugin) => {
-    if (plugin.id !== '3dsmax' && plugin.id !== 'revit' && plugin.id !== 'autocad') {
+    if (plugin.id !== '3dsmax' && plugin.id !== 'revit') {
       setDetectedInstalls([]);
       setSelectedVersions([]);
       return;
@@ -348,10 +290,6 @@ export const IntegrationsPage: React.FC = () => {
         installedPaths = await invoke<string[]>('install_revit_plugin', {
           versions: selectedVersions,
         });
-      } else if (plugin.id === 'autocad') {
-        installedPaths = await invoke<string[]>('install_autocad_plugin', {
-          versions: selectedVersions,
-        });
       } else {
         await new Promise(resolve => setTimeout(resolve, 1200));
       }
@@ -363,13 +301,11 @@ export const IntegrationsPage: React.FC = () => {
       saved[plugin.id] = { version: plugin.latestVersion, installedAt: Date.now(), paths: installedPaths };
       localStorage.setItem('anarchy_plugins', JSON.stringify(saved));
 
-      if (plugin.id === '3dsmax' || plugin.id === 'revit' || plugin.id === 'autocad' || keepModalOpen) {
+      if (plugin.id === '3dsmax' || plugin.id === 'revit' || keepModalOpen) {
         setSelected(updated);
         setShowInstructions(true);
         if (plugin.id === 'revit') {
           setInstallMessage(`Installed to ${installedPaths.length / 2} Revit version(s). Restart Revit — you will find the "Anarchy" tab with a "Send to Anarchy" button.`);
-        } else if (plugin.id === 'autocad') {
-          setInstallMessage(`Installed as Autoloader bundle. Restart AutoCAD — you will find the "Anarchy" tab in the ribbon, or type ANARCHYSEND in the command line.`);
         } else {
           setInstallMessage(`Installed to ${installedPaths.length} 3ds Max profile(s). Restart 3ds Max, then find it under Customize > Customize User Interface > Toolbars > Category: Anarchy.`);
         }
@@ -384,7 +320,7 @@ export const IntegrationsPage: React.FC = () => {
   };
 
   const handleRemoveOldPlugin = async (plugin: Plugin) => {
-    if (plugin.id !== '3dsmax' && plugin.id !== 'revit' && plugin.id !== 'autocad') return;
+    if (plugin.id !== '3dsmax' && plugin.id !== 'revit') return;
 
     setInstallMessage(null);
 
@@ -412,8 +348,17 @@ export const IntegrationsPage: React.FC = () => {
     }
   };
 
+  const handleNotify = (e: React.MouseEvent, pluginId: string) => {
+    e.stopPropagation();
+    setNotified(prev => {
+      const next = new Set(prev);
+      if (next.has(pluginId)) { next.delete(pluginId); } else { next.add(pluginId); }
+      localStorage.setItem('anarchy_plugin_notify', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
   const filtered = plugins.filter(p => {
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === 'installed') return p.status === 'installed' || p.status === 'update';
     if (filter === 'available') return p.status === 'available';
     return true;
@@ -432,26 +377,6 @@ export const IntegrationsPage: React.FC = () => {
             <h1 className="page-title">Integrations</h1>
           </div>
           <p className="int-subtitle">Connect Anarchy AI with your architectural software</p>
-        </div>
-        <div className="int-header-right">
-          <button 
-            className="int-refresh-btn"
-            onClick={refreshPluginStatus}
-            disabled={isScanning}
-            title="Scan computer for installed plugins"
-          >
-            <RefreshCw size={16} className={isScanning ? 'spin' : ''} />
-            {isScanning ? 'Scanning...' : 'Refresh'}
-          </button>
-          <div className="int-search">
-            <Search size={14} />
-            <input
-              type="text"
-              placeholder="Search plugins..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
         </div>
       </div>
 
@@ -488,11 +413,10 @@ export const IntegrationsPage: React.FC = () => {
 
       {/* Plugins Grid */}
       <div className="int-grid">
-        {filtered.map(plugin => (
-          <div 
-            key={plugin.id} 
-            className={`int-card ${plugin.status} ${plugin.comingSoon ? 'coming-soon' : ''}`}
-            onClick={() => { if (!plugin.comingSoon) openPluginDetails(plugin); }}
+        {filtered.map(plugin => plugin.comingSoon ? (
+          <div
+            key={plugin.id}
+            className={`int-card ${plugin.status} coming-soon`}
           >
             <div className="int-card-header">
               <div className="int-icon"><SoftwareLogo id={plugin.icon} /></div>
@@ -538,23 +462,80 @@ export const IntegrationsPage: React.FC = () => {
                 <span>New version available</span>
               </div>
             )}
+            <button
+              className={`int-notify-btn ${notified.has(plugin.id) ? 'notified' : ''}`}
+              onClick={() => handleNotify({ stopPropagation: () => {} } as React.MouseEvent, plugin.id)}
+              title={notified.has(plugin.id) ? 'Click to cancel notification' : 'Notify me when available'}
+            >
+              {notified.has(plugin.id) ? <><Check size={12} /> Notified</> : '🔔 Notify Me'}
+            </button>
           </div>
+        ) : (
+          <button
+            type="button"
+            key={plugin.id}
+            className={`int-card ${plugin.status}`}
+            onClick={() => openPluginDetails(plugin)}
+          >
+            <div className="int-card-header">
+              <div className="int-icon"><SoftwareLogo id={plugin.icon} /></div>
+              <div className="int-card-meta">
+                {plugin.status === 'installed' && (
+                  <span className="int-badge installed"><Check size={10} /> Installed</span>
+                )}
+                {plugin.status === 'update' && (
+                  <span className="int-badge update">Update</span>
+                )}
+                {plugin.status === 'installing' && (
+                  <span className="int-badge installing"><RefreshCw size={10} className="spin" /> Installing</span>
+                )}
+                {plugin.status === 'available' && (
+                  <span className="int-badge available">Available</span>
+                )}
+              </div>
+            </div>
+            <h3 className="int-card-title">{plugin.name}</h3>
+            <p className="int-card-desc">{plugin.description}</p>
+            <div className="int-card-footer">
+              <div className="int-versions">
+                <span className="int-ver-label">Latest:</span>
+                <span className="int-ver-val">v{plugin.latestVersion}</span>
+                {plugin.status !== 'available' && (
+                  <><span className="int-ver-sep">•</span><span className="int-ver-current">v{plugin.version}</span></>
+                )}
+              </div>
+              <span className="int-filesize">{plugin.fileSize}</span>
+            </div>
+            {plugin.status === 'update' && (
+              <div className="int-update-bar">
+                <AlertCircle size={12} />
+                <span>New version available</span>
+              </div>
+            )}
+          </button>
         ))}
       </div>
 
       {/* Detail Modal */}
       {selected && (
-        <div className="int-overlay" onClick={() => {
-          setSelected(null);
-          setInstallMessage(null);
-          setShowInstructions(false);
-        }}>
-          <div className="int-modal" onClick={e => e.stopPropagation()}>
-            <button className="int-modal-close" onClick={() => {
-              setSelected(null);
-              setInstallMessage(null);
-              setShowInstructions(false);
-            }}>
+        <div className="int-overlay">
+          <button
+            type="button"
+            className="int-overlay-backdrop"
+            aria-label="Close plugin details"
+            onClick={() => { setSelected(null); setInstallMessage(null); setShowInstructions(false); }}
+          />
+          <dialog
+            className="int-modal"
+            open
+            aria-label={`${selected.name} plugin details`}
+          >
+            <button
+              className="int-modal-close"
+              autoFocus
+              onClick={() => { setSelected(null); setInstallMessage(null); setShowInstructions(false); }}
+              onKeyDown={e => { if (e.key === 'Escape') { setSelected(null); setInstallMessage(null); setShowInstructions(false); } }}
+            >
               ×
             </button>
             
@@ -581,8 +562,8 @@ export const IntegrationsPage: React.FC = () => {
             <div className="int-modal-section">
               <h4>Features</h4>
               <div className="int-features">
-                {selected.features.map((f, i) => (
-                  <span key={i} className="int-feature">{f}</span>
+                {selected.features.map((f) => (
+                  <span key={f} className="int-feature">{f}</span>
                 ))}
               </div>
             </div>
@@ -592,30 +573,51 @@ export const IntegrationsPage: React.FC = () => {
               <p className="int-compat">{selected.name} {selected.supportedVersions}</p>
             </div>
 
-            {(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'autocad') && (
-              <div className="int-modal-section">
-                <h4>Detected Installed Versions</h4>
-                {detectedInstalls.length > 0 ? (
-                  <div className="int-version-list">
-                    {detectedInstalls.map(install => (
-                      <label key={`${install.version}-${install.path}`} className="int-version-option">
-                        <input
-                          type="checkbox"
-                          checked={selectedVersions.includes(install.version)}
-                          onChange={() => toggleSelectedVersion(install.version)}
-                        />
-                        <span>
-                          <strong>{selected.name} {install.version}</strong>
-                          <small>{install.path}</small>
-                        </span>
-                      </label>
-                    ))}
+            {(selected.id === '3dsmax' || selected.id === 'revit') && (() => {
+              const allVersions = SUPPORTED_VERSIONS[selected.id] || [];
+              const detectedSet = new Set(detectedInstalls.map(i => i.version));
+              // Keep natural ascending order (2022 → 2027); detected versions highlighted in place
+
+              return (
+                <div className="int-modal-section">
+                  <h4>
+                    Select Versions to Install
+                    {detectedInstalls.length > 0 && (
+                      <span className="int-section-hint"> — {detectedInstalls.length} detected on this machine</span>
+                    )}
+                  </h4>
+                  <div className="int-version-grid">
+                    {allVersions.map(ver => {
+                      const isDetected = detectedSet.has(ver);
+                      const isSelected = selectedVersions.includes(ver);
+                      return (
+                        <label
+                          key={ver}
+                          className={`int-version-option ${isDetected ? 'detected' : ''} ${isSelected ? 'checked' : ''}`}
+                          aria-label={`${selected.name} ${ver}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectedVersion(ver)}
+                            aria-label={`Select ${selected.name} ${ver}`}
+                          />
+                          <strong className="int-version-name">{selected.name} {ver}</strong>
+                          {isDetected && (
+                            <span className="int-version-detected">
+                              <Check size={10} />
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <p className="int-compat">No installed {selected.name} versions detected yet. Open {selected.name} once, then return here.</p>
-                )}
-              </div>
-            )}
+                  {detectedInstalls.length === 0 && (
+                    <p className="int-compat-hint">No versions detected. Select manually to install.</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {showInstructions && selected.id === '3dsmax' && (
               <div className="int-modal-section">
@@ -651,28 +653,13 @@ export const IntegrationsPage: React.FC = () => {
               </div>
             )}
 
-            {showInstructions && selected.id === 'autocad' && (
-              <div className="int-modal-section">
-                <div className="int-doc-panel">
-                  <h4>AutoCAD installation & usage</h4>
-                  <ol>
-                    <li>Close AutoCAD before installing.</li>
-                    <li>Select the detected AutoCAD version(s) above and click Install Plugin.</li>
-                    <li>The plugin is installed as an Autoloader bundle under %APPDATA%\Autodesk\ApplicationPlugins\AnarchyAutoCAD.bundle.</li>
-                    <li>Open AutoCAD — a new <strong>Anarchy</strong> tab will appear in the ribbon.</li>
-                    <li>Click <strong>Send to Anarchy</strong>, or type <code>ANARCHYSEND</code> in the command line.</li>
-                    <li>The current drawing view is captured and sent to the Builder canvas as a Source Node.</li>
-                  </ol>
-                  <p><strong>Requirements:</strong> AutoCAD 2022-2025 installed under Program Files\Autodesk. For 2025 support, .NET 8 SDK must be installed.</p>
-                </div>
-              </div>
-            )}
+            {/* AutoCAD instructions removed */}
 
-            {installMessage && (selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'autocad') && (
+            {installMessage && (selected.id === '3dsmax' || selected.id === 'revit') && (
               <div className="int-modal-section">
                 <div className="int-install-message">
                   <AlertCircle size={14} />
-                  <span>{installMessage}</span>
+                  <span>{renderInstallMessage(installMessage)}</span>
                 </div>
               </div>
             )}
@@ -682,15 +669,15 @@ export const IntegrationsPage: React.FC = () => {
                 <button 
                   className="int-btn primary"
                   onClick={() => handleInstall(selected)}
-                  disabled={(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'autocad') && selectedVersions.length === 0}
+                  disabled={(selected.id === '3dsmax' || selected.id === 'revit') && selectedVersions.length === 0}
                 >
-                  <Download size={16} />
-                  Install Plugin
+                  <Download size={14} />
+                  Install
                 </button>
               )}
               {selected.status === 'installing' && (
                 <button className="int-btn primary" disabled>
-                  <RefreshCw size={16} className="spin" />
+                  <RefreshCw size={14} className="spin" />
                   Installing...
                 </button>
               )}
@@ -699,20 +686,20 @@ export const IntegrationsPage: React.FC = () => {
                   <button
                     className="int-btn secondary"
                     onClick={() => handleInstall(selected, true)}
-                    disabled={(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'autocad') && selectedVersions.length === 0}
+                    disabled={(selected.id === '3dsmax' || selected.id === 'revit') && selectedVersions.length === 0}
                   >
-                    <Settings size={16} />
-                    Reinstall / Configure
+                    <Settings size={14} />
+                    Reinstall
                   </button>
-                  {(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'autocad') && (
+                  {(selected.id === '3dsmax' || selected.id === 'revit') && (
                     <button className="int-btn danger" onClick={() => handleRemoveOldPlugin(selected)}>
-                      <Trash2 size={16} />
-                      Remove Old Plugin
+                      <Trash2 size={14} />
+                      Uninstall
                     </button>
                   )}
                   <button className="int-btn secondary" onClick={() => setShowInstructions(prev => !prev)}>
-                    <ExternalLink size={16} />
-                    {showInstructions ? 'Hide Instructions' : 'Documentation'}
+                    <ExternalLink size={14} />
+                    {showInstructions ? 'Hide' : 'Docs'}
                   </button>
                 </>
               )}
@@ -722,19 +709,19 @@ export const IntegrationsPage: React.FC = () => {
                     className="int-btn primary"
                     onClick={() => handleInstall(selected)}
                   >
-                    <RefreshCw size={16} />
-                    Update to v{selected.latestVersion}
+                    <RefreshCw size={14} />
+                    Update
                   </button>
-                  {(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'autocad') && (
+                  {(selected.id === '3dsmax' || selected.id === 'revit') && (
                     <button className="int-btn danger" onClick={() => handleRemoveOldPlugin(selected)}>
-                      <Trash2 size={16} />
-                      Remove Old Plugin
+                      <Trash2 size={14} />
+                      Uninstall
                     </button>
                   )}
                 </>
               )}
             </div>
-          </div>
+          </dialog>
         </div>
       )}
     </div>

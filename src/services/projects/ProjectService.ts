@@ -5,6 +5,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import type { WorkflowFile } from '../workflow/WorkflowFileService';
+import { logger } from '../../utils/logger';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ async function getProjectsDir(): Promise<string> {
 function extractFilename(path: string): string {
   const parts = path.replaceAll('\\', '/').split('/');
   const file = parts.at(-1) || 'untitled';
-  return file.replaceAll(/\.ana$/i, '');
+  return file.replace(/\.ana$/i, '');
 }
 
 function timeAgo(ts: number): string {
@@ -102,7 +103,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
         thumbnailUrl,
       });
     } catch (err) {
-      console.warn('[ProjectService] Skipping corrupt file:', fp, err);
+      logger.warn('[ProjectService] Skipping corrupt file:', fp, err);
     }
   }
 

@@ -148,7 +148,7 @@ export function parseArchitectureResponse(rawText: string): ArchitectureResponse
 
 function extractSection(text: string, headers: string[]): string {
   for (const header of headers) {
-    const regex = new RegExp(`${header}[:\s]*\n?([^\n#]*(?:\n(?![#\d]\s)[^\n#]*)*)`, 'i');
+    const regex = new RegExp(`${header}[: ]*\n?([^\n#]*(?:\n(?![# ][^\n#]*)*)`, 'i');
     const match = text.match(regex);
     if (match && match[1]) {
       return match[1].trim();
@@ -164,7 +164,7 @@ function extractList(text: string, headers: string[]): string[] {
   // Split by bullet points or numbered items
   return section
     .split(/\n/)
-    .map(line => line.replace(/^[\s•\-\*\d.)]+/, '').trim())
+    .map(line => line.replace(/^[\s•\-*\d.)+]+/, '').trim())
     .filter(line => line.length > 3);
 }
 

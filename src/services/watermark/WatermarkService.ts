@@ -4,6 +4,7 @@
  */
 
 import type { WatermarkPosition } from '../../stores/aiConfigStore';
+import { logger } from '../../utils/logger';
 
 export interface WatermarkOptions {
   type?: 'text' | 'image';
@@ -45,7 +46,17 @@ class WatermarkService {
   }
 
   private async loadBitmap(imageUrl: string): Promise<ImageBitmap> {
-    // fetch works for both data: URIs and http URLs — avoids CORS canvas taint
+    if (imageUrl.startsWith('data:')) {
+      // Convert data URI directly to blob without fetch (fetch on data: is unreliable)
+      const [header, base64] = imageUrl.split(',');
+      const mime = header.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+      return createImageBitmap(blob);
+    }
+    // http/https URLs — use fetch
     const res = await fetch(imageUrl);
     const blob = await res.blob();
     return createImageBitmap(blob);
@@ -84,7 +95,7 @@ class WatermarkService {
     const { x, y } = this.calculatePosition(position, width, height, textWidth, textHeight);
     ctx.fillText(text, x, y);
 
-    ctx.globalAlpha = 1.0;
+    ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
   }
 
@@ -104,13 +115,15 @@ class WatermarkService {
       const wmImg = new Image();
       wmImg.onload = () => {
         const aspect = wmImg.naturalWidth / wmImg.naturalHeight;
-        const wmW = watermarkImageSize;
-        const wmH = wmW / aspect;
+        // watermarkImageSize is treated as a % of image width (clamped 5–80%)
+        const sizePercent = Math.min(80, Math.max(5, watermarkImageSize)) / 100;
+        const wmW = Math.round(width * sizePercent);
+        const wmH = Math.round(wmW / aspect);
 
-        const { x, y } = this.calculatePosition(position, width, height, wmW, wmH);
+        const { x, y } = this.calculatePosition(position, width, height, wmW, wmH, true);
         ctx.globalAlpha = opacity;
         ctx.drawImage(wmImg, x, y, wmW, wmH);
-        ctx.globalAlpha = 1.0;
+        ctx.globalAlpha = 1;
         resolve();
       };
       wmImg.onerror = () => resolve();
@@ -119,41 +132,76 @@ class WatermarkService {
   }
 
   /**
-   * Calculate text position based on watermark position
+   * Calculate position for both text and image watermarks.
+   *
+   * For TEXT:  (x, y) is the baseline anchor used by fillText — so top rows
+   *            need  y = padding + elementHeight  and bottom rows  y = imageHeight - padding.
+   *
+   * For IMAGE: (x, y) is the top-left corner used by drawImage — so top rows
+   *            need  y = padding  and bottom rows  y = imageHeight - elementHeight - padding.
+   *
+   * The caller passes `isImage = true` when computing coordinates for an image
+   * watermark so the correct formula is applied.
    */
   private calculatePosition(
     position: WatermarkPosition,
     imageWidth: number,
     imageHeight: number,
-    textWidth: number,
-    textHeight: number
+    elementWidth: number,
+    elementHeight: number,
+    isImage = false
   ): { x: number; y: number } {
-    const padding = 20;
-    
+    const padding = Math.round(Math.min(imageWidth, imageHeight) * 0.03);
+
+    if (isImage) {
+      // All coords are top-left anchors for ctx.drawImage()
+      switch (position) {
+        case 'top-left':
+          return { x: padding, y: padding };
+        case 'top-center':
+          return { x: Math.round((imageWidth - elementWidth) / 2), y: padding };
+        case 'top-right':
+          return { x: imageWidth - elementWidth - padding, y: padding };
+        case 'center':
+          return {
+            x: Math.round((imageWidth - elementWidth) / 2),
+            y: Math.round((imageHeight - elementHeight) / 2),
+          };
+        case 'bottom-left':
+          return { x: padding, y: imageHeight - elementHeight - padding };
+        case 'bottom-center':
+          return {
+            x: Math.round((imageWidth - elementWidth) / 2),
+            y: imageHeight - elementHeight - padding,
+          };
+        case 'bottom-right':
+          return { x: imageWidth - elementWidth - padding, y: imageHeight - elementHeight - padding };
+        default:
+          return { x: imageWidth - elementWidth - padding, y: imageHeight - elementHeight - padding };
+      }
+    }
+
+    // TEXT: (x, y) is the baseline anchor for ctx.fillText()
     switch (position) {
       case 'top-left':
-        return { x: padding, y: padding + textHeight };
-      
+        return { x: padding, y: padding + elementHeight };
       case 'top-center':
-        return { x: (imageWidth - textWidth) / 2, y: padding + textHeight };
-      
+        return { x: Math.round((imageWidth - elementWidth) / 2), y: padding + elementHeight };
       case 'top-right':
-        return { x: imageWidth - textWidth - padding, y: padding + textHeight };
-      
+        return { x: imageWidth - elementWidth - padding, y: padding + elementHeight };
       case 'center':
-        return { x: (imageWidth - textWidth) / 2, y: (imageHeight + textHeight) / 2 };
-      
+        return {
+          x: Math.round((imageWidth - elementWidth) / 2),
+          y: Math.round((imageHeight + elementHeight) / 2),
+        };
       case 'bottom-left':
         return { x: padding, y: imageHeight - padding };
-      
       case 'bottom-center':
-        return { x: (imageWidth - textWidth) / 2, y: imageHeight - padding };
-      
+        return { x: Math.round((imageWidth - elementWidth) / 2), y: imageHeight - padding };
       case 'bottom-right':
-        return { x: imageWidth - textWidth - padding, y: imageHeight - padding };
-      
+        return { x: imageWidth - elementWidth - padding, y: imageHeight - padding };
       default:
-        return { x: imageWidth - textWidth - padding, y: imageHeight - padding };
+        return { x: imageWidth - elementWidth - padding, y: imageHeight - padding };
     }
   }
 
@@ -175,7 +223,7 @@ class WatermarkService {
   async removeWatermark(imageUrl: string): Promise<string> {
     // This is a placeholder - actual watermark removal requires ML
     // For now, just return the original image
-    console.warn('Watermark removal is not fully implemented yet');
+    logger.warn('Watermark removal is not fully implemented yet');
     return imageUrl;
   }
 

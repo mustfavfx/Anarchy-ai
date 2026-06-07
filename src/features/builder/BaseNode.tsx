@@ -1,12 +1,16 @@
 import React, { memo, useRef, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { 
-  Eye, Maximize2, Upload,
   FileInput, Wand2, X, Sun, Moon, Users, 
-  Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright
+  Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright,
+  Eye, Maximize2
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
 import { ExportModal } from '../../components/ExportModal';
+import { useAIConfigStore } from '../../stores/aiConfigStore';
+import { getLocalImage } from '../../services/history/HistoryService';
+import { NodeLightbox } from './components/NodeLightbox';
+import { NodeUploadPlaceholder } from './components/NodeUploadPlaceholder';
 import './BaseNode.css';
 import './BaseNode.glass.css';
 import type { ProcessingType, BuilderNodeData } from './types';
@@ -32,7 +36,54 @@ const PROCESSING_CONFIG: Record<ProcessingType, { icon: React.ReactNode; color: 
 
 export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const nodeData = data;
-  const displayImage = nodeData.image || nodeData.outputData?.image;
+  const displayImageRaw = nodeData.image || nodeData.outputData?.image;
+  const [resolvedImageUrl, setResolvedImageUrl] = useState<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    let active = true;
+    let currentBlobUrl: string | undefined = undefined;
+
+    if (!displayImageRaw) {
+      setResolvedImageUrl(undefined);
+      return;
+    }
+
+    const resolveImage = async () => {
+      let rawUrl = displayImageRaw;
+      if (displayImageRaw.startsWith('idb://')) {
+        const cached = await getLocalImage(displayImageRaw);
+        if (cached) rawUrl = cached;
+      }
+
+      if (!active) return;
+
+      if (rawUrl.startsWith('data:')) {
+        try {
+          const response = await fetch(rawUrl);
+          const blob = await response.blob();
+          if (!active) return;
+          const blobUrl = URL.createObjectURL(blob);
+          currentBlobUrl = blobUrl;
+          setResolvedImageUrl(blobUrl);
+        } catch {
+          if (active) setResolvedImageUrl(rawUrl);
+        }
+      } else {
+        setResolvedImageUrl(rawUrl);
+      }
+    };
+
+    resolveImage();
+
+    return () => {
+      active = false;
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+    };
+  }, [displayImageRaw]);
+
+  const displayImage = resolvedImageUrl;
   const nodeType = nodeData.type;
   const nodeState = nodeData.state || 'idle';
   
@@ -54,6 +105,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const [exportTarget, setExportTarget] = useState<{ url: string; name: string } | null>(null);
   const [lightbox, setLightbox] = useState<'preview' | 'expand' | null>(null);
   const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
+  const enableWatermark = useAIConfigStore(s => s.config.enableWatermark);
 
   const handleExportClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -155,7 +207,10 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
         ${errorState}
         ${readyState}
       `}
+      role="button"
+      tabIndex={0}
       onClick={handleNodeClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleNodeClick(); }}
     >
       <div className="node-selection-ring" />
       <div className="node-accent-strip" style={{ background: `linear-gradient(180deg, transparent, ${config.color}, transparent)` }} />
@@ -192,6 +247,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
           <div className="node-actions">
             {displayImage && (
               <button
+                type="button"
                 className="node-action-btn download"
                 onClick={handleExportClick}
                 title="Export Image"
@@ -200,7 +256,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
               </button>
             )}
             {!isSource && nodeData.onDelete && (
-              <button className="node-action-btn delete" onClick={(e) => { e.stopPropagation(); nodeData.onDelete?.(); }} title="Delete">
+              <button type="button" className="node-action-btn delete" onClick={(e) => { e.stopPropagation(); nodeData.onDelete?.(); }} title="Delete">
                 <X size={12} />
               </button>
             )}
@@ -213,7 +269,10 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
           {(isSource || isResult) && (
             <div 
               className={`node-image-region ${isSource && !displayImage ? 'upload-target' : ''} ${displayImage ? 'has-image' : ''} ${isDragOver ? 'drag-over' : ''}`}
+              role={isSource && !displayImage ? 'button' : undefined}
+              tabIndex={isSource && !displayImage ? 0 : undefined}
               onClick={() => isSource && !displayImage && fileInputRef.current?.click()}
+              onKeyDown={(e) => isSource && !displayImage && e.key === 'Enter' && fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -223,6 +282,9 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                   <img
                     src={displayImage}
                     alt={nodeData.label}
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     onLoad={(e) => {
                       const img = e.currentTarget;
                       setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
@@ -232,7 +294,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                     <div className="image-res-badge">{imgDims.w}×{imgDims.h}</div>
                   )}
                   {/* Watermark indicator for result nodes */}
-                  {isResult && (
+                  {isResult && enableWatermark && (
                     <div className="watermark-badge" title="Watermarked">
                       <Copyright size={10} />
                     </div>
@@ -240,6 +302,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                   <div className="image-overlay">
                     <div className="image-actions">
                       <button
+                        type="button"
                         className="image-action-btn preview"
                         title="Preview"
                         onClick={(e) => { e.stopPropagation(); setLightbox('preview'); }}
@@ -247,6 +310,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                         <Eye size={14} />
                       </button>
                       <button
+                        type="button"
                         className="image-action-btn expand"
                         title="Full Screen"
                         onClick={(e) => { e.stopPropagation(); setLightbox('expand'); }}
@@ -255,6 +319,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                       </button>
                       {isSource && (
                         <button 
+                          type="button"
                           className="image-action-btn remove" 
                           title="Remove"
                           onClick={(e) => { e.stopPropagation(); nodeData.onImageUpload?.(''); }}
@@ -266,26 +331,10 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                   </div>
                 </>
               ) : (
-                <div className="placeholder-content">
-                  {isSource ? (
-                    <>
-                      <div className="upload-icon-wrap">
-                        {isPdfLoading ? <Loader2 size={22} className="spin" /> : <Upload size={22} />}
-                      </div>
-                      <div className="upload-text-group">
-                        <span className="upload-primary">
-                          {isPdfLoading ? 'Converting PDF...' : 'Drop or click to upload'}
-                        </span>
-                        <span className="upload-secondary">Images or PDF files</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="render-placeholder">
-                      <div className="rp-icon"><Wand2 size={20} /></div>
-                      <span className="rp-text">Result will appear here</span>
-                    </div>
-                  )}
-                </div>
+                <NodeUploadPlaceholder
+                  isSource={isSource}
+                  isPdfLoading={isPdfLoading}
+                />
               )}
               {isSource && (
                 <input
@@ -303,7 +352,19 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} id="source" className="anarchy-handle" />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        id="source" 
+        className="anarchy-handle"
+        style={{
+          right: '-5px',
+          left: 'auto',
+          top: '50%',
+          bottom: 'auto',
+          transform: 'translateY(-50%)',
+        }}
+      />
 
       {/* Export Modal */}
       {exportTarget && (
@@ -316,44 +377,13 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
 
       {/* Lightbox */}
       {lightbox && displayImage && (
-        <div
-          className={`node-lightbox ${lightbox === 'expand' ? 'node-lightbox--fullscreen' : ''}`}
-          onClick={() => setLightbox(null)}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.85)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <img
-            src={displayImage}
-            alt={nodeData.label}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: lightbox === 'expand' ? '95vw' : '70vw',
-              maxHeight: lightbox === 'expand' ? '95vh' : '70vh',
-              objectFit: 'contain',
-              borderRadius: '8px',
-              boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
-            }}
-          />
-          <button
-            onClick={() => setLightbox(null)}
-            style={{
-              position: 'absolute', top: 16, right: 16,
-              background: 'rgba(255,255,255,0.1)', border: 'none',
-              borderRadius: '50%', width: 32, height: 32,
-              cursor: 'pointer', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <NodeLightbox
+          lightbox={lightbox}
+          displayImage={displayImage}
+          label={nodeData.label}
+          onClose={() => setLightbox(null)}
+        />
       )}
-
-      {/* Prompt display outside node boundary for result nodes */}
       {isResult && nodeData.prompt && (
         <div
           className="node-prompt-bar"
@@ -363,7 +393,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
             className="node-prompt-text"
             style={{ userSelect: 'text', cursor: 'text' }}
           >
-            {nodeData.prompt as string}
+            {String(nodeData.prompt)}
           </span>
         </div>
       )}

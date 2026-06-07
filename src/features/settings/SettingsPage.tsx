@@ -12,6 +12,7 @@ import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { WatermarkPosition } from '../../stores/aiConfigStore';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import './SettingsPage.css';
+import { APP_INFO } from '../../config/appInfo';
 
 interface AppSettings {
   theme: 'dark' | 'light';
@@ -417,17 +418,17 @@ export const SettingsPage: React.FC = () => {
                         <div className="wm-slider-item">
                           <div className="wm-slider-header">
                             <span className="wm-label">Image Size</span>
-                            <span className="wm-slider-val">{aiConfig.watermarkImageSize || 80}px</span>
+                            <span className="wm-slider-val">{aiConfig.watermarkImageSize || 20}%</span>
                           </div>
-                          <input type="range" min="20" max="300" step="10"
+                          <input type="range" min="5" max="80" step="5"
                             className="wm-slider"
-                            value={aiConfig.watermarkImageSize || 80}
+                            value={aiConfig.watermarkImageSize || 20}
                             onChange={e => setAIConfig(prev => ({ ...prev, watermarkImageSize: Number.parseInt(e.target.value) }))}
                           />
                           {aiConfig.watermarkImage && (
                             <div className="wm-size-preview">
                               <img src={aiConfig.watermarkImage} alt="size preview"
-                                style={{ width: Math.min(aiConfig.watermarkImageSize || 80, 120), opacity: aiConfig.watermarkOpacity || 0.5 }} />
+                                style={{ width: `${aiConfig.watermarkImageSize || 20}%`, maxWidth: 120, opacity: aiConfig.watermarkOpacity || 0.5 }} />
                             </div>
                           )}
                         </div>
@@ -612,13 +613,10 @@ export const SettingsPage: React.FC = () => {
 
             <div className="settings-card about-card">
               <div className="about-logo-large">A</div>
-              <h2>Anarchy AI</h2>
+              <h2>{APP_INFO.name}</h2>
               <span className="about-version-badge">Version {appVersion}</span>
 
-              <p className="about-description">
-                AI-powered architectural visualization and design assistant.
-                Built for architects, by architects.
-              </p>
+              <p className="about-description">{APP_INFO.description}</p>
 
               <div className="about-links-grid">
                 <button className="about-link-card" onClick={() => setShowDocsModal(true)}>
@@ -637,33 +635,18 @@ export const SettingsPage: React.FC = () => {
 
               <div className="about-developer-section">
                 <p className="about-developer-text">
-                  Developed by <span className="about-developer-name">Architect Mustafa Hisham</span>
+                  Developed by <span className="about-developer-name">{APP_INFO.developer}</span>
                   <span className="about-separator"> • </span>
-                  <a
-                    href="https://www.instagram.com/mustafa_hisham.1/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="about-social-link"
-                  >Instagram</a>
+                  <a href={APP_INFO.links.instagram} target="_blank" rel="noopener noreferrer" className="about-social-link">Instagram</a>
                   <span className="about-separator"> • </span>
-                  <a
-                    href="https://www.behance.net/Mustafa_VFX"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="about-social-link"
-                  >Behance</a>
+                  <a href={APP_INFO.links.website} target="_blank" rel="noopener noreferrer" className="about-social-link">Website</a>
                   <span className="about-separator"> • </span>
-                  <a
-                    href="https://t.me/Mustafa_VFX"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="about-social-link"
-                  >Telegram</a>
+                  <a href={APP_INFO.links.telegram} target="_blank" rel="noopener noreferrer" className="about-social-link">Telegram</a>
                 </p>
               </div>
 
               <div className="about-credits-footer">
-                <p>Built with React, Tauri, and Vite</p>
+                <p>Built with {APP_INFO.builtWith}</p>
               </div>
             </div>
             </>
@@ -700,8 +683,8 @@ export const SettingsPage: React.FC = () => {
 
                 <h4>AI Processing</h4>
                 <ul>
-                  <li><strong>AI Generation:</strong> Prompts sent for AI image generation</li>
-                  <li><strong>API Token:</strong> Stored locally in .env file</li>
+                  <li><strong>AI Generation:</strong> Prompts and reference images sent to secure cloud services for processing</li>
+                  <li><strong>API Token:</strong> Stored locally on your device only</li>
                 </ul>
 
                 <h4>Your Rights</h4>
@@ -736,15 +719,14 @@ export const SettingsPage: React.FC = () => {
 
               <div className="privacy-section">
                 <h3>📧 Contact</h3>
-                <p className="privacy-dev-name">Developer: Architect Mustafa Hisham</p>
                 <div className="privacy-contact-links">
-                  <a href="https://www.instagram.com/mustafa_hisham.1/" target="_blank" rel="noopener noreferrer">
+                  <a href={APP_INFO.links.instagram} target="_blank" rel="noopener noreferrer">
                     <ExternalLink size={14} /> Instagram
                   </a>
-                  <a href="https://www.behance.net/Mustafa_VFX" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink size={14} /> Behance
+                  <a href={APP_INFO.links.website} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink size={14} /> Website
                   </a>
-                  <a href="https://t.me/Mustafa_VFX" target="_blank" rel="noopener noreferrer">
+                  <a href={APP_INFO.links.telegram} target="_blank" rel="noopener noreferrer">
                     <ExternalLink size={14} /> Telegram
                   </a>
                 </div>

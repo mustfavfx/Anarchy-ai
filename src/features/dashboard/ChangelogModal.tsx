@@ -15,64 +15,64 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
 
   const versions = [
     {
-      version: 'v1.1.0',
-      date: 'April 2026',
+      version: 'v0.07',
+      date: 'May 2026',
       status: 'current',
       features: [
         {
           type: 'feature',
           icon: <Sparkles size={16} />,
-          title: 'AI-Powered Massing Node',
-          description: 'Generate architectural massing concepts with AI-powered spatial analysis and automatic volume optimization'
+          title: 'Crop Tool in Mask Canvas',
+          description: 'Added a full crop tool with corner handles, rule-of-thirds grid, and keyboard shortcuts (C to activate, Enter to apply)'
+        },
+        {
+          type: 'feature',
+          icon: <Sparkles size={16} />,
+          title: 'Expanded Mask View',
+          description: 'Mask & Crop tools are now available in the fullscreen expanded view for a better editing experience'
         },
         {
           type: 'improvement',
           icon: <Zap size={16} />,
-          title: '30% Faster Viewport Performance',
-          description: 'Optimized rendering engine for smoother workflow with complex node graphs'
+          title: 'History Now Updates Instantly',
+          description: 'Fixed a bug where newly generated images did not appear in History until reopening the app'
         },
         {
           type: 'fix',
           icon: <CheckCircle size={16} />,
-          title: 'Fixed Node Connection Lag',
-          description: 'Resolved latency issues when connecting multiple nodes in sequence'
-        },
-        {
-          type: 'improvement',
-          icon: <Zap size={16} />,
-          title: 'Enhanced Export Formats',
-          description: 'Added support for 3ds Max 2025 and Revit 2024 native file formats'
+          title: 'Image Persistence in History',
+          description: 'Input images are now saved locally before being recorded in history, preventing broken image links'
         }
       ]
     },
     {
-      version: 'v1.0.0',
-      date: 'March 2026',
+      version: 'v0.06',
+      date: 'April 2026',
       status: 'release',
       features: [
         {
           type: 'feature',
           icon: <Sparkles size={16} />,
-          title: 'Initial Release',
-          description: 'Complete node-based workflow system for architectural visualization'
+          title: 'Node-Based Builder',
+          description: 'Complete node-based workflow system for chaining AI generations, upscaling, and image editing'
         },
         {
           type: 'feature',
           icon: <Sparkles size={16} />,
           title: 'AI Image Generation',
-          description: 'Integration with Replicate API for architectural rendering'
+          description: 'Multi-model AI rendering for architectural visualization with prompt control and reference images'
         },
         {
           type: 'feature',
           icon: <Sparkles size={16} />,
-          title: 'Multi-Format Export',
-          description: 'Export to 3ds Max, Revit, SketchUp, and Rhino'
+          title: 'History & Library',
+          description: 'Full generation history with full-res image storage, starring, filtering, and node tree replay'
         },
         {
           type: 'feature',
           icon: <Sparkles size={16} />,
-          title: 'Dark Mode Interface',
-          description: 'Professional dark UI optimized for long design sessions'
+          title: 'Compare Mode',
+          description: 'Side-by-side A/B comparison of generated images with a draggable slider'
         }
       ]
     }
@@ -103,7 +103,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
               <span className="version-label">Current Version</span>
               <span className="version-number">{versions[0].version}</span>
             </div>
-            <a href="#" className="download-latest-btn">
+            <a href="https://anarchy.lat/" target="_blank" rel="noopener noreferrer" className="download-latest-btn">
               <Download size={16} />
               Download Latest
             </a>
@@ -158,7 +158,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
               <Sparkles size={24} className="future-icon" />
               <div className="future-content">
                 <h4>Coming Soon</h4>
-                <p>v1.2.0 will introduce VR viewport preview, collaborative workspaces, and advanced parametric nodes</p>
+                <p>v0.08 will bring more AI models, improved upscaling, and an enhanced prompt library</p>
               </div>
               <ChevronRight size={20} className="future-arrow" />
             </div>

@@ -4,11 +4,13 @@
  */
 
 import { SettingsService } from '../settings';
+import { logger } from '../../utils/logger';
 
 const STORAGE_KEY = 'anarchy_history';
 const DEFAULT_MAX_ENTRIES = 500;
 const IDB_NAME = 'anarchy_history_images';
 const IDB_STORE = 'images';
+const IDB_CACHE_STORE = 'local_image_cache';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,8 @@ export interface HistoryEntry {
   starred?: boolean;
   params?: Record<string, any>;
   nodeTree?: NodeTreeData; // Builder node tree for restoring workflow
+  rootSourceId?: string;
+  rootSourceImage?: string;
 }
 
 export interface NodeTreeData {
@@ -57,7 +61,7 @@ function generateId(): string {
 }
 
 /** Resize an image data URL to a thumbnail to save localStorage space */
-async function compressToThumbnail(dataUrl: string, maxSize = 512): Promise<string> {
+async function compressToThumbnail(dataUrl: string, maxSize = 1024): Promise<string> {
   return new Promise((resolve) => {
     try {
       const img = new Image();
@@ -70,8 +74,14 @@ async function compressToThumbnail(dataUrl: string, maxSize = 512): Promise<stri
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (!ctx) { resolve(dataUrl); return; }
+        
+        // Use better quality settings for crisp images
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        
+        // Higher quality JPEG (0.92) for better appearance
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
       };
       img.onerror = () => resolve(dataUrl);
       img.src = dataUrl;
@@ -85,27 +95,96 @@ async function compressToThumbnail(dataUrl: string, maxSize = 512): Promise<stri
 
 function openImageDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore(IDB_STORE);
+    const req = indexedDB.open(IDB_NAME, 2);
+    req.onupgradeneeded = (event) => {
+      const db = req.result;
+      // v1 store
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+      // v2 store: live canvas image cache (keyed by UUID)
+      if (event.oldVersion < 2 && !db.objectStoreNames.contains(IDB_CACHE_STORE)) {
+        db.createObjectStore(IDB_CACHE_STORE);
+      }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(new Error(req.error?.message ?? 'IDB open error'));
   });
 }
 
-export async function saveFullImage(id: string, slot: 'output' | 'input', dataUrl: string): Promise<void> {
+// ── Live canvas image cache (decouples large base64 from React Flow nodes) ───
+
+const localImageMemoryCache = new Map<string, string>();
+
+/** Store a live canvas image in IndexedDB by UUID key. Returns the key. */
+export async function cacheLocalImage(key: string, dataUrl: string): Promise<void> {
+  localImageMemoryCache.set(key, dataUrl);
   try {
     const db = await openImageDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(dataUrl, `${id}_${slot}`);
-    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+    const tx = db.transaction(IDB_CACHE_STORE, 'readwrite');
+    tx.objectStore(IDB_CACHE_STORE).put(dataUrl, key);
+    await new Promise<void>((res, rej) => {
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB cache write error'));
+    });
+    db.close();
+  } catch (err) {
+    logger.error('[HistoryService] cacheLocalImage failed:', { key, error: err });
+  }
+}
+
+/** Retrieve a live canvas image from IndexedDB by UUID key. */
+export async function getLocalImage(key: string): Promise<string | null> {
+  if (localImageMemoryCache.has(key)) {
+    return localImageMemoryCache.get(key) ?? null;
+  }
+  try {
+    const db = await openImageDB();
+    const tx = db.transaction(IDB_CACHE_STORE, 'readonly');
+    const req = tx.objectStore(IDB_CACHE_STORE).get(key);
+    const result = await new Promise<string | null>((res) => {
+      req.onsuccess = () => res(req.result ?? null);
+      req.onerror = () => res(null);
+    });
+    db.close();
+    if (result) {
+      localImageMemoryCache.set(key, result);
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/** Delete a live canvas image from IndexedDB cache. */
+export async function deleteLocalImage(key: string): Promise<void> {
+  localImageMemoryCache.delete(key);
+  try {
+    const db = await openImageDB();
+    const tx = db.transaction(IDB_CACHE_STORE, 'readwrite');
+    tx.objectStore(IDB_CACHE_STORE).delete(key);
+    await new Promise<void>((res) => { tx.oncomplete = () => res(); tx.onerror = () => res(); });
     db.close();
   } catch { /* silent */ }
 }
 
-export async function loadFullImage(id: string, slot: 'output' | 'input'): Promise<string | null> {
+export async function saveFullImage(id: string, slot: 'output' | 'input' | 'root_source', dataUrl: string): Promise<void> {
   try {
+    logger.log('[HistoryService] saveFullImage:', { id, slot, dataUrlLength: dataUrl.length });
+    const db = await openImageDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(dataUrl, `${id}_${slot}`);
+    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB write error')); });
+    db.close();
+    logger.log('[HistoryService] saveFullImage success:', { id, slot });
+  } catch (err) {
+    logger.error('[HistoryService] saveFullImage failed:', { id, slot, error: err });
+  }
+}
+
+export async function loadFullImage(id: string, slot: 'output' | 'input' | 'root_source'): Promise<string | null> {
+  try {
+    logger.log('[HistoryService] loadFullImage:', { id, slot });
     const db = await openImageDB();
     const tx = db.transaction(IDB_STORE, 'readonly');
     const req = tx.objectStore(IDB_STORE).get(`${id}_${slot}`);
@@ -114,8 +193,12 @@ export async function loadFullImage(id: string, slot: 'output' | 'input'): Promi
       req.onerror = () => res(null);
     });
     db.close();
+    logger.log('[HistoryService] loadFullImage result:', { id, slot, found: !!result, length: result?.length });
     return result;
-  } catch { return null; }
+  } catch (err) {
+    logger.error('[HistoryService] loadFullImage failed:', { id, slot, error: err });
+    return null;
+  }
 }
 
 export async function deleteFullImages(id: string): Promise<void> {
@@ -124,9 +207,45 @@ export async function deleteFullImages(id: string): Promise<void> {
     const tx = db.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).delete(`${id}_output`);
     tx.objectStore(IDB_STORE).delete(`${id}_input`);
-    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+    tx.objectStore(IDB_STORE).delete(`${id}_root_source`);
+    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB delete error')); });
     db.close();
   } catch { /* silent */ }
+}
+
+/** Save workflow tree (nodes + edges) to IndexedDB for restoration */
+export async function saveWorkflowTree(id: string, nodeTree: NodeTreeData): Promise<void> {
+  try {
+    logger.log('[HistoryService] saveWorkflowTree:', { id, nodes: nodeTree.nodes.length });
+    const db = await openImageDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(nodeTree, `${id}_workflow`);
+    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB write error')); });
+    db.close();
+    logger.log('[HistoryService] saveWorkflowTree success:', { id });
+  } catch (err) {
+    logger.error('[HistoryService] saveWorkflowTree failed:', { id, error: err });
+  }
+}
+
+/** Load workflow tree from IndexedDB */
+export async function loadWorkflowTree(id: string): Promise<NodeTreeData | null> {
+  try {
+    logger.log('[HistoryService] loadWorkflowTree:', { id });
+    const db = await openImageDB();
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(`${id}_workflow`);
+    const result = await new Promise<NodeTreeData | null>((res) => {
+      req.onsuccess = () => res(req.result ?? null);
+      req.onerror = () => res(null);
+    });
+    db.close();
+    logger.log('[HistoryService] loadWorkflowTree result:', { id, found: !!result, nodes: result?.nodes?.length });
+    return result;
+  } catch (err) {
+    logger.error('[HistoryService] loadWorkflowTree failed:', { id, error: err });
+    return null;
+  }
 }
 
 function getDateLabel(ts: number): string {
@@ -176,7 +295,22 @@ function loadEntries(): HistoryEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as HistoryEntry[];
+    const entries = JSON.parse(raw) as HistoryEntry[];
+    // Cleanup: strip any leftover data URLs from old entries (should be thumbnails only)
+    let changed = false;
+    const cleaned = entries.map(entry => {
+      if (entry.outputImage && entry.outputImage.length > 10000) {
+        changed = true;
+        return { ...entry, outputImage: undefined };
+      }
+      if (entry.inputImage && entry.inputImage.length > 10000) {
+        changed = true;
+        return { ...entry, inputImage: undefined };
+      }
+      return entry;
+    });
+    if (changed) saveEntries(cleaned);
+    return cleaned;
   } catch {
     return [];
   }
@@ -187,8 +321,9 @@ function saveEntries(entries: HistoryEntry[]): void {
   const trimmed = entries.slice(0, max);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
-  } catch (e) {
+    window.dispatchEvent(new CustomEvent('anarchy:history:updated'));
+    globalThis.dispatchEvent(new CustomEvent('anarchy:history:updated'));
+  } catch {
     // localStorage quota exceeded — strip images from older entries and retry
     const stripped = trimmed.map((entry, i) => {
       if (i === 0) return entry; // keep latest full
@@ -201,7 +336,11 @@ function saveEntries(entries: HistoryEntry[]): void {
       const minimal = trimmed.slice(0, 20).map(entry => ({
         ...entry, outputImage: undefined, inputImage: undefined
       }));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+      } catch {
+        logger.warn('[HistoryService] localStorage quota exceeded — cannot save history. Clear history or increase storage.');
+      }
     }
   }
 }
@@ -221,32 +360,82 @@ export function addHistoryEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'>): 
 
   const isDataUrl = (url?: string) => url?.startsWith('data:');
 
+  // Debug logging
+  logger.log('[HistoryService] Adding entry:', {
+    id: full.id,
+    type: full.type,
+    hasOutputImage: !!full.outputImage,
+    hasInputImage: !!full.inputImage,
+    hasRootSourceImage: !!full.rootSourceImage,
+    outputIsDataUrl: isDataUrl(full.outputImage),
+    inputIsDataUrl: isDataUrl(full.inputImage),
+    rootSourceIsDataUrl: isDataUrl(full.rootSourceImage),
+  });
+
   // Save full-res to IndexedDB immediately (async, no await needed)
-  if (isDataUrl(full.outputImage)) saveFullImage(full.id, 'output', full.outputImage!);
-  if (isDataUrl(full.inputImage))  saveFullImage(full.id, 'input',  full.inputImage!);
+  if (isDataUrl(full.outputImage)) {
+    logger.log('[HistoryService] Saving output image to IndexedDB:', full.id);
+    saveFullImage(full.id, 'output', full.outputImage!);
+  }
+  if (isDataUrl(full.inputImage)) {
+    logger.log('[HistoryService] Saving input image to IndexedDB:', full.id);
+    saveFullImage(full.id, 'input',  full.inputImage!);
+  }
+  if (isDataUrl(full.rootSourceImage)) {
+    logger.log('[HistoryService] Saving root source image to IndexedDB:', full.id);
+    saveFullImage(full.id, 'root_source', full.rootSourceImage!);
+  }
+
+  // Save nodeTree (workflow) to IndexedDB for restoration
+  if (full.nodeTree) {
+    saveWorkflowTree(full.id, full.nodeTree);
+  }
 
   // Save thumbnail in localStorage for list display
+  // Never store data URLs in localStorage (too large) — thumbnails only
+  // But we MUST have at least a thumbnail for display
   const entryForStorage: HistoryEntry = {
     ...full,
     outputImage: isDataUrl(full.outputImage) ? undefined : full.outputImage,
     inputImage:  isDataUrl(full.inputImage)  ? undefined : full.inputImage,
+    rootSourceImage: isDataUrl(full.rootSourceImage) ? undefined : full.rootSourceImage,
+    nodeTree: undefined, // Saved separately in IndexedDB
   };
-  const entries = loadEntries();
-  entries.unshift(entryForStorage);
-  saveEntries(entries);
 
-  // Async: generate thumbnails and store them in localStorage for preview
-  Promise.all([
-    isDataUrl(full.outputImage) ? compressToThumbnail(full.outputImage!) : Promise.resolve(full.outputImage),
-    isDataUrl(full.inputImage)  ? compressToThumbnail(full.inputImage!)  : Promise.resolve(full.inputImage),
-  ]).then(([thumbOut, thumbIn]) => {
-    const updated = loadEntries();
-    const idx = updated.findIndex(e => e.id === full.id);
-    if (idx !== -1) {
-      updated[idx] = { ...updated[idx], outputImage: thumbOut, inputImage: thumbIn };
-      saveEntries(updated);
-    }
-  }).catch(() => {});
+  // If we have data URLs, generate thumbnails synchronously before saving
+  // This ensures the thumbnail is available immediately for display
+  if (isDataUrl(full.outputImage) || isDataUrl(full.inputImage) || isDataUrl(full.rootSourceImage)) {
+    // Save initial entry first (without images)
+    const entries = loadEntries();
+    entries.unshift(entryForStorage);
+    saveEntries(entries);
+
+    // Then generate and save thumbnails
+    Promise.all([
+      isDataUrl(full.outputImage) ? compressToThumbnail(full.outputImage!) : Promise.resolve(full.outputImage),
+      isDataUrl(full.inputImage)  ? compressToThumbnail(full.inputImage!)  : Promise.resolve(full.inputImage),
+      isDataUrl(full.rootSourceImage) ? compressToThumbnail(full.rootSourceImage!) : Promise.resolve(full.rootSourceImage),
+    ]).then(([thumbOut, thumbIn, thumbRoot]) => {
+      const updated = loadEntries();
+      const idx = updated.findIndex(e => e.id === full.id);
+      if (idx !== -1) {
+        updated[idx] = { 
+          ...updated[idx], 
+          outputImage: thumbOut, 
+          inputImage: thumbIn,
+          rootSourceImage: thumbRoot
+        };
+        saveEntries(updated);
+        // Trigger refresh so HistoryPage shows the thumbnail
+        window.dispatchEvent(new CustomEvent('anarchy:history:updated'));
+      }
+    }).catch(() => {});
+  } else {
+    // No data URLs - save directly with image references
+    const entries = loadEntries();
+    entries.unshift(entryForStorage);
+    saveEntries(entries);
+  }
 
   return full;
 }
@@ -289,6 +478,11 @@ export async function enrichWithFullImages(entry: HistoryEntry): Promise<History
   if (!enriched.inputImage || enriched.inputImage.startsWith('data:') === false) {
     const fullInput = await loadFullImage(entry.id, 'input');
     if (fullInput) enriched.inputImage = fullInput;
+  }
+
+  if (!enriched.rootSourceImage || enriched.rootSourceImage.startsWith('data:') === false) {
+    const fullRoot = await loadFullImage(entry.id, 'root_source');
+    if (fullRoot) enriched.rootSourceImage = fullRoot;
   }
   
   return enriched;

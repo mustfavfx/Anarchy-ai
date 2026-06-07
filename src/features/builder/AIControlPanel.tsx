@@ -211,10 +211,10 @@ const ENGINES: Engine[] = [
     tool: 'image-editor',
   },
   {
-    id: 'stability-ai/stable-diffusion-3.5',
+    id: 'stability-ai/stable-diffusion-3.5-large',
     name: 'Stable Diffusion 3.5',
     provider: 'Replicate',
-    color: '#8b5cf6',
+    color: '#e11d48',
     icon: <ImageIcon size={18} />,
     tool: 'image-editor',
     badge: 'SD 3.5'
@@ -769,7 +769,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                   max="3"
                   step="0.1"
                   value={params.clarityResemblance ?? 0.6}
-                  onChange={(e) => updateParam('clarityResemblance', parseFloat(e.target.value))}
+                  onChange={(e) => updateParam('clarityResemblance', Number.parseFloat(e.target.value))}
                   className="param-slider"
                 />
                 <span className="param-hint">0.3 – 1.6 recommended</span>

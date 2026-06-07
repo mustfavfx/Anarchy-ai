@@ -66,6 +66,43 @@ async fn http_get(
     Ok(json)
 }
 
+#[tauri::command]
+async fn analyze_floor_plan(image_base64: String) -> Result<String, String> {
+    let b64 = if image_base64.contains(',') {
+        image_base64.splitn(2, ',').nth(1).ok_or("Invalid base64 image data")?
+    } else {
+        &image_base64
+    };
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|e| format!("Base64 decode error: {}", e))?;
+
+    let part = multipart::Part::bytes(bytes)
+        .file_name("plan.png")
+        .mime_str("image/png")
+        .map_err(|e| e.to_string())?;
+
+    let form = multipart::Form::new().part("image", part);
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post("http://127.0.0.1:8000/analyze-plan")
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("Could not reach Image2CAD backend server. Make sure it is running on port 8000. Error details: {}", e))?;
+
+    let status = resp.status();
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+
+    if !status.is_success() {
+        return Err(format!("Server returned error ({}): {}", status, text));
+    }
+
+    Ok(text)
+}
+
 /// Download an image from URL and return as base64 data URI
 #[tauri::command]
 async fn url_to_base64(url: String) -> Result<String, String> {
@@ -260,21 +297,64 @@ async fn upload_image(
     Ok(url)
 }
 
+fn get_existing_parent_canonical(mut path: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    while !path.exists() {
+        if let Some(parent) = path.parent() {
+            path = parent;
+        } else {
+            return Err("Path has no existing parent directory".to_string());
+        }
+    }
+    path.canonicalize().map_err(|e| format!("Failed to canonicalize parent: {}", e))
+}
+
+fn is_path_safe(path_str: &str) -> Result<(), String> {
+    use std::path::Path;
+    
+    let path = Path::new(path_str);
+    
+    // Check if path is absolute
+    if !path.is_absolute() {
+        return Err("Relative paths are not allowed. Paths must be absolute.".to_string());
+    }
+
+    // Get the nearest existing parent or the path itself if it exists
+    let canonical_base = get_existing_parent_canonical(path)?;
+
+    // Prevent writing to Windows system folders to protect operating system files
+    #[cfg(target_os = "windows")]
+    {
+        let win_dir = std::env::var("windir")
+            .or_else(|_| std::env::var("SystemRoot"))
+            .unwrap_or_else(|_| "C:\\Windows".to_string());
+        if let Ok(win_path) = Path::new(&win_dir).canonicalize() {
+            if canonical_base.starts_with(&win_path) {
+                return Err("Access denied. Writing to system folders is not allowed.".to_string());
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Write a string to a file (for saving workflows)
 #[tauri::command]
 async fn save_file(path: String, contents: String) -> Result<(), String> {
+    is_path_safe(&path)?;
     std::fs::write(&path, &contents).map_err(|e| format!("Failed to save file: {}", e))
 }
 
 /// Read a file's contents as string (for loading workflows)
 #[tauri::command]
 async fn load_file(path: String) -> Result<String, String> {
+    is_path_safe(&path)?;
     std::fs::read_to_string(&path).map_err(|e| format!("Failed to load file: {}", e))
 }
 
 /// List files in a directory (returns Vec of full paths)
 #[tauri::command]
 async fn list_dir(path: String, extension: Option<String>) -> Result<Vec<String>, String> {
+    is_path_safe(&path)?;
     let entries = std::fs::read_dir(&path).map_err(|e| format!("Failed to read dir: {}", e))?;
     let mut files = Vec::new();
     for entry in entries {
@@ -296,12 +376,14 @@ async fn list_dir(path: String, extension: Option<String>) -> Result<Vec<String>
 /// Delete a file
 #[tauri::command]
 async fn delete_file(path: String) -> Result<(), String> {
+    is_path_safe(&path)?;
     std::fs::remove_file(&path).map_err(|e| format!("Failed to delete file: {}", e))
 }
 
 /// Ensure a directory exists (create if not)
 #[tauri::command]
 async fn ensure_dir(path: String) -> Result<(), String> {
+    is_path_safe(&path)?;
     std::fs::create_dir_all(&path).map_err(|e| format!("Failed to create dir: {}", e))
 }
 
@@ -502,23 +584,55 @@ async fn detect_autodesk_installs(target: String) -> Result<Vec<AutodeskInstall>
 
 #[tauri::command]
 async fn install_3dsmax_plugin(script: String, versions: Option<Vec<String>>) -> Result<Vec<String>, String> {
-    let installs = detect_3dsmax_installs();
+    let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let max_root = std::path::Path::new(&local_app_data).join("Autodesk").join("3dsMax");
 
-    if installs.is_empty() {
-        return Err("No 3ds Max user profile was found. Open 3ds Max once, then install again.".to_string());
+    // Collect all candidate installs: auto-detected + manually requested versions
+    let detected = detect_3dsmax_installs();
+    let selected_versions = versions.unwrap_or_else(|| detected.iter().map(|i| i.version.clone()).collect());
+
+    if selected_versions.is_empty() {
+        return Err("No 3ds Max versions selected for installation.".to_string());
     }
 
-    let selected_versions = versions.unwrap_or_else(|| installs.iter().map(|install| install.version.clone()).collect());
+    // Build a map of version -> path from detected installs
+    let detected_map: std::collections::HashMap<String, String> =
+        detected.into_iter().map(|i| (i.version, i.path)).collect();
+
     let mut installed_paths = Vec::new();
 
-    for install in installs {
-        if !selected_versions.iter().any(|version| version == &install.version) {
-            continue;
-        }
+    for version in &selected_versions {
+        // Prefer detected path, otherwise try common profile folder patterns
+        let profile_path = if let Some(p) = detected_map.get(version) {
+            std::path::PathBuf::from(p)
+        } else {
+            // Try standard profile folder name patterns
+            let candidates = [
+                format!("{} - 64bit", version),
+                format!("{}", version),
+                format!("{} - 64-bit", version),
+            ];
+            let mut found = None;
+            for candidate in &candidates {
+                let p = max_root.join(candidate);
+                if p.exists() {
+                    found = Some(p);
+                    break;
+                }
+            }
+            match found {
+                Some(p) => p,
+                None => {
+                    // Create profile directory so user can run 3ds Max and it will be used
+                    let default_name = format!("{} - 64bit", version);
+                    let p = max_root.join(&default_name);
+                    if std::fs::create_dir_all(&p).is_ok() { p } else { continue; }
+                }
+            }
+        };
 
-        let profile = std::path::PathBuf::from(&install.path);
-        let startup_dir = profile.join("ENU").join("scripts").join("startup");
-        let usermacros_dir = profile.join("ENU").join("usermacros");
+        let startup_dir = profile_path.join("ENU").join("scripts").join("startup");
+        let usermacros_dir = profile_path.join("ENU").join("usermacros");
         std::fs::create_dir_all(&startup_dir)
             .map_err(|e| format!("Failed to create startup folder: {}", e))?;
         std::fs::create_dir_all(&usermacros_dir)
@@ -534,7 +648,7 @@ async fn install_3dsmax_plugin(script: String, versions: Option<Vec<String>>) ->
             .map_err(|e| format!("Failed to write plugin macro: {}", e))?;
         installed_paths.push(macro_path.to_string_lossy().to_string());
 
-        let usericons_dir = profile.join("ENU").join("usericons");
+        let usericons_dir = profile_path.join("ENU").join("usericons");
         let _ = std::fs::create_dir_all(&usericons_dir);
         const ICON_24I: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24i.bmp");
         const ICON_24A: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24a.bmp");
@@ -554,7 +668,7 @@ async fn install_3dsmax_plugin(script: String, versions: Option<Vec<String>>) ->
     }
 
     if installed_paths.is_empty() {
-        return Err("No selected compatible 3ds Max versions were found.".to_string());
+        return Err("No 3ds Max profiles could be written. Ensure the selected versions are installed and run at least once.".to_string());
     }
 
     Ok(installed_paths)
@@ -603,16 +717,24 @@ fn find_wpf_assembly(name: &str) -> Option<std::path::PathBuf> {
 
 #[tauri::command]
 async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<String>, String> {
-    let installs = detect_revit_installs();
-    if installs.is_empty() {
-        return Err("No Revit installation was found under Program Files\\Autodesk.".to_string());
+    let detected = detect_revit_installs();
+    let selected = versions.unwrap_or_else(|| detected.iter().map(|i| i.version.clone()).collect());
+
+    if selected.is_empty() {
+        return Err("No Revit versions selected for installation.".to_string());
     }
 
-    let selected = versions.unwrap_or_else(|| installs.iter().map(|i| i.version.clone()).collect());
+    // Build map of version -> program path from detected installs
+    let detected_map: std::collections::HashMap<String, std::path::PathBuf> =
+        detected.into_iter().map(|i| (i.version, std::path::PathBuf::from(i.path))).collect();
+
+    let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
+    let autodesk_root = std::path::Path::new(&program_files).join("Autodesk");
 
     let csc = find_csc_exe()
-        .ok_or_else(|| "csc.exe (.NET Framework 4.x compiler) not found. Revit 2022-2024 require it.".to_string())?;
+        .ok_or_else(|| "csc.exe (.NET Framework 4.x compiler) not found. Please install .NET Framework 4.x.".to_string())?;
 
+    // Embedded C# source code for Revit plugin
     const CS_SOURCE: &str = include_str!("../resources/revit-plugin/AnarchyRevit.cs");
     const ADDIN_TEMPLATE: &str = include_str!("../resources/revit-plugin/Anarchy.addin.template");
     const ICON_32: &[u8] = include_bytes!("../resources/revit-plugin/AnarchyLogo_32.png");
@@ -623,20 +745,29 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
 
     let mut installed = Vec::new();
 
-    for install in installs {
-        if !selected.contains(&install.version) {
-            continue;
-        }
+    for version in &selected {
+        // Find the Revit installation directory
+        let revit_dir = if let Some(p) = detected_map.get(version) {
+            p.clone()
+        } else {
+            // Try standard installation path
+            let p = autodesk_root.join(format!("Revit {}", version));
+            if !p.exists() {
+                // Log skip but don't fail — user may have non-standard install
+                continue;
+            }
+            p
+        };
 
-        let revit_dir = std::path::PathBuf::from(&install.path);
         let api_dll = revit_dir.join("RevitAPI.dll");
         let api_ui_dll = revit_dir.join("RevitAPIUI.dll");
         if !api_dll.exists() || !api_ui_dll.exists() {
+            // RevitAPI.dll not found in this path — skip
             continue;
         }
 
         let addins_dir = std::path::PathBuf::from(&app_data)
-            .join("Autodesk").join("Revit").join("Addins").join(&install.version);
+            .join("Autodesk").join("Revit").join("Addins").join(version);
         std::fs::create_dir_all(&addins_dir)
             .map_err(|e| format!("Failed to create addins folder: {}", e))?;
 
@@ -687,7 +818,7 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
             let stdout = String::from_utf8_lossy(&output.stdout);
             return Err(format!(
                 "Compilation failed for Revit {}:\n{}\n{}",
-                install.version, stdout, stderr
+                version, stdout, stderr
             ));
         }
 
@@ -704,7 +835,10 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
     }
 
     if installed.is_empty() {
-        return Err("No selected compatible Revit versions were installed.".to_string());
+        return Err(format!(
+            "No selected Revit versions could be found under {}\\Autodesk\\Revit <version>. Ensure Revit is installed and try again.",
+            program_files
+        ));
     }
 
     Ok(installed)
@@ -963,6 +1097,50 @@ fn remove_matching_files(root: &std::path::Path, needles: &[&str], removed: &mut
 }
 
 #[tauri::command]
+async fn is_plugin_installed(target: String) -> bool {
+    let app_data = std::env::var("APPDATA").unwrap_or_default();
+    match target.as_str() {
+        "3dsmax" => {
+            let installs = detect_3dsmax_installs();
+            if installs.is_empty() {
+                return false;
+            }
+            for install in installs {
+                let profile = std::path::PathBuf::from(&install.path);
+                let script_path = profile.join("ENU").join("scripts").join("startup").join("AnarchyConnector.ms");
+                if script_path.exists() {
+                    return true;
+                }
+            }
+            false
+        }
+        "revit" => {
+            let installs = detect_revit_installs();
+            if installs.is_empty() {
+                return false;
+            }
+            for install in installs {
+                let addins_dir = std::path::PathBuf::from(&app_data)
+                    .join("Autodesk").join("Revit").join("Addins").join(&install.version);
+                let addin_file = addins_dir.join("Anarchy.addin");
+                if addin_file.exists() {
+                    return true;
+                }
+            }
+            false
+        }
+        "autocad" => {
+            let bundle_dir = std::path::PathBuf::from(&app_data)
+                .join("Autodesk").join("ApplicationPlugins").join("AnarchyAutoCAD.bundle");
+            let pkg_path = bundle_dir.join("PackageContents.xml");
+            let dll_path = bundle_dir.join("Contents").join("AnarchyAutoCad.dll");
+            pkg_path.exists() && dll_path.exists()
+        }
+        _ => false,
+    }
+}
+
+#[tauri::command]
 async fn remove_old_autodesk_plugins(target: String) -> Result<Vec<String>, String> {
     let mut removed = Vec::new();
     let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
@@ -1149,6 +1327,18 @@ async fn save_image_to_documents(data_uri: String, file_name: String) -> Result<
         .map_err(|e| format!("Write error: {}", e))?;
 
     Ok(out_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn save_image_to_path(path: String, data_uri: String) -> Result<(), String> {
+    let b64 = data_uri
+        .splitn(2, ',')
+        .nth(1)
+        .ok_or("Invalid data URI")?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|e| format!("Base64 decode error: {}", e))?;
+    std::fs::write(&path, &bytes).map_err(|e| format!("Write error: {}", e))
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -1338,6 +1528,54 @@ async fn read_local_image(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn show_in_explorer(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Err("File does not exist".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer")
+            .raw_arg(format!("/select,\"{}\"", p.to_string_lossy()))
+            .spawn()
+            .map_err(|e| format!("Failed to spawn explorer: {}", e))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(p.as_os_str())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn open: {}", e))?;
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        if let Some(parent) = p.parent() {
+            open::that(parent).map_err(|e| format!("Failed to open directory: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_images_folder() -> Result<(), String> {
+    let docs = dirs::document_dir()
+        .ok_or("Cannot locate Documents folder")?;
+    let save_dir = docs.join("Anarchy AI");
+    std::fs::create_dir_all(&save_dir)
+        .map_err(|e| format!("Cannot create folder: {}", e))?;
+    open::that(&save_dir).map_err(|e| format!("Failed to open folder: {}", e))
+}
+
+#[tauri::command]
+async fn open_url(url: String) -> Result<(), String> {
+    open::that(&url).map_err(|e| format!("Failed to open URL: {}", e))
+}
+
+#[tauri::command]
 async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     use tauri_plugin_updater::UpdaterExt;
     let updater = app.updater().map_err(|e| e.to_string())?;
@@ -1347,11 +1585,60 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.restart();
+    #[allow(unreachable_code)]
+    Ok(())
+}
+
+use std::sync::Mutex;
+
+struct StartupState {
+    file_path: Mutex<Option<String>>,
+    deep_link: Mutex<Option<String>>,
+}
+
+#[tauri::command]
+fn get_startup_file(state: tauri::State<'_, StartupState>) -> Option<String> {
+    let mut lock = state.file_path.lock().unwrap();
+    lock.take()
+}
+
+#[tauri::command]
+fn get_deep_link(state: tauri::State<'_, StartupState>) -> Option<String> {
+    let mut lock = state.deep_link.lock().unwrap();
+    lock.take()
+}
+
 fn main() {
+    let mut startup_file = None;
+    let mut deep_link = None;
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        let path = &args[1];
+        if path.ends_with(".ana") {
+            startup_file = Some(path.clone());
+        } else if path.starts_with("anarchy-ai://") {
+            deep_link = Some(path.clone());
+        }
+    }
+
     tauri::Builder::default()
+        .manage(StartupState {
+            file_path: Mutex::new(startup_file),
+            deep_link: Mutex::new(deep_link),
+        })
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let found_link = args.iter().find(|arg| arg.starts_with("anarchy-ai://"));
+            if let Some(link) = found_link {
+                let _ = app.emit("deep-link", link);
+            }
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(start_anarchy_viewport_server(app_handle));
@@ -1361,9 +1648,10 @@ fn main() {
             http_post, http_get, upload_image, upload_to_replicate, url_to_base64,
             save_file, load_file, list_dir, delete_file, ensure_dir,
             detect_autodesk_installs, install_3dsmax_plugin, install_revit_plugin, install_autocad_plugin,
-            remove_old_autodesk_plugins, get_app_data_dir,
-            save_image_to_documents, read_local_image, read_clipboard_image,
-            check_update, install_update
+            remove_old_autodesk_plugins, get_app_data_dir, is_plugin_installed,
+            save_image_to_documents, save_image_to_path, read_local_image, read_clipboard_image,
+            check_update, install_update, restart_app,
+            open_url, get_startup_file, get_deep_link, analyze_floor_plan, open_images_folder, show_in_explorer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

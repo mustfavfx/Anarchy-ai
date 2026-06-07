@@ -1,29 +1,31 @@
 import { useCallback, useState, useMemo, useRef, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import { 
   useNodesState, 
   useEdgesState, 
-  addEdge, 
   type Node, 
   type Edge, 
   type Connection,
   type XYPosition
 } from '@xyflow/react';
-import type { 
-  ProcessingType, 
-  BuilderNodeData, 
-  DataPacket, 
-  NodeLineage,
-  NodeType,
-  NodeState,
-  WorkflowStats 
+import { 
+  type ProcessingType, 
+  type BuilderNodeData, 
+  type DataPacket, 
+  type NodeLineage,
+  type NodeType,
+  type NodeState,
+  type WorkflowStats,
+  sanitizeEdges
 } from './types';
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { watermarkService } from '../../services/watermark/WatermarkService';
-import { addHistoryEntry, type NodeTreeData } from '../../services/history/HistoryService';
+import { addHistoryEntry, type NodeTreeData, cacheLocalImage, getLocalImage, deleteLocalImage } from '../../services/history/HistoryService';
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { track } from '../../services/tracking/trackingService';
+import { useAuth } from '../auth/AuthContext';
 
 // Silent auto-save key — accepts optional tabId suffix for multi-tab isolation
 const getAutosaveKey = (tabId?: string) =>
@@ -99,13 +101,37 @@ async function uploadImageIfLocal(url: string, model?: string): Promise<string> 
 async function persistImageLocally(url: string): Promise<string> {
   if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
 
+  // Try Tauri Rust command first (bypasses CORS)
   try {
     const base64Data: string = await invoke('url_to_base64', { url });
     if (base64Data?.startsWith('data:')) return base64Data;
   } catch {
-    // Tauri invoke unavailable (dev browser) — return original URL
+    // Tauri unavailable — fall through to browser fetch
   }
 
+  // Browser fallback: fetch image and convert to base64
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    // Cannot convert — return original URL as last resort
+  }
+
+  return url;
+}
+
+async function resolveImageIfCached(url: string | undefined): Promise<string | undefined> {
+  if (url && url.startsWith('idb://')) {
+    const cached = await getLocalImage(url);
+    if (cached) return cached;
+  }
   return url;
 }
 
@@ -168,8 +194,8 @@ export type { ProcessingType, BuilderNodeData, DataPacket, NodeLineage, NodeType
 // CONSTANTS
 // ============================================================================
 
-const HORIZONTAL_SPACING = 400;
-const VERTICAL_SPACING = 220;
+const HORIZONTAL_SPACING = 380;
+const VERTICAL_SPACING = 480;
 
 // Type labels for UI
 const TYPE_LABELS: Record<ProcessingType, string> = {
@@ -215,6 +241,7 @@ interface EdgeOptions {
   animated?: boolean;
   isDataFlow?: boolean;
   packet?: DataPacket;
+  targetHandleIndex?: number; // For multi-input nodes (ghost-target-0, ghost-target-1, etc.)
 }
 
 const createEdge = (
@@ -222,20 +249,23 @@ const createEdge = (
   targetId: string, 
   options: EdgeOptions = {}
 ): Edge => {
-  const { animated = false, packet } = options;
+  const { animated = false, packet, targetHandleIndex = 0 } = options;
   
   return {
-    id: `e-${sourceId}-${targetId}`,
+    id: `e-${sourceId}-${targetId}-${targetHandleIndex}`,
     source: sourceId,
     target: targetId,
-    sourceHandle: 'source',
-    targetHandle: 'ghost-target-0', // GhostNode uses ghost-target-0, ghost-target-1, etc.
-    type: 'default',
+    sourceHandle: 'source', // Explicit source handle for proper positioning
+    targetHandle: `ghost-target-${targetHandleIndex}`, // Dynamic handle for multi-input
+    type: 'default', // Bezier curves for smooth flowing lines
     animated,
+    label: null, // No label on edge - must be null not undefined
     style: { 
-      strokeWidth: packet ? 2 : 1.5,
-      stroke: packet ? 'rgba(225, 29, 72, 0.5)' : 'rgba(255,255,255,0.15)',
-      opacity: packet ? 1 : 0.7
+      strokeWidth: 2,
+      stroke: '#e11d48', // Brand red
+      opacity: 0.8,
+      strokeDasharray: '5 5', // Dashed line
+      strokeLinecap: 'round'
     },
     data: {
       packet,
@@ -255,6 +285,7 @@ interface HistorySnapshot { nodes: Node[]; edges: Edge[]; }
 const MAX_HISTORY = 50;
 
 export const useBuilderWorkflow = (tabId?: string) => {
+  const { user } = useAuth();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   // Refs to track current state for callbacks without circular deps
@@ -313,20 +344,66 @@ export const useBuilderWorkflow = (tabId?: string) => {
     if (isRestored) return;
     
     try {
-      const saved = localStorage.getItem(getAutosaveKey(tabId));
+      const key = getAutosaveKey(tabId);
+      
+      // Clear autosave if the page was explicitly reloaded/refreshed (e.g., F5)
+      let isReload = false;
+      try {
+        const navs = performance.getEntriesByType('navigation');
+        if (navs.length > 0) {
+          isReload = (navs[0] as PerformanceNavigationTiming).type === 'reload';
+        } else {
+          isReload = performance.navigation.type === performance.navigation.TYPE_RELOAD;
+        }
+      } catch {}
+      
+      if (isReload) {
+        localStorage.removeItem(key);
+      }
+      
+      const saved = localStorage.getItem(key);
       if (saved) {
         const data = JSON.parse(saved);
         if (data.nodes && data.nodes.length > 0) {
           setNodes(data.nodes);
-          setEdges(data.edges || []);
+          setEdges(sanitizeEdges(data.nodes, data.edges || []));
           // Delay isRestored so BuilderPage sees the restored nodes before checking
-          setTimeout(() => setIsRestored(true), 20);
-          return;
+          const timerId = setTimeout(() => setIsRestored(true), 20);
+          return () => clearTimeout(timerId);
         }
       }
     } catch {
       // Silent fail - no console output
     }
+    
+    // If no saved nodes, initialize with a default source node
+    const sourceNodeId = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const defaultSourceNode: Node = {
+      id: sourceNodeId,
+      type: 'baseNode',
+      position: { x: 200, y: 200 },
+      width: 260,
+      data: {
+        label: 'Source',
+        type: 'source',
+        processingType: 'source',
+        state: 'idle',
+        image: undefined,
+        createdAt: Date.now(),
+        lineage: {
+          parentId: null,
+          rootSourceId: sourceNodeId,
+          generation: 0,
+          branchIndex: 0,
+          processingType: 'source',
+          ancestry: []
+        },
+        inputData: undefined,
+        outputData: undefined,
+        config: {}
+      } as BuilderNodeData
+    };
+    setNodes([defaultSourceNode]);
     setIsRestored(true);
   }, [isRestored, tabId, setNodes, setEdges]);
 
@@ -350,6 +427,25 @@ export const useBuilderWorkflow = (tabId?: string) => {
     
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, isRestored, tabId]);
+
+  // ========================================================================
+  // AUTO CLEANUP & SANITIZATION OF EDGES
+  // ========================================================================
+  useEffect(() => {
+    if (!isRestored) return;
+    const sanitized = sanitizeEdges(nodes, edges);
+    
+    // Check if there are actual changes to avoid infinite loop
+    const hasChanges = sanitized.length !== edges.length || sanitized.some((e, i) => {
+      const orig = edges[i];
+      return !orig || e.id !== orig.id || e.targetHandle !== orig.targetHandle;
+    });
+
+    if (hasChanges) {
+      setEdges(sanitized);
+    }
+  }, [nodes, edges, isRestored, setEdges]);
+
 
   // ========================================================================
   // UTILITY FUNCTIONS
@@ -476,9 +572,18 @@ export const useBuilderWorkflow = (tabId?: string) => {
   // NODE LIFECYCLE - Source → Ghost → Result
   // ========================================================================
 
-  const createSourceNode = useCallback((imageUrl?: string, label?: string): string => {
+  const createSourceNode = useCallback((imageUrl?: string, label?: string, position?: { x: number; y: number }): string => {
     const id = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     
+    let finalImageRef = imageUrl;
+    if (imageUrl && imageUrl.startsWith('data:')) {
+      const imageKey = `idb://${crypto.randomUUID()}`;
+      cacheLocalImage(imageKey, imageUrl).catch(err => {
+        logger.error('[useBuilderWorkflow] Failed to cache source image:', err);
+      });
+      finalImageRef = imageKey;
+    }
+
     const lineage: NodeLineage = {
       parentId: null,
       rootSourceId: id,
@@ -488,19 +593,20 @@ export const useBuilderWorkflow = (tabId?: string) => {
       ancestry: []
     };
 
-    const packet = imageUrl ? createDataPacket(imageUrl, undefined, 'source') : undefined;
+    const packet = finalImageRef ? createDataPacket(finalImageRef, undefined, 'source') : undefined;
 
     const newNode: Node = {
       id,
       type: 'baseNode',
-      position: { x: 80, y: 300 },
-      width: 240,
+      position: position ?? { x: 200, y: 200 },
+      width: 260,
       data: {
         label: label || 'Source',
         type: 'source',
         processingType: 'source',
-        state: imageUrl ? 'ready' : 'idle',
-        image: imageUrl,
+        state: finalImageRef ? 'ready' : 'idle',
+        image: finalImageRef,
+        originalImage: finalImageRef,
         createdAt: Date.now(),
         lineage,
         inputData: undefined,
@@ -514,21 +620,16 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
     if (imageUrl) {
       try {
-        // Build node tree from current state
+        // Build node tree containing this source node
         const nodeTree: NodeTreeData = {
-          nodes: nodesRef.current.map(n => {
-            const data = n.data as BuilderNodeData;
-            return {
-              id: n.id,
-              type: data.type,
-              position: n.position,
-              image: data.image,
-              prompt: data.prompt,
-              processingType: data.processingType,
-              state: data.state,
-              parentId: data.lineage?.parentId || undefined,
-            };
-          }),
+          nodes: [{
+            id: newNode.id,
+            type: 'source',
+            position: newNode.position,
+            image: finalImageRef,
+            state: 'ready',
+            processingType: 'source',
+          }],
           sourceNodeId: newNode.id,
           createdAt: Date.now(),
         };
@@ -537,12 +638,14 @@ export const useBuilderWorkflow = (tabId?: string) => {
           label: 'Source imported',
           outputImage: imageUrl,
           nodeTree,
+          rootSourceId: newNode.id,
+          rootSourceImage: imageUrl,
         });
       } catch {}
     }
 
     return id;
-  }, [setNodes]);
+  }, [setNodes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const spawnGhostNode = useCallback((
     parentId: string,
@@ -593,7 +696,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
       id,
       type: 'ghostNode',
       position,
-      width: 240,
+      width: 260,
       data: {
         label: baseLabel,
         type: 'ghost',
@@ -612,11 +715,16 @@ export const useBuilderWorkflow = (tabId?: string) => {
     setNodes(nds => [...nds, newNode]);
     
     // Create data-carrying edge
-    setEdges(eds => [...eds, createEdge(parentId, id, { 
-      animated: false, 
-      isDataFlow: true,
-      packet: parentOutput 
-    })]);
+    // Calculate handle index based on existing edges to support multi-input
+    setEdges(eds => {
+      const existingEdgesToTarget = eds.filter(e => e.target === id).length;
+      return [...eds, createEdge(parentId, id, { 
+        animated: false, 
+        isDataFlow: true,
+        packet: parentOutput,
+        targetHandleIndex: existingEdgesToTarget // 0, 1, 2, etc. for multiple inputs
+      })];
+    });
 
     return id;
   }, [getNode, getChildren, calculateChildPosition, setNodes, setEdges]);
@@ -645,28 +753,43 @@ export const useBuilderWorkflow = (tabId?: string) => {
     const model = config?.model || 'google/nano-banana-2';
     
     // Get source image(s) ONLY from directly connected parent nodes
-    // Never fall back to random source nodes - each ghost only uses its own inputs
+    // Sorted by their target handle index (so ghost-target-0 is first)
+    const incomingEdges = edgesRef.current
+      .filter(e => e.target === nodeId && e.targetHandle)
+      .sort((a, b) => {
+        const matchA = a.targetHandle!.match(/ghost-target-(\d+)/);
+        const matchB = b.targetHandle!.match(/ghost-target-(\d+)/);
+        const idxA = matchA ? parseInt(matchA[1], 10) : 0;
+        const idxB = matchB ? parseInt(matchB[1], 10) : 0;
+        return idxA - idxB;
+      });
+
     const allParentImages: string[] = [];
-    
-    // Priority 1: inputData (pre-set data packet)
-    if (nodeData.inputData?.image) {
+    incomingEdges.forEach(edge => {
+      const parentNode = nodesRef.current.find(n => n.id === edge.source);
+      if (parentNode) {
+        const parentData = parentNode.data as BuilderNodeData;
+        const img = parentData.outputData?.image || parentData.image;
+        if (img && !allParentImages.includes(img)) {
+          allParentImages.push(img);
+        }
+      }
+    });
+
+    // Fallback if no images found via edges but inputData has one
+    if (allParentImages.length === 0 && nodeData.inputData?.image) {
       allParentImages.push(nodeData.inputData.image);
     }
     
-    // Priority 2: ALL directly connected parent nodes via edges
-    const parentNodes = getAllParents(nodeId);
-    parentNodes.forEach(parentNode => {
-      const parentData = parentNode.data as BuilderNodeData;
-      const img = parentData.outputData?.image || parentData.image;
-      if (img && !allParentImages.includes(img)) {
-        allParentImages.push(img);
-      }
-    });
-    
-    
+    // Resolve any IndexedDB image references to actual base64/URL data
+    const resolvedParentImages = await Promise.all(
+      allParentImages.map(img => resolveImageIfCached(img))
+    );
+    const validResolvedParentImages = resolvedParentImages.filter((img): img is string => !!img);
+
     // Upload images based on model requirements
     const uploadedImages = await Promise.all(
-      allParentImages.map(img => uploadImageIfLocal(img, model as string))
+      validResolvedParentImages.map(img => uploadImageIfLocal(img, model as string))
     );
 
     // Primary source image is the first connected one
@@ -773,6 +896,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
           disableSafetyChecker: config?.disableSafetyChecker,
           sourceWidth: sourceDims?.width,
           sourceHeight: sourceDims?.height,
+          nodeId,
+          userId: user?.id || 'anonymous',
         };
 
         // Choose generation mode based on model capabilities and available images
@@ -795,10 +920,10 @@ export const useBuilderWorkflow = (tabId?: string) => {
         (aiConfig.watermarkType === 'image' ? !!aiConfig.watermarkImage : wmText.length > 0);
       if (wmEnabled) {
         try {
-          // Ensure image is a data URI before passing to canvas (fetch fails on http:// in Tauri)
+          // Canvas requires a data URI — convert http:// URLs via Tauri first
           let imageForWm = finalImage;
           if (imageForWm.startsWith('http')) {
-            try { imageForWm = await invoke<string>('url_to_base64', { url: imageForWm }); } catch { /* keep original */ }
+            imageForWm = await invoke<string>('url_to_base64', { url: imageForWm });
           }
           finalImage = await watermarkService.applyWatermark(imageForWm, {
             type: aiConfig.watermarkType || 'text',
@@ -810,12 +935,15 @@ export const useBuilderWorkflow = (tabId?: string) => {
             fontSize: aiConfig.watermarkFontSize ?? 24,
           });
         } catch (wmErr) {
-          console.warn('[Watermark] Failed to apply:', wmErr);
+          logger.warn('[Watermark] Failed to apply:', wmErr);
         }
       }
       
+      const imageKey = `idb://${crypto.randomUUID()}`;
+      await cacheLocalImage(imageKey, finalImage);
+
       const outputPacket = createDataPacket(
-        finalImage,
+        imageKey,
         prompt,
         nodeData.processingType,
         { width: result.metadata.width, height: result.metadata.height }
@@ -823,9 +951,18 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
       try {
         const parent = getParent(nodeId);
-        const parentImage = parent ? (parent.data as BuilderNodeData).image : undefined;
+        const rawParentImage = parent ? (parent.data as BuilderNodeData).image : undefined;
+        // Resolve raw parent image first if it's cached
+        const resolvedRawParentImage = await resolveImageIfCached(rawParentImage);
+        // Persist parent image locally so history doesn't rely on expiring URLs
+        const parentImage = resolvedRawParentImage ? await persistImageLocally(resolvedRawParentImage) : undefined;
         const modelId = model as string;
         
+        const rootSourceNode = nodesRef.current.find(n => (n.data as BuilderNodeData).type === 'source');
+        const rawRootImage = rootSourceNode ? (rootSourceNode.data as BuilderNodeData).image : undefined;
+        const rootSourceImage = rawRootImage ? await resolveImageIfCached(rawRootImage) : undefined;
+        const rootSourceId = rootSourceNode?.id;
+
         // Build node tree from current state
         const nodeTree: NodeTreeData = {
           nodes: nodesRef.current.map(n => {
@@ -841,7 +978,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
               parentId: data.lineage?.parentId || undefined,
             };
           }),
-          sourceNodeId: nodesRef.current.find(n => (n.data as BuilderNodeData).type === 'source')?.id || nodeId,
+          sourceNodeId: rootSourceId || nodeId,
           createdAt: Date.now(),
         };
         
@@ -854,6 +991,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
           outputImage: finalImage,
           duration: Date.now() - _execStartTime,
           nodeTree,
+          rootSourceId,
+          rootSourceImage,
         });
         const isUpscale = (nodeData.processingType as any) === 'upscale';
         track({
@@ -864,7 +1003,9 @@ export const useBuilderWorkflow = (tabId?: string) => {
             has_prompt: Boolean(prompt),
           },
         }).catch(() => {});
-      } catch {}
+      } catch (historyErr) {
+        logger.error('[History] Failed to save history entry:', historyErr);
+      }
 
       // Auto-save generated image to Documents/Anarchy AI
       try {
@@ -884,7 +1025,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
         'bytedance/seedance-2.0':           'Seedance 2',
         'black-forest-labs/flux-kontext-pro':'FLUX Kontext Pro',
         'xai/grok-imagine-image':           'Grok Imagine',
-        'stability-ai/stable-diffusion-3.5': 'Stable Diffusion 3.5',
+        'stability-ai/stable-diffusion-3.5-large': 'Stable Diffusion 3.5',
         'nightmareai/real-esrgan':          'Real-ESRGAN',
         'philz1337x/clarity-upscaler':      'Clarity Upscaler',
       };
@@ -903,7 +1044,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
             label: modelLabel,
             modelUsed: model,
             prompt,
-            image: finalImage,
+            image: imageKey,
+            originalImage: imageKey,
             outputData: outputPacket,
             dimensions: { width: result.metadata.width, height: result.metadata.height },
             processedAt: Date.now()
@@ -924,7 +1066,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
       propagateNodeUpdate(nodeId);
 
     } catch (error) {
-      console.error('Generation failed:', error);
+      logger.error('Generation failed:', error);
       setNodes(nds => nds.map(n => 
         n.id === nodeId 
           ? { 
@@ -940,7 +1082,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     } finally {
       processingQueue.current.delete(nodeId);
     }
-  }, [getNode, getParent, nodes, setNodes, propagateNodeUpdate]);
+  }, [getNode, getParent, nodes, setNodes, propagateNodeUpdate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ========================================================================
   // LEGACY COMPATIBILITY - Bridge to old API
@@ -949,7 +1091,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
   const addChildNode = useCallback((
     parentId: string,
     processingType: ProcessingType
-  ): string => {
+  ): string | null => {
     // New API: Always spawn a ghost node
     return spawnGhostNode(parentId, processingType);
   }, [spawnGhostNode]);
@@ -964,7 +1106,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
       model: 'black-forest-labs/flux-1.1-pro' as import('../../services/replicate').ReplicateImageModel,
       strength: options?.strength,
       seed: options?.seed,
-    }).catch(console.error);
+    }).catch((e) => logger.error(e));
   }, [executeNode]);
 
   const updateNodeData = useCallback((nodeId: string, newData: Partial<BuilderNodeData>) => {
@@ -974,6 +1116,47 @@ export const useBuilderWorkflow = (tabId?: string) => {
         : n
     ));
   }, [setNodes]);
+
+  const updateNodeImageAndPropagate = useCallback((nodeId: string, imageUrl: string) => {
+    const outputPacket = createDataPacket(imageUrl, undefined, 'source');
+
+    // 1. Update target node
+    setNodes(nds => nds.map(n => {
+      if (n.id !== nodeId) return n;
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          image: imageUrl,
+          state: 'ready',
+          outputData: outputPacket
+        }
+      };
+    }));
+
+    // 2. Propagate to children
+    const children = getChildren(nodeId);
+    const childIds = new Set(children.map(c => c.id));
+    const edgeTimestamp = Date.now();
+
+    setNodes(nds => nds.map(n => {
+      if (!childIds.has(n.id)) return n;
+      const childData = n.data as BuilderNodeData;
+      return {
+        ...n,
+        data: {
+          ...childData,
+          inputData: outputPacket,
+          image: childData.type === 'ghost' ? outputPacket.image : childData.image,
+        }
+      };
+    }));
+
+    setEdges(eds => eds.map(e => {
+      if (!childIds.has(e.target) || e.source !== nodeId) return e;
+      return { ...e, data: { ...e.data, packet: outputPacket, isActive: true, lastUpdate: edgeTimestamp } };
+    }));
+  }, [getChildren, setNodes, setEdges]);
 
   // ========================================================================
   // CONNECTION RULES - Validate before connecting
@@ -985,7 +1168,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     // Prevent circular connections
     const downstream = findDownstreamNodes(connection.target);
     if (downstream.includes(connection.source)) {
-      console.error('Circular connection detected');
+      logger.error('Circular connection detected');
       return false;
     }
 
@@ -1002,13 +1185,13 @@ export const useBuilderWorkflow = (tabId?: string) => {
     // Result can connect to ghosts
     // Ghost cannot be a source
     if (sourceData.type === 'ghost') {
-      console.error('Ghost nodes cannot be connection sources');
+      logger.error('Ghost nodes cannot be connection sources');
       return false;
     }
 
     // Target must be a ghost (for new connections)
     if (targetData.type !== 'ghost') {
-      console.error('Can only connect to ghost nodes');
+      logger.error('Can only connect to ghost nodes');
       return false;
     }
 
@@ -1020,15 +1203,55 @@ export const useBuilderWorkflow = (tabId?: string) => {
     
     // Calculate the correct target handle for GhostNode
     const targetNode = getNode(params.target);
+    let targetHandle = params.targetHandle;
+    let edgeId = `e-${params.source}-${params.target}`;
+    
     if (targetNode?.data?.type === 'ghost') {
-      // Count existing connections to this ghost node
-      const existingConnections = edgesRef.current.filter(e => e.target === params.target);
-      const nextHandleIndex = existingConnections.length;
-      params.targetHandle = `ghost-target-${nextHandleIndex}`;
+      // Find the first unused target handle index (only count active nodes)
+      const activeNodeIds = new Set(nodesRef.current.map(n => n.id));
+      const existingEdges = edgesRef.current.filter(e => e.target === params.target && activeNodeIds.has(e.source));
+      const usedIndices = existingEdges
+        .map(e => {
+          const match = e.targetHandle?.match(/ghost-target-(\d+)/);
+          return match ? parseInt(match[1], 10) : -1;
+        })
+        .filter(idx => idx >= 0);
+      
+      let firstUnusedIndex = 0;
+      while (usedIndices.includes(firstUnusedIndex)) {
+        firstUnusedIndex++;
+      }
+      
+      targetHandle = `ghost-target-${firstUnusedIndex}`;
+      edgeId = `e-${params.source}-${params.target}-${firstUnusedIndex}`;
     }
     
-    setEdges(eds => addEdge(params, eds));
-  }, [validateConnection, setEdges, getNode]);
+    // Create edge with bezier type for smooth curved lines without corners
+    // Brand red color (#e11d48) with dashed curved lines
+    const newEdge: Edge = {
+      id: edgeId,
+      source: params.source,
+      target: params.target,
+      sourceHandle: 'source', // Explicit source handle for proper positioning
+      targetHandle: targetHandle || 'ghost-target-0',
+      type: 'default', // Use default for bezier curves
+      animated: false,
+      label: null, // No label on edge - must be null not undefined
+      style: {
+        strokeWidth: 2,
+        stroke: '#e11d48', // Brand red for identity
+        opacity: 0.8,
+        strokeDasharray: '5 5', // Dashed line
+        strokeLinecap: 'round'
+      },
+      data: {
+        isActive: true,
+        lastUpdate: Date.now()
+      }
+    };
+    
+    setEdges(eds => [...eds, newEdge]);
+  }, [validateConnection, setEdges, getNode, edgesRef]);
 
   // ========================================================================
   // NODE DELETION - Cascading delete
@@ -1036,6 +1259,19 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
   const deleteNode = useCallback((nodeId: string, _isRecursive = false): void => {
     if (!_isRecursive) pushHistory(nodesRef.current, edgesRef.current); // snapshot once at top level
+    
+    // Clean up cached images from IndexedDB
+    const node = getNode(nodeId);
+    if (node) {
+      const data = node.data as BuilderNodeData;
+      if (data.image && data.image.startsWith('idb://')) {
+        deleteLocalImage(data.image).catch(() => {});
+      }
+      if (data.outputData?.image && data.outputData.image.startsWith('idb://')) {
+        deleteLocalImage(data.outputData.image).catch(() => {});
+      }
+    }
+
     const children = getChildren(nodeId);
     children.forEach(child => deleteNode(child.id, true));
     
@@ -1045,7 +1281,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     if (selectedNodeId === nodeId) {
       setSelectedNodeId(null);
     }
-  }, [getChildren, setNodes, setEdges, selectedNodeId, setSelectedNodeId]);
+  }, [getChildren, getNode, setNodes, setEdges, selectedNodeId, setSelectedNodeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ========================================================================
   // AUTO LAYOUT
@@ -1164,6 +1400,76 @@ export const useBuilderWorkflow = (tabId?: string) => {
   }, [nodes]);
 
   // ========================================================================
+  // WORKFLOW RESTORATION - Restore full node tree from Library/History
+  // ========================================================================
+
+  /**
+   * Restore a complete workflow from saved node tree data
+   * Used when sending images with workflow from Library/History
+   */
+  const restoreWorkflow = useCallback((workflowData: {
+    nodes: any[];
+    edges?: any[];
+    name?: string;
+  }) => {
+    if (!workflowData.nodes || workflowData.nodes.length === 0) {
+      logger.warn('[restoreWorkflow] No nodes provided');
+      return false;
+    }
+
+    try {
+      // Clear existing nodes and edges
+      setNodes([]);
+      setEdges([]);
+
+      // Restore nodes with full data
+      const restoredNodes = workflowData.nodes.map((n: any) => ({
+        id: n.id,
+        type: n.type || 'baseNode',
+        position: n.position || { x: 80, y: 300 },
+        width: n.width || 260,
+        height: n.height,
+        data: {
+          ...n.data,
+          // Ensure proper state
+          state: n.data?.state || 'idle',
+          // Preserve lineage info
+          lineage: n.data?.lineage || { generation: 0, branch: 0, ancestry: [] },
+        },
+      }));
+
+      // Restore edges if provided
+      const restoredEdges = sanitizeEdges(
+        restoredNodes,
+        (workflowData.edges || []).map((e: any) => ({
+          id: e.id || `edge-${e.source}-${e.target}`,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle || 'source',
+          targetHandle: e.targetHandle,
+          type: e.type || 'default',
+          animated: e.animated ?? false,
+          style: e.style || { stroke: '#e11d48', strokeWidth: 2, strokeDasharray: '5 5' },
+          data: e.data,
+        }))
+      );
+
+      // Batch update to avoid multiple renders
+      setNodes(restoredNodes);
+      setEdges(restoredEdges);
+
+      // Push to history for undo/redo
+      pushHistory(restoredNodes, restoredEdges);
+
+      logger.log('[restoreWorkflow] Restored', restoredNodes.length, 'nodes and', restoredEdges.length, 'edges');
+      return true;
+    } catch (err) {
+      logger.error('[restoreWorkflow] Failed:', err);
+      return false;
+    }
+  }, [setNodes, setEdges, pushHistory]);
+
+  // ========================================================================
   // RETURN
   // ========================================================================
 
@@ -1188,6 +1494,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     addChildNode,
     executeProcessing,
     updateNodeData,
+    updateNodeImageAndPropagate,
     deleteNode,
     
     // Data flow
@@ -1219,6 +1526,9 @@ export const useBuilderWorkflow = (tabId?: string) => {
     undo,
     redo,
     canUndo,
-    canRedo
+    canRedo,
+
+    // Workflow restoration
+    restoreWorkflow
   };
 };

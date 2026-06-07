@@ -18,16 +18,15 @@
     0 0 0 1px rgba(255, 255, 255, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: visible;
   backdrop-filter: blur(12px);
-  transform-style: preserve-3d;
-  perspective: 1000px;
+  transform-style: flat;
 }
 
-/* Hover State - 3D Lift */
+/* Hover State - Lift */
 .anarchy-node:hover {
-  transform: translateY(-4px) rotateX(2deg);
+  transform: translateY(-2px);
   background: 
     linear-gradient(135deg, rgba(35, 35, 40, 0.9) 0%, rgba(22, 22, 26, 0.95) 50%, rgba(15, 15, 18, 1) 100%);
   border-color: rgba(255, 255, 255, 0.18);
@@ -50,7 +49,7 @@
     0 0 50px rgba(225, 29, 72, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5);
-  transform: translateY(-4px) rotateX(2deg);
+  transform: translateY(-2px);
 }
 
 /* Selection Ring - outer glow */
@@ -101,7 +100,8 @@
 
 /* Ghost Node Active States */
 .anarchy-node.ghost.selected {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-style: solid;
+  border-color: rgba(59, 130, 246, 0.6);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.15),
     0 0 40px rgba(255, 255, 255, 0.08),
@@ -394,14 +394,14 @@
 
 /* Has Image State */
 .node-image-region.has-image {
-  background: #000;
+  background: transparent;
 }
 
 .node-image-region.has-image img {
   width: 100%;
   height: 100%;
   max-height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   border-radius: 10px;
   transition: transform 0.3s ease, opacity 0.2s ease;
   display: block;
@@ -1085,16 +1085,29 @@
   box-shadow: 0 0 10px rgba(225, 29, 72, 0.3) !important;
 }
 
-/* Handle positioning refinement */
-.anarchy-handle[data-handlepos="left"] {
-  left: -5px !important;
+/* Handle positioning - Force right side for source handles */
+.anarchy-handle[data-handlepos="right"] {
+  right: -5px !important;
+  left: auto !important;
   top: 50% !important;
+  bottom: auto !important;
   transform: translateY(-50%) !important;
 }
 
-.anarchy-handle[data-handlepos="right"] {
+/* Override any inline styles from React Flow */
+.anarchy-node .react-flow__handle[type="source"] {
   right: -5px !important;
+  left: auto !important;
   top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+}
+
+.anarchy-node .react-flow__handle[type="target"] {
+  left: -5px !important;
+  right: auto !important;
+  top: 50% !important;
+  bottom: auto !important;
   transform: translateY(-50%) !important;
 }
 
@@ -1113,6 +1126,14 @@
   opacity: 1;
 }
 
+/* Hide edge labels globally */
+.react-flow__edge-text {
+  display: none !important;
+}
+
+.react-flow__edge-label {
+  display: none !important;
+}
 
 .branch-option {
   display: flex;
@@ -1264,14 +1285,14 @@
   gap: 6px;
 }
 
-.rs-indicator {
+.result-status .rs-indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
 }
 
-.rs-indicator.success {
+.result-status .rs-indicator.success {
   background: #10b981;
 }
 
@@ -1430,11 +1451,6 @@
   border-color: rgba(59, 130, 246, 0.4);
 }
 
-.anarchy-node.ghost.selected {
-  border-style: solid;
-  border-color: rgba(59, 130, 246, 0.6);
-}
-
 /* Result node styling */
 .anarchy-node.result {
   border-color: rgba(16, 185, 129, 0.2);
@@ -1537,12 +1553,14 @@
   right: 0;
   margin-top: 6px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 6px 10px;
   background: transparent;
   z-index: 10;
   pointer-events: all;
+  gap: 6px;
 }
 .node-prompt-text {
   font-size: 11px;
@@ -1552,4 +1570,50 @@
   user-select: text;
   cursor: text;
   text-align: center;
+}
+
+/* Specs tags under prompt */
+.node-specs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+  padding-top: 4px;
+}
+
+.spec-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: capitalize;
+}
+
+.spec-tag.model-tag {
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.06);
+  border-color: rgba(244, 63, 94, 0.15);
+}
+
+.spec-tag.res-tag {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.15);
+}
+
+.spec-tag.strength-tag {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+.spec-tag.upscale-tag {
+  color: #eab308;
+  background: rgba(234, 179, 8, 0.06);
+  border-color: rgba(234, 179, 8, 0.15);
 }

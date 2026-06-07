@@ -1,10 +1,14 @@
 import React from 'react';
-import { Shield, FileText, Lock, Database, ExternalLink, AlertTriangle, CreditCard } from 'lucide-react';
+import { Shield, FileText, Lock, Database, ExternalLink, AlertTriangle, CreditCard, ArrowLeft } from 'lucide-react';
 import './PrivacyPolicy.css';
+import { APP_INFO } from '../../config/appInfo';
 
 export const PrivacyPolicy: React.FC = () => {
   return (
     <div className="privacy-policy-page">
+      <button className="privacy-back-btn" onClick={() => globalThis.history.back()}>
+        <ArrowLeft size={16} /> Back
+      </button>
       <div className="privacy-header">
         <Shield size={48} className="privacy-icon" />
         <h1>Privacy Policy & Terms of Use</h1>
@@ -34,7 +38,7 @@ export const PrivacyPolicy: React.FC = () => {
             <p>Anarchy AI connects to the following third-party services to deliver its features:</p>
             <ul>
               <li><strong>Supabase</strong> — Authentication, user accounts, credit balance, and usage analytics</li>
-              <li><strong>Replicate API</strong> — AI image generation: your prompts and reference images are sent to Replicate's servers for processing</li>
+              <li><strong>AI Processing Services</strong> — AI image generation: your prompts and reference images are sent to secure cloud servers for processing</li>
               <li><strong>Image Hosting (0x0.st / catbox.moe)</strong> — Reference images may be temporarily uploaded to these services to be accessible by the AI model</li>
               <li><strong>GitHub</strong> — Automatic update checks fetch release metadata from GitHub</li>
             </ul>
@@ -53,7 +57,7 @@ export const PrivacyPolicy: React.FC = () => {
             <h4>🏛️ Architectural Design Privacy</h4>
             <p>We understand the sensitive nature of architectural work. Here is exactly what leaves your device:</p>
             <ul>
-              <li>Text prompts and model parameters are sent to <strong>Replicate API</strong> for AI processing</li>
+              <li>Text prompts and model parameters are sent to <strong>secure AI processing services</strong> for image generation</li>
               <li>Reference images you attach are temporarily uploaded to image hosting services to be processed by AI models</li>
               <li>Account credentials and credit balance are managed by <strong>Supabase</strong></li>
               <li>Anonymous usage events (model used, generation count) may be logged to Supabase for product improvement</li>
@@ -64,7 +68,7 @@ export const PrivacyPolicy: React.FC = () => {
           <h3>4. Data Security</h3>
           <ul>
             <li>✅ Project workflows and generated images remain <strong>on your device</strong></li>
-            <li>✅ Your Replicate API key is stored locally and never sent to our servers</li>
+            <li>✅ Your API key is stored locally and never sent to our servers</li>
             <li>✅ All API communications use HTTPS encryption</li>
             <li>✅ You can export/delete all local data anytime via Settings &gt; Storage</li>
             <li>✅ You can delete your account and all associated data from Settings &gt; Account</li>
@@ -151,7 +155,7 @@ export const PrivacyPolicy: React.FC = () => {
           <h2><Database size={20} /> Summary</h2>
           <div className="summary-box">
             <p>🔒 <strong>Projects &amp; images stay on your device</strong></p>
-            <p>🌐 <strong>Prompts &amp; reference images go to Replicate API for AI processing</strong></p>
+            <p>🌐 <strong>Prompts &amp; reference images go to AI services for processing</strong></p>
             <p>🔑 <strong>Your API key is stored locally only</strong></p>
             <p>🎨 <strong>Use for any architectural project</strong></p>
             <p>🚫 <strong>Don't redistribute the app</strong></p>
@@ -162,16 +166,14 @@ export const PrivacyPolicy: React.FC = () => {
 
         <section className="privacy-section contact-section">
           <h2>📧 Contact</h2>
-          <p>For questions or concerns:</p>
-          <p className="developer-name"><strong>Developer: Architect Mustafa Hisham</strong></p>
           <div className="contact-links">
-            <a href="https://www.instagram.com/mustafa_hisham.1/" target="_blank" rel="noopener noreferrer">
+            <a href={APP_INFO.links.instagram} target="_blank" rel="noopener noreferrer">
               <ExternalLink size={14} /> Instagram
             </a>
-            <a href="https://www.behance.net/Mustafa_VFX" target="_blank" rel="noopener noreferrer">
-              <ExternalLink size={14} /> Behance
+            <a href={APP_INFO.links.website} target="_blank" rel="noopener noreferrer">
+              <ExternalLink size={14} /> Website
             </a>
-            <a href="https://t.me/Mustafa_VFX" target="_blank" rel="noopener noreferrer">
+            <a href={APP_INFO.links.telegram} target="_blank" rel="noopener noreferrer">
               <ExternalLink size={14} /> Telegram
             </a>
           </div>

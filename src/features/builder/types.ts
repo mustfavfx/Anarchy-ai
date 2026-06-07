@@ -71,12 +71,15 @@ export interface BuilderNodeData extends Record<string, unknown> {
   
   // Content
   image?: string;
+  originalImage?: string;
   prompt?: string;
   
   // Processing metadata
   createdAt: number;
   processedAt?: number;
   errorMessage?: string;
+  predictionId?: string;    // Replicate prediction ID for tracking generation
+  userId?: string;          // User ID for Realtime subscription
   
   // Lineage
   lineage: NodeLineage;
@@ -93,6 +96,10 @@ export interface BuilderNodeData extends Record<string, unknown> {
     seed?: number;
     steps?: number;
     cfg?: number;
+    model?: string;
+    resolution?: string;
+    upscaleFactor?: number;
+    [key: string]: any;
   };
   
   // For local edit/inpainting
@@ -271,4 +278,40 @@ export const canBranch = (node: Node): boolean => {
 export const isReadyForExecution = (node: Node): boolean => {
   const data = node.data as BuilderNodeData;
   return data.type === 'ghost' && data.state === 'idle' && !!data.inputData?.image;
+};
+
+export const sanitizeEdges = (nodes: any[], edges: any[]): any[] => {
+  const nodeIds = new Set(nodes.map(n => n.id));
+  
+  // 1. Filter out orphaned edges
+  const validEdges = edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+  // 2. Ensure correct handle IDs based on target node type
+  return validEdges.map(e => {
+    const targetNode = nodes.find(n => n.id === e.target);
+    if (!targetNode) return e;
+
+    const isGhost = targetNode.type === 'ghostNode' || (targetNode.data && targetNode.data.type === 'ghost');
+    
+    if (isGhost) {
+      // If it is a ghost node, ensure it targets a ghost handle (e.g. ghost-target-X).
+      // If targetHandle is not already a ghost-target handle, default to ghost-target-0.
+      if (!e.targetHandle || !e.targetHandle.startsWith('ghost-target-')) {
+        return {
+          ...e,
+          targetHandle: 'ghost-target-0'
+        };
+      }
+      return e;
+    } else {
+      // If it is not a ghost node, it must target the 'target' handle
+      if (e.targetHandle !== 'target') {
+        return {
+          ...e,
+          targetHandle: 'target'
+        };
+      }
+      return e;
+    }
+  });
 };

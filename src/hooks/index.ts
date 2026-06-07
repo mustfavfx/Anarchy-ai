@@ -3,3 +3,5 @@ export {
   usePerformanceMonitor,
   useDebouncedNodes,
 } from './useVirtualization';
+export { useResolvedImage } from './useResolvedImage';
+

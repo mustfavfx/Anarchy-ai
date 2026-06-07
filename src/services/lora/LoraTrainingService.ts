@@ -1,5 +1,3 @@
-import { replicateService } from '../replicate/ReplicateService';
-
 export interface LoraTrainingRequest {
   baseModel: string;
   datasetUrl: string;
@@ -29,11 +27,11 @@ export interface LoraModel {
 }
 
 class LoraTrainingService {
-  private trainingJobs: Map<string, LoraTrainingStatus> = new Map();
-  private userLoras: Map<string, LoraModel[]> = new Map();
+  private readonly trainingJobs: Map<string, LoraTrainingStatus> = new Map();
+  private readonly userLoras: Map<string, LoraModel[]> = new Map();
 
   async startTraining(userId: string, request: LoraTrainingRequest): Promise<LoraTrainingStatus> {
-    const trainingId = `lora_${Date.now()}_${userId}`;
+    const trainingId = `lora_${Date.now()}_${userId}_${request.baseModel.replace(/\//g, '-')}`;
     
     const status: LoraTrainingStatus = {
       id: trainingId,

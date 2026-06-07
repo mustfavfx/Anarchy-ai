@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '../supabase/supabaseClient';
+import { logger } from '../../utils/logger';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,32 +39,113 @@ export interface CreditTransaction {
 // ── Credit Packages ───────────────────────────────────────────────────────────
 
 export const CREDIT_PACKAGES: CreditPackage[] = [
-  // $1 = 100 credits (1 credit = $0.01)
-  { id: 'p10', amount: 10, credits: 1000, bonus: 50 },       // $10 = 1050 credits
-  { id: 'p20', amount: 20, credits: 2000, bonus: 150 },    // $20 = 2150 credits  
-  { id: 'p50', amount: 50, credits: 5000, bonus: 500 },     // $50 = 5500 credits
-  { id: 'p100', amount: 100, credits: 10000, bonus: 1500 }, // $100 = 11500 credits
-  { id: 'p1000', amount: 1000, credits: 100000, bonus: 25000 }, // $1000 = 125000 credits
-  { id: 'custom', amount: 0, credits: 0, bonus: 0 },        // Custom amount (min $5)
+  // $1 = 10 credits (1 credit = $0.10)
+  { id: 'p10',   amount: 10,   credits: 100,   bonus: 5 },    // $10  = 105 credits
+  { id: 'p20',   amount: 20,   credits: 200,   bonus: 15 },   // $20  = 215 credits
+  { id: 'p50',   amount: 50,   credits: 500,   bonus: 50 },   // $50  = 550 credits
+  { id: 'p100',  amount: 100,  credits: 1000,  bonus: 150 },  // $100 = 1150 credits
+  { id: 'p1000', amount: 1000, credits: 10000, bonus: 2500 }, // $1000= 12500 credits
+  { id: 'custom', amount: 0, credits: 0, bonus: 0 },          // Custom amount (min $5)
 ];
 
 // ── Cost Per Operation (Based on Replicate Pricing) ────────────────────────────
-// 1 Credit ≈ $0.01 USD
+// 1 Credit = $0.10 USD  |  Markup: 1.5× on actual API cost (50% profit margin)
+//
+// Formula: credits = ceil(actual_cost_usd / 0.10 * 1.5)
+//
+// Per-model costs (credits):
+//   Nano Banana 2  1K → 2  |  2K → 2  |  4K → 3
+//   Nano Banana Pro 1K/2K → 3  |  4K → 5  |  fallback → 1
+//   Seedream 4.5        → 1
+//   FLUX 2 Pro          → 1
+//   FLUX Kontext Pro    → 1
+//   GPT Image 2 low → 1  |  medium → 1  |  auto/high → 2
+//   Grok Imagine        → 1
+//   Stable Diffusion 3.5 → 1  ($0.065 actual, $0.10 charged = 54% margin)
+//   Topaz Upscale       → 2
+//   Real-ESRGAN         → 1
+//   Clarity Upscaler    → 1
+//   P Image Upscale 1-4MP → 1 | 4-8MP → 1 | 8-16MP → 1 | 16-32MP → 1 | 32-64MP → 1 | 64-128MP → 2
 
+// Legacy flat costs (kept for Video / Chat which still use them)
 export const GENERATION_COST = {
-  // Image Generation (based on model costs)
-  standard: 3,     // flux-schnell ~$0.003 (cheapest)
-  hd: 25,          // flux-dev ~$0.025
-  '4k': 40,        // flux-1.1-pro ~$0.04
-  
+  standard: 1,     // default fallback
+  hd: 2,           // GPT Image 2 high
+  '4k': 3,         // Nano Banana 2 4K
+
   // Video Generation (per second)
-  video480: 90,    // wan-2.1-i2v-480p ~$0.09/sec
-  video720: 250,   // wan-2.1-i2v-720p ~$0.25/sec
-  
+  video480: 14,    // ~$0.09/sec
+  video720: 38,    // ~$0.25/sec
+
   // Other operations
-  upscale: 5,      // real-esrgan ~$0.005
+  upscale: 2,      // Topaz Labs ~$0.08
   chat: 1,         // Per 1K tokens ~$0.01
 };
+
+// ── Per-model cost lookup ─────────────────────────────────────────────────────
+// resolution param: aiConfig.resolution  e.g. '1024x1024', '2048x2048', '4096x4096'
+// qualityVariant param: aiConfig.stylePreset or gpt quality field  e.g. 'low'|'medium'|'high'|'auto'
+// prunaTarget param: aiConfig.prunaTarget (megapixels)
+
+export interface ModelCostParams {
+  resolution?: string;       // e.g. '1024x1024'
+  qualityVariant?: string;   // GPT Image 2: 'low' | 'medium' | 'high' | 'auto'
+  prunaTarget?: number;      // P Image Upscale target megapixels
+}
+
+// ── Per-model helpers (keep each helper ≤ 5 branches) ───────────────────────
+
+function resolveResPixels(resolution: string): number {
+  const [w, h] = resolution.split('x').map(Number);
+  return (w && h) ? w * h : 0;
+}
+
+function costNanaBanana2(resolution: string, px: number): number {
+  if (px >= 4096 * 4096 || resolution.includes('4K')) return 3;
+  if (px >= 2048 * 2048 || resolution.includes('2K')) return 2;
+  return 2;
+}
+
+function costNanaBananaPro(resolution: string, px: number): number {
+  if (px >= 4096 * 4096 || resolution.includes('4K')) return 5;
+  if (px >= 1024 * 1024 || resolution.includes('1K') || resolution.includes('2K')) return 3;
+  return 1;
+}
+
+function costGptImage2(qualityVariant: string): number {
+  if (qualityVariant === 'low')    return 1;
+  if (qualityVariant === 'medium') return 1;
+  return 2; // auto / high
+}
+
+function costPrunaUpscale(prunaTarget: number = 4): number {
+  const mp = prunaTarget;
+  if (mp <= 32) return 1;
+  return 2;   // 32-128MP
+}
+
+// ── Flat cost table for simple models ────────────────────────────────────────
+const FLAT_MODEL_COSTS: Record<string, number> = {
+  'bytedance/seedream-4.5':                        1,
+  'black-forest-labs/flux-2-pro':                  1,
+  'black-forest-labs/flux-kontext-pro':            1,
+  'xai/grok-imagine-image':                        1,
+  'stability-ai/stable-diffusion-3.5-large':       1,  // $0.065 actual → 1 credit ($0.10) = 54% margin
+  'topazlabs/image-upscale':                       2,
+  'nightmareai/real-esrgan':                       1,
+  'philz1337x/clarity-upscaler':                   1,
+};
+
+export function getModelCost(model: string, params: ModelCostParams = {}): number {
+  const { resolution = '', qualityVariant = 'auto', prunaTarget } = params;
+  const px = resolveResPixels(resolution);
+
+  if (model === 'google/nano-banana-2')   return costNanaBanana2(resolution, px);
+  if (model === 'google/nano-banana-pro') return costNanaBananaPro(resolution, px);
+  if (model === 'openai/gpt-image-2')     return costGptImage2(qualityVariant);
+  if (model === 'prunaai/p-image-upscale') return costPrunaUpscale(prunaTarget);
+  return FLAT_MODEL_COSTS[model] ?? GENERATION_COST.standard;
+}
 
 // Credit value: $1 = 100 credits
 // $5 package = 500 credits
@@ -72,7 +154,7 @@ export const GENERATION_COST = {
 // ── Development Mode ───────────────────────────────────────────────────────────
 // Set to true to bypass credit checks during development
 // Set to false to enforce credit system for production
-export const DEV_MODE = import.meta.env.DEV === true;
+export const DEV_MODE = false;
 
 // ── API ──────────────────────────────────────────────────────────────────────
 
@@ -92,7 +174,7 @@ export async function getUserCredit(userId: string): Promise<UserCredit | null> 
   }
 
   if (error) {
-    console.error('[Credit] Failed to get credit:', error);
+    logger.error('[Credit] Failed to get credit:', error);
     return null;
   }
 
@@ -115,7 +197,7 @@ async function createUserCredit(userId: string): Promise<UserCredit | null> {
     .single();
 
   if (error) {
-    console.error('[Credit] Failed to create credit record:', error);
+    logger.error('[Credit] Failed to create credit record:', error);
     return null;
   }
 
@@ -137,7 +219,7 @@ export async function addCredits(
   });
 
   if (rpcError) {
-    console.error('[Credit] Failed to add credits:', rpcError);
+    logger.error('[Credit] Failed to add credits:', rpcError);
     // Fallback: manual update
     return manualAddCredits(userId, credits, amountUsd, paymentId);
   }
@@ -167,7 +249,7 @@ async function manualAddCredits(
     .eq('user_id', userId);
 
   if (error) {
-    console.error('[Credit] Manual add failed:', error);
+    logger.error('[Credit] Manual add failed:', error);
     return false;
   }
 
@@ -217,7 +299,7 @@ export async function deductCredits(
     .eq('user_id', userId);
 
   if (error) {
-    console.error('[Credit] Failed to deduct:', error);
+    logger.error('[Credit] Failed to deduct:', error);
     return { success: false, remaining: credit.balance, error: 'Deduction failed' };
   }
 
@@ -267,7 +349,7 @@ export async function getTransactionHistory(
     .limit(limit);
 
   if (error) {
-    console.error('[Credit] Failed to get transactions:', error);
+    logger.error('[Credit] Failed to get transactions:', error);
     return [];
   }
 
@@ -289,7 +371,7 @@ async function recordTransaction(
   });
 
   if (error) {
-    console.error('[Credit] Failed to record transaction:', error);
+    logger.error('[Credit] Failed to record transaction:', error);
   }
 }
 

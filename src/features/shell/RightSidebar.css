@@ -180,8 +180,9 @@
 
 .preview-stage {
   position: relative;
-  flex: 1;
-  min-height: 210px;
+  width: 100%;
+  height: 220px;       /* Fixed height — never changes with image size */
+  flex-shrink: 0;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -591,6 +592,24 @@
    MASK/DRAW MODE - Canvas Drawing
    ============================================ */
 
+.mask-container-v2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0b;
+}
+
+.sidebar-mask-canvas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .mask-container {
   position: absolute;
   inset: 0;
@@ -930,8 +949,8 @@
 
 .preview-expand-content {
   position: relative;
-  max-width: 92vw;
-  max-height: 92vh;
+  width: 90vw;
+  height: 90vh;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -944,7 +963,7 @@
 .preview-expand-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 8px 12px;
   background: rgba(255,255,255,0.03);
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -967,14 +986,61 @@
 .preview-expand-actions {
   display: flex;
   gap: 4px;
+  margin-left: auto;
 }
 
 .preview-expand-image {
   flex: 1;
-  max-width: 88vw;
-  max-height: calc(88vh - 44px);
+  min-height: 0;
   object-fit: contain;
   display: block;
+  width: 100%;
+}
+
+/* Tab switcher */
+.preview-expand-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.preview-expand-tab {
+  padding: 4px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.preview-expand-tab:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+.preview-expand-tab.active {
+  background: rgba(225,29,72,0.25);
+  color: #fecdd3;
+}
+
+/* Mask wrap inside expand modal */
+.preview-expand-mask-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.expand-modal-mask-canvas {
+  flex: 1;
+  min-height: 0;
 }
 
 .preview-expand-close {

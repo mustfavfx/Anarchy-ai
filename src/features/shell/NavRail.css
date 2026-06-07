@@ -83,7 +83,7 @@
 }
 
 .nav-item.active {
-  color: #e11d48;
+  color: #f43f5e;
   background-color: rgba(225, 29, 72, 0.08);
 }
 
@@ -225,29 +225,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   z-index: 1001;
   padding: 0;
+  opacity: 0;
 }
 
-.nav-collapse-btn:hover {
-  background: rgba(225, 29, 72, 0.15);
-  border-color: #e11d48;
-  color: #fb7185;
-  transform: translateY(-50%) scale(1.15);
-  box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
-}
-
-.nav-rail:hover .nav-collapse-btn {
+.nav-rail:hover .nav-collapse-btn,
+.nav-rail.collapsed:hover .nav-collapse-btn {
   opacity: 1;
 }
 
 .nav-collapse-btn:hover {
   background: rgba(225, 29, 72, 0.15);
   border-color: rgba(225, 29, 72, 0.4);
-  color: #fb7185;
+  color: #fda4af;
   transform: translateY(-50%) scale(1.15);
   box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
 }
@@ -255,10 +249,6 @@
 .nav-rail.collapsed .nav-collapse-btn {
   right: -10px;
   opacity: 0;
-}
-
-.nav-rail.collapsed:hover .nav-collapse-btn {
-  opacity: 1;
 }
 
 

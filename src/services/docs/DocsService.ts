@@ -112,7 +112,6 @@ const DOC_STRUCTURE: DocCategory[] = [
       { id: 'sketchup', title: 'SketchUp Export', path: 'exporting/03-sketchup.md', type: 'doc' },
       { id: 'rhino', title: 'Rhino/GH Workflow', path: 'exporting/04-rhino.md', type: 'doc' },
       { id: 'vray', title: 'V-Ray Render Settings', path: 'exporting/05-vray.md', type: 'doc' },
-      { id: 'autocad', title: 'AutoCAD Export', path: 'exporting/06-autocad.md', type: 'doc' },
       { id: 'blender', title: 'Blender Integration', path: 'exporting/07-blender.md', type: 'doc' },
     ],
   },

@@ -5,8 +5,7 @@
  */
 
 .ghost-node {
-  width: 100%;
-  min-width: 200px;
+  width: auto;
   position: relative;
   border-radius: 14px;
   background: 
@@ -18,7 +17,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3),
     0 0 30px rgba(200, 220, 255, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: visible;
   backdrop-filter: blur(12px);
   transform-style: preserve-3d;
@@ -102,16 +101,62 @@
 }
 
 .ghost-handle--input {
-  left: -8px;
-  transform: translateY(-50%);
+  left: -6px !important;
+  transform: translateY(-50%) !important;
+  width: 12px !important;
+  height: 12px !important;
+  background: rgba(225, 29, 72, 0.4) !important;
+  border: 2px solid rgba(225, 29, 72, 0.8) !important;
+  border-radius: 50% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 10 !important;
 }
 
+.ghost-handle--input:hover {
+  background: rgba(225, 29, 72, 0.7) !important;
+  border-color: #e11d48 !important;
+  transform: translateY(-50%) scale(1.2) !important;
+}
+
+/* Connected handle style */
+.ghost-handle--input.connected {
+  background: #e11d48 !important;
+  border-color: #e11d48 !important;
+}
+
+/* Output handle - Force right side positioning */
 .ghost-handle--output {
-  right: -6px;
+  right: -6px !important;
+  left: auto !important;
   top: 50% !important;
+  bottom: auto !important;
   transform: translateY(-50%) !important;
-  background: rgba(16, 185, 129, 0.3);
-  border-color: rgba(16, 185, 129, 0.6);
+  background: rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+}
+
+/* Override any inline styles */
+.ghost-node .react-flow__handle[type="source"] {
+  right: -6px !important;
+  left: auto !important;
+  top: 50% !important;
+  bottom: auto !important;
+}
+
+/* Override target handles to force left positioning */
+.ghost-node .react-flow__handle[type="target"] {
+  left: -6px !important;
+  right: auto !important;
+}
+
+/* Hide any edge labels */
+.react-flow__edge-text {
+  display: none !important;
+}
+
+.react-flow__edge-label {
+  display: none !important;
 }
 
 .ghost-handle--output:hover {
@@ -243,6 +288,12 @@
   font-weight: 500;
 }
 
+.ghost-input-hint {
+  font-size: 9px !important;
+  color: rgba(59, 130, 246, 0.8);
+  margin-top: 4px;
+}
+
 .ghost-preview-image {
   width: 100%;
   height: 100%;
@@ -372,4 +423,85 @@
 
 .spin {
   animation: spin 1s linear infinite;
+}
+
+/* ── Inline prompt styling ── */
+.ghost-inline-prompt-bar {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  background: rgba(10, 10, 12, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 25;
+}
+
+.ghost-inline-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: #ffffff;
+  padding: 4px 8px;
+  outline: none;
+}
+
+.ghost-inline-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.ghost-inline-run-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ghost-color, #e11d48);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ghost-inline-run-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+.ghost-inline-run-btn:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+}
+
+/* ── Tooltip labels for handles ── */
+.ghost-handle-label {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(10, 10, 12, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 500;
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.react-flow__handle:hover .ghost-handle-label {
+  opacity: 1;
 }

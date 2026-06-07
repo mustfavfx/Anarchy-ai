@@ -1,4 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import { logger } from '../utils/logger';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import './ErrorBoundary.css';
 
@@ -26,24 +27,24 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    logger.error('Uncaught error:', error, errorInfo);
     this.setState({ error, errorInfo });
     
     // You can also log to an error reporting service here
     // logErrorToService(error, errorInfo);
   }
 
-  private handleReset = () => {
+  private readonly handleReset = () => {
     this.setState({ hasError: false, error: null, errorInfo: null });
     this.props.onReset?.();
   };
 
-  private handleReload = () => {
-    window.location.reload();
+  private readonly handleReload = () => {
+    globalThis.location.reload();
   };
 
-  private handleGoHome = () => {
-    window.location.href = '/';
+  private readonly handleGoHome = () => {
+    globalThis.location.href = '/';
   };
 
   public render() {

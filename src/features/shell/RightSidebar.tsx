@@ -1,12 +1,177 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Image, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download } from 'lucide-react';
+import { logger } from '../../utils/logger';
+import { Image as ImageIcon, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download } from 'lucide-react';
 import { ExportModal } from '../../components/ExportModal';
 import { AIControlPanel } from '../builder/AIControlPanel';
 import { MaskCanvas } from './MaskCanvas';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { ReplicateImageModel, ReplicateUpscaleModel } from '../../services/replicate';
 import { replicateService } from '../../services/replicate';
+import { useResolvedImage } from '../../hooks';
 import './RightSidebar.css';
+
+interface PreviewZoomStageProps {
+  image?: string;
+  resolvedImage?: string;
+  imageType?: string | null;
+  zoom: number;
+  panX: number;
+  panY: number;
+  isPanning: boolean;
+  stageRef: React.RefObject<HTMLButtonElement | null>;
+  onWheel: (e: React.WheelEvent) => void;
+  onPanStart: (e: React.MouseEvent) => void;
+  onPanMove: (e: React.MouseEvent) => void;
+  onPanEnd: () => void;
+  onFit: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onExpand: () => void;
+}
+
+const PreviewZoomStage: React.FC<PreviewZoomStageProps> = ({
+  image, resolvedImage, imageType, zoom, panX, panY, isPanning,
+  stageRef, onWheel, onPanStart, onPanMove, onPanEnd,
+  onFit, onZoomIn, onZoomOut, onExpand,
+}) => (
+  <div className="preview-zoom-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <button
+      type="button"
+      className={`preview-zoom-stage ${isPanning ? 'panning' : ''}`}
+      ref={stageRef}
+      onWheel={onWheel}
+      onMouseDown={onPanStart}
+      onMouseMove={onPanMove}
+      onMouseUp={onPanEnd}
+      onMouseLeave={onPanEnd}
+      aria-label="Image preview area. Scroll to zoom, drag to pan."
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        width: '100%',
+        height: '100%',
+        display: 'block',
+        cursor: isPanning ? 'grabbing' : 'grab',
+        outline: 'none',
+        position: 'relative'
+      }}
+    >
+      {image ? (
+        <img
+          key={image}
+          src={
+            resolvedImage && !resolvedImage.startsWith('idb://')
+              ? resolvedImage
+              : image && !image.startsWith('idb://')
+              ? image
+              : undefined
+          }
+          alt={imageType || 'Node'}
+          className="preview-zoom-img"
+          style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
+          onError={e => { e.currentTarget.style.display = 'none'; }}
+          onLoad={e => { e.currentTarget.style.display = ''; }}
+          draggable={false}
+        />
+      ) : (
+        <div className="preview-stage-content">
+          <ImageIcon size={26} />
+          <span>No image selected</span>
+          <small>Click a node to view its image</small>
+        </div>
+      )}
+    </button>
+
+    {image && (
+      <>
+        <div className="preview-zoom-controls">
+          <button className="pz-btn" onClick={onZoomIn} title="Zoom In (+)">+</button>
+          <span className="pz-label">{Math.round(zoom * 100)}%</span>
+          <button className="pz-btn" onClick={onZoomOut} title="Zoom Out (-)">−</button>
+          <button className="pz-btn" onClick={onFit} title="Fit (F)">⊡</button>
+          <button className="pz-btn" onClick={onExpand} title="Fullscreen">⛶</button>
+        </div>
+        {zoom === 1 && panX === 0 && panY === 0 && (
+          <span className="preview-zoom-hint" style={{ pointerEvents: 'none' }}>
+            Scroll to zoom · Drag to pan
+          </span>
+        )}
+      </>
+    )}
+  </div>
+);
+
+interface CompareSectionProps {
+  compareImages: { A: string | null; B: string | null };
+  resolvedImages: { A: string | null; B: string | null };
+  compareSplit: number;
+  onSplitChange: (val: number) => void;
+  onSwap: () => void;
+  onClear: () => void;
+  onSetSlot: (slot: 'A' | 'B') => void;
+  onClearSlot: (slot: 'A' | 'B') => void;
+}
+
+const CompareSection: React.FC<CompareSectionProps> = ({
+  compareImages, resolvedImages, compareSplit, onSplitChange, onSwap, onClear, onSetSlot, onClearSlot,
+}) => {
+  if (compareImages.A && compareImages.B) {
+    return (
+      <div className="compare-container">
+        <img src={resolvedImages.B ?? compareImages.B ?? ''} className="compare-base" alt="B" />
+        <div className="compare-clip" style={{ clipPath: `inset(0 ${100 - compareSplit}% 0 0)` }}>
+          <img src={resolvedImages.A ?? compareImages.A ?? ''} alt="A" />
+        </div>
+        <div className="compare-handle" style={{ left: `${compareSplit}%` }}>
+          <div className="compare-handle-line" />
+          <div className="compare-handle-circle"><SplitSquareHorizontal size={12} /></div>
+        </div>
+        <span className="compare-label compare-label-a">A</span>
+        <span className="compare-label compare-label-b">B</span>
+        <input type="range" min="0" max="100" value={compareSplit}
+          onChange={e => onSplitChange(Number(e.target.value))}
+          className="compare-slider-input" />
+        <div className="compare-toolbar">
+          <button className="compare-tool-btn" onClick={onSwap} title="Swap A ↔ B">⇄</button>
+          <button className="compare-tool-btn" onClick={onClear} title="Clear both"><X size={12} /></button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="compare-container">
+      <div className="compare-empty">
+        {(['A', 'B'] as const).map(slot => (
+          <button
+            key={slot}
+            type="button"
+            className={`compare-slot ${compareImages[slot] ? 'filled' : ''}`}
+            onClick={() => onSetSlot(slot)}
+          >
+            {compareImages[slot] ? (
+              <>
+                <img src={resolvedImages[slot] ?? compareImages[slot] ?? ''} alt={slot} />
+                <button className="compare-slot-clear"
+                  onClick={e => { e.stopPropagation(); onClearSlot(slot); }}>
+                  <X size={12} />
+                </button>
+                <span className="compare-slot-label">{slot}</span>
+              </>
+            ) : (
+              <>
+                <Plus size={20} />
+                <span>Select Image {slot}</span>
+                <small>Click or right-click node</small>
+              </>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export const RightSidebar: React.FC = () => {
   const config = useAIConfigStore((state) => state.config);
@@ -17,11 +182,18 @@ export const RightSidebar: React.FC = () => {
   const setCompareSlot = useAIConfigStore((state) => state.setCompareSlot);
   const isEnlargedView = useAIConfigStore((state) => state.isEnlargedView);
   const setIsEnlargedView = useAIConfigStore((state) => state.setIsEnlargedView);
+  const setSelectedNode = useAIConfigStore((state) => state.setSelectedNode);
+  const nodeImageUpdateFn = useAIConfigStore((state) => state.nodeImageUpdateFn);
+
+  const resolvedSelectedImage = useResolvedImage(selectedNode?.image);
+  const resolvedCompareA = useResolvedImage(compareImages.A);
+  const resolvedCompareB = useResolvedImage(compareImages.B);
   
   const [previewMode, setPreviewMode] = React.useState<'preview' | 'compare' | 'draw'>('preview');
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showExpandModal, setShowExpandModal] = React.useState(false);
   const [showExportModal, setShowExportModal] = React.useState(false);
+  const [expandModalTab, setExpandModalTab] = React.useState<'preview' | 'draw'>('preview');
 
   // Zoom/Pan state for Preview mode
   const [zoom, setZoom]         = useState(1);
@@ -29,10 +201,20 @@ export const RightSidebar: React.FC = () => {
   const [panY, setPanY]         = useState(0);
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
-  const previewStageRef = useRef<HTMLDivElement>(null);
+  const previewStageRef = useRef<HTMLButtonElement>(null);
 
   // Reset zoom/pan when image changes
   useEffect(() => { setZoom(1); setPanX(0); setPanY(0); }, [selectedNode?.image]);
+
+  // Handle escape key to close fullscreen preview modal
+  useEffect(() => {
+    if (!showExpandModal) return;
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowExpandModal(false);
+    };
+    globalThis.addEventListener('keydown', handleGlobalKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showExpandModal]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -60,9 +242,9 @@ export const RightSidebar: React.FC = () => {
   const fitToStage = useCallback(() => { setZoom(1); setPanX(0); setPanY(0); }, []);
 
   // Compare split slider state
-  const [compareSplit, setCompareSplit] = useState(50); // 0-100%, 50 = middle
-  
-  // Mask/Draw mode state - now handled by MaskCanvas component
+  const [compareSplit, setCompareSplit] = useState(50);
+
+  // Mask/Draw mode state
   const [maskResult, setMaskResult] = useState<string | null>(null);
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
 
@@ -101,7 +283,7 @@ export const RightSidebar: React.FC = () => {
     clarityDownscalingRes?: number;
     claritySharpen?: number;
     clarityHandfix?: string;
-    clarityPattern?: boolean;
+    clarityPattern?: string;
     // Pruna AI settings
     prunaMode?: 'target' | 'factor';
     prunaTarget?: number;
@@ -135,6 +317,14 @@ export const RightSidebar: React.FC = () => {
     return () => globalThis.removeEventListener('keydown', onKey);
   }, [previewMode, fitToStage]);
 
+  // Handle crop — update selectedNode store AND the actual ReactFlow node data
+  const handleCrop = useCallback((croppedDataUrl: string) => {
+    if (!selectedNode?.id) return;
+    setSelectedNode({ ...selectedNode, image: croppedDataUrl });
+    nodeImageUpdateFn?.(selectedNode.id, croppedDataUrl);
+    setPreviewMode('preview');
+  }, [selectedNode, setSelectedNode, nodeImageUpdateFn]);
+
   // Handle mask generation
   const handleMaskGenerate = useCallback(async (_maskDataUrl: string, prompt: string) => {
     if (!selectedNode?.image || !prompt.trim()) return;
@@ -142,7 +332,7 @@ export const RightSidebar: React.FC = () => {
     try {
       const result = await replicateService.generateImg2Img({
         prompt,
-        model: 'black-forest-labs/flux-kontext-pro' as ReplicateImageModel,
+        model: 'black-forest-labs/flux-kontext-pro',
         strength: 0.85,
         resolution: 'Auto',
         aspectRatio: 'Auto',
@@ -152,7 +342,7 @@ export const RightSidebar: React.FC = () => {
         setMaskResult(result.imageUrl);
       }
     } catch (error) {
-      console.error('Mask generation failed:', error);
+      logger.error('Mask generation failed:', error);
     }
   }, [selectedNode?.image]);
 
@@ -190,6 +380,21 @@ export const RightSidebar: React.FC = () => {
                 <button type="button" className={`sidebar-tab ${previewMode === 'draw' ? 'active' : ''}`} onClick={() => setPreviewMode('draw')}>Mask</button>
               </div>
               <div className="sidebar-preview-actions">
+                {selectedNode?.image && selectedNode?.originalImage && selectedNode.image !== selectedNode.originalImage && (
+                  <button
+                    className="sidebar-enlarge-btn revert-btn"
+                    onClick={() => {
+                      if (selectedNode.id && selectedNode.originalImage) {
+                        nodeImageUpdateFn?.(selectedNode.id, selectedNode.originalImage);
+                        setSelectedNode({ ...selectedNode, image: selectedNode.originalImage });
+                      }
+                    }}
+                    title="Revert to original uncropped image"
+                    style={{ marginRight: '6px', background: 'rgba(225,29,72,0.15)', borderColor: 'rgba(225,29,72,0.3)', color: '#fecdd3' }}
+                  >
+                    Revert
+                  </button>
+                )}
                 {selectedNode?.image && (
                   <button
                     className="sidebar-icon-btn"
@@ -212,188 +417,52 @@ export const RightSidebar: React.FC = () => {
                 <div className={`preview-stage mode-${previewMode}`}>
               {/* PREVIEW MODE — Zoom/Pan/Fit */}
               {previewMode === 'preview' && (
-                <div
-                  className={`preview-zoom-stage ${isPanning ? 'panning' : ''}`}
-                  ref={previewStageRef}
-                  role="img"
-                  aria-label="Image preview"
-                  tabIndex={0}
+                <PreviewZoomStage
+                  image={selectedNode?.image}
+                  resolvedImage={resolvedSelectedImage}
+                  imageType={selectedNode?.type}
+                  zoom={zoom}
+                  panX={panX}
+                  panY={panY}
+                  isPanning={isPanning}
+                  stageRef={previewStageRef}
                   onWheel={handleWheel}
-                  onMouseDown={handlePanStart}
-                  onMouseMove={handlePanMove}
-                  onMouseUp={handlePanEnd}
-                  onMouseLeave={handlePanEnd}
-                  onKeyDown={e => {
-                    if (e.key === '+' || e.key === '=') setZoom(z => Math.min(10, z * 1.25));
-                    if (e.key === '-') setZoom(z => Math.max(0.1, z / 1.25));
-                    if (e.key === 'f' || e.key === 'F') fitToStage();
-                  }}
-                >
-                  {selectedNode?.image ? (
-                    <>
-                      <img
-                        src={selectedNode.image}
-                        alt={selectedNode.type || 'Node'}
-                        className="preview-zoom-img"
-                        style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
-                        onError={e => { (e.currentTarget).style.display = 'none'; }}
-                        draggable={false}
-                      />
-                      {/* Zoom controls overlay */}
-                      <div className="preview-zoom-controls">
-                        <button className="pz-btn" onClick={() => setZoom(z => Math.min(10, z * 1.25))} title="Zoom In (+)">+</button>
-                        <span className="pz-label">{Math.round(zoom * 100)}%</span>
-                        <button className="pz-btn" onClick={() => setZoom(z => Math.max(0.1, z / 1.25))} title="Zoom Out (-)">−</button>
-                        <button className="pz-btn" onClick={fitToStage} title="Fit (F)">⊡</button>
-                        <button className="pz-btn" onClick={() => setShowExpandModal(true)} title="Fullscreen">⛶</button>
-                      </div>
-                      {/* Zoom hint */}
-                      {zoom === 1 && panX === 0 && panY === 0 && (
-                        <span className="preview-zoom-hint">Scroll to zoom · Drag to pan</span>
-                      )}
-                    </>
-                  ) : (
-                    <div className="preview-stage-content">
-                      <Image size={26} />
-                      <span>No image selected</span>
-                      <small>Click a node to view its image</small>
-                    </div>
-                  )}
-                </div>
+                  onPanStart={handlePanStart}
+                  onPanMove={handlePanMove}
+                  onPanEnd={handlePanEnd}
+                  onFit={fitToStage}
+                  onZoomIn={() => setZoom(z => Math.min(10, z * 1.25))}
+                  onZoomOut={() => setZoom(z => Math.max(0.1, z / 1.25))}
+                  onExpand={() => setShowExpandModal(true)}
+                />
               )}
 
               {/* COMPARE MODE */}
               {previewMode === 'compare' && (
-                <div className="compare-container">
-                  {compareImages.A && compareImages.B ? (
-                    <>
-                      {/* Image B as base layer */}
-                      <img src={compareImages.B} className="compare-base" alt="B" />
-                      {/* Image A clipped by slider */}
-                      <div 
-                        className="compare-clip"
-                        style={{ clipPath: `inset(0 ${100 - compareSplit}% 0 0)` }}
-                      >
-                        <img src={compareImages.A} alt="A" />
-                      </div>
-                      {/* Draggable divider line */}
-                      <div 
-                        className="compare-handle"
-                        style={{ left: `${compareSplit}%` }}
-                      >
-                        <div className="compare-handle-line" />
-                        <div className="compare-handle-circle">
-                          <SplitSquareHorizontal size={12} />
-                        </div>
-                      </div>
-                      {/* Labels */}
-                      <span className="compare-label compare-label-a">A</span>
-                      <span className="compare-label compare-label-b">B</span>
-                      {/* Slider input (invisible but covers area) */}
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="100" 
-                        value={compareSplit}
-                        onChange={(e) => setCompareSplit(Number(e.target.value))}
-                        className="compare-slider-input"
-                      />
-                      {/* Toolbar */}
-                      <div className="compare-toolbar">
-                        <button 
-                          className="compare-tool-btn"
-                          onClick={() => setCompareImages({ A: compareImages.B, B: compareImages.A })}
-                          title="Swap A ↔ B"
-                        >
-                          ⇄
-                        </button>
-                        <button 
-                          className="compare-tool-btn"
-                          onClick={() => setCompareImages({ A: null, B: null })}
-                          title="Clear both"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="compare-empty">
-                      <button
-                        type="button"
-                        className={`compare-slot ${compareImages.A ? 'filled' : ''}`}
-                        onClick={() => {
-                          console.log('[Compare] Clicked A, selectedNode.id:', selectedNode?.id, 'image:', selectedNode?.image?.slice(0, 50));
-                          if (!compareImages.A && selectedNode?.image) {
-                            console.log('[Compare] Setting slot A with image:', selectedNode.image.slice(0, 50));
-                            setCompareSlot('A', selectedNode.image);
-                          } else {
-                            console.log('[Compare] Cannot set A - compareImages.A:', compareImages.A, 'selectedNode.image:', !!selectedNode?.image);
-                          }
-                        }}
-                      >
-                        {compareImages.A ? (
-                          <>
-                            <img src={compareImages.A} alt="A" />
-                            <button 
-                              className="compare-slot-clear"
-                              onClick={(e) => { e.stopPropagation(); setCompareImages(prev => ({ ...prev, A: null })); }}
-                            >
-                              <X size={12} />
-                            </button>
-                            <span className="compare-slot-label">A</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus size={20} />
-                            <span>Select Image A</span>
-                            <small>Click or right-click node</small>
-                          </>
-                        )}
-                      </button>
-                      
-                      <button
-                        type="button"
-                        className={`compare-slot ${compareImages.B ? 'filled' : ''}`}
-                        onClick={() => {
-                          console.log('[Compare] Clicked B, selectedNode.id:', selectedNode?.id, 'image:', selectedNode?.image?.slice(0, 50));
-                          if (!compareImages.B && selectedNode?.image) {
-                            console.log('[Compare] Setting slot B with image:', selectedNode.image.slice(0, 50));
-                            setCompareSlot('B', selectedNode.image);
-                          } else {
-                            console.log('[Compare] Cannot set B - compareImages.B:', compareImages.B, 'selectedNode.image:', !!selectedNode?.image);
-                          }
-                        }}
-                      >
-                        {compareImages.B ? (
-                          <>
-                            <img src={compareImages.B} alt="B" />
-                            <button 
-                              className="compare-slot-clear"
-                              onClick={(e) => { e.stopPropagation(); setCompareImages(prev => ({ ...prev, B: null })); }}
-                            >
-                              <X size={12} />
-                            </button>
-                            <span className="compare-slot-label">B</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus size={20} />
-                            <span>Select Image B</span>
-                            <small>Click or right-click node</small>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <CompareSection
+                  compareImages={compareImages}
+                  resolvedImages={{ A: resolvedCompareA ?? null, B: resolvedCompareB ?? null }}
+                  compareSplit={compareSplit}
+                  onSplitChange={setCompareSplit}
+                  onSwap={() => setCompareImages({ A: compareImages.B, B: compareImages.A })}
+                  onClear={() => setCompareImages({ A: null, B: null })}
+                  onSetSlot={slot => {
+                    if (!compareImages[slot] && selectedNode?.image) {
+                      logger.log(`[Compare] Setting slot ${slot}:`, selectedNode.image.slice(0, 50));
+                      setCompareSlot(slot, selectedNode.image);
+                    }
+                  }}
+                  onClearSlot={slot => setCompareImages(prev => ({ ...prev, [slot]: null }))}
+                />
               )}
 
               {/* MASK/DRAW MODE — Using MaskCanvas Component */}
               {previewMode === 'draw' && (
                 <div className="mask-container-v2">
                   <MaskCanvas
-                    image={selectedNode?.image || null}
+                    image={resolvedSelectedImage || null}
                     onGenerate={handleMaskGenerate}
+                    onCrop={handleCrop}
                     showGenerateButton={true}
                     className="sidebar-mask-canvas"
                   />
@@ -458,7 +527,6 @@ export const RightSidebar: React.FC = () => {
             clarityDownscalingRes: config.clarityDownscalingRes,
             claritySharpen: config.claritySharpen,
             clarityHandfix: config.clarityHandfix,
-            clarityPattern: config.clarityPattern,
             // Pruna AI settings
             prunaMode: config.prunaMode,
             prunaTarget: config.prunaTarget,
@@ -476,26 +544,39 @@ export const RightSidebar: React.FC = () => {
 
       {/* Fullscreen Modal */}
       {showExpandModal && selectedNode?.image && (
-        <div
-          role="dialog"
-          aria-modal="true"
+        <dialog
           aria-label="Fullscreen image preview"
           className="preview-expand-modal"
-          onClick={e => { e.stopPropagation(); setShowExpandModal(false); }}
-          onKeyDown={e => { if (e.key === 'Escape' || e.key === 'f' || e.key === 'F') setShowExpandModal(false); }}
-          tabIndex={-1}
+          open
           style={{ outline: 'none' }}
-          ref={el => el?.focus()}
         >
-          <div className="preview-expand-content" onClick={e => e.stopPropagation()} role="document">
+          <button type="button" className="preview-expand-backdrop" onClick={() => setShowExpandModal(false)} aria-label="Close preview" />
+          <div className="preview-expand-content">
             {/* Top bar */}
             <div className="preview-expand-topbar">
               <span className="preview-expand-title">
                 {selectedNode.type ?? 'Image'}
                 {imgNaturalSize && (
-                  <span className="preview-expand-dims"> · {imgNaturalSize.w}×{imgNaturalSize.h}</span>
+                  <span className="preview-expand-dims"> · {imgNaturalSize.w}×{imgNaturalSize.h}</span>
                 )}
               </span>
+              {/* Tab switcher */}
+              <div className="preview-expand-tabs">
+                <button
+                  className={`preview-expand-tab ${expandModalTab === 'preview' ? 'active' : ''}`}
+                  onClick={() => setExpandModalTab('preview')}
+                  title="Preview"
+                >
+                  Preview
+                </button>
+                <button
+                  className={`preview-expand-tab ${expandModalTab === 'draw' ? 'active' : ''}`}
+                  onClick={() => setExpandModalTab('draw')}
+                  title="Mask / Crop"
+                >
+                  Mask &amp; Crop
+                </button>
+              </div>
               <div className="preview-expand-actions">
                 <button
                   className="preview-expand-close"
@@ -513,18 +594,44 @@ export const RightSidebar: React.FC = () => {
                 </button>
               </div>
             </div>
-            <img
-              src={selectedNode.image}
-              alt={selectedNode.type || 'Node'}
-              className="preview-expand-image"
-              onLoad={e => {
-                const t = e.currentTarget;
-                setImgNaturalSize({ w: t.naturalWidth, h: t.naturalHeight });
-              }}
-              onError={e => { e.currentTarget.style.display = 'none'; }}
-            />
+            {expandModalTab === 'preview' ? (
+              <img
+                key={selectedNode.image}
+                src={
+                  resolvedSelectedImage && !resolvedSelectedImage.startsWith('idb://')
+                    ? resolvedSelectedImage
+                    : selectedNode.image && !selectedNode.image.startsWith('idb://')
+                    ? selectedNode.image
+                    : undefined
+                }
+                alt={selectedNode.type || 'Node'}
+                className="preview-expand-image"
+                onLoad={e => {
+                  const t = e.currentTarget;
+                  t.style.display = '';
+                  setImgNaturalSize({ w: t.naturalWidth, h: t.naturalHeight });
+                }}
+                onError={e => { e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              <div className="preview-expand-mask-wrap">
+                <MaskCanvas
+                  image={resolvedSelectedImage || null}
+                  onGenerate={handleMaskGenerate}
+                  onCrop={(cropped) => {
+                    setSelectedNode({ ...selectedNode, image: cropped });
+                    if (selectedNode?.id) {
+                      nodeImageUpdateFn?.(selectedNode.id, cropped);
+                    }
+                    setExpandModalTab('preview');
+                  }}
+                  showGenerateButton={true}
+                  className="expand-modal-mask-canvas"
+                />
+              </div>
+            )}
           </div>
-        </div>
+        </dialog>
       )}
 
     <button
@@ -537,7 +644,7 @@ export const RightSidebar: React.FC = () => {
 
     {showExportModal && selectedNode?.image && (
       <ExportModal
-        imageUrl={selectedNode.image}
+        imageUrl={resolvedSelectedImage || selectedNode.image}
         imageName={selectedNode.type ?? 'anarchy-image'}
         onClose={() => setShowExportModal(false)}
       />

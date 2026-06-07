@@ -6,7 +6,7 @@ import './LoraTrainingPage.css';
 
 export const LoraTrainingPage: React.FC = () => {
   const { user: authUser } = useAuth();
-  const [baseModel, setBaseModel] = useState('black-forest-labs/flux-schnell');
+  const [baseModel] = useState('black-forest-labs/flux-schnell');
   const [datasetUrl, setDatasetUrl] = useState('');
   const [isTraining, setIsTraining] = useState(false);
   const [currentTraining, setCurrentTraining] = useState<LoraTrainingStatus | null>(null);

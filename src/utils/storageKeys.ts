@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
 export const SESSION_KEYS = {
   PRESET_PROMPT:      'presetPrompt',
   PRESET_IMAGE:       'presetImage',
+  PRESET_WORKFLOW:    'presetWorkflow',
   OPEN_PROJECT_PATH:  'openProjectPath',
   LOADED_WORKFLOW:    'loadedWorkflow',
 } as const;

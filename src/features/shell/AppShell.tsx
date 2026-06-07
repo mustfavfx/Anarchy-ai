@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { NavRail } from './NavRail';
 import { TitleBar } from './TitleBar';
 import { RightSidebar } from './RightSidebar';
-import { SaveDialog } from './SaveDialog';
 import { MultiBuilderPage } from '../builder/MultiBuilderPage';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
+import { logger } from '../../utils/logger';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
-import { saveWorkflowAs } from '../../services/workflow';
 import { EnlargedPreview } from './EnlargedPreview';
 import { OnboardingModal } from '../../components/OnboardingModal';
 import { ToastNotification } from './ToastNotification';
+import { NotificationCenter } from './NotificationCenter';
 import './AppShell.css';
 import { track } from '../../services/tracking/trackingService';
 
@@ -18,8 +18,20 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
+const checkHasDirtyTabs = (): boolean => {
+  try {
+    const raw = localStorage.getItem('anarchy_builder_tabs');
+    if (raw) {
+      const tabs = JSON.parse(raw);
+      if (Array.isArray(tabs)) {
+        return tabs.some((t: any) => t.isDirty);
+      }
+    }
+  } catch {}
+  return false;
+};
+
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const location = useLocation();
 
   const isBuilderPage   = location.pathname === '/builder';
@@ -29,23 +41,88 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     track({ event: 'page_viewed', properties: { page: location.pathname } }).catch(() => {});
   }, [location.pathname]);
 
-  const handleCloseRequest = () => setShowSaveDialog(true);
+  // Tauri close request interceptor
+  useEffect(() => {
+    let active = true;
+    let disposeFn: (() => void) | undefined;
 
-  const handleSaveConfirm = async (filename: string) => {
-    setShowSaveDialog(false);
+    const setupCloseInterceptor = async () => {
+      try {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const appWindow = getCurrentWebviewWindow();
+        
+        const dispose = await appWindow.onCloseRequested(async (event) => {
+          if ((window as any).__anarchy_force_close) {
+            return;
+          }
+
+          const hasDirty = checkHasDirtyTabs();
+          if (hasDirty) {
+            event.preventDefault();
+            window.dispatchEvent(new CustomEvent('anarchy:trigger-app-close'));
+          }
+        });
+
+        if (!active) {
+          dispose();
+        } else {
+          disposeFn = dispose;
+        }
+      } catch (err) {
+        logger.warn('[AppShell] Failed to register onCloseRequested handler:', err);
+      }
+    };
+
+    setupCloseInterceptor();
+
+    return () => {
+      active = false;
+      if (disposeFn) disposeFn();
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let disposeFn: (() => void) | undefined;
+    
+    listen<{ image: string; source: string }>('anarchy://external-image', (event) => {
+      const image = event.payload?.image;
+      if (!image) return;
+      
+      logger.log('[AppShell] Global external-image event received from:', event.payload?.source);
+      
+      window.dispatchEvent(new CustomEvent('anarchy:external-image-global', {
+        detail: {
+          image,
+          source: event.payload?.source || ''
+        }
+      }));
+    }).then((dispose) => {
+      if (!active) {
+        dispose();
+      } else {
+        disposeFn = dispose;
+      }
+    }).catch((err) => {
+      logger.warn('[AppShell] Failed to subscribe to external-image event:', err);
+    });
+
+    return () => {
+      active = false;
+      if (disposeFn) {
+        disposeFn();
+      }
+    };
+  }, []);
+
+  const handleCloseRequest = async () => {
     try {
-      const { nodes, edges } = useAIConfigStore.getState().workflowSnapshot;
-      if (nodes.length > 0) await saveWorkflowAs(nodes, edges, filename);
-    } catch { /* Non-critical */ }
-    await getCurrentWindow().close();
+      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      await getCurrentWebviewWindow().close();
+    } catch {
+      window.close();
+    }
   };
-
-  const handleDontSave = async () => {
-    setShowSaveDialog(false);
-    await getCurrentWindow().close();
-  };
-
-  const handleCancel = () => setShowSaveDialog(false);
 
   return (
     <div className="app-shell">
@@ -81,19 +158,14 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         )}
 
       </div>
-      {showSaveDialog && (
-        <SaveDialog
-          onSave={handleSaveConfirm}
-          onDontSave={handleDontSave}
-          onCancel={handleCancel}
-        />
-      )}
 
       {/* Onboarding for new users */}
       <OnboardingModal />
 
       {/* Global toast notifications */}
       <ToastNotification />
+      {/* Notification center panel */}
+      <NotificationCenter />
     </div>
   );
 };

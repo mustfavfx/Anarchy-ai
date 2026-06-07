@@ -277,10 +277,9 @@
 }
 
 .int-card.coming-soon {
-  opacity: 0.55;
-  cursor: not-allowed;
-  filter: grayscale(0.4);
-  pointer-events: none;
+  opacity: 0.65;
+  cursor: default;
+  filter: grayscale(0.3);
   overflow: hidden;
 }
 
@@ -386,13 +385,55 @@
 .int-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   animation: int-fadeIn 0.15s ease;
+}
+
+.int-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  border: none;
+  cursor: default;
+  width: 100%;
+  height: 100%;
+}
+
+.int-notify-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.08);
+  color: #a855f7;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  justify-content: center;
+}
+
+.int-notify-btn:hover {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.int-notify-btn.notified {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.int-notify-btn.notified:hover {
+  background: rgba(16, 185, 129, 0.15);
 }
 
 @keyframes int-fadeIn {
@@ -403,13 +444,13 @@
 .int-modal {
   background: #121214;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
+  border-radius: 14px;
+  max-width: 380px;
+  width: 92%;
+  max-height: 68vh;
   overflow-y: auto;
   position: relative;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
 }
 
 .int-modal-close {
@@ -438,20 +479,20 @@
 
 .int-modal-header {
   display: flex;
-  gap: 16px;
-  padding: 28px 28px 20px;
+  gap: 12px;
+  padding: 16px 18px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .int-modal-icon {
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(225, 29, 72, 0.08);
   border: 1px solid rgba(225, 29, 72, 0.12);
-  border-radius: 14px;
+  border-radius: 10px;
   color: #e11d48;
   flex-shrink: 0;
 }
@@ -463,7 +504,7 @@
 }
 
 .int-modal-info h2 {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -476,24 +517,27 @@
 }
 
 .int-modal-desc {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
-  line-height: 1.6;
-  padding: 20px 28px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 1.5;
+  padding: 10px 18px;
   margin: 0;
 }
 
 .int-modal-section {
-  padding: 0 28px 20px;
+  padding: 0 18px 12px;
 }
 
 .int-modal-section h4 {
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.28);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin: 0 0 10px 0;
+  margin: 0 0 7px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .int-features {
@@ -503,12 +547,12 @@
 }
 
 .int-feature {
-  padding: 6px 12px;
+  padding: 4px 10px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  border-radius: 5px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .int-compat {
@@ -615,30 +659,33 @@
 
 .int-modal-actions {
   display: flex;
-  gap: 10px;
-  padding: 20px 28px 28px;
+  gap: 5px;
+  padding: 8px 18px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
+  flex-wrap: nowrap;
+  justify-content: stretch;
 }
 
 .int-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border-radius: 10px;
-  font-size: 13px;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 10.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.12s;
   border: none;
+  white-space: nowrap;
+  flex: 1;
 }
 
 .int-btn.primary {
   background: var(--accent-red);
   color: white;
-  flex: 1;
-  justify-content: center;
-  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3);
+  box-shadow: 0 3px 10px rgba(225, 29, 72, 0.3);
 }
 
 .int-btn.primary:hover {
@@ -852,3 +899,99 @@
   font-size: 22px;
 }
 
+/* ── Version Grid (all supported versions 2022-2027) ── */
+.int-version-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+/* Version option — fixed height, equal for all */
+.int-version-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  box-sizing: border-box;
+}
+
+.int-version-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.int-version-option input[type="checkbox"] {
+  accent-color: #e11d48;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Version is detected/installed on this machine */
+.int-version-option.detected {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+/* Checked state */
+.int-version-option.checked {
+  border-color: rgba(225, 29, 72, 0.3);
+  background: rgba(225, 29, 72, 0.07);
+}
+
+.int-version-option.detected.checked {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.int-version-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ✓ check icon on the right for detected versions */
+.int-version-detected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Hint when nothing auto-detected */
+.int-compat-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 6px 0 0 0;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* Section header hint text */
+.int-section-hint {
+  font-size: 9px;
+  font-weight: 500;
+  color: #10b981;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 2px;
+}

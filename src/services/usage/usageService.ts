@@ -4,7 +4,9 @@
  */
 
 import { supabase } from '../supabase/supabaseClient';
-import type { PlanType, PlanLimits } from '../plans/plansConfig';
+import { logger } from '../../utils/logger';
+import type { PlanType } from '../plans/plansConfig';
+// PlanLimits is used indirectly via getPlan return type
 import { getPlan } from '../plans/plansConfig';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -29,8 +31,10 @@ export interface UsageCheck {
   used: number;
 }
 
+export type QuotaErrorType = 'generations' | 'storage' | 'projects';
+
 export interface QuotaError {
-  type: 'generations' | 'storage' | 'projects';
+  type: QuotaErrorType;
   message: string;
   messageAr: string;
   current: number;
@@ -56,7 +60,7 @@ export async function getUserUsage(userId: string): Promise<UserUsage | null> {
   }
 
   if (error) {
-    console.error('[Usage] Failed to get user usage:', error);
+    logger.error('[Usage] Failed to get user usage:', error);
     return null;
   }
 
@@ -88,7 +92,7 @@ export async function createUserUsage(userId: string): Promise<UserUsage | null>
     .single();
 
   if (error) {
-    console.error('[Usage] Failed to create user usage:', error);
+    logger.error('[Usage] Failed to create user usage:', error);
     return null;
   }
 
@@ -108,7 +112,7 @@ export async function incrementGeneration(
   });
 
   if (error) {
-    console.error('[Usage] Failed to increment generation:', error);
+    logger.error('[Usage] Failed to increment generation:', error);
     return false;
   }
 
@@ -184,7 +188,7 @@ export async function updateUserPlan(
     .eq('user_id', userId);
 
   if (error) {
-    console.error('[Usage] Failed to update plan:', error);
+    logger.error('[Usage] Failed to update plan:', error);
     return false;
   }
 
@@ -194,11 +198,9 @@ export async function updateUserPlan(
 /**
  * Reset usage cycle (monthly reset)
  */
-async function resetUsageCycle(userId: string, plan: PlanType): Promise<boolean> {
+async function resetUsageCycle(userId: string, _plan: PlanType): Promise<boolean> {
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const planConfig = getPlan(plan);
-
   const { error } = await supabase
     .from('user_usage')
     .update({
@@ -211,7 +213,7 @@ async function resetUsageCycle(userId: string, plan: PlanType): Promise<boolean>
     .eq('user_id', userId);
 
   if (error) {
-    console.error('[Usage] Failed to reset cycle:', error);
+    logger.error('[Usage] Failed to reset cycle:', error);
     return false;
   }
 
