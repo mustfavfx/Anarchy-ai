@@ -9,6 +9,7 @@ AppId={{D8168249-1651-40F1-A8EA-8A1C49C52E58}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
+AppMutex=Anarchy AI,{{D8168249-1651-40F1-A8EA-8A1C49C52E58}
 DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
 OutputDir=setup_dist
@@ -20,6 +21,7 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 LicenseFile=LICENSE.txt
 ChangesAssociations=yes
+CloseApplications=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
