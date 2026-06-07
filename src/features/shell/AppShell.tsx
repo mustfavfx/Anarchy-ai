@@ -117,10 +117,25 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const handleCloseRequest = async () => {
     try {
-      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      await getCurrentWebviewWindow().close();
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const confirm = await ask(
+        'Are you sure you want to exit Anarchy AI? Unsaved changes will be lost.',
+        {
+          title: 'Exit Anarchy AI',
+          kind: 'warning',
+          okLabel: 'Exit',
+          cancelLabel: 'Cancel'
+        }
+      );
+      if (confirm) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('exit_app');
+      }
     } catch {
-      window.close();
+      const confirm = window.confirm('Are you sure you want to exit Anarchy AI?');
+      if (confirm) {
+        window.close();
+      }
     }
   };
 

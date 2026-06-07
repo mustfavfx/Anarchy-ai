@@ -1592,6 +1592,11 @@ async fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn exit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 use std::sync::Mutex;
 
 struct StartupState {
@@ -1651,7 +1656,7 @@ fn main() {
             remove_old_autodesk_plugins, get_app_data_dir, is_plugin_installed,
             save_image_to_documents, save_image_to_path, read_local_image, read_clipboard_image,
             check_update, install_update, restart_app,
-            open_url, get_startup_file, get_deep_link, analyze_floor_plan, open_images_folder, show_in_explorer
+            open_url, get_startup_file, get_deep_link, exit_app, analyze_floor_plan, open_images_folder, show_in_explorer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
