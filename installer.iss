@@ -254,6 +254,7 @@ var
   MaxSrc: String;
   CscPath: String;
   WpfDir: String;
+  FwDir: String;
 begin
   AppRoamingAutodesk := ExpandConstant('{userappdata}') + '\Autodesk\';
   RevitPluginsSrc := ExpandConstant('{app}') + '\resources\revit-plugin\';
@@ -269,6 +270,12 @@ begin
   if not DirExists(WpfDir) then
   begin
     WpfDir := 'C:\Windows\Microsoft.NET\Framework\v4.0.30319\WPF\';
+  end;
+
+  FwDir := 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\';
+  if not DirExists(FwDir) then
+  begin
+    FwDir := 'C:\Windows\Microsoft.NET\Framework\v4.0.30319\';
   end;
 
   // 1. Install Revit Plugins
@@ -295,7 +302,7 @@ begin
           '/reference:"' + RevitPaths[I] + '\RevitAPIUI.dll" ' +
           '/reference:"' + WpfDir + 'PresentationCore.dll" ' +
           '/reference:"' + WpfDir + 'WindowsBase.dll" ' +
-          '/reference:"' + WpfDir + 'System.Xaml.dll" ' +
+          '/reference:"' + FwDir + 'System.Xaml.dll" ' +
           '/reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll ' +
           '"' + RevitDest + 'AnarchyRevit\AnarchyRevit.cs"',
           '', SW_HIDE, ewWaitUntilTerminated, ResultCode);

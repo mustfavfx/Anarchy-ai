@@ -701,6 +701,11 @@ fn find_wpf_assembly(name: &str) -> Option<std::path::PathBuf> {
         if wpf.exists() {
             return Some(wpf);
         }
+        let parent_fw = std::path::Path::new(&win_dir)
+            .join("Microsoft.NET").join(fw).join("v4.0.30319").join(name);
+        if parent_fw.exists() {
+            return Some(parent_fw);
+        }
     }
 
     // Check Reference Assemblies - only check most recent versions first
@@ -816,9 +821,15 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
+            let combined = format!("{}\n{}", stdout, stderr);
+            if combined.contains("CS0016") || combined.contains("used by another process") || combined.contains("being used") {
+                return Err(format!(
+                    "Revit is currently running and locking the plugin file. Please close Revit and try again."
+                ));
+            }
             return Err(format!(
-                "Compilation failed for Revit {}:\n{}\n{}",
-                version, stdout, stderr
+                "Compilation failed for Revit {}:\n{}",
+                version, combined
             ));
         }
 
@@ -1633,6 +1644,12 @@ fn main() {
         .manage(StartupState {
             file_path: Mutex::new(startup_file),
             deep_link: Mutex::new(deep_link),
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.emit("close-requested", ());
+            }
         })
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let found_link = args.iter().find(|arg| arg.starts_with("anarchy-ai://"));
