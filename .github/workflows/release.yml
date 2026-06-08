@@ -63,6 +63,8 @@ jobs:
 
   create-update-json:
     needs: publish-tauri
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Generate latest.json
