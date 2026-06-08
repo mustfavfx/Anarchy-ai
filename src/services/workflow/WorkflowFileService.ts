@@ -6,6 +6,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import type { Node, Edge } from '@xyflow/react';
+import { getLocalImage, cacheLocalImage } from '../history/HistoryService';
 
 // ── File format ──────────────────────────────────────────────────────────────
 
@@ -65,13 +66,35 @@ function stripCallbacks(data: Record<string, unknown>): Record<string, unknown> 
   return Object.fromEntries(Object.entries(data).filter(([k]) => !CALLBACK_KEYS.has(k)));
 }
 
-function serializeNodes(nodes: Node[]): SerializedNode[] {
-  return nodes.map(node => ({
-    id: node.id,
-    type: node.type,
-    position: { x: node.position.x, y: node.position.y },
-    data: stripCallbacks(node.data as Record<string, any>),
-  }));
+async function serializeNodes(nodes: Node[]): Promise<SerializedNode[]> {
+  const serializedList: SerializedNode[] = [];
+  for (const node of nodes) {
+    const dataCopy = JSON.parse(JSON.stringify(stripCallbacks(node.data as Record<string, any>)));
+    
+    // Resolve main image from IDB to Base64
+    if (dataCopy.image && dataCopy.image.startsWith('idb://')) {
+      const base64 = await getLocalImage(dataCopy.image);
+      if (base64) {
+        dataCopy.image = base64;
+      }
+    }
+    
+    // Resolve output data image from IDB to Base64
+    if (dataCopy.outputData?.image && dataCopy.outputData.image.startsWith('idb://')) {
+      const base64 = await getLocalImage(dataCopy.outputData.image);
+      if (base64) {
+        dataCopy.outputData.image = base64;
+      }
+    }
+    
+    serializedList.push({
+      id: node.id,
+      type: node.type,
+      position: { x: node.position.x, y: node.position.y },
+      data: dataCopy,
+    });
+  }
+  return serializedList;
 }
 
 function serializeEdges(edges: Edge[]): SerializedEdge[] {
@@ -89,13 +112,35 @@ function serializeEdges(edges: Edge[]): SerializedEdge[] {
   }));
 }
 
-function deserializeNodes(serialized: SerializedNode[]): Node[] {
-  return serialized.map(s => ({
-    id: s.id,
-    type: s.type,
-    position: s.position,
-    data: s.data,
-  }));
+async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
+  const deserializedList: Node[] = [];
+  for (const s of serialized) {
+    const dataCopy = JSON.parse(JSON.stringify(s.data));
+    
+    // Cache main image from Base64 back to IDB
+    if (dataCopy.image && dataCopy.image.startsWith('data:')) {
+      const uuid = crypto.randomUUID();
+      const imageKey = `idb://${uuid}`;
+      await cacheLocalImage(imageKey, dataCopy.image);
+      dataCopy.image = imageKey;
+    }
+    
+    // Cache output data image from Base64 back to IDB
+    if (dataCopy.outputData?.image && dataCopy.outputData.image.startsWith('data:')) {
+      const uuid = crypto.randomUUID();
+      const imageKey = `idb://${uuid}`;
+      await cacheLocalImage(imageKey, dataCopy.outputData.image);
+      dataCopy.outputData.image = imageKey;
+    }
+    
+    deserializedList.push({
+      id: s.id,
+      type: s.type,
+      position: s.position,
+      data: dataCopy,
+    });
+  }
+  return deserializedList;
 }
 
 function deserializeEdges(serialized: SerializedEdge[]): Edge[] {
@@ -159,7 +204,7 @@ export async function saveWorkflow(
     createdAt: Date.now(),
     updatedAt: Date.now(),
     name: options?.name || extractFilename(filePath),
-    nodes: serializeNodes(nodes),
+    nodes: await serializeNodes(nodes),
     edges: serializeEdges(edges),
     thumbnail: options?.thumbnail,
     metadata: {
@@ -232,7 +277,7 @@ export async function loadWorkflow(): Promise<{
 
   lastSavePath = filePath;
   return {
-    nodes: deserializeNodes(workflow.nodes),
+    nodes: await deserializeNodes(workflow.nodes),
     edges: deserializeEdges(workflow.edges),
     name: workflow.name || extractFilename(filePath),
     filePath,
