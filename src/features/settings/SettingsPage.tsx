@@ -50,22 +50,34 @@ export const SettingsPage: React.FC = () => {
   }, []);
 
   const checkForUpdates = useCallback(async () => {
+    if (updateStatus === 'available') {
+      setUpdateStatus('checking');
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('install_update');
+        await invoke('restart_app');
+      } catch (err) {
+        notify.error('Update failed', String(err));
+        setUpdateStatus('error');
+        setTimeout(() => setUpdateStatus('idle'), 3000);
+      }
+      return;
+    }
+
     setUpdateStatus('checking');
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       const result = await invoke('check_update') as unknown;
-      const shouldUpdate =
-        result !== null &&
-        typeof result === 'object' &&
-        'shouldUpdate' in result &&
-        (result as any).shouldUpdate === true;
+      const shouldUpdate = result !== null && typeof result === 'object';
       setUpdateStatus(shouldUpdate ? 'available' : 'up-to-date');
-      setTimeout(() => setUpdateStatus('idle'), 4000);
+      if (!shouldUpdate) {
+        setTimeout(() => setUpdateStatus('idle'), 4000);
+      }
     } catch {
       setUpdateStatus('error');
       setTimeout(() => setUpdateStatus('idle'), 3000);
     }
-  }, []);
+  }, [updateStatus]);
 
   const calculateDiskUsage = useCallback(() => {
     // Calculate estimate from localStorage (UTF-16 uses 2 bytes per character)
@@ -563,7 +575,7 @@ export const SettingsPage: React.FC = () => {
                   {updateStatus === 'idle' && 'Check for Updates'}
                   {updateStatus === 'checking' && 'Checking...'}
                   {updateStatus === 'up-to-date' && 'Up to Date ✓'}
-                  {updateStatus === 'available' && 'Update Available'}
+                  {updateStatus === 'available' && 'Install & Restart'}
                   {updateStatus === 'error' && 'Try Again'}
                 </button>
               </div>
