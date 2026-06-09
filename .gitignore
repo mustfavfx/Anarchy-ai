@@ -30,3 +30,6 @@ pub.key
 key.pem
 *.key
 src-tauri/keygen.log
+
+# Environment variables
+.env
