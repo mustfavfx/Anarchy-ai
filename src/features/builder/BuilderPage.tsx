@@ -31,7 +31,12 @@ import { cacheLocalImage, getLocalImage } from '../../services/history/HistorySe
 import { BuilderContextMenu } from './components/BuilderContextMenu';
 import { BuilderPromptBar } from './components/BuilderPromptBar';
 import { CreditErrorModal } from './components/CreditErrorModal';
+import { useBuilderDrop } from './hooks/useBuilderDrop';
+import { useBuilderKeyboard } from './hooks/useBuilderKeyboard';
 import './BuilderPage.css';
+
+// Check if running in a Tauri desktop environment
+export const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 
 // ── Module-level helpers (outside component to avoid nesting warnings) ─────
 
@@ -45,6 +50,27 @@ function resolveSourceLabel(raw: string): string {
   const lower = raw.toLowerCase();
   return SOURCE_LABELS[lower] ?? (lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : 'External');
 }
+
+const buildGenConfig = (aiConfig: any) => ({
+  model: aiConfig.model,
+  resolution: aiConfig.resolution,
+  aspectRatio: aiConfig.aspectRatio,
+  steps: aiConfig.steps,
+  cfg: aiConfig.cfg,
+  seed: aiConfig.seed,
+  strength: aiConfig.strength,
+  referenceStrength: aiConfig.referenceStrength,
+  negativePrompt: aiConfig.negativePrompt,
+  disableSafetyChecker: aiConfig.disableSafetyChecker,
+  upscaleFactor: aiConfig.upscaleFactor,
+  prunaMode: aiConfig.prunaMode,
+  prunaTarget: aiConfig.prunaTarget,
+  prunaFactor: aiConfig.prunaFactor,
+  prunaEnhanceDetails: aiConfig.prunaEnhanceDetails,
+  prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
+  prunaQuality: aiConfig.prunaQuality,
+  prunaOutputFormat: aiConfig.prunaOutputFormat,
+});
 
 function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges: any[] } {
   const TYPE_LABELS: Record<string, string> = {
@@ -60,16 +86,41 @@ function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges: any[] 
     variation: 'Variation'
   };
 
-  const nodes = (nodeTree.nodes || []).map((n: any) => {
+  const nodesRaw = nodeTree.nodes || [];
+
+  const getLineage = (node: any): { generation: number; ancestry: string[]; branchIndex: number } => {
+    const ancestry: string[] = [];
+    let curr = node;
+    while (curr && curr.parentId) {
+      ancestry.unshift(curr.parentId);
+      curr = nodesRaw.find((x: any) => x.id === curr.parentId);
+    }
+    const generation = ancestry.length;
+    
+    // Find siblings (other nodes with the same parentId)
+    const siblings = nodesRaw.filter((x: any) => x.parentId === node.parentId);
+    // Sort siblings by ID to ensure stable branchIndex calculation
+    siblings.sort((a: any, b: any) => String(a.id).localeCompare(String(b.id)));
+    const branchIndex = siblings.findIndex((x: any) => x.id === node.id);
+    
+    return {
+      generation,
+      ancestry,
+      branchIndex: branchIndex >= 0 ? branchIndex : 0
+    };
+  };
+
+  const nodes = nodesRaw.map((n: any) => {
     const rfType = n.type === 'ghost' ? 'ghostNode' : 'baseNode';
+    const { generation, ancestry, branchIndex } = getLineage(n);
     
     const lineage = {
       parentId: n.parentId || null,
-      rootSourceId: nodeTree.sourceNodeId,
-      generation: 0,
-      branchIndex: 0,
+      rootSourceId: nodeTree.sourceNodeId || ancestry[0] || n.id,
+      generation,
+      branchIndex,
       processingType: n.processingType || 'source',
-      ancestry: [] as string[]
+      ancestry
     };
 
     const outputPacket = n.image ? {
@@ -234,37 +285,6 @@ function patchSpawnedNode(nodeId: string) {
 
 // createSourceIfEmpty removed as empty initialization is now handled directly by the workflow hook
 
-const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff'];
-
-async function processDroppedFiles(
-  paths: string[],
-  spawnFromImage: (url: string) => Promise<void>
-): Promise<void> {
-  for (const filePath of paths.slice(0, 5)) {
-    const lower = filePath.toLowerCase();
-    if (!IMAGE_EXTS.some(ext => lower.endsWith(ext))) continue;
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const dataUrl = await invoke<string>('read_local_image', { path: filePath });
-      await spawnFromImage(dataUrl);
-    } catch (err) {
-      logger.error('[Tauri Drop] Failed to read file:', filePath, err);
-    }
-  }
-}
-
-async function processWebDropFiles(
-  files: File[],
-  imageFileToDataUrl: (f: File) => Promise<string>,
-  spawnFromImage: (url: string) => Promise<void>
-): Promise<void> {
-  for (const file of files.slice(0, 5)) {
-    try {
-      const dataUrl = await imageFileToDataUrl(file);
-      await spawnFromImage(dataUrl);
-    } catch { /* skip */ }
-  }
-}
 
 // Separate node types for proper handle positioning
 const nodeTypes = {
@@ -321,6 +341,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 }) => {
   const [currentFilePath, setCurrentFilePathState] = useState<string | null>(initialProjectPath ?? null);
   const hasLoadedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     setCurrentFilePathState(initialProjectPath ?? null);
@@ -370,26 +398,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [onNodesChange]);
 
   const getConfig = useAIConfigStore((state) => state.getConfig);
-  const buildGenConfig = (aiConfig: ReturnType<typeof getConfig>) => ({
-    model: aiConfig.model,
-    resolution: aiConfig.resolution,
-    aspectRatio: aiConfig.aspectRatio,
-    steps: aiConfig.steps,
-    cfg: aiConfig.cfg,
-    seed: aiConfig.seed,
-    strength: aiConfig.strength,
-    referenceStrength: aiConfig.referenceStrength,
-    negativePrompt: aiConfig.negativePrompt,
-    disableSafetyChecker: aiConfig.disableSafetyChecker,
-    upscaleFactor: aiConfig.upscaleFactor,
-    prunaMode: aiConfig.prunaMode,
-    prunaTarget: aiConfig.prunaTarget,
-    prunaFactor: aiConfig.prunaFactor,
-    prunaEnhanceDetails: aiConfig.prunaEnhanceDetails,
-    prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
-    prunaQuality: aiConfig.prunaQuality,
-    prunaOutputFormat: aiConfig.prunaOutputFormat,
-  });
   const liveModel      = useAIConfigStore((state) => state.config.model);
   const liveResolution = useAIConfigStore((state) => state.config.resolution);
   const liveQuality    = useAIConfigStore((state) => (state.config as any).qualityVariant ?? 'auto');
@@ -432,7 +440,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, []);
   const [prompt, setPrompt] = useState('');
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   // Monitor spacebar events for Figma-like canvas panning
   useEffect(() => {
@@ -469,9 +476,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const [creditError, setCreditError] = useState<{ balance: number; needed: number } | null>(null);
   const [confirmNewCanvas, setConfirmNewCanvas] = useState(false);
   const isDirtyRef = useRef(false);
-  const [copiedNode, setCopiedNode] = useState<any>(null);
-  const isTauriRef = useRef(false);
-  const dropHandledRef = useRef(false);
 
   const { fitView, getViewport, fitBounds, getNode: getRFNode, screenToFlowPosition, setViewport } = useReactFlow();
 
@@ -540,7 +544,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const location = useLocation();
 
   // Re-check sessionStorage on every navigation to /builder (component stays mounted)
-  const applyWorkflow = (wf: any, fallbackName: string) => {
+  const applyWorkflow = useCallback((wf: any, fallbackName: string) => {
     if (!wf.nodes) return;
     const mappedNodes = wf.nodes.map((n: any) => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
     setNodes(mappedNodes);
@@ -556,14 +560,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     
     setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
     addNotification({ type: 'success', title: 'Project Loaded', message: name });
-  };
+  }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification]);
 
-  const restorePresetImage = (wf: any, img: string) => {
+  const restorePresetImage = useCallback((wf: any, img: string) => {
     sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
     const sourceNode = wf.nodes.find((n: any) => n.data?.type === 'source');
     if (!sourceNode) return;
     setTimeout(() => setNodes(patchNodeImage(sourceNode.id, img)), 100);
-  };
+  }, [setNodes]);
 
   useEffect(() => {
     if (location.pathname !== '/builder') return;
@@ -636,7 +640,20 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
       });
     }
-  }, [location.pathname, initialProjectPath, tabId, onProjectPathChange, initialWorkflow, initialImage]);
+  }, [
+    initialProjectPath,
+    tabId,
+    onProjectPathChange,
+    initialWorkflow,
+    initialImage,
+    applyWorkflow,
+    restorePresetImage,
+    applyWatermarkToSource,
+    createSourceNode,
+    setSelectedNodeId,
+    setSelectedNode,
+    addNotification
+  ]);
 
   // Sync nodes/edges snapshot for Sidebar mini-map
   useEffect(() => {
@@ -756,13 +773,18 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // Dirty state: notify parent when canvas changes after initial restore
   // skipDirtyRef > 0 means the next N node/edge changes should be ignored (restore, load, save)
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onDirtyChange]);
+
   const skipDirtyRef = useRef(2); // skip initial restore triggers
   useEffect(() => {
     if (!isRestored) return;
     if (skipDirtyRef.current > 0) { skipDirtyRef.current--; return; }
     isDirtyRef.current = true;
-    onDirtyChange?.(true);
-  }, [nodes, edges]); // eslint-disable-line react-hooks/exhaustive-deps
+    onDirtyChangeRef.current?.(true);
+  }, [nodes, edges, isRestored]);
 
 
 
@@ -803,14 +825,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, [executeNode, nodes, addNotification]);
 
-  const makeImageUploadHandler = (nodeId: string) => (url: string) => {
+  const makeImageUploadHandler = useCallback((nodeId: string) => (url: string) => {
     if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, state: 'idle', outputData: undefined }); return; }
     applyWatermarkToSource(url).then(async (watermarked) => {
       const imageKey = `idb://${crypto.randomUUID()}`;
       await cacheLocalImage(imageKey, watermarked);
       updateNodeData(nodeId, { image: imageKey, originalImage: imageKey, state: 'ready', outputData: makeSourceOutput(imageKey) });
     });
-  };
+  }, [updateNodeData, applyWatermarkToSource]);
 
   const spawnExtraSources = useCallback((node: Node, watermarkedUrls: string[]) => {
     watermarkedUrls.slice(1).forEach((wUrl, index) => {
@@ -829,7 +851,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, [executeWithNotifications]);
 
-  const makeImagesUploadHandler = (node: Node) => (urls: string[]) => {
+  const makeImagesUploadHandler = useCallback((node: Node) => (urls: string[]) => {
     if (!urls.length) return;
     Promise.all(urls.map(u => applyWatermarkToSource(u))).then(async (watermarkedUrls) => {
       const watermarked = watermarkedUrls[0];
@@ -839,9 +861,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       spawnExtraSources(node, watermarkedUrls);
       setSelectedNode({ id: node.id, type: 'source', image: imageKey, originalImage: imageKey, prompt: undefined, state: 'ready' });
     });
-  };
+  }, [updateNodeData, applyWatermarkToSource, spawnExtraSources, setSelectedNode]);
 
-  const makeRetryHandler = (node: Node) => {
+  const makeRetryHandler = useCallback((node: Node) => {
     const d = node.data as any;
     if (d.state !== 'error' || d.type !== 'ghost') return undefined;
     return () => {
@@ -849,7 +871,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       updateNodeData(node.id, { state: 'idle', errorMessage: undefined });
       setTimeout(() => handleRetryExecution(node.id, d.prompt, d.config), 50);
     };
-  };
+  }, [updateNodeData, handleRetryExecution]);
 
   // Bind callbacks to nodes - filter out nodes with invalid/unmeasured positions
   const nodesWithCallbacks = useMemo(() => nodes
@@ -877,7 +899,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         } : undefined,
       },
     })),
-  [nodes, addChildNode, updateNodeData, deleteNode, executeWithNotifications, selectedNodeId, createSourceNode, setNodes, setSelectedNode, applyWatermarkToSource, getConfig]);
+  [nodes, addChildNode, makeImageUploadHandler, makeImagesUploadHandler, deleteNode, makeRetryHandler, executeWithNotifications, getConfig]);
 
   // Fit view when nodes are measured to center them perfectly on initial load
   useEffect(() => {
@@ -983,7 +1005,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setPrompt('');
   }, [executeWithNotifications, prompt, setPrompt]);
 
-  const spawnAndExecute = (genConfig: ReturnType<typeof buildGenConfig>) => {
+  const spawnAndExecute = useCallback((genConfig: ReturnType<typeof buildGenConfig>) => {
     const existingParent =
       nodes.find(n => { const d = n.data as any; return (d.type === 'source' || d.type === 'result') && !!d.image; }) ??
       nodes.find(n => (n.data as any)?.type === 'source');
@@ -992,9 +1014,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const ghostId = spawnGhostNode(parentId, 'render');
       if (ghostId) setTimeout(() => executeGhost(ghostId, genConfig), 50);
     }, 50);
-  };
+  }, [nodes, createSourceNode, spawnGhostNode, executeGhost]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     const aiConfig = getConfig();
     const cost = getModelCost(aiConfig.model, {
       resolution: aiConfig.resolution,
@@ -1031,7 +1053,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     } else {
       spawnAndExecute(genConfig);
     }
-  };
+  }, [getConfig, authUser, prompt, nodes, executeWithNotifications, setPrompt, spawnAndExecute, addNotification]);
 
   const handleRearrange = () => {
     rearrangeNodes();
@@ -1083,6 +1105,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const thumbnail = await generateThumbnail();
       const path = await saveWorkflow(nodes, edges, { thumbnail, filePath: currentFilePath });
       if (path) {
+        if (!isMountedRef.current) return path;
         const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
         addNotification({ type: 'success', title: 'Project Saved', message: name });
         onTitleChange?.(name);
@@ -1095,6 +1118,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
       return null;
     } catch (err) {
+      if (!isMountedRef.current) return null;
       logger.error('[Save] failed:', err);
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
       return null;
@@ -1106,6 +1130,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const thumbnail = await generateThumbnail();
       const path = await saveWorkflowAs(nodes, edges, undefined, thumbnail, currentFilePath);
       if (path) {
+        if (!isMountedRef.current) return path;
         const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
         addNotification({ type: 'success', title: 'Project Saved', message: name });
         onTitleChange?.(name);
@@ -1118,6 +1143,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
       return null;
     } catch (err) {
+      if (!isMountedRef.current) return null;
       logger.error('[Save As] failed:', err);
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
       return null;
@@ -1219,131 +1245,41 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     logger.log('[Spawn From Image] Source node created successfully:', nodeId);
   }, [createSourceNode, setSelectedNodeId, setSelectedNode, fitView, setNodes, applyWatermarkToSource]);
 
-  // ── Drag & Drop image onto canvas ──────────────────────────────────
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('Files')) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.dataTransfer.dropEffect = 'copy';
-      // Only set overlay state in non-Tauri (web) mode
-      if (!isTauriRef.current) setIsDraggingFile(true);
-    }
-  }, []);
+  // Use custom hooks to isolate Drag & Drop and Keyboard hotkey concerns
+  const {
+    isDraggingFile,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  } = useBuilderDrop({
+    spawnFromImage,
+    imageFileToDataUrl,
+    applyWatermarkToSource,
+    createSourceNode,
+    setSelectedNodeId,
+    setSelectedNode,
+    addNotification,
+  });
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    if (!e.currentTarget.contains(e.relatedTarget as HTMLElement)) {
-      setIsDraggingFile(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingFile(false);
-    // Skip if already handled by Tauri native handler
-    if (dropHandledRef.current) return;
-    // Also skip in Tauri env to let native handler work
-    const isTauriEnv = isTauriRef.current || (typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis);
-    if (isTauriEnv) return;
-    
-    // Handle dropped files
-    const imageFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    for (const file of imageFiles.slice(0, 5)) {
-      try {
-        const dataUrl = await imageFileToDataUrl(file);
-        await spawnFromImage(dataUrl);
-      } catch (error) {
-        logger.error('[Drag & Drop] Error processing file:', error);
-      }
-    }
-    
-    // Handle dropped URLs from browser (images dragged from websites)
-    const urlData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-    if (urlData && !imageFiles.length) {
-      const imageUrl = urlData.trim();
-      if (/\.(jpg|jpeg|png|webp|gif|bmp)$/i.exec(imageUrl)) {
-        try {
-          const watermarked = await applyWatermarkToSource(imageUrl);
-          const nodeId = createSourceNode(watermarked);
-          setSelectedNodeId(nodeId);
-          setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
-          addNotification({ type: 'success', title: 'Image Added', message: 'From URL' });
-        } catch (error) {
-          logger.error('[Drag & Drop] Error loading URL:', error);
-        }
-      }
-    }
-  }, [imageFileToDataUrl, spawnFromImage, createSourceNode, setSelectedNodeId, setSelectedNode, addNotification, applyWatermarkToSource]);
-
-  const handleTauriDragDrop = useCallback(async (event: any) => {
-    const type = event.payload.type;
-    if (type === 'over' || type === 'enter') {
-      setIsDraggingFile(true);
-    } else if (type === 'leave') {
-      setIsDraggingFile(false);
-    } else if (type === 'drop') {
-      if (dropHandledRef.current) return;
-      dropHandledRef.current = true;
-      setIsDraggingFile(false);
-      const paths: string[] = (event.payload as any).paths ?? [];
-      await processDroppedFiles(paths, spawnFromImage);
-      setTimeout(() => { dropHandledRef.current = false; }, 500);
-    }
-  }, [spawnFromImage]);
-
-  const handleWindowDrop = useCallback(async (e: DragEvent) => {
-    e.preventDefault();
-    setIsDraggingFile(false);
-    if (!e.dataTransfer) return;
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    await processWebDropFiles(files, imageFileToDataUrl, spawnFromImage);
-  }, [imageFileToDataUrl, spawnFromImage]);
-
-  // ── Native file drop via Tauri's drag-drop API ──────────────────────────
-  useEffect(() => {
-    let active = true;
-    let disposeFn: (() => void) | undefined;
-    // Detect Tauri synchronously via window object to block HTML5 drop immediately
-    if (typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis) {
-      isTauriRef.current = true;
-    }
-
-    const setupTauriDrop = async () => {
-      try {
-        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-        const appWindow = getCurrentWebviewWindow();
-        isTauriRef.current = true;
-        const dispose = await appWindow.onDragDropEvent(handleTauriDragDrop);
-        if (!active) {
-          dispose();
-        } else {
-          disposeFn = dispose;
-        }
-      } catch {
-        // Fallback: Tauri API not available (dev mode web), use HTML5 events
-        const handleWindowDragOver = (e: DragEvent) => { e.preventDefault(); };
-        globalThis.addEventListener('dragover', handleWindowDragOver);
-        globalThis.addEventListener('drop', handleWindowDrop);
-        const dispose = () => {
-          globalThis.removeEventListener('dragover', handleWindowDragOver);
-          globalThis.removeEventListener('drop', handleWindowDrop);
-        };
-        if (!active) {
-          dispose();
-        } else {
-          disposeFn = dispose;
-        }
-      }
-    };
-
-    setupTauriDrop();
-    return () => {
-      active = false;
-      if (disposeFn) {
-        disposeFn();
-      }
-    };
-  }, [handleTauriDragDrop, handleWindowDrop]);
+  useBuilderKeyboard({
+    handleSave,
+    handleSaveAs,
+    handleLoad,
+    handleNewCanvas,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    selectedNodeId,
+    nodes,
+    deleteNode,
+    setSelectedNodeId,
+    createSourceNode,
+    updateNodeData,
+    addNotification,
+    spawnFromImage,
+    imageFileToDataUrl,
+  });
 
   // ── Window-level contextmenu for Tauri (ReactFlow's onPaneContextMenu may not fire) ──
   useEffect(() => {
@@ -1376,148 +1312,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     globalThis.addEventListener('contextmenu', handleWindowContextMenu, true);
     return () => globalThis.removeEventListener('contextmenu', handleWindowContextMenu, true);
   }, [setSelectedNodeId, screenToFlowPosition]);
-
-  // ── Keyboard shortcuts (Ctrl+S, Ctrl+Shift+S, Ctrl+O, Ctrl+V) ───────
-  const pasteFromTauriClipboard = useCallback(async (): Promise<boolean> => {
-    try {
-      const dataUrl = await invoke<string>('read_clipboard_image');
-      await spawnFromImage(dataUrl);
-      return true;
-    } catch {
-      return false;
-    }
-  }, [spawnFromImage]);
-
-  const pasteFromWebClipboard = useCallback(async () => {
-    try {
-      const items = await navigator.clipboard.read();
-      for (const item of items) {
-        const imgType = item.types.find(t => t.startsWith('image/'));
-        if (!imgType) continue;
-        const blob = await item.getType(imgType);
-        const dataUrl = await imageFileToDataUrl(new File([blob], 'paste.png', { type: imgType }));
-        await spawnFromImage(dataUrl);
-        break;
-      }
-    } catch (err) {
-      logger.log('[Paste] Web Clipboard failed:', err);
-    }
-  }, [imageFileToDataUrl, spawnFromImage]);
-
-  useEffect(() => {
-    const handlePasteShortcut = async () => {
-      const isTauri = isTauriRef.current || '__TAURI_INTERNALS__' in globalThis;
-      if (isTauri) {
-        const done = await pasteFromTauriClipboard();
-        if (done) return;
-      }
-      await pasteFromWebClipboard();
-    };
-
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-      // Handle Delete / Backspace key deletions (no Ctrl modifier needed)
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedNodeId) {
-          const node = nodes.find(n => n.id === selectedNodeId);
-          if (node && (node.data as any)?.type !== 'source') {
-            e.preventDefault();
-            deleteNode(selectedNodeId);
-            setSelectedNodeId(null);
-          }
-        }
-        return;
-      }
-
-      const ctrl = e.ctrlKey || e.metaKey;
-      if (!ctrl) return;
-
-      const key = e.key.toLowerCase();
-
-      switch (key) {
-        case 'c':
-          if (selectedNodeId) {
-            const node = nodes.find(n => n.id === selectedNodeId);
-            if (node && (node.data as any)?.image) {
-              e.preventDefault();
-              setCopiedNode({
-                type: node.data.type,
-                image: (node.data as any).image,
-                prompt: (node.data as any).prompt
-              });
-              addNotification({ type: 'success', title: 'Node Copied', message: 'Press Ctrl+V to paste' });
-            }
-          }
-          break;
-        case 'v':
-          e.preventDefault();
-          if (copiedNode) {
-            const newNodeId = createSourceNode(copiedNode.image);
-            if (copiedNode.prompt) {
-              updateNodeData(newNodeId, { prompt: copiedNode.prompt });
-            }
-            addNotification({ type: 'success', title: 'Node Pasted', message: 'Image copied to canvas' });
-          } else {
-            await handlePasteShortcut();
-          }
-          break;
-        case 'n':
-          e.preventDefault();
-          handleNewCanvas();
-          break;
-        case 'z':
-          e.preventDefault();
-          if (e.shiftKey) {
-            if (canRedo) redo();
-          } else {
-            if (canUndo) undo();
-          }
-          break;
-        case 'y':
-          e.preventDefault();
-          if (canRedo) redo();
-          break;
-        case 's':
-          e.preventDefault();
-          if (e.shiftKey) {
-            await handleSaveAs();
-          } else {
-            await handleSave();
-          }
-          break;
-        case 'o':
-          e.preventDefault();
-          handleLoad();
-          break;
-        default:
-          break;
-      }
-    };
-    globalThis.addEventListener('keydown', handleKeyDown);
-    return () => globalThis.removeEventListener('keydown', handleKeyDown);
-  }, [
-    handleSave,
-    handleSaveAs,
-    handleLoad,
-    handleNewCanvas,
-    pasteFromTauriClipboard,
-    pasteFromWebClipboard,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    selectedNodeId,
-    nodes,
-    deleteNode,
-    setSelectedNodeId,
-    copiedNode,
-    setCopiedNode,
-    createSourceNode,
-    updateNodeData,
-    addNotification
-  ]);
 
   const handleContextAddSource = () => {
     const position = contextMenu?.canvasX !== undefined && contextMenu?.canvasY !== undefined
@@ -1639,7 +1433,10 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       })
       .filter((x): x is { url: string; name: string; prompt?: string } => x !== null);
 
-    if (items.length === 0) { alert('No images found on canvas.'); return; }
+    if (items.length === 0) {
+      addNotification({ type: 'info', title: 'No Images', message: 'No images found on canvas.' });
+      return;
+    }
     exportImagesBatchWithDialog(items)
       .then(({ succeeded, failed }) => {
         if (succeeded > 0) addNotification({ type: 'success', title: 'Images Exported', message: `${succeeded} image(s) saved successfully` });
