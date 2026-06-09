@@ -52,7 +52,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
         const appWindow = getCurrentWebviewWindow();
         
-        const dispose = await appWindow.onCloseRequested(async (event) => {
+        const dispose = await appWindow.onCloseRequested((event) => {
           if ((window as any).__anarchy_force_close) {
             return;
           }
