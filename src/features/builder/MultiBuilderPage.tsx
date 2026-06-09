@@ -279,7 +279,7 @@ export const MultiBuilderPage: React.FC = () => {
   const requestCloseTab = useCallback((tabId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const tab = tabs.find(t => t.id === tabId);
-    if (tab && tab.everEdited) {
+    if (tab && tab.isDirty) {
       setCloseConfirm({ tabId, title: tab.title });
     } else {
       doCloseTab(tabId);
@@ -363,8 +363,8 @@ export const MultiBuilderPage: React.FC = () => {
   const handleAppDontSaveAndClose = async () => {
     setShowAppCloseConfirm(false);
     const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-    (window as any).__anarchy_force_close = true;
-    await getCurrentWebviewWindow().close();
+    const win = getCurrentWebviewWindow();
+    await win.destroy();
   };
 
   const handleAppSaveAndClose = async () => {
@@ -372,8 +372,8 @@ export const MultiBuilderPage: React.FC = () => {
     const dirtyTabs = tabs.filter(t => t.isDirty);
     if (dirtyTabs.length === 0) {
       const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      (window as any).__anarchy_force_close = true;
-      await getCurrentWebviewWindow().close();
+      const win = getCurrentWebviewWindow();
+      await win.destroy();
       return;
     }
 
@@ -382,8 +382,8 @@ export const MultiBuilderPage: React.FC = () => {
     const saveNext = async () => {
       if (currentIndex >= dirtyTabs.length) {
         const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-        (window as any).__anarchy_force_close = true;
-        await getCurrentWebviewWindow().close();
+        const win = getCurrentWebviewWindow();
+        await win.destroy();
         return;
       }
 
@@ -433,13 +433,15 @@ export const MultiBuilderPage: React.FC = () => {
               <FileText size={14} />
               <span className="tab-title">{tab.title}</span>
               {tab.isDirty && <span className="dirty-indicator">●</span>}
-              <button
-                type="button"
-                className="tab-close-btn"
-                onClick={(e) => { e.stopPropagation(); requestCloseTab(tab.id, e); }}
-              >
-                <X size={12} />
-              </button>
+              {tabs.length > 1 && (
+                <button
+                  type="button"
+                  className="tab-close-btn"
+                  onClick={(e) => { e.stopPropagation(); requestCloseTab(tab.id, e); }}
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
           ))}
         </div>

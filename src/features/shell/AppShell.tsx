@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { NavRail } from './NavRail';
 import { TitleBar } from './TitleBar';
 import { RightSidebar } from './RightSidebar';
@@ -33,6 +33,7 @@ const checkHasDirtyTabs = (): boolean => {
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isBuilderPage   = location.pathname === '/builder';
   const isEnlargedView  = useAIConfigStore(s => s.isEnlargedView);
@@ -59,7 +60,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           const hasDirty = checkHasDirtyTabs();
           if (hasDirty) {
             event.preventDefault();
-            window.dispatchEvent(new CustomEvent('anarchy:trigger-app-close'));
+            navigate('/builder');
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('anarchy:trigger-app-close'));
+            }, 100);
           }
         });
 
