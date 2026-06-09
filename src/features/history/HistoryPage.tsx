@@ -7,7 +7,7 @@ import {
   Timer, ArrowUpDown, RotateCcw, StarOff, Trash2,
   FolderOpen, Check, CheckSquare, Square, Download, FileDown,
   ChevronsLeftRight, BookmarkPlus, BookOpen,
-  Plus, FolderHeart,
+  Plus, FolderHeart, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import {
   getHistory, getHistoryStats, toggleStar,
@@ -15,6 +15,8 @@ import {
   loadFullImage, deleteFullImages, loadWorkflowTree, getDateLabel,
   getLocalImage, type HistoryEntry
 } from '../../services/history/HistoryService';
+import { CollectionService, type Collection } from '../../services/history/CollectionService';
+import { useLazyImage } from '../../hooks';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ExportModal } from '../../components/ExportModal';
 import { exportImagesToPDF } from '../../utils/pdfExport';
@@ -26,60 +28,9 @@ import './HistoryPage.css';
    ════════════════════════════════════════════════════════════════════ */
 type FilterType = 'all' | 'render' | 'upscale' | 'variation' | 'edit' | 'generate' | 'starred' | 'pinboard';
 
-interface Collection {
-  id: string;
-  name: string;
-  entryIds: string[];
-  color: string;
-  createdAt: number;
-}
-
-/* ── Collection CRUD (localStorage) ── */
-const COL_KEY = 'anarchy_collections_v1';
-const COLLECTION_COLORS = ['#e11d48', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
-
-function loadCollections(): Collection[] {
-  try { return JSON.parse(localStorage.getItem(COL_KEY) || '[]'); } catch { return []; }
-}
-function saveCollections(cols: Collection[]): void {
-  localStorage.setItem(COL_KEY, JSON.stringify(cols));
-}
-function createCollection(name: string): Collection {
-  const col: Collection = {
-    id: `col_${Date.now()}`,
-    name,
-    entryIds: [],
-    color: COLLECTION_COLORS[Math.floor(Math.random() * COLLECTION_COLORS.length)],
-    createdAt: Date.now(),
-  };
-  const cols = loadCollections();
-  cols.push(col);
-  saveCollections(cols);
-  return col;
-}
-function addEntryToCollection(colId: string, entryId: string): void {
-  const cols = loadCollections();
-  const col = cols.find(c => c.id === colId);
-  if (col && !col.entryIds.includes(entryId)) {
-    col.entryIds.push(entryId);
-    saveCollections(cols);
-  }
-}
-function removeEntryFromCollection(colId: string, entryId: string): void {
-  const cols = loadCollections();
-  const col = cols.find(c => c.id === colId);
-  if (col) {
-    col.entryIds = col.entryIds.filter(id => id !== entryId);
-    saveCollections(cols);
-  }
-}
-function deleteCollection(colId: string): void {
-  const cols = loadCollections().filter(c => c.id !== colId);
-  saveCollections(cols);
-}
-
 /* ── Date grouping ── */
-const shouldKeepEntry = (entry: HistoryEntry, filter: string, search: string, collections: Collection[], activePinboardId: string | null): boolean => {
+const shouldKeepEntry = (entry: HistoryEntry, filter: string, search: string, collections: Collection[], activePinboardId: string | null, selectedModel?: string): boolean => {
+  if (selectedModel && selectedModel !== 'all' && entry.model !== selectedModel) return false;
   if (filter === 'starred' && !entry.starred) return false;
   if (filter === 'pinboard') {
     if (!activePinboardId) return false;
@@ -114,25 +65,6 @@ function groupEntriesByDate(entries: HistoryEntry[]): { label: string; entries: 
   }
   return groups;
 }
-
-/* ════════════════════════════════════════════════════════════════════
-   SKELETON CARD
-   ════════════════════════════════════════════════════════════════════ */
-const SkeletonCard: React.FC = () => (
-  <div className="history-grid-item skeleton-card">
-    <div className="grid-image-container skeleton-image">
-      <div className="skeleton-shimmer" />
-    </div>
-    <div className="grid-item-info">
-      <div className="skeleton-line sk-prompt" />
-      <div className="skeleton-line sk-prompt sk-short" />
-      <div className="skeleton-meta-row">
-        <div className="skeleton-line sk-model" />
-        <div className="skeleton-line sk-date" />
-      </div>
-    </div>
-  </div>
-);
 
 /* ════════════════════════════════════════════════════════════════════
    STATS ROW
@@ -362,7 +294,6 @@ const PreviewModal: React.FC<{
   preview: HistoryEntry;
   fullInput: string | null;
   fullOutput: string | null;
-  loadedThumbnails: Map<string, string>;
   sliderRef: React.RefObject<HTMLButtonElement | null>;
   handleSliderDown: () => void;
   sliderPos: number;
@@ -373,21 +304,42 @@ const PreviewModal: React.FC<{
   handleOpenWorkflow: (entry: HistoryEntry) => void;
   handleOpenExport: (url: string, name: string) => void;
   handleStar: (e: any, id: string) => void;
-  setPreview: (entry: HistoryEntry | null) => void;
   onClose: () => void;
+  onNavigate: (dir: 'next' | 'prev') => void;
+  hasPrev: boolean;
+  hasNext: boolean;
 }> = ({
-  preview, fullInput, fullOutput, loadedThumbnails,
+  preview, fullInput, fullOutput,
   sliderRef, handleSliderDown, sliderPos, copiedId, handleCopyPrompt,
   reusedId, handleReusePrompt, handleOpenWorkflow,
-  handleOpenExport, handleStar, setPreview, onClose,
+  handleOpenExport, handleStar, onClose,
+  onNavigate, hasPrev, hasNext,
 }) => {
   const navigate = useNavigate();
   const [treeImages, setTreeImages] = useState<Array<{ id: string; image: string; type: string; prompt?: string }>>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [isLoadingTree, setIsLoadingTree] = useState(true);
+
+  // Keyboard navigation inside modal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' && hasNext) { e.preventDefault(); onNavigate('next'); }
+      if (e.key === 'ArrowLeft' && hasPrev) { e.preventDefault(); onNavigate('prev'); }
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [hasPrev, hasNext, onNavigate, onClose]);
 
   useEffect(() => {
     let active = true;
+    // Reset state immediately on navigation to show skeleton
+    setIsLoadingTree(true);
+    setTreeImages([]);
+    setActiveImage(null);
+    setSelectedIds([]);
+
     const loadTree = async () => {
       const workflow = await loadWorkflowTree(preview.id);
       if (!active) return;
@@ -413,8 +365,8 @@ const PreviewModal: React.FC<{
       }
 
       if (items.length === 0) {
-        const outImg = fullOutput || preview.outputImage || loadedThumbnails.get(`${preview.id}_output`);
-        const inImg = fullInput || preview.inputImage || loadedThumbnails.get(`${preview.id}_input`);
+        const outImg = fullOutput || preview.outputImage;
+        const inImg = fullInput || preview.inputImage;
 
         if (inImg) {
           items.push({ id: 'input', image: inImg, type: 'Before', prompt: preview.prompt });
@@ -426,6 +378,7 @@ const PreviewModal: React.FC<{
 
       if (!active) return;
       setTreeImages(items);
+      setIsLoadingTree(false);
 
       if (items.length > 0) {
         const defaultItem = items.find(item => item.id === 'output') || items[items.length - 1];
@@ -436,7 +389,7 @@ const PreviewModal: React.FC<{
 
     loadTree();
     return () => { active = false; };
-  }, [preview.id, fullInput, fullOutput, loadedThumbnails]);
+  }, [preview.id, fullInput, fullOutput]);
 
   const handleThumbnailClick = (item: typeof treeImages[0]) => {
     setSelectedIds([item.id]);
@@ -482,27 +435,32 @@ const PreviewModal: React.FC<{
   const handleSendGroupToCanvas = () => {
     if (selectedIds.length > 1) {
       const selectedItems = treeImages.filter(x => selectedIds.includes(x.id));
-      const nodes = selectedItems.map((item, index) => ({
-        id: `source_${Date.now()}_${index}`,
-        type: 'baseNode',
-        position: { x: 120, y: 200 + index * 240 },
-        data: {
-          type: 'source',
-          processingType: 'source',
-          state: 'ready',
-          label: item.type || 'Source',
-          image: item.image,
-          createdAt: Date.now(),
-          lineage: {
-            parentId: null,
-            rootSourceId: `source_${Date.now()}_${index}`,
-            generation: 0,
-            branchIndex: 0,
+      // Capture timestamp once so id and rootSourceId are always identical for each node
+      const timestamp = Date.now();
+      const nodes = selectedItems.map((item, index) => {
+        const nodeId = `source_${timestamp}_${index}`;
+        return {
+          id: nodeId,
+          type: 'baseNode',
+          position: { x: 120, y: 200 + index * 240 },
+          data: {
+            type: 'source',
             processingType: 'source',
-            ancestry: []
+            state: 'ready',
+            label: item.type || 'Source',
+            image: item.image,
+            createdAt: timestamp,
+            lineage: {
+              parentId: null,
+              rootSourceId: nodeId,
+              generation: 0,
+              branchIndex: 0,
+              processingType: 'source',
+              ancestry: []
+            }
           }
-        }
-      }));
+        };
+      });
       const presetWf = { nodes, edges: [] };
       sessionStorage.setItem(SESSION_KEYS.PRESET_WORKFLOW, JSON.stringify(presetWf));
       navigate('/builder');
@@ -521,6 +479,29 @@ const PreviewModal: React.FC<{
   return (
     <div className="history-overlay">
       <button onClick={onClose} aria-label="Close" style={{ position: 'absolute', inset: 0, background: 'none', border: 'none', padding: 0, width: '100%', height: '100%', cursor: 'default' }} />
+
+      {/* Floating navigation chevrons */}
+      {hasPrev && (
+        <button
+          className="modal-nav-btn prev"
+          onClick={(e) => { e.stopPropagation(); onNavigate('prev'); }}
+          aria-label="Previous entry"
+          title="Previous (←)"
+        >
+          <ChevronLeft size={22} />
+        </button>
+      )}
+      {hasNext && (
+        <button
+          className="modal-nav-btn next"
+          onClick={(e) => { e.stopPropagation(); onNavigate('next'); }}
+          aria-label="Next entry"
+          title="Next (→)"
+        >
+          <ChevronRight size={22} />
+        </button>
+      )}
+
       <div className="history-modal">
         <button className="modal-close" onClick={onClose}><X size={18} /></button>
         <div className="modal-tabs">
@@ -529,22 +510,33 @@ const PreviewModal: React.FC<{
           </div>
         </div>
         <div className="modal-image-area">
-          <PreviewImageArea
-            isCompare={isCompare}
-            sliderRef={sliderRef}
-            handleSliderDown={handleSliderDown}
-            leftImage={compareLeftItem?.image || null}
-            rightImage={compareRightItem?.image || null}
-            singleImage={activeImage}
-            label={preview.label}
-            sliderPos={sliderPos}
-          />
+          {isLoadingTree ? (
+            <div className="modal-image-skeleton">
+              <div className="skeleton-shimmer" style={{ width: '100%', height: '100%', borderRadius: 8 }} />
+            </div>
+          ) : (
+            <PreviewImageArea
+              isCompare={isCompare}
+              sliderRef={sliderRef}
+              handleSliderDown={handleSliderDown}
+              leftImage={compareLeftItem?.image || null}
+              rightImage={compareRightItem?.image || null}
+              singleImage={activeImage}
+              label={preview.label}
+              sliderPos={sliderPos}
+            />
+          )}
         </div>
 
         {/* Dynamic thumbnails section */}
         <div className="modal-thumbnails-section">
           <span className="modal-section-title">Workflow Tree Images</span>
           <div className="modal-thumbnails-row">
+            {isLoadingTree && (
+              <div className="modal-thumb-card" style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                <div className="modal-thumb-img skeleton-shimmer" style={{ width: 64, height: 64, borderRadius: 6 }} />
+              </div>
+            )}
             {treeImages.map(item => {
               const isSelected = selectedIds.includes(item.id);
               const indexInSelection = selectedIds.indexOf(item.id);
@@ -617,7 +609,7 @@ const PreviewModal: React.FC<{
                 <Save size={14} /> Export Image
               </button>
             )}
-            <button className={`modal-star ${preview.starred ? 'active' : ''}`} onClick={(e) => { handleStar(e, preview.id); setPreview({ ...preview, starred: !preview.starred }); }}>
+            <button className={`modal-star ${preview.starred ? 'active' : ''}`} onClick={(e) => handleStar(e, preview.id)}>
               {preview.starred ? <StarOff size={14} /> : <Star size={14} />}{preview.starred ? 'Unstar' : 'Star'}
             </button>
           </div>
@@ -632,8 +624,6 @@ const PreviewModal: React.FC<{
    ════════════════════════════════════════════════════════════════════ */
 const SplitCard: React.FC<{
   entry: HistoryEntry;
-  inputSrc: string;
-  outputSrc: string;
   isSelected: boolean;
   isStarred: boolean;
   selectMode: boolean;
@@ -647,79 +637,101 @@ const SplitCard: React.FC<{
   onToggleSelect: () => void;
   onAddToCollection: (e: React.MouseEvent) => void;
 }> = ({
-  entry, inputSrc, outputSrc, isSelected, isStarred,
+  entry, isSelected, isStarred,
   selectMode, selectedIds, isInAnyCollection,
   onCardClick, onOpenWorkflow, onViewDetails, onStar, onDelete,
   onToggleSelect, onAddToCollection,
 }) => {
-  const hasBothImages = !!(inputSrc && outputSrc);
-  const isLoading = !inputSrc && !outputSrc;
+  // Single shared ref — both useLazyImage instances observe the same card element.
+  // No unsafe casting, no combinedRef tricks: useLazyImage now accepts externalRef.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const { src: outputSrc } = useLazyImage(entry.id, 'output', entry.outputImage, cardRef);
+  const { src: inputSrc }  = useLazyImage(entry.id, 'input',  entry.inputImage,  cardRef);
+
+  const isLoading = !outputSrc && !inputSrc;
+  // B/A badge only when BOTH images are actually loaded (not just referenced in metadata)
+  const hasBothImages = !!(outputSrc && inputSrc);
   const thumbnailSrc = outputSrc || inputSrc || '';
 
-  if (isLoading) return <SkeletonCard />;
-
+  // Single stable DOM node — never unmounts, avoids IntersectionObserver losing its target
   return (
     <div
-      className={`history-grid-item ${isStarred ? 'starred' : ''} ${isSelected ? 'selected' : ''}`}
+      ref={cardRef}
+      className={`history-grid-item${isLoading ? ' skeleton-card' : ''}${isStarred ? ' starred' : ''}${isSelected ? ' selected' : ''}`}
       onClick={() => selectMode ? onToggleSelect() : onCardClick()}
     >
-      {/* ── Image Preview ── */}
-      <div className="grid-image-container single-image">
-        <img src={thumbnailSrc} alt={entry.label} className="grid-img-out" loading="lazy" draggable={false} />
-
-        {/* Select checkbox */}
-        {selectMode && (
-          <div className="item-select-check">
-            {selectedIds.has(entry.id) ? <CheckSquare size={16} color="#e11d48" /> : <Square size={16} />}
+      {isLoading ? (
+        /* ── Inline skeleton (same node, no double-wrapping) ── */
+        <>
+          <div className="grid-image-container skeleton-image">
+            <div className="skeleton-shimmer" />
           </div>
-        )}
-
-        {/* Permanent split/BA badge */}
-        {hasBothImages && !selectMode && (
-          <div className="split-badge">
-            <ChevronsLeftRight size={9} strokeWidth={2.5} />
-            <span>B/A</span>
+          <div className="grid-item-info">
+            <div className="skeleton-line sk-prompt" />
+            <div className="skeleton-line sk-prompt sk-short" />
+            <div className="skeleton-meta-row">
+              <div className="skeleton-line sk-model" />
+              <div className="skeleton-line sk-date" />
+            </div>
           </div>
-        )}
+        </>
+      ) : (
+        /* ── Real content ── */
+        <>
+          <div className="grid-image-container single-image">
+            <img src={thumbnailSrc} alt={entry.label} className="grid-img-out" loading="lazy" draggable={false} />
 
-        {/* Collection badge */}
-        {isInAnyCollection && !selectMode && (
-          <div className="collection-badge"><BookmarkPlus size={10} /></div>
-        )}
-
-        {/* Hover actions */}
-        {!selectMode && (
-          <div className="grid-item-actions" onClick={e => e.stopPropagation()}>
-            <button className="grid-action-btn" onClick={(e) => { e.stopPropagation(); onOpenWorkflow(); }} title="Use (Workflow)"><FolderOpen size={13} /></button>
-            <button className="grid-action-btn" onClick={(e) => { e.stopPropagation(); onViewDetails(); }} title="View Details"><Eye size={13} /></button>
-            <button className={`grid-action-btn ${isStarred ? 'star-active' : ''}`} onClick={onStar} title={isStarred ? 'Unstar' : 'Star'}><Star size={13} fill={isStarred ? '#e11d48' : 'none'} /></button>
-            <button className={`grid-action-btn ${isInAnyCollection ? 'star-active' : ''}`} onClick={onAddToCollection} title="Add to Collection"><BookmarkPlus size={13} /></button>
-            <button className="grid-action-btn" onClick={onDelete} title="Delete"><Trash2 size={13} /></button>
-          </div>
-        )}
-      </div>
-
-      {/* ── Info Bar ── */}
-      <div className="grid-item-info">
-        <span className="grid-item-prompt">{entry.prompt || entry.label}</span>
-        <div className="grid-item-meta">
-          <span className="grid-item-model">
-            {entry.model ? entry.model.split(' ').slice(0, 2).join(' ') : entry.type}
-          </span>
-          <div className="grid-item-right-meta">
-            {entry.duration && entry.duration > 0 && (
-              <span className="grid-item-duration">
-                <Timer size={9} />
-                {formatDuration(entry.duration)}
-              </span>
+            {selectMode && (
+              <div className="item-select-check">
+                {selectedIds.has(entry.id) ? <CheckSquare size={16} color="#e11d48" /> : <Square size={16} />}
+              </div>
             )}
-            <span className="grid-item-date">{getDateLabel(entry.timestamp)}</span>
+
+            {hasBothImages && !selectMode && (
+              <div className="split-badge">
+                <ChevronsLeftRight size={9} strokeWidth={2.5} />
+                <span>B/A</span>
+              </div>
+            )}
+
+            {isInAnyCollection && !selectMode && (
+              <div className="collection-badge"><BookmarkPlus size={10} /></div>
+            )}
+
+            {!selectMode && (
+              <div className="grid-item-actions" onClick={e => e.stopPropagation()}>
+                <button className="grid-action-btn" onClick={(e) => { e.stopPropagation(); onOpenWorkflow(); }} title="Use (Workflow)"><FolderOpen size={13} /></button>
+                <button className="grid-action-btn" onClick={(e) => { e.stopPropagation(); onViewDetails(); }} title="View Details"><Eye size={13} /></button>
+                <button className={`grid-action-btn ${isStarred ? 'star-active' : ''}`} onClick={onStar} title={isStarred ? 'Unstar' : 'Star'}><Star size={13} fill={isStarred ? '#e11d48' : 'none'} /></button>
+                <button className={`grid-action-btn ${isInAnyCollection ? 'star-active' : ''}`} onClick={onAddToCollection} title="Add to Collection"><BookmarkPlus size={13} /></button>
+                <button className="grid-action-btn" onClick={onDelete} title="Delete"><Trash2 size={13} /></button>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+
+          <div className="grid-item-info">
+            <span className="grid-item-prompt">{entry.prompt || entry.label}</span>
+            <div className="grid-item-meta">
+              <span className="grid-item-model">
+                {entry.model ? entry.model.split(' ').slice(0, 2).join(' ') : entry.type}
+              </span>
+              <div className="grid-item-right-meta">
+                {entry.duration && entry.duration > 0 && (
+                  <span className="grid-item-duration">
+                    <Timer size={9} />
+                    {formatDuration(entry.duration)}
+                  </span>
+                )}
+                <span className="grid-item-date">{getDateLabel(entry.timestamp)}</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
+
 
 /* ════════════════════════════════════════════════════════════════════
    HISTORY PAGE
@@ -729,8 +741,8 @@ export const HistoryPage: React.FC = () => {
   const [allEntries, setAllEntries] = useState<HistoryEntry[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
+  const [selectedModel, setSelectedModel] = useState('all');
   const [preview, setPreview] = useState<HistoryEntry | null>(null);
-  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [sliderPos, setSliderPos] = useState(50);
   const sliderRef = useRef<HTMLButtonElement>(null);
   const isDragging = useRef(false);
@@ -738,7 +750,6 @@ export const HistoryPage: React.FC = () => {
   const [reusedId, setReusedId] = useState<string | null>(null);
   const [fullOutput, setFullOutput] = useState<string | null>(null);
   const [fullInput, setFullInput] = useState<string | null>(null);
-  const [loadedThumbnails, setLoadedThumbnails] = useState<Map<string, string>>(new Map());
   const [confirmClear, setConfirmClear] = useState(false);
   const [exportTarget, setExportTarget] = useState<{ url: string; name: string } | null>(null);
   const [sortAsc, setSortAsc] = useState(false);
@@ -747,12 +758,12 @@ export const HistoryPage: React.FC = () => {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   /* Collections state */
-  const [collections, setCollections] = useState<Collection[]>(loadCollections);
+  const [collections, setCollections] = useState<Collection[]>(CollectionService.load);
   const [showPinboard, setShowPinboard] = useState(false);
   const [activePinboardId, setActivePinboardId] = useState<string | null>(null);
   const [addToColEntry, setAddToColEntry] = useState<string | null>(null);
 
-  const refreshCollections = useCallback(() => setCollections(loadCollections()), []);
+  const refreshCollections = useCallback(() => setCollections(CollectionService.load()), []);
 
   const refresh = useCallback(() => setAllEntries(getHistory()), []);
 
@@ -767,44 +778,44 @@ export const HistoryPage: React.FC = () => {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Load thumbnails from IndexedDB for entries without inline images
-  useEffect(() => {
-    const loadThumbnails = async () => {
-      const newMap = new Map(loadedThumbnails);
-      let changed = false;
-      for (const entry of allEntries) {
-        if (!entry.outputImage && !newMap.has(`${entry.id}_output`)) {
-          const img = await loadFullImage(entry.id, 'output');
-          if (img) { newMap.set(`${entry.id}_output`, img); changed = true; }
-        }
-        if (!entry.inputImage && !newMap.has(`${entry.id}_input`)) {
-          const img = await loadFullImage(entry.id, 'input');
-          if (img) { newMap.set(`${entry.id}_input`, img); changed = true; }
-        }
-      }
-      if (changed) setLoadedThumbnails(new Map(newMap));
-    };
-    if (allEntries.length > 0) loadThumbnails();
-  }, [allEntries]);
-
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === STORAGE_KEYS.HISTORY || e.key === null) refresh(); };
     const onCustom = () => refresh();
     const onFocus = () => refresh();
     const onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
+    const onCollections = () => refreshCollections();
     globalThis.addEventListener('storage', onStorage);
     globalThis.addEventListener('anarchy:history:updated', onCustom);
     globalThis.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
-    const poll = setInterval(refresh, 3000);
+    globalThis.addEventListener('anarchy:collections:updated', onCollections);
     return () => {
       globalThis.removeEventListener('storage', onStorage);
       globalThis.removeEventListener('anarchy:history:updated', onCustom);
       globalThis.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
-      clearInterval(poll);
+      globalThis.removeEventListener('anarchy:collections:updated', onCollections);
     };
-  }, [refresh]);
+  }, [refresh, refreshCollections]);
+
+  // Primitive string dep — no object reference issues, no ESLint suppress needed
+  const previewId = preview?.id ?? null;
+  useEffect(() => {
+    if (!previewId) return;
+    const fresh = allEntries.find(e => e.id === previewId);
+    if (!fresh) return;
+    setPreview(prev => {
+      if (!prev) return prev;
+      // Compare only mutable metadata fields — avoids serializing base64 image strings
+      const hasChanged =
+        fresh.starred   !== prev.starred  ||
+        fresh.label     !== prev.label    ||
+        fresh.prompt    !== prev.prompt   ||
+        fresh.model     !== prev.model    ||
+        fresh.duration  !== prev.duration;
+      return hasChanged ? fresh : prev;
+    });
+  }, [allEntries, previewId]);
 
   /* Slider drag */
   const handleSliderDown = () => { isDragging.current = true; };
@@ -833,35 +844,91 @@ export const HistoryPage: React.FC = () => {
     return counts;
   }, [allEntries, collections]);
 
+  /* Unique model names for dropdown */
+  const uniqueModels = useMemo(() => {
+    const models = new Set<string>();
+    allEntries.forEach(e => { if (e.model) models.add(e.model); });
+    return Array.from(models).sort();
+  }, [allEntries]);
+
   /* Filtered + sorted entries */
   const filteredEntries = useMemo(() =>
     allEntries
-      .filter(e => shouldKeepEntry(e, filter, search, collections, activePinboardId))
+      .filter(e => shouldKeepEntry(e, filter, search, collections, activePinboardId, selectedModel))
       .sort((a, b) => sortAsc ? a.timestamp - b.timestamp : b.timestamp - a.timestamp),
-    [allEntries, filter, search, sortAsc, collections, activePinboardId]
+    [allEntries, filter, search, sortAsc, collections, activePinboardId, selectedModel]
   );
 
   /* Grouped by date */
   const dateGroups = useMemo(() => groupEntriesByDate(filteredEntries), [filteredEntries]);
 
   /* Handlers */
-  const handleStar = (e: React.MouseEvent, id: string) => { e.stopPropagation(); toggleStar(id); refresh(); };
+  const handleStar = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    toggleStar(id);
+    refresh(); // storage is updated; refresh reads it — preview sync handled by useEffect above
+  }, [refresh]);
+
+  // Per-card async delete, memoized so it's not re-created on every render
+  const handleDeleteEntry = useCallback(async (entryId: string) => {
+    await Promise.all([
+      deleteHistoryEntry(entryId),
+      deleteFullImages(entryId),
+    ]);
+    refresh();
+  }, [refresh]);
   const toggleSelect = (id: string) => setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const toggleSelectAll = () => {
     setSelectedIds(selectedIds.size === filteredEntries.length ? new Set() : new Set(filteredEntries.map(e => e.id)));
   };
-  const handleBulkDelete = () => {
-    selectedIds.forEach(id => { deleteHistoryEntry(id); deleteFullImages(id); });
-    setSelectedIds(new Set()); setSelectMode(false); setConfirmBulkDelete(false); refresh();
+  const handleBulkDelete = async () => {
+    // Fix: await all async IndexedDB deletions before refreshing UI
+    await Promise.all(
+      Array.from(selectedIds).map(id =>
+        Promise.all([deleteHistoryEntry(id), deleteFullImages(id)])
+      )
+    );
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setConfirmBulkDelete(false);
+    refresh();
   };
   const handleBulkExport = async () => {
-    const entries = allEntries.filter(e => selectedIds.has(e.id));
-    for (const e of entries) {
-      const url = e.outputImage || e.inputImage;
-      if (!url) continue;
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const folder = zip.folder('anarchy-export')!;
+      
+      const entries = allEntries.filter(e => selectedIds.has(e.id));
+      
+      for (const e of entries) {
+        let url = e.outputImage || e.inputImage;
+        if (!url) {
+          url = (await loadFullImage(e.id, 'output')) || (await loadFullImage(e.id, 'input')) || '';
+        }
+        
+        if (!url || !url.startsWith('data:')) continue;
+        
+        const base64Data = url.split(',')[1];
+        if (!base64Data) continue;
+        
+        const safeName = (e.label || e.id).replace(/[^a-zA-Z0-9_\-]/g, '_');
+        folder.file(`${safeName}.png`, base64Data, { base64: true });
+      }
+      
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const blobUrl = URL.createObjectURL(blob);
+      
       const a = document.createElement('a');
-      a.href = url; a.download = `${(e.label || e.id).replace(/[^a-zA-Z0-9_\-]/g, '_')}.png`; a.click();
-      await new Promise(r => setTimeout(r, 80));
+      a.href = blobUrl;
+      a.download = `anarchy-export-${Date.now()}.zip`;
+      a.click();
+      
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      setSelectedIds(new Set());
+      setSelectMode(false);
+    } catch (err) {
+      logger.error('[History] Bulk export failed:', err);
     }
   };
   const handleCopyPrompt = (prompt: string, id: string) => { navigator.clipboard.writeText(prompt); setCopiedId(id); setTimeout(() => setCopiedId(null), 1800); };
@@ -885,22 +952,22 @@ export const HistoryPage: React.FC = () => {
     setAddToColEntry(entryId);
   };
   const handleAddToNew = (name: string) => {
-    const col = createCollection(name);
-    if (addToColEntry) { addEntryToCollection(col.id, addToColEntry); }
+    const col = CollectionService.create(name);
+    if (addToColEntry) { CollectionService.addEntry(col.id, addToColEntry); }
     refreshCollections();
     setAddToColEntry(null);
   };
   const handleAddTo = (colId: string) => {
-    if (addToColEntry) addEntryToCollection(colId, addToColEntry);
+    if (addToColEntry) CollectionService.addEntry(colId, addToColEntry);
     refreshCollections();
     setAddToColEntry(null);
   };
   const handleRemoveFrom = (colId: string) => {
-    if (addToColEntry) removeEntryFromCollection(colId, addToColEntry);
+    if (addToColEntry) CollectionService.removeEntry(colId, addToColEntry);
     refreshCollections();
   };
   const handleDeleteCollection = (colId: string) => {
-    deleteCollection(colId);
+    CollectionService.delete(colId);
     if (activePinboardId === colId) setActivePinboardId(null);
     refreshCollections();
   };
@@ -922,6 +989,21 @@ export const HistoryPage: React.FC = () => {
     { key: 'generate', label: 'Generate' },
   ];
 
+  /* Modal navigation handler */
+  const handleNavigate = useCallback((dir: 'next' | 'prev') => {
+    if (!preview) return;
+    const idx = filteredEntries.findIndex(e => e.id === preview.id);
+    if (idx === -1) return;
+    const nextIdx = dir === 'next' ? idx + 1 : idx - 1;
+    if (nextIdx >= 0 && nextIdx < filteredEntries.length) {
+      setPreview(filteredEntries[nextIdx]);
+    }
+  }, [preview, filteredEntries]);
+
+  const previewIndex = preview ? filteredEntries.findIndex(e => e.id === preview.id) : -1;
+  const hasPrev = previewIndex > 0;
+  const hasNext = previewIndex >= 0 && previewIndex < filteredEntries.length - 1;
+
   return (
     <div className="history-page">
       {/* ── Header ── */}
@@ -932,6 +1014,19 @@ export const HistoryPage: React.FC = () => {
             <Search size={14} />
             <input type="text" placeholder="Search prompt, model, project..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          {uniqueModels.length > 0 && (
+            <select
+              className="history-model-select"
+              value={selectedModel}
+              onChange={e => setSelectedModel(e.target.value)}
+              title="Filter by model"
+            >
+              <option value="all">All Models</option>
+              {uniqueModels.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="history-header-actions">
           <span className="history-count">{filteredEntries.length} of {allEntries.length}</span>
@@ -1032,14 +1127,10 @@ export const HistoryPage: React.FC = () => {
                   <DateGroupHeader label={group.label} count={group.entries.length} />
                   <div className="history-grid">
                     {group.entries.map(entry => {
-                      const inputSrc  = entry.inputImage  || loadedThumbnails.get(`${entry.id}_input`)  || '';
-                      const outputSrc = entry.outputImage || loadedThumbnails.get(`${entry.id}_output`) || '';
                       return (
                         <SplitCard
                           key={entry.id}
                           entry={entry}
-                          inputSrc={inputSrc}
-                          outputSrc={outputSrc}
                           isSelected={selectMode && selectedIds.has(entry.id)}
                           isStarred={entry.starred || false}
                           selectMode={selectMode}
@@ -1049,7 +1140,7 @@ export const HistoryPage: React.FC = () => {
                           onOpenWorkflow={() => handleOpenWorkflow(entry)}
                           onViewDetails={() => setPreview(entry)}
                           onStar={(e) => handleStar(e, entry.id)}
-                          onDelete={(e) => { e.stopPropagation(); deleteHistoryEntry(entry.id); deleteFullImages(entry.id); refresh(); }}
+                          onDelete={(e) => { e.stopPropagation(); handleDeleteEntry(entry.id); }}
                           onToggleSelect={() => toggleSelect(entry.id)}
                           onAddToCollection={(e) => handleAddToCollection(e, entry.id)}
                         />
@@ -1080,7 +1171,6 @@ export const HistoryPage: React.FC = () => {
           preview={preview}
           fullInput={fullInput}
           fullOutput={fullOutput}
-          loadedThumbnails={loadedThumbnails}
           sliderRef={sliderRef}
           handleSliderDown={handleSliderDown}
           sliderPos={sliderPos}
@@ -1091,8 +1181,10 @@ export const HistoryPage: React.FC = () => {
           handleOpenWorkflow={handleOpenWorkflow}
           handleOpenExport={handleOpenExport}
           handleStar={handleStar}
-          setPreview={setPreview}
           onClose={() => setPreview(null)}
+          onNavigate={handleNavigate}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
         />
       )}
       {addToColEntry && (
@@ -1106,15 +1198,6 @@ export const HistoryPage: React.FC = () => {
         />
       )}
       {exportTarget && <ExportModal imageUrl={exportTarget.url} imageName={exportTarget.name} onClose={() => setExportTarget(null)} />}
-      {enlargedImage && (
-        <div className="history-overlay enlarged-overlay">
-          <button onClick={() => setEnlargedImage(null)} aria-label="Close enlarged" style={{ position: 'absolute', inset: 0, background: 'none', border: 'none', padding: 0, width: '100%', height: '100%', cursor: 'default' }} />
-          <div className="enlarged-image-container">
-            <button className="modal-close enlarged-close" onClick={() => setEnlargedImage(null)}><X size={20} /></button>
-            <img src={enlargedImage} alt="Full size" className="enlarged-img" />
-          </div>
-        </div>
-      )}
       {confirmClear && (
         <ConfirmModal title="Clear All History" message="Clear all history? This cannot be undone." confirmLabel="Clear All" danger onConfirm={async () => { setConfirmClear(false); await clearHistory(); refresh(); }} onCancel={() => setConfirmClear(false)} />
       )}

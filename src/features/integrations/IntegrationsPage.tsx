@@ -139,8 +139,8 @@ async function resolvePluginStatus(
 
   try {
     if (AUTODESK_IDS.has(plugin.id)) {
-      const installs = await invoke<AutodeskInstall[]>('detect_autodesk_installs', { target: plugin.id });
-      if (installs.length > 0) {
+      const installs = (await invoke<AutodeskInstall[]>('detect_autodesk_installs', { target: plugin.id })) || [];
+      if (Array.isArray(installs) && installs.length > 0) {
         const saved = installedPlugins[plugin.id];
         if (saved) {
           detectedVersion = saved.version || plugin.latestVersion;
@@ -246,11 +246,11 @@ export const IntegrationsPage: React.FC = () => {
     }
 
     try {
-      const installs = await invoke<AutodeskInstall[]>('detect_autodesk_installs', {
+      const installs = (await invoke<AutodeskInstall[]>('detect_autodesk_installs', {
         target: plugin.id,
-      });
+      })) || [];
       setDetectedInstalls(installs);
-      setSelectedVersions(installs.map(install => install.version));
+      setSelectedVersions(Array.isArray(installs) ? installs.map(install => install.version) : []);
     } catch (error) {
       setDetectedInstalls([]);
       setSelectedVersions([]);

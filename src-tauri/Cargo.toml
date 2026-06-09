@@ -33,3 +33,4 @@ tauri-plugin-drag = "2.1.1"
 tauri-plugin-http = "2"
 image = { version = "0.25", default-features = false, features = ["bmp", "png"] }
 open = "5"
+keyring = "2.1.2"

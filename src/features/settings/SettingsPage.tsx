@@ -1,47 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Settings, Shield, Database,
   Check,
   Save, RefreshCw, Trash2, Info,
   Zap, History, Bell, FileText,
-  Download, Upload, X, ExternalLink, Lock
+  Download, Upload
 } from 'lucide-react';
 import { replicateService } from '../../services/replicate';
 import { DataMigrationService } from '../../services/migration';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { WatermarkPosition } from '../../stores/aiConfigStore';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { notify } from '../../stores/notificationStore';
 import './SettingsPage.css';
 import { APP_INFO } from '../../config/appInfo';
-
-interface AppSettings {
-  theme: 'dark' | 'light';
-  notifications: boolean;
-  soundEffects: boolean;
-  saveLocation: string;
-  apiKey: string;
-  defaultModel: string;
-  defaultUpscale: boolean;
-  maxHistory: number;
-  clearOnExit: boolean;
-}
-
-const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'dark',
-  notifications: true,
-  soundEffects: false,
-  saveLocation: '',
-  apiKey: '',
-  defaultModel: 'black-forest-labs/flux-2-pro',
-  defaultUpscale: false,
-  maxHistory: 500,
-  clearOnExit: false,
-};
+import { SettingsService, type AppSettings } from '../../services/settings';
+import { PrivacyPolicyModal, DocumentationModal, ChangelogModal } from './SettingsModals';
 
 export const SettingsPage: React.FC = () => {
   const aiConfig = useAIConfigStore((s) => s.config);
   const setAIConfig = useAIConfigStore((s) => s.setConfig);
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<AppSettings>(SettingsService.getSettings());
   const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about'>('general');
   const [saved, setSaved] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -52,11 +31,21 @@ export const SettingsPage: React.FC = () => {
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClearData, setConfirmClearData] = useState(false);
   const [appVersion, setAppVersion] = useState('...');
+  
+  const watermarkFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     import('@tauri-apps/api/app')
       .then(m => m.getVersion())
-      .then(v => setAppVersion(v))
+      .then(v => {
+        if (typeof v === 'string') {
+          setAppVersion(v);
+        } else if (v && typeof v === 'object' && 'version' in v) {
+          setAppVersion(String((v as any).version));
+        } else {
+          setAppVersion(String(v));
+        }
+      })
       .catch(() => setAppVersion('0.7.0'));
   }, []);
 
@@ -64,8 +53,13 @@ export const SettingsPage: React.FC = () => {
     setUpdateStatus('checking');
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<{ shouldUpdate: boolean }>('check_update');
-      setUpdateStatus(result?.shouldUpdate ? 'available' : 'up-to-date');
+      const result = await invoke('check_update') as unknown;
+      const shouldUpdate =
+        result !== null &&
+        typeof result === 'object' &&
+        'shouldUpdate' in result &&
+        (result as any).shouldUpdate === true;
+      setUpdateStatus(shouldUpdate ? 'available' : 'up-to-date');
       setTimeout(() => setUpdateStatus('idle'), 4000);
     } catch {
       setUpdateStatus('error');
@@ -73,86 +67,38 @@ export const SettingsPage: React.FC = () => {
     }
   }, []);
 
-  // Load settings
-  useEffect(() => {
-    const saved = localStorage.getItem('anarchy_settings');
-    if (saved) {
-      setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
-    }
-    calculateDiskUsage();
-  }, []);
-
-  // Apply theme effect - comprehensive variables
-  useEffect(() => {
-    const root = document.documentElement;
-    const isDark = settings.theme !== 'light';
-    
-    if (isDark) {
-      // Dark Theme
-      root.style.setProperty('--bg-app', '#0a0a0b');
-      root.style.setProperty('--bg-side', '#000000');
-      root.style.setProperty('--bg-surface', '#121214');
-      root.style.setProperty('--bg-card', '#161618');
-      root.style.setProperty('--bg-input', '#0a0a0b');
-      root.style.setProperty('--text-primary', '#ffffff');
-      root.style.setProperty('--text-secondary', '#9ca3af');
-      root.style.setProperty('--text-muted', '#6b7280');
-      root.style.setProperty('--border-color', 'rgba(255, 255, 255, 0.08)');
-      root.style.setProperty('--border-hover', 'rgba(255, 255, 255, 0.15)');
-      root.style.setProperty('--card-bg', 'rgba(255, 255, 255, 0.02)');
-      root.style.setProperty('--card-border', 'rgba(255, 255, 255, 0.04)');
-      root.style.setProperty('--hover-bg', 'rgba(255, 255, 255, 0.05)');
-      root.style.setProperty('--shadow-sm', '0 2px 8px rgba(0, 0, 0, 0.3)');
-      root.style.setProperty('--shadow-md', '0 4px 16px rgba(0, 0, 0, 0.4)');
-      root.style.setProperty('--shadow-lg', '0 8px 32px rgba(0, 0, 0, 0.5)');
-      document.body.style.backgroundColor = '#0a0a0b';
-      document.body.classList.remove('light-theme');
-      document.body.classList.add('dark-theme');
-    } else {
-      // Light Theme
-      root.style.setProperty('--bg-app', '#f8fafc');
-      root.style.setProperty('--bg-side', '#f1f5f9');
-      root.style.setProperty('--bg-surface', '#ffffff');
-      root.style.setProperty('--bg-card', '#ffffff');
-      root.style.setProperty('--bg-input', '#f8fafc');
-      root.style.setProperty('--text-primary', '#0f172a');
-      root.style.setProperty('--text-secondary', '#475569');
-      root.style.setProperty('--text-muted', '#94a3b8');
-      root.style.setProperty('--border-color', '#e2e8f0');
-      root.style.setProperty('--border-hover', '#cbd5e1');
-      root.style.setProperty('--card-bg', '#ffffff');
-      root.style.setProperty('--card-border', '#e2e8f0');
-      root.style.setProperty('--hover-bg', '#f1f5f9');
-      root.style.setProperty('--shadow-sm', '0 2px 8px rgba(0, 0, 0, 0.08)');
-      root.style.setProperty('--shadow-md', '0 4px 16px rgba(0, 0, 0, 0.1)');
-      root.style.setProperty('--shadow-lg', '0 8px 32px rgba(0, 0, 0, 0.15)');
-      document.body.style.backgroundColor = '#f8fafc';
-      document.body.classList.remove('dark-theme');
-      document.body.classList.add('light-theme');
-    }
-  }, [settings.theme]);
-
-  const calculateDiskUsage = () => {
-    // Calculate rough estimate from localStorage
+  const calculateDiskUsage = useCallback(() => {
+    // Calculate estimate from localStorage (UTF-16 uses 2 bytes per character)
     let total = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key) {
-        total += localStorage.getItem(key)?.length || 0;
+        total += (localStorage.getItem(key)?.length || 0) * 2;
       }
     }
-    const history = localStorage.getItem('anarchy_history')?.length || 0;
+    const history = (localStorage.getItem('anarchy_history')?.length || 0) * 2;
     const projects = total - history;
     setDiskUsage({
       projects: Math.round(projects / 1024),
       history: Math.round(history / 1024),
       total: Math.round(total / 1024)
     });
-  };
+  }, []);
+
+  // Initialize and load secure settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      await SettingsService.init();
+      const current = SettingsService.getSettings();
+      setSettings(current);
+      SettingsService.applyTheme(current.theme);
+      calculateDiskUsage();
+    };
+    loadSettings();
+  }, [calculateDiskUsage]);
 
   const saveSettings = () => {
-    localStorage.setItem('anarchy_settings', JSON.stringify(settings));
-    // Update Replicate service with new API key
+    SettingsService.updateSettings(settings);
     replicateService.updateApiKey();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -160,10 +106,11 @@ export const SettingsPage: React.FC = () => {
 
   const resetSettings = () => setConfirmReset(true);
 
-  const doResetSettings = () => {
+  const doResetSettings = async () => {
     setConfirmReset(false);
-    setSettings(DEFAULT_SETTINGS);
-    localStorage.setItem('anarchy_settings', JSON.stringify(DEFAULT_SETTINGS));
+    await SettingsService.resetSettings();
+    const current = SettingsService.getSettings();
+    setSettings(current);
     replicateService.updateApiKey();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -171,10 +118,12 @@ export const SettingsPage: React.FC = () => {
 
   const clearAllData = () => setConfirmClearData(true);
 
-  const doClearAllData = () => {
+  const doClearAllData = async () => {
     setConfirmClearData(false);
     localStorage.clear();
-    setSettings(DEFAULT_SETTINGS);
+    await SettingsService.resetSettings();
+    const current = SettingsService.getSettings();
+    setSettings(current);
     calculateDiskUsage();
   };
 
@@ -189,23 +138,26 @@ export const SettingsPage: React.FC = () => {
     
     const success = await DataMigrationService.importFromFile(file);
     if (success) {
-      alert('✅ Data imported successfully! Please reload the app.');
+      notify.success('Data imported successfully!', 'Please reload the app.');
       // Reload settings
-      const saved = localStorage.getItem('anarchy_settings');
-      if (saved) {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
-      }
+      await SettingsService.init();
+      setSettings(SettingsService.getSettings());
       calculateDiskUsage();
     } else {
-      alert('❌ Failed to import data. Please check the file format.');
+      notify.error('Failed to import data.', 'Please check the file format.');
     }
     // Reset input
     e.target.value = '';
   };
 
-  const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-  };
+  const updateSetting = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    setSettings(prev => {
+      const updated = { ...prev, [key]: value };
+      // Auto-save setting immediately on update
+      SettingsService.updateSettings({ [key]: value });
+      return updated;
+    });
+  }, []);
 
   return (
     <div className="settings-page">
@@ -230,14 +182,14 @@ export const SettingsPage: React.FC = () => {
         {/* Sidebar */}
         <div className="settings-sidebar">
           {[
-            { id: 'general', label: 'General', icon: <Settings size={16} /> },
-            { id: 'storage', label: 'Storage', icon: <Database size={16} /> },
-            { id: 'about', label: 'About', icon: <Info size={16} /> },
+            { id: 'general' as const, label: 'General', icon: <Settings size={16} /> },
+            { id: 'storage' as const, label: 'Storage', icon: <Database size={16} /> },
+            { id: 'about' as const, label: 'About', icon: <Info size={16} /> },
           ].map(tab => (
             <button
               key={tab.id}
               className={`settings-tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
             >
               {tab.icon}
               {tab.label}
@@ -334,18 +286,21 @@ export const SettingsPage: React.FC = () => {
                     {aiConfig.watermarkType === 'image' && (
                       <div className="wm-section">
                         <label className="wm-label">PNG Logo / Signature</label>
-                        <div className="wm-image-upload" onClick={() => {
-                          const inp = document.createElement('input');
-                          inp.type = 'file'; inp.accept = 'image/png,image/svg+xml,image/*';
-                          inp.onchange = (ev) => {
-                            const f = (ev.target as HTMLInputElement).files?.[0];
+                        <input
+                          type="file"
+                          ref={watermarkFileInputRef}
+                          accept="image/png,image/svg+xml,image/*"
+                          onChange={(ev) => {
+                            const f = ev.target.files?.[0];
                             if (!f) return;
                             const reader = new FileReader();
                             reader.onload = (e) => setAIConfig(prev => ({ ...prev, watermarkImage: e.target?.result as string }));
                             reader.readAsDataURL(f);
-                          };
-                          inp.click();
-                        }}>
+                            ev.target.value = '';
+                          }}
+                          style={{ display: 'none' }}
+                        />
+                        <div className="wm-image-upload" onClick={() => watermarkFileInputRef.current?.click()}>
                           {aiConfig.watermarkImage ? (
                             <div className="wm-image-preview-wrap">
                               <img src={aiConfig.watermarkImage} className="wm-image-preview" alt="watermark" />
@@ -504,9 +459,9 @@ export const SettingsPage: React.FC = () => {
                   <div 
                     className="storage-pie"
                     style={{
-                      ['--projects-deg' as any]: `${(diskUsage.projects / (diskUsage.total || 1)) * 360}deg`,
-                      ['--total-deg' as any]: '360deg'
-                    }}
+                      '--projects-deg': `${(diskUsage.projects / (diskUsage.total || 1)) * 360}deg`,
+                      '--total-deg': '360deg',
+                    } as React.CSSProperties}
                   >
                     <div className="storage-pie-center">
                       <span>{diskUsage.total} KB</span>
@@ -525,6 +480,9 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                <p className="storage-disclaimer">
+                  * Note: Storage size is an estimate based on local application database states.
+                </p>
               </div>
 
               {/* Data Transfer Card */}
@@ -655,198 +613,18 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       {/* Privacy Policy Modal */}
-      {showPrivacyModal && (
-        <div className="privacy-modal-overlay" onClick={() => setShowPrivacyModal(false)}>
-          <div className="privacy-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="privacy-modal-header">
-              <div className="privacy-modal-title">
-                <Shield size={24} />
-                <h2>Privacy Policy & Terms of Use</h2>
-              </div>
-              <button className="privacy-modal-close" onClick={() => setShowPrivacyModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="privacy-modal-content">
-              <div className="privacy-section">
-                <h3><Lock size={16} /> Privacy Policy</h3>
-                <p><strong>Anarchy AI</strong> is designed with privacy in mind. All your data stays on your device.</p>
-                
-                <h4>Local Data (Stored on Your Device Only)</h4>
-                <ul>
-                  <li><strong>App Settings:</strong> Theme, language, notifications</li>
-                  <li><strong>Project Data:</strong> Your projects and workflows</li>
-                  <li><strong>History:</strong> Generation history</li>
-                  <li><strong>Library:</strong> Your saved assets</li>
-                </ul>
-                <p className="privacy-highlight">Important: All data is stored locally. We do not store your data on any external servers.</p>
-
-                <h4>AI Processing</h4>
-                <ul>
-                  <li><strong>AI Generation:</strong> Prompts and reference images sent to secure cloud services for processing</li>
-                  <li><strong>API Token:</strong> Stored locally on your device only</li>
-                </ul>
-
-                <h4>Your Rights</h4>
-                <div className="privacy-rights">
-                  <span>✅ Export all data</span>
-                  <span>✅ Delete all data</span>
-                  <span>✅ Transfer to another device</span>
-                  <span>✅ Use offline</span>
-                </div>
-              </div>
-
-              <div className="privacy-section">
-                <h3><FileText size={16} /> Terms of Use</h3>
-                <p>By using Anarchy AI, you agree to these terms.</p>
-                
-                <h4>License</h4>
-                <div className="privacy-license">
-                  <p>✅ <strong>Personal Use:</strong> Free for personal and professional work</p>
-                  <p>✅ <strong>Commercial Use:</strong> Allowed for client projects</p>
-                  <p>❌ <strong>Redistribution:</strong> Do not redistribute the application</p>
-                  <p>❌ <strong>Reverse Engineering:</strong> Do not modify or reverse engineer</p>
-                </div>
-
-                <h4>User Responsibilities</h4>
-                <ul>
-                  <li>Maintain your own AI service account</li>
-                  <li>Ensure content complies with local laws</li>
-                  <li>Respect intellectual property rights</li>
-                  <li>Keep API tokens secure</li>
-                </ul>
-              </div>
-
-              <div className="privacy-section">
-                <h3>📧 Contact</h3>
-                <div className="privacy-contact-links">
-                  <a href={APP_INFO.links.instagram} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink size={14} /> Instagram
-                  </a>
-                  <a href={APP_INFO.links.website} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink size={14} /> Website
-                  </a>
-                  <a href={APP_INFO.links.telegram} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink size={14} /> Telegram
-                  </a>
-                </div>
-              </div>
-
-              <div className="privacy-footer-text">
-                <p>🔒 Your data stays on your device</p>
-                <p>🎨 Use for any architectural project</p>
-                <p>Last updated: April 27, 2026</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
 
       {/* Documentation Modal */}
-      {showDocsModal && (
-        <div className="privacy-modal-overlay" onClick={() => setShowDocsModal(false)}>
-          <div className="privacy-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="privacy-modal-header">
-              <div className="privacy-modal-title">
-                <FileText size={24} />
-                <h2>Documentation</h2>
-              </div>
-              <button className="privacy-modal-close" onClick={() => setShowDocsModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="privacy-modal-content">
-              <div className="privacy-section">
-                <h3>🚀 Getting Started</h3>
-                <p>Anarchy AI is an AI-powered architectural visualization tool designed for architects and designers.</p>
-              </div>
-
-              <div className="privacy-section">
-                <h3>📋 Key Features</h3>
-                <ul className="privacy-list">
-                  <li><strong>AI Image Generation:</strong> Generate architectural renders using Replicate AI models</li>
-                  <li><strong>Workflow Builder:</strong> Create node-based workflows for complex operations</li>
-                  <li><strong>Batch Processing:</strong> Process multiple images with different settings</li>
-                  <li><strong>Upscale Models:</strong> Enhance image resolution with various upscalers</li>
-                  <li><strong>Compare Mode:</strong> Side-by-side comparison of different generations</li>
-                </ul>
-              </div>
-
-              <div className="privacy-section">
-                <h3>🎨 Using the Builder</h3>
-                <ul className="privacy-list">
-                  <li>Drag to pan the canvas</li>
-                  <li>Scroll to zoom in/out</li>
-                  <li>Double-click empty space to add nodes</li>
-                  <li>Connect nodes by dragging from output to input</li>
-                  <li>Select nodes to view and edit their settings</li>
-                </ul>
-              </div>
-
-              <div className="privacy-section">
-                <h3>⌨️ Keyboard Shortcuts</h3>
-                <ul className="privacy-list">
-                  <li><strong>Ctrl+S:</strong> Save workflow</li>
-                  <li><strong>Ctrl+O:</strong> Open workflow</li>
-                  <li><strong>Delete:</strong> Remove selected node</li>
-                  <li><strong>Space:</strong> Fit view to all nodes</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showDocsModal && <DocumentationModal onClose={() => setShowDocsModal(false)} />}
 
       {/* Changelog Modal */}
-      {showChangelogModal && (
-        <div className="privacy-modal-overlay" onClick={() => setShowChangelogModal(false)}>
-          <div className="privacy-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="privacy-modal-header">
-              <div className="privacy-modal-title">
-                <History size={24} />
-                <h2>Changelog</h2>
-              </div>
-              <button className="privacy-modal-close" onClick={() => setShowChangelogModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="privacy-modal-content">
-              <div className="privacy-section">
-                <h3>Version 0.1.121</h3>
-                <ul className="privacy-list">
-                  <li>Added Replicate API integration for image generation</li>
-                  <li>Support for multiple AI models (nano-banana, flux, etc.)</li>
-                  <li>Implemented workflow builder with ReactFlow</li>
-                  <li>Added batch processing capabilities</li>
-                  <li>New upscale models support (Real-ESRGAN, Clarity)</li>
-                  <li>Improved canvas performance and smoothness</li>
-                  <li>Added swap view functionality for preview panel</li>
-                  <li>New settings page with version checker</li>
-                </ul>
-              </div>
+      {showChangelogModal && <ChangelogModal onClose={() => setShowChangelogModal(false)} />}
 
-              <div className="privacy-section">
-                <h3>Version 0.1.0</h3>
-                <ul className="privacy-list">
-                  <li>Initial release of Anarchy AI</li>
-                  <li>Basic image generation features</li>
-                  <li>Simple workflow builder</li>
-                  <li>Project management system</li>
-                </ul>
-              </div>
-
-              <div className="privacy-footer-text">
-                <p>🔄 Stay updated for new features</p>
-                <p>Last updated: April 27, 2026</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {confirmReset && (
         <ConfirmModal
           title="Reset Settings"
-          message="Reset all settings to defaults? Your API key and preferences will be cleared."
+          message="Reset all settings to defaults? Your API key and preferences will be cleared from secure storage."
           confirmLabel="Reset"
           danger
           onConfirm={doResetSettings}

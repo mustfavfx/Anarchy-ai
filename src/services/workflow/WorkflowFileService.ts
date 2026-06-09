@@ -7,6 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import type { Node, Edge } from '@xyflow/react';
 import { getLocalImage, cacheLocalImage } from '../history/HistoryService';
+import { SettingsService } from '../settings';
 
 // ── File format ──────────────────────────────────────────────────────────────
 
@@ -177,8 +178,7 @@ export async function saveWorkflow(
   let filePath = pathToCheck;
 
   if (needsDialog) {
-    const savedSettings = localStorage.getItem('anarchy_settings');
-    const saveLocation: string = savedSettings ? (JSON.parse(savedSettings).saveLocation || '') : '';
+    const saveLocation = SettingsService.get('saveLocation') || '';
     const baseName = (options?.name || 'untitled').replace(/\.ana$/i, '');
     const defaultPath = saveLocation
       ? `${saveLocation}\\${baseName}.ana`

@@ -472,6 +472,15 @@
   margin-left: auto;
 }
 
+.storage-disclaimer {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 10px;
+  margin-bottom: 5px;
+  line-height: 1.4;
+  font-style: italic;
+}
+
 /* ── Danger Zone ── */
 .danger-zone {
   background: rgba(239, 68, 68, 0.03);

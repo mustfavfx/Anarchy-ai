@@ -5,6 +5,7 @@
  */
 
 import { logger } from '../../utils/logger';
+import { SettingsService } from '../settings';
 
 // ── Image Models ──────────────────────────────────────────────────────────────
 export type ReplicateImageModel =
@@ -601,16 +602,13 @@ class ReplicateService {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     const inTauri = isTauriRuntime();
     
-    // Try to get API key from localStorage settings first, then env
+    // Try to get API key from SettingsService first, then env
     let apiKey = import.meta.env.VITE_REPLICATE_API_TOKEN ?? '';
     try {
-      const settings = localStorage.getItem('anarchy_settings');
-      if (settings) {
-        const parsed = JSON.parse(settings);
-        if (parsed.apiKey) apiKey = parsed.apiKey;
-      }
+      const secureKey = SettingsService.get('apiKey');
+      if (secureKey) apiKey = secureKey;
     } catch {
-      // Ignore parse errors
+      // Ignore errors if settings service not initialized yet
     }
     
     // Determine base URL:
@@ -657,13 +655,10 @@ class ReplicateService {
   // Update API key from settings
   updateApiKey(): void {
     try {
-      const settings = localStorage.getItem('anarchy_settings');
-      if (settings) {
-        const parsed = JSON.parse(settings);
-        if (parsed.apiKey) this.config.apiKey = parsed.apiKey;
-      }
+      const secureKey = SettingsService.get('apiKey');
+      if (secureKey) this.config.apiKey = secureKey;
     } catch {
-      // Ignore parse errors
+      // Ignore errors
     }
   }
 

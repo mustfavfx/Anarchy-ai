@@ -115,57 +115,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    let disposeFn: (() => void) | undefined;
-
-    listen('close-requested', () => {
-      handleCloseRequest();
-    }).then((dispose) => {
-      if (!active) {
-        dispose();
-      } else {
-        disposeFn = dispose;
-      }
-    }).catch((err) => {
-      logger.warn('[AppShell] Failed to subscribe to close-requested:', err);
-    });
-
-    return () => {
-      active = false;
-      if (disposeFn) {
-        disposeFn();
-      }
-    };
-  }, []);
-
-  const handleCloseRequest = async () => {
-    try {
-      const { ask } = await import('@tauri-apps/plugin-dialog');
-      const confirm = await ask(
-        'Are you sure you want to exit Anarchy AI? Unsaved changes will be lost.',
-        {
-          title: 'Exit Anarchy AI',
-          kind: 'warning',
-          okLabel: 'Exit',
-          cancelLabel: 'Cancel'
-        }
-      );
-      if (confirm) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('exit_app');
-      }
-    } catch {
-      const confirm = window.confirm('Are you sure you want to exit Anarchy AI?');
-      if (confirm) {
-        window.close();
-      }
-    }
-  };
-
   return (
     <div className="app-shell">
-      <TitleBar onCloseRequest={handleCloseRequest} />
+      <TitleBar />
       <div className="app-body">
         <NavRail />
 

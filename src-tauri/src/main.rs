@@ -1607,8 +1607,37 @@ async fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
 fn exit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
-
 use std::sync::Mutex;
+
+#[tauri::command]
+fn save_secure_key(service: String, key: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(&service, "default_user")
+        .map_err(|e| e.to_string())?;
+    entry.set_password(&key).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn load_secure_key(service: String) -> Result<String, String> {
+    let entry = keyring::Entry::new(&service, "default_user")
+        .map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pass) => Ok(pass),
+        Err(keyring::Error::NoEntry) => Ok(String::new()),
+        Err(e) => Err::<String, String>(e.to_string()),
+    }
+}
+
+#[tauri::command]
+fn delete_secure_key(service: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(&service, "default_user")
+        .map_err(|e| e.to_string())?;
+    match entry.delete_password() {
+        Ok(_) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err::<(), String>(e.to_string()),
+    }
+}
 
 struct StartupState {
     file_path: Mutex<Option<String>>,
@@ -1645,12 +1674,6 @@ fn main() {
             file_path: Mutex::new(startup_file),
             deep_link: Mutex::new(deep_link),
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.emit("close-requested", ());
-            }
-        })
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let found_link = args.iter().find(|arg| arg.starts_with("anarchy-ai://"));
             if let Some(link) = found_link {
@@ -1673,7 +1696,8 @@ fn main() {
             remove_old_autodesk_plugins, get_app_data_dir, is_plugin_installed,
             save_image_to_documents, save_image_to_path, read_local_image, read_clipboard_image,
             check_update, install_update, restart_app,
-            open_url, get_startup_file, get_deep_link, exit_app, analyze_floor_plan, open_images_folder, show_in_explorer
+            open_url, get_startup_file, get_deep_link, exit_app, analyze_floor_plan, open_images_folder, show_in_explorer,
+            save_secure_key, load_secure_key, delete_secure_key
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
