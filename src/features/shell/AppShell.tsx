@@ -57,13 +57,20 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             return;
           }
 
+          event.preventDefault();
+
           const hasDirty = checkHasDirtyTabs();
           if (hasDirty) {
-            event.preventDefault();
             navigate('/builder');
             setTimeout(() => {
               window.dispatchEvent(new CustomEvent('anarchy:trigger-app-close'));
             }, 100);
+          } else {
+            import('@tauri-apps/api/core').then(({ invoke }) => {
+              invoke('exit_app').catch(() => {
+                appWindow.destroy().catch(() => {});
+              });
+            });
           }
         });
 

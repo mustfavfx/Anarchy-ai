@@ -362,18 +362,28 @@ export const MultiBuilderPage: React.FC = () => {
 
   const handleAppDontSaveAndClose = async () => {
     setShowAppCloseConfirm(false);
-    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-    const win = getCurrentWebviewWindow();
-    await win.destroy();
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('exit_app');
+    } catch {
+      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const win = getCurrentWebviewWindow();
+      await win.destroy();
+    }
   };
 
   const handleAppSaveAndClose = async () => {
     setShowAppCloseConfirm(false);
     const dirtyTabs = tabs.filter(t => t.isDirty);
     if (dirtyTabs.length === 0) {
-      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      const win = getCurrentWebviewWindow();
-      await win.destroy();
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('exit_app');
+      } catch {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const win = getCurrentWebviewWindow();
+        await win.destroy();
+      }
       return;
     }
 
@@ -381,9 +391,14 @@ export const MultiBuilderPage: React.FC = () => {
 
     const saveNext = async () => {
       if (currentIndex >= dirtyTabs.length) {
-        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-        const win = getCurrentWebviewWindow();
-        await win.destroy();
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          await invoke('exit_app');
+        } catch {
+          const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+          const win = getCurrentWebviewWindow();
+          await win.destroy();
+        }
         return;
       }
 
