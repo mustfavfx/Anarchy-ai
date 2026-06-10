@@ -1,7 +1,7 @@
 {
   "name": "anarchy-ai-0-07",
   "private": true,
-  "version": "0.0.9",
+  "version": "0.0.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
