@@ -11,14 +11,14 @@ import './ProjectsPage.css';
 
 const ProjectImage: React.FC<{ url?: string; alt: string; className?: string }> = ({ url, alt, className }) => {
   const resolved = useResolvedImage(url);
-  if (!url) {
+  if (!url || !resolved) {
     return (
       <div className={`project-no-image ${className || ''}`}>
         <ImageIcon size={className?.includes('small') ? 18 : 32} />
       </div>
     );
   }
-  return <img src={resolved || ''} alt={alt} className={className} />;
+  return <img src={resolved} alt={alt} className={className} />;
 };
 
 export const ProjectsPage: React.FC = () => {

@@ -80,6 +80,14 @@ async function serializeNodes(nodes: Node[]): Promise<SerializedNode[]> {
       }
     }
     
+    // Resolve original image from IDB to Base64
+    if (dataCopy.originalImage && dataCopy.originalImage.startsWith('idb://')) {
+      const base64 = await getLocalImage(dataCopy.originalImage);
+      if (base64) {
+        dataCopy.originalImage = base64;
+      }
+    }
+    
     // Resolve output data image from IDB to Base64
     if (dataCopy.outputData?.image && dataCopy.outputData.image.startsWith('idb://')) {
       const base64 = await getLocalImage(dataCopy.outputData.image);
@@ -117,21 +125,38 @@ async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
   const deserializedList: Node[] = [];
   for (const s of serialized) {
     const dataCopy = JSON.parse(JSON.stringify(s.data));
+    let mainImageKey: string | undefined = undefined;
     
     // Cache main image from Base64 back to IDB
     if (dataCopy.image && dataCopy.image.startsWith('data:')) {
       const uuid = crypto.randomUUID();
-      const imageKey = `idb://${uuid}`;
-      await cacheLocalImage(imageKey, dataCopy.image);
-      dataCopy.image = imageKey;
+      mainImageKey = `idb://${uuid}`;
+      await cacheLocalImage(mainImageKey, dataCopy.image);
+      dataCopy.image = mainImageKey;
+    }
+    
+    // Cache original image from Base64 back to IDB
+    if (dataCopy.originalImage && dataCopy.originalImage.startsWith('data:')) {
+      if (dataCopy.originalImage === s.data.image && mainImageKey) {
+        dataCopy.originalImage = mainImageKey;
+      } else {
+        const uuid = crypto.randomUUID();
+        const imageKey = `idb://${uuid}`;
+        await cacheLocalImage(imageKey, dataCopy.originalImage);
+        dataCopy.originalImage = imageKey;
+      }
     }
     
     // Cache output data image from Base64 back to IDB
     if (dataCopy.outputData?.image && dataCopy.outputData.image.startsWith('data:')) {
-      const uuid = crypto.randomUUID();
-      const imageKey = `idb://${uuid}`;
-      await cacheLocalImage(imageKey, dataCopy.outputData.image);
-      dataCopy.outputData.image = imageKey;
+      if (dataCopy.outputData.image === s.data.image && mainImageKey) {
+        dataCopy.outputData.image = mainImageKey;
+      } else {
+        const uuid = crypto.randomUUID();
+        const imageKey = `idb://${uuid}`;
+        await cacheLocalImage(imageKey, dataCopy.outputData.image);
+        dataCopy.outputData.image = imageKey;
+      }
     }
     
     deserializedList.push({

@@ -17,7 +17,12 @@ export function useResolvedImage(rawImage: string | undefined | null): string | 
       let rawUrl = rawImage;
       if (rawImage.startsWith('idb://')) {
         const cached = await getLocalImage(rawImage);
-        if (cached) rawUrl = cached;
+        if (cached) {
+          rawUrl = cached;
+        } else {
+          if (active) setResolvedUrl(undefined);
+          return;
+        }
       }
 
       if (!active) return;

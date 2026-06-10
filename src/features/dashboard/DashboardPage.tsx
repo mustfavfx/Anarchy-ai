@@ -16,14 +16,14 @@ import './DashboardPage.css';
 
 const ProjectImage: React.FC<{ url?: string; alt: string }> = ({ url, alt }) => {
   const resolved = useResolvedImage(url);
-  if (!url) {
+  if (!url || !resolved) {
     return (
       <div className="recent-project-no-img">
         <ImageIcon size={24} />
       </div>
     );
   }
-  return <img src={resolved || ''} alt={alt} />;
+  return <img src={resolved} alt={alt} />;
 };
 
 // Pick one preset from each category for diversity
