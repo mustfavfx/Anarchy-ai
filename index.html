@@ -9,14 +9,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Disable default browser context menu globally
-      document.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }, true);
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

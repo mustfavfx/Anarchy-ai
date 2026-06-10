@@ -381,7 +381,8 @@ export function loadEntries(): HistoryEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as HistoryEntry[];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
   } catch {
     return [];
   }
@@ -524,7 +525,8 @@ export async function migrateLegacyHistory(): Promise<void> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
-    const entries = JSON.parse(raw) as any[];
+    const entries = JSON.parse(raw);
+    if (!Array.isArray(entries)) return;
     let migrated = false;
 
     for (let i = 0; i < entries.length; i++) {

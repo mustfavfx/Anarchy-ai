@@ -1,5 +1,5 @@
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../supabase/supabaseClient';
 
 export interface PredictionStatus {
   replicateId: string;
@@ -139,11 +139,6 @@ export class PredictionRealtimeService {
     };
   }
 }
-
-// Create Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Singleton instance
 export const predictionRealtime = new PredictionRealtimeService();

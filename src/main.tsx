@@ -4,8 +4,6 @@ import App from './App.tsx'
 import { AuthProvider } from './features/auth/AuthContext'
 import './index.css'
 
-document.addEventListener('contextmenu', e => e.preventDefault());
-
 const rootEl = document.getElementById('root') ?? document.body;
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
