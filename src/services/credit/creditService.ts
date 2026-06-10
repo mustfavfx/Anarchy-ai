@@ -356,6 +356,63 @@ export async function getTransactionHistory(
   return (data || []).map(mapDbToTransaction);
 }
 
+/**
+ * Refund credits for a failed operation
+ */
+export async function refundCredits(
+  userId: string,
+  credits: number,
+  description: string
+): Promise<boolean> {
+  const { error: rpcError } = await supabase.rpc('add_credits', {
+    p_user_id: userId,
+    p_credits: credits,
+  });
+
+  if (rpcError) {
+    logger.error('[Credit] Failed to refund credits via RPC:', rpcError);
+    // Fallback: manual update
+    const credit = await getUserCredit(userId);
+    if (!credit) return false;
+
+    const newBalance = credit.balance + credits;
+    const { error } = await supabase
+      .from('user_credits')
+      .update({
+        balance: newBalance,
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      logger.error('[Credit] Manual refund failed:', error);
+      return false;
+    }
+
+    await recordTransaction({
+      userId,
+      type: 'refund',
+      amount: credits,
+      balanceAfter: newBalance,
+      description,
+    });
+    return true;
+  }
+
+  // If RPC succeeded, get new balance to record transaction
+  const credit = await getUserCredit(userId);
+  const newBalance = credit ? credit.balance : 0;
+
+  await recordTransaction({
+    userId,
+    type: 'refund',
+    amount: credits,
+    balanceAfter: newBalance,
+    description,
+  });
+
+  return true;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function recordTransaction(

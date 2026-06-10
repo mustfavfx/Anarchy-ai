@@ -3,7 +3,8 @@ import { Bot, Send, Building2, Ruler, DraftingCompass, ChevronDown, Check } from
 import { architectAgent, type ArchitectAgentRequest, type ArchitectAgentMessage } from '../../services/agent/ArchitectAgentService';
 import type { ReplicateChatModel } from '../../services/replicate/ReplicateService';
 import { useAuth } from '../auth/AuthContext';
-import { deductCredits, GENERATION_COST, DEV_MODE } from '../../services/credit/creditService';
+import { deductCredits, GENERATION_COST, DEV_MODE, refundCredits } from '../../services/credit/creditService';
+import { logger } from '../../utils/logger';
 import './GeneratePage.css';
 
 type ChatRole = 'user' | 'assistant';
@@ -139,6 +140,12 @@ export const GeneratePage: React.FC = () => {
           : 'Failed to generate response',
       };
       setMessages(prev => [...prev, errorMessage]);
+
+      // Refund credits
+      if (authUser?.id && !DEV_MODE) {
+        refundCredits(authUser.id, chatCost, `Refund: Failed agent query for ${selectedMode}`)
+          .catch((err) => logger.error('[Credit] Refund failed:', err));
+      }
     } finally {
       setIsSending(false);
     }

@@ -3,7 +3,8 @@ import { Send, Bot, Sparkles, FileText, Building2, Lightbulb, Loader2, X, Copy, 
 import { architectAgent, type ArchitectAgentMessage, type ArchitectAgentRequest } from '../../services/agent/ArchitectAgentService';
 import type { ReplicateChatModel } from '../../services/replicate/ReplicateService';
 import { useAuth } from '../auth/AuthContext';
-import { deductCredits, GENERATION_COST, DEV_MODE } from '../../services/credit/creditService';
+import { deductCredits, GENERATION_COST, DEV_MODE, refundCredits } from '../../services/credit/creditService';
+import { logger } from '../../utils/logger';
 import './ArchitectAgentPage.css';
 
 interface ChatMessage {
@@ -108,6 +109,12 @@ export const ArchitectAgentPage: React.FC = () => {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
+
+      // Refund credits
+      if (authUser?.id && !DEV_MODE) {
+        refundCredits(authUser.id, chatCost, `Refund: Failed agent query for ${selectedMode}`)
+          .catch((err) => logger.error('[Credit] Refund failed:', err));
+      }
     } finally {
       setIsLoading(false);
     }

@@ -25,7 +25,7 @@ import { saveWorkflow, saveWorkflowAs, loadWorkflow, resetFilePath } from '../..
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { useAuth } from '../auth/AuthContext';
-import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE } from '../../services/credit/creditService';
+import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits } from '../../services/credit/creditService';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { cacheLocalImage, getLocalImage } from '../../services/history/HistoryService';
 import { BuilderContextMenu } from './components/BuilderContextMenu';
@@ -821,9 +821,33 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         duration: 0,
         category: 'generation',
       });
+
+      // Refund credits for this failed node
+      if (authUser?.id && !DEV_MODE) {
+        const aiConfig = useAIConfigStore.getState().config;
+        const singleCost = getModelCost(aiConfig.model, {
+          resolution: aiConfig.resolution,
+          qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
+          prunaTarget: aiConfig.prunaTarget,
+        });
+
+        refundCredits(authUser.id, singleCost, `Refund: Failed generation for node ${nodeId}`)
+          .then((success) => {
+            if (success) {
+              addNotification({
+                type: 'info',
+                title: 'Credits Refunded',
+                message: `Refunded ${singleCost} credits for failed generation.`,
+                duration: 4000,
+              });
+            }
+          })
+          .catch((err) => logger.error('[Credit] Refund failed:', err));
+      }
+
       throw error;
     }
-  }, [executeNode, nodes, addNotification]);
+  }, [executeNode, nodes, addNotification, authUser]);
 
   const makeImageUploadHandler = useCallback((nodeId: string) => (url: string) => {
     if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, state: 'idle', outputData: undefined }); return; }
