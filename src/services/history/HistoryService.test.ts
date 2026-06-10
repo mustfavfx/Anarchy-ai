@@ -88,12 +88,11 @@ describe('HistoryService', () => {
       expect(getHistoryGrouped()).toEqual([]);
     });
 
-    it('groups entries by date', () => {
+    it('groups entries by source lineage', () => {
       addHistoryEntry(makeEntry({ label: 'Today Entry' }));
       const groups = getHistoryGrouped();
       expect(groups).toHaveLength(1);
-      expect(groups[0].label).toBe('Today');
-      expect(groups[0].entries).toHaveLength(1);
+      expect(groups[0].children).toHaveLength(1);
     });
   });
 
