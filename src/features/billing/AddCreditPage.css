@@ -96,7 +96,7 @@
   gap: 12px;
 }
 
-.balance-icon {
+.add-credit-page .balance-icon {
   width: 44px;
   height: 44px;
   background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
