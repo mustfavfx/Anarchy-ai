@@ -763,6 +763,7 @@ class ReplicateService {
 
   // ── Upload a base64 data URI to Replicate Files API and return serving URL ──
   async uploadToReplicate(dataUri: string): Promise<string> {
+    this.updateApiKey();
     // Parse data URI
     const commaIdx = dataUri.indexOf(',');
     if (commaIdx === -1) throw new Error('Invalid data URI');
@@ -807,6 +808,7 @@ class ReplicateService {
     nodeId?: string,
     userId?: string
   ): Promise<any> {
+    this.updateApiKey();
     const proxy = getProxyUrl();
     const headers = {
       'Authorization': `Token ${this.config.apiKey}`,

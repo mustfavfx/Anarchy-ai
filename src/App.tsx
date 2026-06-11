@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './styles/theme.css';
 import { AppShell } from './features/shell/AppShell';
@@ -15,8 +16,20 @@ import { LoraTrainingPage } from './features/lora/LoraTrainingPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedApp } from './features/auth/ProtectedApp';
 import { UpdateNotification } from './features/updater/UpdateNotification';
+import { SettingsService } from './services/settings';
 
 function App() {
+  useEffect(() => {
+    SettingsService.init()
+      .then(() => {
+        const current = SettingsService.getSettings();
+        SettingsService.applyTheme(current.theme);
+      })
+      .catch((err) => {
+        console.error('[App] Failed to initialize settings:', err);
+      });
+  }, []);
+
   return (
     <ErrorBoundary>
       <ProtectedApp>
