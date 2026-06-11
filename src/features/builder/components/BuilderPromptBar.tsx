@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, Sparkles, Building, HardHat,
   Moon, Lightbulb, Sun, Sunset, SunDim, Palette,
@@ -9,7 +9,7 @@ import {
   Plane, MoveRight, ArrowDownFromLine, RotateCcw,
   SwatchBook, PanelTop, Ruler, Scissors, Box, PenLine, Hexagon,
   Clapperboard, Gem, BookImage, CircleDashed,
-  BookOpen, FolderDown, Coins,
+  BookOpen, Coins,
   type LucideIcon
 } from 'lucide-react';
 import { PRESET_PROMPTS } from '../presetPrompts';
@@ -39,8 +39,8 @@ interface BuilderPromptBarProps {
   liveResolution: string;
   liveQuality: string;
   livePruna: number | undefined;
+  userCredits: number | null;
   onGenerate: () => void;
-  onExportAll: () => void;
   onPromptContextMenu: (event: React.MouseEvent) => void;
 }
 
@@ -51,16 +51,16 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   isUpscaler,
   hasUpscaleFactor,
   hasSourceWithImage,
-  canvasHasAnyImage,
   liveModel,
   liveResolution,
   liveQuality,
   livePruna,
+  userCredits,
   onGenerate,
-  onExportAll,
   onPromptContextMenu,
 }) => {
   const [showPresets, setShowPresets] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!showPresets) return;
@@ -74,21 +74,48 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showPresets]);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    // Reset height to compute scrollHeight accurately
+    textarea.style.height = 'auto';
+    
+    // Set height based on scrollHeight, capped at 150px
+    const scrollHeight = textarea.scrollHeight;
+    if (scrollHeight > 0) {
+      if (!prompt) {
+        textarea.style.height = '24px';
+      } else {
+        textarea.style.height = `${Math.min(scrollHeight - 4, 150)}px`;
+      }
+    }
+  }, [prompt]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onGenerate();
+    }
+  };
+
+  const cost = getModelCost(liveModel, {
+    resolution: liveResolution,
+    qualityVariant: liveQuality,
+    prunaTarget: livePruna,
+  });
+
   return (
     <>
       <div className="builder-prompt-container">
-        <input 
-          type="text" 
+        <textarea 
+          ref={textareaRef}
           className="builder-prompt-input"
           placeholder="Describe what you want to create..."
+          rows={1}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault();
-              onGenerate();
-            }
-          }}
+          onKeyDown={handleKeyDown}
           disabled={!canGenerate}
           onContextMenu={onPromptContextMenu}
         />
@@ -132,15 +159,6 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          className="export-all-btn"
-          onClick={onExportAll}
-          disabled={!canvasHasAnyImage}
-          title="Export All Images"
-        >
-          <FolderDown size={16} />
-        </button>
         <button 
           type="button"
           className="generate-btn" 
@@ -151,10 +169,20 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
           <span>Generate</span>
         </button>
       </div>
-      <span className="generate-cost-badge" title="Credits per generation">
-        <Coins size={10} />
-        {getModelCost(liveModel, { resolution: liveResolution, qualityVariant: liveQuality, prunaTarget: livePruna })}
-      </span>
+
+      <div className="prompt-bottom-badges-container">
+        <span className="generate-cost-badge" title="Credits required per generation">
+          <Coins size={10} />
+          Cost: {cost}
+        </span>
+        {userCredits !== null && (
+          <span className="user-balance-badge" title="Your available credits">
+            <Coins size={10} className="balance-icon" />
+            Balance: {userCredits.toFixed(1)}
+          </span>
+        )}
+      </div>
     </>
   );
 };
+

@@ -25,7 +25,7 @@ import { saveWorkflow, saveWorkflowAs, loadWorkflow, resetFilePath } from '../..
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { useAuth } from '../auth/AuthContext';
-import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits } from '../../services/credit/creditService';
+import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits, getUserCredit } from '../../services/credit/creditService';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { cacheLocalImage, getLocalImage } from '../../services/history/HistoryService';
 import { BuilderContextMenu } from './components/BuilderContextMenu';
@@ -474,8 +474,28 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     nodeId?: string;
   } | null>(null);
   const [creditError, setCreditError] = useState<{ balance: number; needed: number } | null>(null);
+  const [userCredits, setUserCredits] = useState<number | null>(null);
   const [confirmNewCanvas, setConfirmNewCanvas] = useState(false);
   const isDirtyRef = useRef(false);
+
+  // Load and sync user credits on mount and window focus
+  useEffect(() => {
+    if (!authUser?.id) return;
+    const loadCredits = async () => {
+      try {
+        const credit = await getUserCredit(authUser.id);
+        if (credit) {
+          setUserCredits(credit.balance);
+        }
+      } catch (err) {
+        logger.error('[Builder] Failed to fetch credits:', err);
+      }
+    };
+    loadCredits();
+    
+    globalThis.addEventListener('focus', loadCredits);
+    return () => globalThis.removeEventListener('focus', loadCredits);
+  }, [authUser?.id]);
 
   const { fitView, getViewport, fitBounds, getNode: getRFNode, screenToFlowPosition, setViewport } = useReactFlow();
 
@@ -840,6 +860,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                 message: `Refunded ${singleCost} credits for failed generation.`,
                 duration: 4000,
               });
+              getUserCredit(authUser.id).then(c => c && setUserCredits(c.balance)).catch(() => {});
             }
           })
           .catch((err) => logger.error('[Credit] Refund failed:', err));
@@ -1069,6 +1090,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         addNotification({ type: 'error', title: 'Deduction Failed', message: deduct.error ?? 'Insufficient balance' });
         return;
       }
+      getUserCredit(authUser.id).then(c => c && setUserCredits(c.balance)).catch(() => {});
     }
 
     if (idleGhosts.length > 0) {
@@ -1778,8 +1800,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             liveResolution={liveResolution}
             liveQuality={liveQuality}
             livePruna={livePruna}
+            userCredits={userCredits}
             onGenerate={handleGenerate}
-            onExportAll={() => runContextAction('export-all')}
             onPromptContextMenu={onPromptContextMenu}
           />
         )}

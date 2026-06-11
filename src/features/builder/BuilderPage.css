@@ -704,9 +704,9 @@
   max-width: 720px;
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
-  padding: 6px 6px 6px 20px;
+  padding: 6px 6px 8px 20px;
   background: linear-gradient(180deg, rgba(22, 22, 28, 0.98) 0%, rgba(18, 18, 22, 0.98) 100%);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -737,17 +737,22 @@
 
 .builder-prompt-input {
   flex: 1;
-  height: 44px;
+  height: 24px;
+  min-height: 24px;
+  max-height: 150px;
   background: transparent;
   border: none;
-  padding: 0 8px;
+  padding: 10px 8px;
   color: rgba(255, 255, 255, 0.95);
   font-size: 15px;
   font-weight: 400;
   letter-spacing: 0.01em;
   outline: none;
-  transition: all 0.15s ease;
   caret-color: #e11d48;
+  resize: none;
+  line-height: 1.5;
+  overflow-y: auto;
+  transition: height 0.05s ease;
 }
 
 .builder-prompt-input::placeholder {
@@ -785,6 +790,7 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  margin-bottom: 2px;
   transition: all 0.2s ease;
   box-shadow: 
     0 2px 8px rgba(225, 29, 72, 0.3),
@@ -804,11 +810,24 @@
   transform: none;
 }
 
-.generate-cost-badge {
+.prompt-presets-btn {
+  margin-bottom: 4px;
+}
+
+.prompt-bottom-badges-container {
   position: absolute;
   bottom: 52px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 201;
+  pointer-events: none;
+}
+
+.generate-cost-badge,
+.user-balance-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -817,14 +836,23 @@
   color: rgba(255, 255, 255, 0.45);
   background: rgba(10, 10, 12, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 20px;
   letter-spacing: 0.03em;
   line-height: 1;
   backdrop-filter: blur(8px);
-  pointer-events: none;
-  z-index: 201;
   white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.user-balance-badge {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.2);
+  background: rgba(251, 191, 36, 0.04);
+}
+
+.user-balance-badge .balance-icon {
+  color: #fbbf24;
 }
 
 .export-all-btn {
