@@ -753,10 +753,10 @@ class ReplicateService {
       const { invoke } = await import('@tauri-apps/api/core');
       // Send base64 string to Rust (not byte array — avoids huge JSON serialization)
       const result: string = await invoke('upload_to_replicate', {
-        apiKey: this.config.apiKey,
-        b64Data: b64,
+        api_key: this.config.apiKey,
+        b64_data: b64,
         filename: `upload.${ext}`,
-        contentType: mime,
+        content_type: mime,
       });
       return result;
     } catch {
