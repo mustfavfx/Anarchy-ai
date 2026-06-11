@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard, Check, ArrowLeft, Loader2, Coins, AlertCircle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { CREDIT_PACKAGES, getUserCredit, type CreditPackage } from '../../services/credit/creditService';
-import { supabase } from '../../services/supabase/supabaseClient';
+import { supabase, supabaseUrl } from '../../services/supabase/supabaseClient';
 import { invoke } from '@tauri-apps/api/core';
 import './AddCreditPage.css';
 
@@ -91,7 +91,6 @@ export const AddCreditPage: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const body: Record<string, unknown> = { packageId: selectedPackage.id };
       if (selectedPackage.id === 'custom') {
         body.customAmountUsd = Number.parseFloat(customAmount) || 0;

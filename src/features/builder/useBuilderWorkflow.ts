@@ -34,40 +34,8 @@ const getAutosaveKey = (tabId?: string) =>
 // ── Upload helper: converts local/data-URI images ─────────────────────────────
 // Nano Banana models accept base64 data URIs directly (best quality, no expiry)
 // Other models (FLUX, GPT, etc.) need public URLs via upload service
-async function uploadImageIfLocal(url: string, model?: string): Promise<string> {
+async function uploadImageIfLocal(url: string, _model?: string): Promise<string> {
   if (!url) return url;
-  // Models that support base64 data URIs directly (best quality, no expiry)
-  const supportsBase64 = model?.startsWith('google/nano-banana') || 
-                         model === 'bytedance/seedream-4.5' ||
-                         model === 'openai/gpt-image-2';
-  // Already base64 - use directly
-  if (supportsBase64 && url.startsWith('data:')) {
-    return url;
-  }
-  // For GPT Image 2 with public URL - download and convert to base64
-  if (model === 'openai/gpt-image-2' && (url.startsWith('https://') || url.startsWith('http://'))) {
-    try {
-      const base64Data: string = await invoke('url_to_base64', { url });
-      return base64Data;
-    } catch {
-      // Fallback: use fetch to download image
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-        });
-        reader.readAsDataURL(blob);
-        const base64Data = await base64Promise;
-        return base64Data;
-      } catch {
-        return url;
-      }
-    }
-  }
   // Public HTTPS URL (not localhost) - safe to use directly
   if (url.startsWith('https://')) return url;
   // Already a data URI — upload to Replicate Files API to get a serving URL
@@ -1079,6 +1047,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
             }
           : n
       ));
+      throw error;
     } finally {
       processingQueue.current.delete(nodeId);
     }

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useHistoryStore } from '../stores/historyStore';
 import { 
   Search, ArrowUpDown, CheckSquare, BookOpen, Trash2, 
-  Sparkles, Layers, Grid, SlidersHorizontal, Loader2
+  Layers, Grid, SlidersHorizontal
 } from 'lucide-react';
 
 interface HistoryHeaderProps {
@@ -22,8 +22,6 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
     entries,
     searchQuery,
     setSearchQuery,
-    semanticQuery,
-    setSemanticQuery,
     selectedModel,
     setSelectedModel,
     sortAsc,
@@ -31,13 +29,8 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
     selectMode,
     setSelectMode,
     isGroupedView,
-    setIsGroupedView,
-    isSemanticLoading,
-    semanticProgress,
-    isSemanticModelError
+    setIsGroupedView
   } = useHistoryStore();
-
-  const [useSemantic, setUseSemantic] = useState(false);
 
   // Extract unique model names
   const uniqueModels = React.useMemo(() => {
@@ -46,46 +39,21 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
     return Array.from(models).sort();
   }, [entries]);
 
-  const handleSearchChange = (val: string) => {
-    if (useSemantic) {
-      setSemanticQuery(val);
-      setSearchQuery('');
-    } else {
-      setSearchQuery(val);
-      setSemanticQuery('');
-    }
-  };
-
-  const handleToggleSemantic = () => {
-    setUseSemantic(!useSemantic);
-    // Clear search values on toggle
-    setSearchQuery('');
-    setSemanticQuery('');
-  };
-
   return (
     <div className="history-header">
       <div className="header-left-group">
         <h1 className="page-title">History</h1>
         
-        {/* Dual Mode Search Input */}
+        {/* Search Input */}
         <div className="history-search-container">
           <div className="history-search">
             <Search size={14} className="search-icon" />
             <input
               type="text"
-              placeholder={useSemantic ? "Semantic AI search (e.g. villa)..." : "Search prompt, model..."}
-              value={useSemantic ? semanticQuery : searchQuery}
-              onChange={e => handleSearchChange(e.target.value)}
+              placeholder="Search prompt, model..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
             />
-            <button 
-              className={`search-ai-toggle ${useSemantic ? 'active' : ''}`}
-              onClick={handleToggleSemantic}
-              title={useSemantic ? "Switch to standard keyword search" : "Switch to semantic AI search"}
-            >
-              <Sparkles size={12} />
-              <span>AI Search</span>
-            </button>
           </div>
         </div>
 
@@ -106,19 +74,6 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
             </select>
           </div>
         )}
-
-        {/* Model Loader indicator */}
-        {isSemanticLoading && (
-          <div className="semantic-loader" title="Downloading AI search model locally (~23MB)...">
-            <Loader2 size={13} className="spin" />
-            <span>AI Indexing... {semanticProgress ? `${Math.round(semanticProgress.progress || 0)}%` : ''}</span>
-          </div>
-        )}
-        {isSemanticModelError && (
-          <div className="semantic-error" title="Could not load AI embedding model. Falling back to keyword search.">
-            <span>AI search fallback active</span>
-          </div>
-        )}
       </div>
 
       <div className="history-header-actions">
@@ -127,18 +82,16 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
           <button
             className={`sort-btn ${!isGroupedView ? 'active' : ''}`}
             onClick={() => setIsGroupedView(false)}
-            title="Show individual renders list"
+            title="Flat View"
           >
             <Grid size={13} />
-            <span>Flat</span>
           </button>
           <button
             className={`sort-btn ${isGroupedView ? 'active' : ''}`}
             onClick={() => setIsGroupedView(true)}
-            title="Group variations by source image"
+            title="Grouped View"
           >
             <Layers size={13} />
-            <span>Grouped</span>
           </button>
         </div>
 

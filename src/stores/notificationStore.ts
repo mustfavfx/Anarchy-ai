@@ -64,7 +64,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       notifications: [
         { ...notification, id, timestamp: Date.now(), read: false },
         ...state.notifications,
-      ].slice(0, 100),
+      ].slice(0, 50),
       unreadCount: state.unreadCount + 1,
     }));
     return id;

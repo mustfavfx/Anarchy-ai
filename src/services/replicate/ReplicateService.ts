@@ -6,6 +6,7 @@
 
 import { logger } from '../../utils/logger';
 import { SettingsService } from '../settings';
+import { supabaseUrl, supabaseAnonKey } from '../supabase/supabaseClient';
 
 // ── Image Models ──────────────────────────────────────────────────────────────
 export type ReplicateImageModel =
@@ -491,15 +492,15 @@ function isTauriRuntime(): boolean {
 function getProxyUrl(): string | null {
   // Inside Tauri we use invoke('http_post') directly — no proxy needed/wanted
   if (isTauriRuntime()) return null;
-  const url  = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const key  = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  const url  = supabaseUrl;
+  const key  = supabaseAnonKey;
   if (!url || !key || url.includes('placeholder')) return null;
   return `${url}/functions/v1/replicate-proxy`;
 }
 
 // ── Proxy fetch: strips API key from client, sends via Edge Function ──────────
 async function proxyPost(proxyUrl: string, replicatePath: string, body: unknown): Promise<any> {
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const anonKey = supabaseAnonKey;
   const res = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
@@ -516,7 +517,7 @@ async function proxyPost(proxyUrl: string, replicatePath: string, body: unknown)
 }
 
 async function proxyGet(proxyUrl: string, replicatePath: string): Promise<any> {
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const anonKey = supabaseAnonKey;
   const res = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
@@ -637,7 +638,6 @@ class ReplicateService {
     
     if (!this.webhookUrl) {
       // Auto-construct from Supabase URL (works in dev and production)
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       logger.log('[ReplicateService] VITE_SUPABASE_URL:', supabaseUrl || '(not set)');
       if (supabaseUrl) {
         this.webhookUrl = `${supabaseUrl}/functions/v1/replicate_webhook`;

@@ -2282,3 +2282,46 @@ button.pinboard-item:hover {
 .virtual-history-grid-wrapper ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover-bg);
 }
+
+/* ══════════════════════════════════════════════════════
+   GROUP TOGGLE SEGMENTED CONTROL
+   ══════════════════════════════════════════════════════ */
+.group-toggle-bar {
+  display: flex;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  align-items: center;
+  height: 32px;
+}
+
+.group-toggle-bar .sort-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin: 0;
+  gap: 0;
+}
+
+.group-toggle-bar .sort-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.group-toggle-bar .sort-btn.active {
+  background: rgba(225, 29, 72, 0.15);
+  border: none;
+  color: #fb7185;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}

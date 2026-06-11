@@ -1,13 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// Retrieve environment variables
+const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const rawSupabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+// Fallback to production credentials if environment variables are not available
+export const supabaseUrl = rawSupabaseUrl && rawSupabaseUrl.trim() !== ''
+  ? rawSupabaseUrl
+  : 'https://ejzsbkxpqmhpjuqmszvd.supabase.co';
+
+export const supabaseAnonKey = rawSupabaseAnonKey && rawSupabaseAnonKey.trim() !== ''
+  ? rawSupabaseAnonKey
+  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqenNia3hwcW1ocGp1cW1zenZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjEzNjIsImV4cCI6MjA5MzE5NzM2Mn0.lbKXt_BLTNXjTKpmqdPLvU6vC-mWNjbVRYjfSGFVZcc';
+
+// Check if we have valid, non-placeholder keys
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl &&
+  supabaseUrl !== 'https://placeholder.supabase.co' &&
+  supabaseAnonKey &&
+  supabaseAnonKey !== 'placeholder-anon-key'
+);
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key',
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,

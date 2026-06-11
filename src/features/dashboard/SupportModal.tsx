@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { X, Send, HelpCircle, Mail, User, MessageSquare, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { supabaseUrl, supabaseAnonKey } from '../../services/supabase/supabaseClient';
 import './SupportModal.css';
 
-const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const SUPABASE_URL  = supabaseUrl;
+const SUPABASE_ANON = supabaseAnonKey;
 
 interface SupportModalProps {
   isOpen: boolean;
