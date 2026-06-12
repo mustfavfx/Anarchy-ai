@@ -1,6 +1,6 @@
 [package]
 name = "anarchy-ai"
-version = "0.0.19"
+version = "0.2.0"
 description = "Anarchy AI - AI Image Builder Desktop App"
 authors = ["Anarchy AI Team"]
 edition = "2021"
@@ -34,3 +34,8 @@ tauri-plugin-http = "2"
 image = { version = "0.25", default-features = false, features = ["bmp", "png"] }
 open = "5"
 keyring = "2.1.2"
+
+[patch.crates-io]
+time = { path = "patched_crates/time" }
+
+

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Anarchy AI",
-  "version": "0.0.19",
+  "version": "0.2.0",
   "identifier": "com.anarchyai.app",
   "build": {
     "beforeDevCommand": "npm run dev",

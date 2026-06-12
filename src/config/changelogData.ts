@@ -13,9 +13,35 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.0.19',
+    version: 'v0.2.0',
     date: 'June 12, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'fix',
+        title: 'Fix Upscale Engines Parameter Mapping',
+        description: 'Fixed a bug where Topaz Labs and Clarity parameters were filtered out, ensuring they now produce visibly distinct outputs.'
+      },
+      {
+        type: 'improvement',
+        title: 'Optimized Clarity Upscaler',
+        description: 'Fixed prompt and seed variables, and simplified the execution process to use a single pass with the target scale factor.'
+      },
+      {
+        type: 'improvement',
+        title: 'Removed Real-ESRGAN Model',
+        description: 'Removed the legacy Real-ESRGAN engine, its adapter code, and UI selection elements across the builder and settings.'
+      },
+      {
+        type: 'improvement',
+        title: 'Replicate API Call Logging',
+        description: 'Added detailed payload and response logging for all Replicate API prediction requests.'
+      }
+    ]
+  },
+  {
+    version: 'v0.0.19',
+    date: 'June 12, 2026',
     features: [
       {
         type: 'feature',
