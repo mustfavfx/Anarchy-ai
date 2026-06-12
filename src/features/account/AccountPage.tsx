@@ -530,7 +530,7 @@ export const AccountPage: React.FC = () => {
                     <span className="cost-value">2 Credits</span>
                   </div>
                   <div className="cost-item">
-                    <span className="cost-name">Real-ESRGAN / Clarity</span>
+                    <span className="cost-name">Clarity Upscaler</span>
                     <span className="cost-value">1 Credit</span>
                   </div>
                   <div className="cost-item">
@@ -669,7 +669,7 @@ export const AccountPage: React.FC = () => {
                     <tr><th>Model</th><th>Price</th></tr>
                   </thead>
                   <tbody>
-                    <tr><td>nightmareai/real-esrgan</td><td>~$0.002 - $0.005</td></tr>
+
                     <tr><td>philz1337x/clarity-upscaler</td><td>~$0.01</td></tr>
                     <tr><td>topazlabs/image-upscale</td><td>~$0.05</td></tr>
                   </tbody>
@@ -688,7 +688,7 @@ export const AccountPage: React.FC = () => {
                     <tr><td>4K</td><td>flux-1.1-pro</td><td>40</td><td>$0.40</td></tr>
                     <tr><td>Video 480p</td><td>wan-2.1-i2v-480p</td><td>90 / sec</td><td>$0.90</td></tr>
                     <tr><td>Video 720p</td><td>wan-2.1-i2v-720p</td><td>250 / sec</td><td>$2.50</td></tr>
-                    <tr><td>Upscale</td><td>real-esrgan</td><td>5</td><td>$0.05</td></tr>
+                    <tr><td>Upscale</td><td>Clarity</td><td>1</td><td>$0.01</td></tr>
                     <tr><td>Chat</td><td>Per 1K tokens</td><td>1</td><td>$0.01</td></tr>
                   </tbody>
                 </table>

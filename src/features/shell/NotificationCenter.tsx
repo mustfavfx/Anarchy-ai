@@ -5,6 +5,7 @@ import {
   ChevronRight, Inbox,
 } from 'lucide-react';
 import { useNotificationStore, type Notification } from '../../stores/notificationStore';
+import { useResolvedImage } from '../../hooks/useResolvedImage';
 import './NotificationCenter.css';
 
 // ── Type icon ─────────────────────────────────────────────────────────────
@@ -30,6 +31,7 @@ function timeAgo(ts: number): string {
 
 const NotifRow: React.FC<{ n: Notification }> = ({ n }) => {
   const { markAsRead, dismissNotification } = useNotificationStore();
+  const resolvedImageUrl = useResolvedImage(n.imageUrl);
 
   const handleClick = () => {
     markAsRead(n.id);
@@ -45,8 +47,8 @@ const NotifRow: React.FC<{ n: Notification }> = ({ n }) => {
       onKeyDown={e => { if (n.action && (e.key === 'Enter' || e.key === ' ')) handleClick(); }}
     >
       <div className="nc-row-left">
-        {n.imageUrl
-          ? <img src={n.imageUrl} alt="" className="nc-row-thumb" />
+        {resolvedImageUrl
+          ? <img src={resolvedImageUrl} alt="" className="nc-row-thumb" />
           : <div className="nc-row-icon-wrap"><TypeIcon type={n.type} size={14} /></div>
         }
       </div>

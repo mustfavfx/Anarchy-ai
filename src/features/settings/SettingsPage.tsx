@@ -15,7 +15,7 @@ import { notify } from '../../stores/notificationStore';
 import './SettingsPage.css';
 import { APP_INFO } from '../../config/appInfo';
 import { SettingsService, type AppSettings } from '../../services/settings';
-import { PrivacyPolicyModal, DocumentationModal, ChangelogModal } from './SettingsModals';
+import { PrivacyPolicyModal, ChangelogModal } from './SettingsModals';
 
 export const SettingsPage: React.FC = () => {
   const aiConfig = useAIConfigStore((s) => s.config);
@@ -24,7 +24,6 @@ export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about'>('general');
   const [saved, setSaved] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showDocsModal, setShowDocsModal] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [diskUsage, setDiskUsage] = useState({ projects: 0, history: 0, total: 0 });
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'up-to-date' | 'error'>('idle');
@@ -589,10 +588,6 @@ export const SettingsPage: React.FC = () => {
               <p className="about-description">{APP_INFO.description}</p>
 
               <div className="about-links-grid">
-                <button className="about-link-card" onClick={() => setShowDocsModal(true)}>
-                  <FileText size={20} />
-                  Documentation
-                </button>
                 <button className="about-link-card" onClick={() => setShowChangelogModal(true)}>
                   <History size={20} />
                   Changelog
@@ -626,9 +621,6 @@ export const SettingsPage: React.FC = () => {
 
       {/* Privacy Policy Modal */}
       {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
-
-      {/* Documentation Modal */}
-      {showDocsModal && <DocumentationModal onClose={() => setShowDocsModal(false)} />}
 
       {/* Changelog Modal */}
       {showChangelogModal && <ChangelogModal onClose={() => setShowChangelogModal(false)} />}

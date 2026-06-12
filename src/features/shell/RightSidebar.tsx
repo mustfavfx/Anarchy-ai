@@ -266,6 +266,8 @@ export const RightSidebar: React.FC = () => {
     aspectRatio?: string;
     // Topaz Labs settings
     enhanceModel?: string;
+    topazUpscaleFactor?: string;
+    topazSubjectDetection?: string;
     faceEnhancement?: boolean;
     faceEnhancementCreativity?: number;
     faceEnhancementStrength?: number;
@@ -284,6 +286,8 @@ export const RightSidebar: React.FC = () => {
     claritySharpen?: number;
     clarityHandfix?: string;
     clarityPattern?: string;
+    clarityResemblance?: number;
+    clarityOutputFormat?: string;
     // Pruna AI settings
     prunaMode?: 'target' | 'factor';
     prunaTarget?: number;
@@ -510,6 +514,8 @@ export const RightSidebar: React.FC = () => {
             watermarkFontSize: config.watermarkFontSize,
             // Topaz Labs settings
             enhanceModel: config.enhanceModel,
+            topazUpscaleFactor: config.topazUpscaleFactor,
+            topazSubjectDetection: config.topazSubjectDetection,
             faceEnhancement: config.faceEnhancement,
             faceEnhancementCreativity: config.faceEnhancementCreativity,
             faceEnhancementStrength: config.faceEnhancementStrength,
@@ -527,6 +533,8 @@ export const RightSidebar: React.FC = () => {
             clarityDownscalingRes: config.clarityDownscalingRes,
             claritySharpen: config.claritySharpen,
             clarityHandfix: config.clarityHandfix,
+            clarityResemblance: config.clarityResemblance,
+            clarityOutputFormat: config.clarityOutputFormat,
             // Pruna AI settings
             prunaMode: config.prunaMode,
             prunaTarget: config.prunaTarget,

@@ -93,7 +93,7 @@ export interface BuilderNodeData extends Record<string, unknown> {
   // Processing configuration
   config?: {
     strength?: number;
-    seed?: number;
+    seed?: number | null;
     steps?: number;
     cfg?: number;
     model?: string;
@@ -113,6 +113,8 @@ export interface BuilderNodeData extends Record<string, unknown> {
   onDelete?: () => void;
   onExecute?: (prompt: string) => void;
   onRetry?: () => void;
+  // Performance: injected once from BuilderPage to avoid per-node Zustand subscriptions
+  enableWatermark?: boolean;
 }
 
 // ============================================================================
@@ -315,3 +317,5 @@ export const sanitizeEdges = (nodes: any[], edges: any[]): any[] => {
     }
   });
 };
+
+export type BuilderNode = Node<BuilderNodeData>;

@@ -8,8 +8,7 @@ import {
   ChevronDown, Check, Wand2, ImagePlus, Maximize2, 
   Film, Zap, Sparkles,
   Banana,
-  Flame, Crown, Star,
-  Image as ImageIcon
+  Flame, Crown, Star
 } from 'lucide-react';
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
@@ -210,15 +209,6 @@ const ENGINES: Engine[] = [
     icon: <Zap size={18} />,
     tool: 'image-editor',
   },
-  {
-    id: 'stability-ai/stable-diffusion-3.5-large',
-    name: 'Stable Diffusion 3.5',
-    provider: 'Replicate',
-    color: '#e11d48',
-    icon: <ImageIcon size={18} />,
-    tool: 'image-editor',
-    badge: 'SD 3.5'
-  },
   // ── Image Upscaling ──
   {
     id: 'topazlabs/image-upscale' as ReplicateImageModel,
@@ -228,14 +218,7 @@ const ENGINES: Engine[] = [
     icon: <Maximize2 size={18} />,
     tool: 'image-upscaler'
   },
-  {
-    id: 'nightmareai/real-esrgan' as ReplicateImageModel,
-    name: 'Real-ESRGAN',
-    provider: 'Replicate',
-    color: '#e11d48',
-    icon: <Maximize2 size={18} />,
-    tool: 'image-upscaler'
-  },
+
   {
     id: 'philz1337x/clarity-upscaler' as ReplicateImageModel,
     name: 'Clarity Upscaler',
@@ -387,8 +370,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
 
   const isUpscalingTool = selectedTool === 'image-upscaler';
   // Models with variable upscale factors
-  const supportsUpscaleFactor = (selectedModel as string) === 'nightmareai/real-esrgan' ||   // 1x-10x
-                                 (selectedModel as string) === 'prunaai/p-image-upscale';     // 1x, 2x, 4x, 8x, 16x
+  const supportsUpscaleFactor = (selectedModel as string) === 'prunaai/p-image-upscale';     // 1x, 2x, 4x, 8x, 16x
 
   return (
     <div className="ai-control-v2">
@@ -500,12 +482,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               <label className="section-label">Upscale Factor</label>
               {supportsUpscaleFactor ? (
                 <div className="upscale-factor-row">
-                  {UPSCALE_FACTORS.filter(factor => {
-                    if ((selectedModel as string) === 'nightmareai/real-esrgan') {
-                      return factor >= 1 && factor <= 10;
-                    }
-                    return true;
-                  }).map(factor => {
+                  {UPSCALE_FACTORS.map(factor => {
                     // Pruna AI: auto-preset settings per scale factor
                     const isPruna = (selectedModel as string) === 'prunaai/p-image-upscale';
                     const prunaPresets: Record<number, Partial<typeof params>> = {

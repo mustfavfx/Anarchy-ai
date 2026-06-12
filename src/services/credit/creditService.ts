@@ -132,7 +132,6 @@ const FLAT_MODEL_COSTS: Record<string, number> = {
   'xai/grok-imagine-image':                        1,
   'stability-ai/stable-diffusion-3.5-large':       1,  // $0.065 actual → 1 credit ($0.10) = 54% margin
   'topazlabs/image-upscale':                       2,
-  'nightmareai/real-esrgan':                       1,
   'philz1337x/clarity-upscaler':                   1,
 };
 

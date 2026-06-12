@@ -67,7 +67,6 @@ describe('Credit Service', () => {
     
     it('should return correct cost for upscale models', () => {
       expect(getModelCost('topazlabs/image-upscale')).toBe(2);
-      expect(getModelCost('nightmareai/real-esrgan')).toBe(1);
     });
   });
   

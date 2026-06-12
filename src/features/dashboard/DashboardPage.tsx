@@ -3,16 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight, Play, Plus, FolderOpen, Folder,
   Layers, Image as ImageIcon, GitBranch, Clock,
-  PenLine, Zap, FileText, History, Shield
+  PenLine, Zap, History, Shield
 } from 'lucide-react';
 import { listProjects, timeAgo, type ProjectMeta } from '../../services/projects/ProjectService';
 import { getHistoryStats } from '../../services/history/HistoryService';
 import { PRESET_PROMPTS } from '../builder/presetPrompts';
-import { DocumentationModal } from './DocumentationModal';
 import { ChangelogModal } from './ChangelogModal';
+import { PrivacyPolicyModal } from '../settings/SettingsModals';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import { useResolvedImage } from '../../hooks/useResolvedImage';
 import './DashboardPage.css';
+import '../settings/SettingsPage.css';
 
 const ProjectImage: React.FC<{ url?: string; alt: string }> = ({ url, alt }) => {
   const resolved = useResolvedImage(url);
@@ -26,16 +27,18 @@ const ProjectImage: React.FC<{ url?: string; alt: string }> = ({ url, alt }) => 
   return <img src={resolved} alt={alt} />;
 };
 
-// Pick one preset from each category for diversity
-const QUICK_PRESETS = PRESET_PROMPTS.map(g => g.prompts[0]);
-
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const [quickPresets] = useState(() => {
+    const all = PRESET_PROMPTS.flatMap(g => g.prompts);
+    const shuffled = [...all].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 10);
+  });
   const [recentProjects, setRecentProjects] = useState<ProjectMeta[]>([]);
   const [totalProjectCount, setTotalProjectCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [showDocumentation, setShowDocumentation] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -149,9 +152,9 @@ export const DashboardPage: React.FC = () => {
             </button>
           </div>
           <div className="presets-grid">
-            {QUICK_PRESETS.map(preset => (
+            {quickPresets.map((preset, idx) => (
               <button
-                key={preset.label}
+                key={`${preset.label}-${idx}`}
                 className="preset-chip"
                 onClick={() => handlePresetClick(preset.text)}
                 title={preset.text}
@@ -218,15 +221,11 @@ export const DashboardPage: React.FC = () => {
         {/* Info Cards */}
         <section className="dashboard-section info-cards-section">
           <div className="info-cards-grid">
-            <button className="info-card" onClick={() => setShowDocumentation(true)}>
-              <FileText size={24} className="info-card-icon" />
-              <span className="info-card-title">Documentation</span>
-            </button>
             <button className="info-card" onClick={() => setShowChangelog(true)}>
               <History size={24} className="info-card-icon" />
               <span className="info-card-title">Changelog</span>
             </button>
-            <button className="info-card" onClick={() => navigate('/privacy')}>
+            <button className="info-card" onClick={() => setShowPrivacy(true)}>
               <Shield size={24} className="info-card-icon" />
               <span className="info-card-title">Privacy Policy</span>
             </button>
@@ -236,8 +235,8 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <DocumentationModal isOpen={showDocumentation} onClose={() => setShowDocumentation(false)} />
       <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
+      {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
     </div>
   );
 };

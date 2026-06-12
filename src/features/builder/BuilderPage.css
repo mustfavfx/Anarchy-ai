@@ -7,6 +7,26 @@
   background-color: #0a0a0c;
 }
 
+/* ─── Panning Performance Optimization ────────────────────────────────────────
+   While panning or zooming the canvas, all CSS transitions and animations on
+   nodes are suppressed. This removes per-frame style recalculation and keeps
+   the canvas at 60fps regardless of node count.
+   The class is added/removed by BuilderPage via onMoveStart/onMoveEnd.         */
+.canvas-panning .anarchy-node,
+.canvas-panning .anarchy-node *,
+.canvas-panning .react-flow__node,
+.canvas-panning .ghost-node,
+.canvas-panning .ghost-node * {
+  transition: none !important;
+  animation-play-state: paused !important;
+}
+
+/* Also kill the edge animations while panning */
+.canvas-panning .react-flow__edge-path {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* Enhanced Drag & Drop Styles */
 
 .canvas-drop-overlay {
@@ -706,7 +726,7 @@
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  padding: 6px 6px 8px 20px;
+  padding: 6px 6px 6px 20px;
   background: linear-gradient(180deg, rgba(22, 22, 28, 0.98) 0%, rgba(18, 18, 22, 0.98) 100%);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -737,9 +757,9 @@
 
 .builder-prompt-input {
   flex: 1;
-  height: 24px;
-  min-height: 24px;
-  max-height: 150px;
+  height: 40px;
+  min-height: 40px;
+  max-height: 100px;
   background: transparent;
   border: none;
   padding: 10px 8px;
@@ -750,16 +770,15 @@
   outline: none;
   caret-color: #e11d48;
   resize: none;
-  line-height: 1.5;
+  line-height: 20px;
   overflow-y: auto;
-  transition: height 0.05s ease;
+  box-sizing: border-box;
 }
 
 .builder-prompt-input::placeholder {
   color: rgba(255, 255, 255, 0.35);
   font-weight: 400;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  transition: color 0.2s ease;
 }
 
 .builder-prompt-input:focus::placeholder {
@@ -768,13 +787,32 @@
 
 .builder-prompt-input:focus {
   background: transparent;
-  white-space: normal;
-  text-overflow: unset;
 }
 
 .builder-prompt-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Custom scrollbar to style it beautifully and hide scrollbar arrow buttons (triangles) */
+.builder-prompt-input::-webkit-scrollbar {
+  width: 6px;
+}
+.builder-prompt-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+.builder-prompt-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+.builder-prompt-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+.builder-prompt-input::-webkit-scrollbar-button {
+  display: none !important;
+}
+.builder-prompt-input::-webkit-resizer {
+  display: none !important;
 }
 
 .builder-prompt-container .generate-btn {
@@ -790,7 +828,6 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  margin-bottom: 2px;
   transition: all 0.2s ease;
   box-shadow: 
     0 2px 8px rgba(225, 29, 72, 0.3),
@@ -811,7 +848,7 @@
 }
 
 .prompt-presets-btn {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .prompt-bottom-badges-container {

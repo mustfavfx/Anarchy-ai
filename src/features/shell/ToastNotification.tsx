@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Sparkles, AlertCircle, Info, AlertTriangle, X, ChevronRight } from 'lucide-react';
 import { useNotificationStore, type Notification } from '../../stores/notificationStore';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
+import { useResolvedImage } from '../../hooks/useResolvedImage';
 import './ToastNotification.css';
 
 const DEFAULT_DURATION = 5000;
@@ -27,6 +28,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ notification: n, onDismiss }) => 
   const startRef    = useRef<number>(0);
   const remainRef   = useRef<number>(n.duration ?? DEFAULT_DURATION);
   const duration    = n.duration ?? DEFAULT_DURATION;
+  const resolvedImageUrl = useResolvedImage(n.imageUrl);
 
   const dismiss = useCallback(() => {
     setExiting(true);
@@ -76,8 +78,8 @@ const ToastItem: React.FC<ToastItemProps> = ({ notification: n, onDismiss }) => 
       aria-live="polite"
     >
       <div className="toast-thumb-wrap">
-        {n.imageUrl
-          ? <img src={n.imageUrl} alt="" className="toast-thumb" />
+        {resolvedImageUrl
+          ? <img src={resolvedImageUrl} alt="" className="toast-thumb" />
           : <TypeIcon type={n.type} />
         }
       </div>

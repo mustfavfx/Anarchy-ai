@@ -74,15 +74,25 @@ export async function listProjects(): Promise<ProjectMeta[]> {
       const contents: string = await invoke('load_file', { path: fp });
       const wf: WorkflowFile = JSON.parse(contents);
       
-      const sourceNodes = wf.nodes.filter(n => n.data?.type === 'source');
-      const outputNodes = wf.nodes.filter(n => n.data?.type === 'result' || n.data?.image);
+      const sourceNodes = wf.nodes.filter(n => n.type === 'source' || n.data?.type === 'source');
+      const outputNodes = wf.nodes.filter(n => n.type === 'result' || n.data?.type === 'result' || n.data?.image);
       
-      // Use saved thumbnail if available, otherwise fall back to first source node image, then any image
-      let thumbnailUrl: string | undefined = wf.thumbnail;
+      // Try to find first source node with an image
+      let thumbnailUrl: string | undefined;
+      for (const n of wf.nodes) {
+        if (n.type === 'source' || n.data?.type === 'source') {
+          const img = n.data?.image || n.data?.outputData?.image;
+          if (img && typeof img === 'string') {
+            thumbnailUrl = img;
+            break;
+          }
+        }
+      }
+
+      // If no source image, try result nodes
       if (!thumbnailUrl) {
-        // Try source nodes first (the first image entering the canvas)
         for (const n of wf.nodes) {
-          if (n.data?.type === 'source') {
+          if (n.type === 'result' || n.data?.type === 'result') {
             const img = n.data?.image || n.data?.outputData?.image;
             if (img && typeof img === 'string') {
               thumbnailUrl = img;
@@ -90,14 +100,20 @@ export async function listProjects(): Promise<ProjectMeta[]> {
             }
           }
         }
-        // Fallback to any node image if no source image is found
-        if (!thumbnailUrl) {
-          for (const n of wf.nodes) {
-            const img = n.data?.image || n.data?.outputData?.image;
-            if (img && typeof img === 'string') {
-              thumbnailUrl = img;
-              break;
-            }
+      }
+
+      // Fallback: use saved thumbnail (viewport screenshot)
+      if (!thumbnailUrl) {
+        thumbnailUrl = wf.thumbnail;
+      }
+
+      // Final fallback: use any node image
+      if (!thumbnailUrl) {
+        for (const n of wf.nodes) {
+          const img = n.data?.image || n.data?.outputData?.image;
+          if (img && typeof img === 'string') {
+            thumbnailUrl = img;
+            break;
           }
         }
       }

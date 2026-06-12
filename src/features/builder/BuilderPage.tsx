@@ -1,320 +1,66 @@
-import React, { useCallback, useState, useEffect, useRef, useMemo, memo } from 'react';
-import { logger } from '../../utils/logger';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   ReactFlow,
   Background,
   BackgroundVariant,
   MiniMap,
-  type Node,
   useReactFlow,
   ReactFlowProvider,
   SelectionMode,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { BaseNode } from './BaseNode';
-import { GhostNode } from './GhostNode';
-import VizGhostAttachEdge from './VizGhostAttachEdge';
+
 import { useBuilderWorkflow, type ProcessingType } from './useBuilderWorkflow';
-import { sanitizeEdges } from './types';
+import { type BuilderNode } from './types';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { exportImageWithDialog, exportImagesBatchWithDialog, exportNodesToPDFWithDialog, exportImageToDXFWithDialog, saveDXFFromServer, urlToDataUri, exportImagesToPDFWithDialog } from '../../services/export';
-import { watermarkService } from '../../services/watermark/WatermarkService';
-import { saveWorkflow, saveWorkflowAs, loadWorkflow, resetFilePath } from '../../services/workflow';
-import { invoke } from '@tauri-apps/api/core';
-import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
-import { useAuth } from '../auth/AuthContext';
-import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits, getUserCredit } from '../../services/credit/creditService';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { cacheLocalImage, getLocalImage } from '../../services/history/HistoryService';
 import { BuilderContextMenu } from './components/BuilderContextMenu';
 import { BuilderPromptBar } from './components/BuilderPromptBar';
 import { CreditErrorModal } from './components/CreditErrorModal';
 import { useBuilderDrop } from './hooks/useBuilderDrop';
 import { useBuilderKeyboard } from './hooks/useBuilderKeyboard';
+import { useAuth } from '../auth/AuthContext';
+import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits, getUserCredit } from '../../services/credit/creditService';
+import { cacheLocalImage } from '../../services/history/HistoryService';
+import { logger } from '../../utils/logger';
+import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
+import { invoke } from '@tauri-apps/api/core';
+import { watermarkService } from '../../services/watermark/WatermarkService';
+
+// Hooks
+import { useBuilderCredits } from './hooks/useBuilderCredits';
+import { useBuilderExport } from './hooks/useBuilderExport';
+import { useBuilderPersistence } from './hooks/useBuilderPersistence';
+
+// Helpers
+import {
+  resolveSourceLabel,
+  buildGenConfig,
+  convertNodeTreeToWorkflow,
+  htmlToCanvas,
+  makeSourceOutput,
+  isValidPosition,
+  positionExtraNode,
+  positionExternalNode,
+  patchNodeImage,
+  patchSpawnedNode,
+  nodeTypes,
+  edgeTypes,
+  CustomConnectionLine,
+} from './utils/builderHelpers.tsx';
+
 import './BuilderPage.css';
 
 // Check if running in a Tauri desktop environment
 export const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 
-// ── Module-level helpers (outside component to avoid nesting warnings) ─────
-
-const SOURCE_LABELS: Record<string, string> = {
-  autocad: 'AutoCAD', revit: 'Revit',
-  '3dsmax': '3ds Max', max: '3ds Max',
-  rhino: 'Rhino', sketchup: 'SketchUp',
-};
-
-function resolveSourceLabel(raw: string): string {
-  const lower = raw.toLowerCase();
-  return SOURCE_LABELS[lower] ?? (lower ? lower.charAt(0).toUpperCase() + lower.slice(1) : 'External');
-}
-
-const buildGenConfig = (aiConfig: any) => ({
-  model: aiConfig.model,
-  resolution: aiConfig.resolution,
-  aspectRatio: aiConfig.aspectRatio,
-  steps: aiConfig.steps,
-  cfg: aiConfig.cfg,
-  seed: aiConfig.seed,
-  strength: aiConfig.strength,
-  referenceStrength: aiConfig.referenceStrength,
-  negativePrompt: aiConfig.negativePrompt,
-  disableSafetyChecker: aiConfig.disableSafetyChecker,
-  upscaleFactor: aiConfig.upscaleFactor,
-  prunaMode: aiConfig.prunaMode,
-  prunaTarget: aiConfig.prunaTarget,
-  prunaFactor: aiConfig.prunaFactor,
-  prunaEnhanceDetails: aiConfig.prunaEnhanceDetails,
-  prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
-  prunaQuality: aiConfig.prunaQuality,
-  prunaOutputFormat: aiConfig.prunaOutputFormat,
-});
-
-function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges: any[] } {
-  const TYPE_LABELS: Record<string, string> = {
-    source: 'Source',
-    render: 'AI Render',
-    detail: 'Detail Edit',
-    upscale: 'Upscale',
-    people: 'Add People',
-    daynight: 'Day to Night',
-    lighting: 'Lighting',
-    material: 'Materials',
-    local: 'Local Edit',
-    variation: 'Variation'
-  };
-
-  const nodesRaw = nodeTree.nodes || [];
-
-  const getLineage = (node: any): { generation: number; ancestry: string[]; branchIndex: number } => {
-    const ancestry: string[] = [];
-    let curr = node;
-    while (curr && curr.parentId) {
-      ancestry.unshift(curr.parentId);
-      curr = nodesRaw.find((x: any) => x.id === curr.parentId);
-    }
-    const generation = ancestry.length;
-    
-    // Find siblings (other nodes with the same parentId)
-    const siblings = nodesRaw.filter((x: any) => x.parentId === node.parentId);
-    // Sort siblings by ID to ensure stable branchIndex calculation
-    siblings.sort((a: any, b: any) => String(a.id).localeCompare(String(b.id)));
-    const branchIndex = siblings.findIndex((x: any) => x.id === node.id);
-    
-    return {
-      generation,
-      ancestry,
-      branchIndex: branchIndex >= 0 ? branchIndex : 0
-    };
-  };
-
-  const nodes = nodesRaw.map((n: any) => {
-    const rfType = n.type === 'ghost' ? 'ghostNode' : 'baseNode';
-    const { generation, ancestry, branchIndex } = getLineage(n);
-    
-    const lineage = {
-      parentId: n.parentId || null,
-      rootSourceId: nodeTree.sourceNodeId || ancestry[0] || n.id,
-      generation,
-      branchIndex,
-      processingType: n.processingType || 'source',
-      ancestry
-    };
-
-    const outputPacket = n.image ? {
-      image: n.image,
-      prompt: n.prompt,
-      metadata: {
-        timestamp: nodeTree.createdAt || Date.now(),
-        operationType: n.processingType || 'source',
-        format: 'png'
-      }
-    } : undefined;
-
-    return {
-      id: n.id,
-      type: rfType,
-      position: n.position || { x: 200, y: 200 },
-      width: 260,
-      data: {
-        label: TYPE_LABELS[n.processingType || ''] || n.processingType || 'Node',
-        type: n.type,
-        processingType: n.processingType || 'source',
-        state: n.state || 'ready',
-        image: n.image,
-        prompt: n.prompt,
-        createdAt: nodeTree.createdAt || Date.now(),
-        lineage,
-        outputData: outputPacket,
-        inputData: undefined,
-        config: {}
-      }
-    };
-  });
-
-  const edges: any[] = [];
-  (nodeTree.nodes || []).forEach((n: any) => {
-    if (n.parentId) {
-      edges.push({
-        id: `e-${n.parentId}-${n.id}-0`,
-        source: n.parentId,
-        target: n.id,
-        sourceHandle: 'source',
-        targetHandle: 'ghost-target-0',
-        type: 'default',
-        animated: false,
-        label: null,
-        style: { 
-          strokeWidth: 2,
-          stroke: '#e11d48',
-          opacity: 0.8,
-          strokeDasharray: '5 5',
-          strokeLinecap: 'round'
-        },
-        data: {
-          isActive: true,
-          lastUpdate: nodeTree.createdAt || Date.now()
-        }
-      });
-    }
-  });
-
-  // Link parent's outputData to inputData of children
-  nodes.forEach((node: any) => {
-    if (node.data.lineage.parentId) {
-      const parent = nodes.find((p: any) => p.id === node.data.lineage.parentId);
-      if (parent) {
-        node.data.inputData = parent.data.outputData;
-      }
-    }
-  });
-
-  return { nodes, edges };
-}
-
-function drawNodeImage(
-  img: HTMLImageElement, nodeRect: DOMRect, rect: DOMRect,
-  ctx: CanvasRenderingContext2D, res: () => void
-) {
-  try {
-    ctx.drawImage(img, nodeRect.left - rect.left, nodeRect.top - rect.top, nodeRect.width, nodeRect.height);
-  } catch (err) {
-    logger.warn('[Thumbnail] Failed to draw image:', err);
-  }
-  res();
-}
-
-function makeNodeImagePromise(
-  img: HTMLImageElement, nodeRect: DOMRect, rect: DOMRect, ctx: CanvasRenderingContext2D
-): Promise<void> {
-  return new Promise<void>((res) => {
-    const draw = () => drawNodeImage(img, nodeRect, rect, ctx, res);
-    if (img.complete) { draw(); return; }
-    img.onload = draw;
-    img.onerror = () => { logger.warn('[Thumbnail] Image failed to load'); res(); };
-    setTimeout(() => { if (!img.complete) { logger.warn('[Thumbnail] Image load timeout'); res(); } }, 2000);
-  });
-}
-
-function htmlToCanvas(element: HTMLElement): Promise<HTMLCanvasElement | null> {
-  return new Promise((resolve) => {
-    try {
-      const rect = element.getBoundingClientRect();
-      const canvas = document.createElement('canvas');
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { resolve(null); return; }
-      ctx.fillStyle = '#0f0f0f';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const nodeEls = element.querySelectorAll('.react-flow__node');
-      const promises: Promise<void>[] = [];
-      nodeEls.forEach((node) => {
-        const htmlNode = node as HTMLElement;
-        const nodeRect = htmlNode.getBoundingClientRect();
-        const img = htmlNode.querySelector('img');
-        if (img) promises.push(makeNodeImagePromise(img, nodeRect, rect, ctx));
-      });
-      Promise.all(promises).then(() => resolve(canvas));
-    } catch { resolve(null); }
-  });
-}
-
-function makeSourceOutput(url: string) {
-  if (!url) return undefined;
-  return { image: url, prompt: undefined, metadata: { timestamp: Date.now(), operationType: 'source' as const } };
-}
-
-function isValidPosition(node: Node): boolean {
-  const p = node.position;
-  if (!p) return false;
-  if (typeof p.x !== 'number' || Number.isNaN(p.x)) return false;
-  if (typeof p.y !== 'number' || Number.isNaN(p.y)) return false;
-  return true;
-}
-
-function positionExtraNode(sourceId: string, baseX: number, baseY: number, index: number) {
-  return (curr: Node[]) => curr.map(n =>
-    n.id === sourceId ? { ...n, position: { x: baseX, y: baseY + 170 * (index + 1) } } : n
-  );
-}
-
-function positionExternalNode(sourceId: string) {
-  return (curr: Node[]) => curr.map(n =>
-    n.id === sourceId
-      ? { ...n, position: { x: 120, y: 260 + curr.filter(s => (s.data as any)?.type === 'source').length * 40 } }
-      : n
-  );
-}
-
-function patchNodeImage(sourceNodeId: string, img: string) {
-  return (curr: Node[]) => curr.map(n =>
-    n.id === sourceNodeId ? { ...n, data: { ...n.data, image: img, state: 'ready' } } : n
-  );
-}
-
-function patchSpawnedNode(nodeId: string) {
-  return (curr: Node[]) => curr.map(n =>
-    n.id === nodeId
-      ? { ...n, position: { x: 120, y: 200 + curr.filter(s => (s.data as any)?.type === 'source').length * 80 } }
-      : n
-  );
-}
-
-// createSourceIfEmpty removed as empty initialization is now handled directly by the workflow hook
-
-
-// Separate node types for proper handle positioning
-const nodeTypes = {
-  baseNode: BaseNode,      // Source and Result nodes
-  ghostNode: GhostNode,    // Ghost/Processing nodes with multiple inputs
-};
-
-// Custom Connection Line component to avoid getBezierPath errors
-const CustomConnectionLine = memo(({ fromX, fromY, toX, toY }: { fromX: number; fromY: number; toX: number; toY: number }) => {
-  // Simple straight line for connection (avoid bezier errors)
-  const path = `M ${fromX} ${fromY} L ${toX} ${toY}`;
-  
-  return (
-    <g>
-      <path
-        d={path}
-        stroke="#e11d48"
-        strokeWidth={2}
-        strokeDasharray="5 5"
-        fill="none"
-        style={{ pointerEvents: 'none' }}
-      />
-    </g>
-  );
-});
-
-// Custom edge types for data flow visualization
-const edgeTypes = {
-  default: VizGhostAttachEdge,  // Custom bezier edge with brand styling
-};
+type ContextAction = 
+  | 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' 
+  | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-dxf' | 'analyze-plan' 
+  | 'export-all' | 'export-pdf' | 'save-project' | 'load-project'
+  | 'open-images-folder' | 'export-node-pdf';
 
 // Props for multi-tab support
 interface BuilderContentProps {
@@ -339,20 +85,18 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   onProjectPathChange,
   isActive = true,
 }) => {
-  const [currentFilePath, setCurrentFilePathState] = useState<string | null>(initialProjectPath ?? null);
-  const hasLoadedRef = useRef(false);
-  const isMountedRef = useRef(true);
+  const { user: authUser } = useAuth();
+  const addNotification = useNotificationStore((state) => state.addNotification);
+  const hasFittedInitially = useRef(false);
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  // Hook 1: Credits State Management
+  const {
+    userCredits,
+    setUserCredits,
+    creditError,
+    setCreditError,
+  } = useBuilderCredits(authUser?.id);
 
-  useEffect(() => {
-    setCurrentFilePathState(initialProjectPath ?? null);
-  }, [initialProjectPath]);
   const {
     nodes,
     edges,
@@ -409,8 +153,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const setWorkflowSnapshot = useAIConfigStore((state) => state.setWorkflowSnapshot);
   const setFocusNodeFn = useAIConfigStore((state) => state.setFocusNodeFn);
   const setNodeImageUpdateFn = useAIConfigStore((state) => state.setNodeImageUpdateFn);
-  const addNotification = useNotificationStore((state) => state.addNotification);
-  const { user: authUser } = useAuth();
+  // FIX 6: Single subscription here instead of one per BaseNode instance
+  const enableWatermark = useAIConfigStore((state) => state.config.enableWatermark);
 
   const applyWatermarkToSource = useCallback(async (url: string): Promise<string> => {
     if (!url) return url;
@@ -438,15 +182,23 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       return url;
     }
   }, []);
-  const [prompt, setPrompt] = useState('');
-  const [isSpacePressed, setIsSpacePressed] = useState(false);
 
-  // Monitor spacebar events for Figma-like canvas panning
+  const [prompt, setPrompt] = useState('');
+  const promptRef = useRef(prompt);
+  useEffect(() => {
+    promptRef.current = prompt;
+  }, [prompt]);
+
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const spaceRef = useRef(false);
+
+  // Monitor spacebar events for Figma-like canvas panning (Priority 8 - optimized)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' && !isSpacePressed) {
+      if (e.key === ' ' && !spaceRef.current) {
         const tag = (e.target as HTMLElement).tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        spaceRef.current = true;
         setIsSpacePressed(true);
         e.preventDefault(); // Prevent page scrolling
       }
@@ -454,6 +206,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === ' ') {
+        spaceRef.current = false;
         setIsSpacePressed(false);
       }
     };
@@ -464,7 +217,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       globalThis.removeEventListener('keydown', handleKeyDown);
       globalThis.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isSpacePressed]);
+  }, []);
+
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -473,29 +227,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     type: 'canvas' | 'node' | 'prompt';
     nodeId?: string;
   } | null>(null);
-  const [creditError, setCreditError] = useState<{ balance: number; needed: number } | null>(null);
-  const [userCredits, setUserCredits] = useState<number | null>(null);
-  const [confirmNewCanvas, setConfirmNewCanvas] = useState(false);
-  const isDirtyRef = useRef(false);
-
-  // Load and sync user credits on mount and window focus
-  useEffect(() => {
-    if (!authUser?.id) return;
-    const loadCredits = async () => {
-      try {
-        const credit = await getUserCredit(authUser.id);
-        if (credit) {
-          setUserCredits(credit.balance);
-        }
-      } catch (err) {
-        logger.error('[Builder] Failed to fetch credits:', err);
-      }
-    };
-    loadCredits();
-    
-    globalThis.addEventListener('focus', loadCredits);
-    return () => globalThis.removeEventListener('focus', loadCredits);
-  }, [authUser?.id]);
 
   const { fitView, getViewport, fitBounds, getNode: getRFNode, screenToFlowPosition, setViewport } = useReactFlow();
 
@@ -524,18 +255,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     return () => setFocusNodeFn(null);
   }, [fitBounds, getRFNode, setFocusNodeFn, setSelectedNodeId]);
 
-  // Generate thumbnail from canvas for project preview
+  // Generate thumbnail from canvas for project preview (used by persistence hook)
   const generateThumbnail = useCallback(async (): Promise<string | undefined> => {
     try {
-      // Find the react-flow__viewport element which contains the canvas
       const viewport = document.querySelector('.react-flow__viewport') as HTMLElement;
       if (!viewport) return undefined;
 
-      // Use html-to-image approach via canvas
       const canvas = await htmlToCanvas(viewport);
       if (!canvas) return undefined;
 
-      // Scale down to thumbnail size (max 600px width for better quality)
       const maxWidth = 600;
       const scale = Math.min(maxWidth / canvas.width, 1);
       const thumbWidth = Math.round(canvas.width * scale);
@@ -547,7 +275,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const ctx = thumbCanvas.getContext('2d');
       if (!ctx) return undefined;
 
-      // Enable high quality scaling
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       
@@ -559,28 +286,56 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, []);
 
-  // htmlToCanvas is defined as a module-level function above the component
+  const hasLoadedRef = useRef(false);
+
+  // Hook 2: Persistence Save/Load operations
+  const {
+    setCurrentFilePathState,
+    confirmNewCanvas,
+    setConfirmNewCanvas,
+    handleSave,
+    handleSaveAs,
+    handleLoad,
+    doNewCanvas,
+    handleNewCanvas,
+    applyWorkflow,
+  } = useBuilderPersistence({
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    initialProjectPath,
+    onTitleChange,
+    onDirtyChange,
+    onProjectPathChange,
+    generateThumbnail,
+    addNotification,
+    fitView,
+    isRestored,
+    createSourceNode,
+    setSelectedNodeId,
+    setSelectedNode,
+    hasFittedInitiallyRef: hasFittedInitially,
+  });
 
   const location = useLocation();
 
-  // Re-check sessionStorage on every navigation to /builder (component stays mounted)
-  const applyWorkflow = useCallback((wf: any, fallbackName: string) => {
-    if (!wf.nodes) return;
-    const mappedNodes = wf.nodes.map((n: any) => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
-    setNodes(mappedNodes);
-    const mappedEdges = (wf.edges ?? []).map((e: any) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle || 'source', targetHandle: e.targetHandle, type: e.type, animated: e.animated, style: e.style, data: e.data }));
-    setEdges(sanitizeEdges(mappedNodes, mappedEdges));
-    const name = wf.name || fallbackName;
-    onTitleChange?.(name);
-    skipDirtyRef.current = 2;
-    onDirtyChange?.(false);
-    
-    // Reset hasFittedInitially so we re-fit once the newly loaded nodes are measured!
-    hasFittedInitially.current = false;
-    
-    setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
-    addNotification({ type: 'success', title: 'Project Loaded', message: name });
-  }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification]);
+  // Hook 3: Exports & Floor Plan analysis context handlers
+  const {
+    handleContextCompare,
+    handleContextSaveNodeImage,
+    handleContextExportDXF,
+    handleContextAnalyzePlan,
+    handleContextExportAll,
+    handleContextExportPDF,
+    handleContextOpenImagesFolder,
+    handleContextExportNodePDF,
+  } = useBuilderExport({
+    nodes,
+    addNotification,
+    setCompareSlot,
+    setConfig,
+  });
 
   const restorePresetImage = useCallback((wf: any, img: string) => {
     sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
@@ -591,10 +346,12 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   useEffect(() => {
     if (location.pathname !== '/builder') return;
-
     const preset = sessionStorage.getItem(SESSION_KEYS.PRESET_PROMPT);
-    if (preset) { sessionStorage.removeItem(SESSION_KEYS.PRESET_PROMPT); setPrompt(preset); }
-  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (preset) {
+      sessionStorage.removeItem(SESSION_KEYS.PRESET_PROMPT);
+      setPrompt(preset);
+    }
+  }, [location.pathname, setPrompt]);
 
   // Auto-load project if provided via props (once)
   useEffect(() => {
@@ -675,9 +432,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     addNotification
   ]);
 
-  // Sync nodes/edges snapshot for Sidebar mini-map
+  // FIX 2: Debounce snapshot updates — syncing on every drag frame causes a
+  // Zustand store write on every animation frame, triggering downstream re-renders.
+  const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    setWorkflowSnapshot({ nodes, edges });
+    clearTimeout(snapshotTimerRef.current);
+    snapshotTimerRef.current = setTimeout(() => {
+      setWorkflowSnapshot({ nodes, edges });
+    }, 500);
+    return () => clearTimeout(snapshotTimerRef.current);
   }, [nodes, edges, setWorkflowSnapshot]);
 
   // Re-measure container and fit view when tab becomes active
@@ -727,11 +490,13 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // Viewport restore removed — always start fresh
 
-  // Sync selected node to AIConfigContext for Preview Panel
+  // FIX 3: Sync selected node to AIConfigContext for Preview Panel.
+  // Use nodesRef so `nodes` is NOT a dependency — this effect previously fired
+  // on every single drag-frame update of any node, even unrelated ones.
   useEffect(() => {
     logger.log('[BuilderPage] selectedNodeId changed:', selectedNodeId);
     if (selectedNodeId) {
-      const node = nodes.find(n => n.id === selectedNodeId);
+      const node = nodesRef.current.find(n => n.id === selectedNodeId);
       if (node) {
         const data = node.data as any;
         logger.log('[BuilderPage] Updating selectedNode to:', node.id, 'image:', (data?.image || data?.outputData?.image)?.slice(0, 50));
@@ -746,7 +511,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
     } else {
       // If no node selected, show first source or result node
-      const sourceOrResult = nodes.find(n => {
+      const sourceOrResult = nodesRef.current.find(n => {
         const data = n.data as any;
         return (data?.type === 'source' || data?.type === 'result') && (data?.image || data?.outputData?.image);
       });
@@ -764,8 +529,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         setSelectedNode({ id: null, type: null, image: undefined, originalImage: undefined, prompt: undefined, state: undefined });
       }
     }
-  }, [selectedNodeId, nodes, setSelectedNode]);
-  const hasFittedInitially = useRef(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId, setSelectedNode]); // nodes intentionally omitted — use nodesRef
 
   // Restore viewport from localStorage if available, preventing fitView jump on mount
   const hasRestoredViewport = useRef(false);
@@ -791,34 +556,18 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     hasRestoredViewport.current = true;
   }, [isRestored, setViewport, tabId]);
 
-  // Dirty state: notify parent when canvas changes after initial restore
-  // skipDirtyRef > 0 means the next N node/edge changes should be ignored (restore, load, save)
-  const onDirtyChangeRef = useRef(onDirtyChange);
-  useEffect(() => {
-    onDirtyChangeRef.current = onDirtyChange;
-  }, [onDirtyChange]);
-
-  const skipDirtyRef = useRef(2); // skip initial restore triggers
-  useEffect(() => {
-    if (!isRestored) return;
-    if (skipDirtyRef.current > 0) { skipDirtyRef.current--; return; }
-    isDirtyRef.current = true;
-    onDirtyChangeRef.current?.(true);
-  }, [nodes, edges, isRestored]);
-
 
 
   // Execute with notifications wrapper
   const executeWithNotifications = useCallback(async (
     nodeId: string, 
     nodePrompt: string, 
-    config?: any
+    config?: any,
+    chargedCost?: number
   ) => {
     try {
-      await executeNode(nodeId, nodePrompt, config);
-      const node = nodes.find(n => n.id === nodeId);
-      const nodeData = node?.data as any;
-      const resultImage = nodeData?.image || nodeData?.outputData?.image;
+      const result = await executeNode(nodeId, nodePrompt, config);
+      const resultImage = result?.image;
       
       addNotification({
         type: 'success',
@@ -830,7 +579,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         category: 'generation',
       });
 
-      // History logging now happens inside useBuilderWorkflow where fresh image is available
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Generation failed';
       addNotification({
@@ -842,22 +590,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         category: 'generation',
       });
 
-      // Refund credits for this failed node
-      if (authUser?.id && !DEV_MODE) {
-        const aiConfig = useAIConfigStore.getState().config;
-        const singleCost = getModelCost(aiConfig.model, {
-          resolution: aiConfig.resolution,
-          qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
-          prunaTarget: aiConfig.prunaTarget,
-        });
-
-        refundCredits(authUser.id, singleCost, `Refund: Failed generation for node ${nodeId}`)
+      // Refund credits for this failed node using chargedCost
+      if (authUser?.id && !DEV_MODE && chargedCost) {
+        refundCredits(authUser.id, chargedCost, `Refund: Failed generation for node ${nodeId}`)
           .then((success) => {
             if (success) {
               addNotification({
                 type: 'info',
                 title: 'Credits Refunded',
-                message: `Refunded ${singleCost} credits for failed generation.`,
+                message: `Refunded ${chargedCost} credits for failed generation.`,
                 duration: 4000,
               });
               getUserCredit(authUser.id).then(c => c && setUserCredits(c.balance)).catch(() => {});
@@ -868,7 +609,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
       throw error;
     }
-  }, [executeNode, nodes, addNotification, authUser]);
+  }, [executeNode, addNotification, authUser]);
 
   const makeImageUploadHandler = useCallback((nodeId: string) => (url: string) => {
     if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, state: 'idle', outputData: undefined }); return; }
@@ -879,7 +620,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, [updateNodeData, applyWatermarkToSource]);
 
-  const spawnExtraSources = useCallback((node: Node, watermarkedUrls: string[]) => {
+  const spawnExtraSources = useCallback((node: BuilderNode, watermarkedUrls: string[]) => {
     watermarkedUrls.slice(1).forEach((wUrl, index) => {
       const sourceId = createSourceNode(wUrl);
       setTimeout(() => {
@@ -896,7 +637,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, [executeWithNotifications]);
 
-  const makeImagesUploadHandler = useCallback((node: Node) => (urls: string[]) => {
+  const makeImagesUploadHandler = useCallback((node: BuilderNode) => (urls: string[]) => {
     if (!urls.length) return;
     Promise.all(urls.map(u => applyWatermarkToSource(u))).then(async (watermarkedUrls) => {
       const watermarked = watermarkedUrls[0];
@@ -908,43 +649,83 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, [updateNodeData, applyWatermarkToSource, spawnExtraSources, setSelectedNode]);
 
-  const makeRetryHandler = useCallback((node: Node) => {
-    const d = node.data as any;
+  const makeRetryHandler = useCallback((node: BuilderNode) => {
+    const d = node.data;
     if (d.state !== 'error' || d.type !== 'ghost') return undefined;
     return () => {
-      if (!d.prompt) return;
+      const promptText = d.prompt;
+      if (!promptText) return;
       updateNodeData(node.id, { state: 'idle', errorMessage: undefined });
-      setTimeout(() => handleRetryExecution(node.id, d.prompt, d.config), 50);
+      setTimeout(() => handleRetryExecution(node.id, promptText, d.config), 50);
     };
   }, [updateNodeData, handleRetryExecution]);
 
+  // FIX 1: nodesRef gives stable callbacks live access to nodes without making
+  // stableHandlers depend on the nodes array. This prevents ALL nodes from
+  // re-rendering whenever any single node changes position.
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
+  const mappedNodesCache = useRef<Map<string, BuilderNode>>(new Map());
+
+  const stableHandlers = useMemo(() => ({
+    onAddChild: (id: string, type: ProcessingType) => {
+      addChildNode(id, type);
+    },
+    onImageUpload: (id: string, url: string) => {
+      makeImageUploadHandler(id)(url);
+    },
+    onImagesUpload: (id: string, urls: string[]) => {
+      // Use ref — not closure — so this doesn't force stableHandlers to remake
+      const node = nodesRef.current.find(n => n.id === id);
+      if (node) makeImagesUploadHandler(node)(urls);
+    },
+    onDelete: (id: string) => {
+      deleteNode(id);
+    },
+    onRetry: (id: string) => {
+      const node = nodesRef.current.find(n => n.id === id);
+      if (node) { const handler = makeRetryHandler(node); handler?.(); }
+    },
+    onExecute: (id: string, promptText: string) => {
+      const cfg = buildGenConfig(getConfig());
+      executeWithNotifications(id, promptText, cfg).catch(() => {});
+    }
+    // ↑ nodes intentionally removed from deps — use nodesRef instead
+  }), [addChildNode, deleteNode, makeImageUploadHandler, makeImagesUploadHandler, makeRetryHandler, getConfig, executeWithNotifications]);
+
   // Bind callbacks to nodes - filter out nodes with invalid/unmeasured positions
-  const nodesWithCallbacks = useMemo(() => nodes
-    .filter(node => {
-      if (isValidPosition(node)) return true;
-      // Only warn for truly invalid positions, not just unmeasured (newly added) nodes
-      const p = node.position;
-      const hasInvalidPos = !p || typeof p.x !== 'number' || Number.isNaN(p.x) || typeof p.y !== 'number' || Number.isNaN(p.y);
-      if (hasInvalidPos) logger.warn('[Builder] Filtering out node with invalid position:', node.id);
-      return false;
-    })
-    .map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        onAddChild:     (processingType: ProcessingType) => addChildNode(node.id, processingType),
-        onImageUpload:  node.data.type === 'source' ? makeImageUploadHandler(node.id) : undefined,
-        onImagesUpload: node.data.type === 'source' ? makeImagesUploadHandler(node) : undefined,
-        onDelete:       node.data.type === 'source' ? undefined : () => deleteNode(node.id),
-        onRetry:        makeRetryHandler(node),
-        onExecute:      node.data.type === 'ghost' ? (promptText: string) => {
-          const aiConfig = getConfig();
-          const genConfig = buildGenConfig(aiConfig);
-          executeWithNotifications(node.id, promptText, genConfig).catch(() => {});
-        } : undefined,
-      },
-    })),
-  [nodes, addChildNode, makeImageUploadHandler, makeImagesUploadHandler, deleteNode, makeRetryHandler, executeWithNotifications, getConfig]);
+  const nodesWithCallbacks = useMemo(() => {
+    const nextCache = new Map<string, BuilderNode>();
+    const result = nodes
+      .filter(node => isValidPosition(node))
+      .map(node => {
+        const cached = mappedNodesCache.current.get(node.id);
+        if (cached && (cached as any)._raw === node) {
+          nextCache.set(node.id, cached);
+          return cached;
+        }
+        
+        const mappedNode: BuilderNode = {
+          ...node,
+          data: {
+            ...node.data,
+            onAddChild:      (type: ProcessingType) => stableHandlers.onAddChild(node.id, type),
+            onImageUpload:   node.data.type === 'source' ? (url: string) => stableHandlers.onImageUpload(node.id, url) : undefined,
+            onImagesUpload:  node.data.type === 'source' ? (urls: string[]) => stableHandlers.onImagesUpload(node.id, urls) : undefined,
+            onDelete:        node.data.type === 'source' ? undefined : () => stableHandlers.onDelete(node.id),
+            onRetry:         node.data.type === 'ghost' && node.data.state === 'error' ? () => stableHandlers.onRetry(node.id) : undefined,
+            onExecute:       node.data.type === 'ghost' ? (promptText: string) => stableHandlers.onExecute(node.id, promptText) : undefined,
+            enableWatermark, // injected once — avoids per-node Zustand subscription
+          }
+        };
+        (mappedNode as any)._raw = node;
+        nextCache.set(node.id, mappedNode);
+        return mappedNode;
+      });
+    mappedNodesCache.current = nextCache;
+    return result;
+  }, [nodes, stableHandlers]);
 
   // Fit view when nodes are measured to center them perfectly on initial load
   useEffect(() => {
@@ -957,7 +738,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, [nodesWithCallbacks, fitView]);
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((event: React.MouseEvent, node: BuilderNode) => {
     if (event.button !== 0) return;
     setContextMenu(null);
     logger.log('[BuilderPage] onNodeClick:', node.id);
@@ -965,19 +746,19 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [setSelectedNodeId]);
 
   // Sync ReactFlow selection → selectedNodeId (covers drag-select, keyboard, etc.)
-  const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[]; edges: any[] }) => {
+  const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: BuilderNode[]; edges: any[] }) => {
     if (selectedNodes.length === 1) {
       const node = selectedNodes[0];
-      const data = node.data as any;
-      const img = data?.image || data?.outputData?.image;
+      const data = node.data;
+      const img = data.image || data.outputData?.image;
       setSelectedNodeId(node.id);
       setSelectedNode({
         id: node.id,
-        type: data?.type || null,
+        type: data.type || null,
         image: img,
-        originalImage: data?.originalImage,
-        prompt: data?.prompt,
-        state: data?.state,
+        originalImage: data.originalImage,
+        prompt: data.prompt,
+        state: data.state,
       });
     } else if (selectedNodes.length === 0) {
       setSelectedNodeId(null);
@@ -1030,7 +811,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, [setContextMenu]);
 
-  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: BuilderNode) => {
     event.preventDefault();
     event.stopPropagation();
     setSelectedNodeId(node.id);
@@ -1045,20 +826,20 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
 
 
-  const executeGhost = useCallback((ghostId: string, genConfig: ReturnType<typeof buildGenConfig>) => {
-    executeWithNotifications(ghostId, prompt, genConfig).catch(() => {});
+  const executeGhost = useCallback((ghostId: string, genConfig: ReturnType<typeof buildGenConfig>, chargedCost: number) => {
+    executeWithNotifications(ghostId, promptRef.current, genConfig, chargedCost).catch(() => {});
     setPrompt('');
-  }, [executeWithNotifications, prompt, setPrompt]);
+  }, [executeWithNotifications, setPrompt]);
 
-  const spawnAndExecute = useCallback((genConfig: ReturnType<typeof buildGenConfig>) => {
+  const spawnAndExecute = useCallback((genConfig: ReturnType<typeof buildGenConfig>, chargedCost: number) => {
     const existingParent =
-      nodes.find(n => { const d = n.data as any; return (d.type === 'source' || d.type === 'result') && !!d.image; }) ??
-      nodes.find(n => (n.data as any)?.type === 'source');
+      nodes.find(n => (n.data.type === 'source' || n.data.type === 'result') && !!n.data.image) ??
+      nodes.find(n => n.data.type === 'source');
     const parentId = existingParent ? existingParent.id : createSourceNode();
-    setTimeout(() => {
-      const ghostId = spawnGhostNode(parentId, 'render');
-      if (ghostId) setTimeout(() => executeGhost(ghostId, genConfig), 50);
-    }, 50);
+    const ghostId = spawnGhostNode(parentId, 'render');
+    if (ghostId) {
+      executeGhost(ghostId, genConfig, chargedCost);
+    }
   }, [nodes, createSourceNode, spawnGhostNode, executeGhost]);
 
   const handleGenerate = useCallback(async () => {
@@ -1069,20 +850,20 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       prunaTarget: aiConfig.prunaTarget,
     });
 
-    if (authUser?.id && !DEV_MODE) {
-      const creditCheck = await checkCreditBalance(authUser.id, cost);
-      if (!creditCheck.hasEnough) {
-        setCreditError({ balance: creditCheck.balance, needed: creditCheck.needed });
-        return;
-      }
-    }
-
     const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
     if (!prompt.trim() && !(isUpscaler && aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1)) return;
 
     const genConfig = buildGenConfig(aiConfig);
-    const idleGhosts = nodes.filter(n => { const d = n.data as any; return d.type === 'ghost' && d.state === 'idle'; });
+    const idleGhosts = nodes.filter(n => n.data.type === 'ghost' && n.data.state === 'idle');
     const totalCost = cost * (idleGhosts.length > 0 ? idleGhosts.length : 1);
+
+    if (authUser?.id && !DEV_MODE) {
+      const creditCheck = await checkCreditBalance(authUser.id, totalCost);
+      if (!creditCheck.hasEnough) {
+        setCreditError({ balance: creditCheck.balance, needed: totalCost });
+        return;
+      }
+    }
 
     if (authUser?.id && !DEV_MODE) {
       const deduct = await deductCredits(authUser.id, totalCost, `Generation: ${prompt.slice(0, 30)}...`);
@@ -1094,17 +875,12 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
 
     if (idleGhosts.length > 0) {
-      idleGhosts.forEach(g => executeWithNotifications(g.id, prompt, genConfig).catch(() => {}));
+      idleGhosts.forEach(g => executeWithNotifications(g.id, prompt, genConfig, cost).catch(() => {}));
       setPrompt('');
     } else {
-      spawnAndExecute(genConfig);
+      spawnAndExecute(genConfig, cost);
     }
   }, [getConfig, authUser, prompt, nodes, executeWithNotifications, setPrompt, spawnAndExecute, addNotification]);
-
-  const handleRearrange = () => {
-    rearrangeNodes();
-    setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 100);
-  };
 
   const saveBuilderViewport = useCallback(() => {
     try {
@@ -1113,88 +889,27 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const data = saved ? JSON.parse(saved) : {};
       localStorage.setItem(key, JSON.stringify({
         ...data,
-        nodes,
-        edges,
         viewport: getViewport(),
       }));
     } catch {
       // Silent fail
     }
-  }, [nodes, edges, getViewport, tabId]);
+  }, [getViewport, tabId]);
 
-  // Silent background file autosave to disk project path
-  useEffect(() => {
-    if (!isRestored) return;
-    if (!currentFilePath) return;
-
-    const timeoutId = setTimeout(async () => {
-      try {
-        const thumbnail = await generateThumbnail();
-        await saveWorkflow(nodes, edges, { thumbnail, filePath: currentFilePath });
-      } catch (err) {
-        logger.warn('[Autosave] Background disk save failed:', err);
-      }
-    }, 5000); // Debounce 5s for disk autosaving
-
-    return () => clearTimeout(timeoutId);
-  }, [nodes, edges, isRestored, generateThumbnail, currentFilePath]);
+  // FIX 5: Add/remove a CSS class while panning so all node transitions are
+  // suppressed during movement, eliminating per-frame style recalculation.
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const handleMoveStart = useCallback(() => {
+    canvasContainerRef.current?.classList.add('canvas-panning');
+  }, []);
+  const handleMoveEnd = useCallback(() => {
+    canvasContainerRef.current?.classList.remove('canvas-panning');
+    saveBuilderViewport();
+  }, [saveBuilderViewport]);
 
   const contextNode = contextMenu?.type === 'node'
     ? nodesWithCallbacks.find(n => n.id === contextMenu.nodeId)
     : undefined;
-
-
-
-  // ── Save / Load handlers ──────────────────────────────────────────────
-  const handleSave = useCallback(async (): Promise<string | null> => {
-    try {
-      const thumbnail = await generateThumbnail();
-      const path = await saveWorkflow(nodes, edges, { thumbnail, filePath: currentFilePath });
-      if (path) {
-        if (!isMountedRef.current) return path;
-        const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
-        addNotification({ type: 'success', title: 'Project Saved', message: name });
-        onTitleChange?.(name);
-        setCurrentFilePathState(path);
-        onProjectPathChange?.(path);
-        skipDirtyRef.current = 1;
-        isDirtyRef.current = false;
-        onDirtyChange?.(false);
-        return path;
-      }
-      return null;
-    } catch (err) {
-      if (!isMountedRef.current) return null;
-      logger.error('[Save] failed:', err);
-      addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
-      return null;
-    }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange]);
-
-  const handleSaveAs = useCallback(async (): Promise<string | null> => {
-    try {
-      const thumbnail = await generateThumbnail();
-      const path = await saveWorkflowAs(nodes, edges, undefined, thumbnail, currentFilePath);
-      if (path) {
-        if (!isMountedRef.current) return path;
-        const name = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Saved';
-        addNotification({ type: 'success', title: 'Project Saved', message: name });
-        onTitleChange?.(name);
-        setCurrentFilePathState(path);
-        onProjectPathChange?.(path);
-        skipDirtyRef.current = 1;
-        isDirtyRef.current = false;
-        onDirtyChange?.(false);
-        return path;
-      }
-      return null;
-    } catch (err) {
-      if (!isMountedRef.current) return null;
-      logger.error('[Save As] failed:', err);
-      addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
-      return null;
-    }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange]);
 
   // Listen to external save triggers (like closing the tab, closing the app, etc.)
   useEffect(() => {
@@ -1215,58 +930,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       window.removeEventListener('anarchy:trigger-save-tab', handleTriggerSave);
     };
   }, [tabId, handleSave]);
-  // Consolidated keyboard shortcuts handled globally below to prevent duplicate events
-
-  const handleLoad = useCallback(async () => {
-    try {
-      const result = await loadWorkflow();
-      if (result) {
-        setNodes(result.nodes);
-        setEdges(sanitizeEdges(result.nodes, result.edges || []));
-        onTitleChange?.(result.name);
-        setCurrentFilePathState(result.filePath);
-        onProjectPathChange?.(result.filePath);
-        skipDirtyRef.current = 2;
-        isDirtyRef.current = false;
-        onDirtyChange?.(false);
-        addNotification({ type: 'success', title: 'Project Loaded', message: result.name });
-        setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 100);
-      }
-    } catch (err) {
-      logger.error('[Load] failed:', err);
-      addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
-    }
-  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange, onProjectPathChange]);
-
-  // ── New Canvas — clear autosave and start fresh ───────────────────────
-  const doNewCanvas = useCallback(() => {
-    try {
-      const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
-      localStorage.removeItem(key);
-    } catch {}
-    resetFilePath();
-    setCurrentFilePathState(null);
-    onProjectPathChange?.(null);
-    setNodes([]);
-    setEdges([]);
-    setSelectedNodeId(null);
-    setSelectedNode({ id: null, type: null, image: undefined, prompt: undefined, state: undefined });
-    skipDirtyRef.current = 2;
-    onDirtyChange?.(false);
-    isDirtyRef.current = false;
-    setTimeout(() => {
-      createSourceNode();
-      setTimeout(() => fitView({ padding: 0.8, duration: 400 }), 100);
-    }, 30);
-  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange, tabId, onProjectPathChange]);
-
-  const handleNewCanvas = useCallback(() => {
-    if (isDirtyRef.current) {
-      setConfirmNewCanvas(true);
-    } else {
-      doNewCanvas();
-    }
-  }, [doNewCanvas]);
 
   // ── Image file → data URL ─────────────────────────────────────────────
   const imageFileToDataUrl = useCallback((file: File): Promise<string> => {
@@ -1359,264 +1022,97 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     return () => globalThis.removeEventListener('contextmenu', handleWindowContextMenu, true);
   }, [setSelectedNodeId, screenToFlowPosition]);
 
-  const handleContextAddSource = () => {
-    const position = contextMenu?.canvasX !== undefined && contextMenu?.canvasY !== undefined
-      ? { x: contextMenu.canvasX, y: contextMenu.canvasY }
-      : undefined;
-    createSourceNode(undefined, undefined, position);
-  };
-
-  const handleContextSpawnGhost = () => {
-    const data = contextNode?.data as any;
-    if (data?.onAddChild) data.onAddChild('render');
-    else logger.warn('[Context Action] onAddChild not found on node:', contextNode?.id);
-  };
-
-  const handleContextRetryNode = () => {
-    const data = contextNode?.data as any;
-    if (data?.onRetry) data.onRetry();
-    else logger.warn('[Context Action] onRetry not found on node:', contextNode?.id);
-  };
-
-  const handleContextDeleteNode = () => {
-    const data = contextNode?.data as any;
-    if (data?.type === 'source') { logger.warn('[Context Action] Cannot delete source node:', contextNode?.id); return; }
-    if (contextNode) deleteNode(contextNode.id);
-  };
-
-  const handleContextCompare = (slot: 'A' | 'B') => {
-    const data = contextNode?.data as any;
-    const imageUrl = data?.image ?? data?.outputData?.image;
-    if (imageUrl) {
-      setCompareSlot(slot, imageUrl);
-      setConfig(prev => ({ ...prev }));
-    }
-  };
-
-  const handleContextSaveNodeImage = () => {
-    const data = contextNode?.data as any;
-    const imageUrl = data?.image ?? data?.outputData?.image;
-    if (!imageUrl) return;
-    const baseName = `${data?.type || 'node'}_${contextNode!.id}`;
-    exportImageWithDialog(imageUrl, baseName)
-      .then(filePath => filePath && addNotification({ type: 'success', title: 'Image Saved', message: `Saved to: ${filePath.split(/[\\/]/).pop()}` }))
-      .catch(err => { logger.error('[Save Image] failed:', err); addNotification({ type: 'error', title: 'Save Failed', message: err?.message || 'Failed to save image' }); });
-  };
-
-  const handleContextExportDXF = () => {
-    const data = contextNode?.data as any;
-    const imageUrl = data?.image ?? data?.outputData?.image;
-    if (!imageUrl) return;
-    const baseName = `${data?.type || 'node'}_${contextNode!.id}`;
-    exportImageToDXFWithDialog(imageUrl, baseName)
-      .then(filePath => filePath && addNotification({ type: 'success', title: 'CAD File Saved', message: `Saved to: ${filePath.split(/[\\/]/).pop()}` }))
-      .catch(err => { logger.error('[Export CAD] failed:', err); addNotification({ type: 'error', title: 'Export Failed', message: err?.message || 'Failed to export CAD file' }); });
-  };
-
-  // ── Analyze Floor Plan → CAD via local Image2CAD FastAPI server ────────────
-  const handleContextAnalyzePlan = async () => {
-    const data = contextNode?.data as any;
-    const imageUrl: string = data?.image ?? data?.outputData?.image;
-    if (!imageUrl) return;
-
-    addNotification({ type: 'success', title: 'Analyzing Floor Plan...', message: 'Sending to Image2CAD engine, please wait.' });
-
-    try {
-      // 1. Resolve IndexedDB image cache (idb://) if needed
-      let resolvedUrl = imageUrl;
-      if (imageUrl.startsWith('idb://')) {
-        const cached = await getLocalImage(imageUrl);
-        if (!cached) throw new Error('Could not retrieve image from local database');
-        resolvedUrl = cached;
-      }
-
-      // Convert to base64 if it is remote or local file path
-      let base64Uri = resolvedUrl;
-      if (!resolvedUrl.startsWith('data:')) {
-        base64Uri = await urlToDataUri(resolvedUrl);
-      }
-
-      // 2. Call Tauri native Rust command to send the image to the local FastAPI server
-      const responseText = await invoke<string>('analyze_floor_plan', { imageBase64: base64Uri });
-      const result = JSON.parse(responseText);
-
-      // 3. Show native save dialog and save the file via the ExportService helper
-      const dxfUrl = `http://127.0.0.1:8000${result.dxf_url}`;
-      const baseName = `floor_plan_${contextNode!.id}`;
-      const filePath = await saveDXFFromServer(dxfUrl, baseName);
-
-      if (!filePath) {
-        addNotification({ type: 'info', title: 'Export Cancelled', message: 'CAD export was cancelled.' });
-        return;
-      }
-
-      const { lines, circles } = result.entities ?? {};
-      addNotification({
-        type:    'success',
-        title:   'Floor Plan → CAD Complete ✓',
-        message: `Saved to: ${filePath.split(/[\\/]/).pop()} (Lines: ${lines ?? 0} Circles: ${circles ?? 0})`,
-      });
-
-    } catch (err: any) {
-      logger.error('[Analyze Plan] failed:', err);
-      addNotification({
-        type:    'error',
-        title:   'Analyze Plan Failed',
-        message: err?.message || String(err) || 'Unknown error',
-      });
-    }
-  };
-
-  const handleContextExportAll = () => {
-    const items = nodes
-      .map(n => {
-        const d = n.data as any;
-        const url = d?.image ?? d?.outputData?.image;
-        if (!url) return null;
-        const item: { url: string; name: string; prompt?: string } = { url: String(url), name: `${d?.type || 'node'}_${n.id}` };
-        if (d?.prompt) item.prompt = String(d.prompt);
-        return item;
-      })
-      .filter((x): x is { url: string; name: string; prompt?: string } => x !== null);
-
-    if (items.length === 0) {
-      addNotification({ type: 'info', title: 'No Images', message: 'No images found on canvas.' });
-      return;
-    }
-    exportImagesBatchWithDialog(items)
-      .then(({ succeeded, failed }) => {
-        if (succeeded > 0) addNotification({ type: 'success', title: 'Images Exported', message: `${succeeded} image(s) saved successfully` });
-        if (failed > 0)    addNotification({ type: 'error',   title: 'Export Failed',   message: `${failed} image(s) failed to export` });
-      })
-      .catch(err => { logger.error('[Export All] error:', err); addNotification({ type: 'error', title: 'Export Error', message: String(err) }); });
-  };
-
-  const handleContextExportPDF = () => {
-    exportNodesToPDFWithDialog(nodes, { title: 'Anarchy AI Canvas Export', author: 'Anarchy AI', subject: 'AI Generated Images from Canvas', includeMetadata: true })
-      .then(filePath => filePath && addNotification({ type: 'success', title: 'PDF Exported', message: `Saved to: ${filePath.split(/[\\/]/).pop()}` }))
-      .catch((err: any) => { logger.error('[PDF Export] failed:', err); addNotification({ type: 'error', title: 'PDF Export Failed', message: err?.message || 'Failed to export PDF' }); });
-  };
-
-  const handleContextOpenImagesFolder = async () => {
-    const data = contextNode?.data as any;
-    const imageUrl = data?.image ?? data?.outputData?.image;
-    
-    try {
-      if (!imageUrl) {
-        await invoke('open_images_folder');
-        return;
-      }
-
-      // Resolve IndexedDB image cache (idb://) if needed
-      let resolvedUrl = imageUrl;
-      if (imageUrl.startsWith('idb://')) {
-        const cached = await getLocalImage(imageUrl);
-        if (!cached) throw new Error('Could not retrieve image from local database');
-        resolvedUrl = cached;
-      }
-
-      // Convert to base64 if it is a remote or local file path
-      let base64Uri = resolvedUrl;
-      if (!resolvedUrl.startsWith('data:')) {
-        base64Uri = await urlToDataUri(resolvedUrl);
-      }
-
-      // Determine extension and file name
-      const ext = base64Uri.split(';')[0].split('/')[1] || 'png';
-      const cleanExt = ext === 'jpeg' ? 'jpg' : ext;
-      const fileName = `${data?.type || 'node'}_${contextNode!.id}.${cleanExt}`;
-
-      // Save to standard Documents/Anarchy AI directory
-      const filePath = await invoke<string>('save_image_to_documents', {
-        dataUri: base64Uri,
-        fileName
-      });
-
-      // Highlight the saved file in Windows Explorer / Finder
-      await invoke('show_in_explorer', { path: filePath });
-
-    } catch (err: any) {
-      logger.error('[Open Images Folder] failed:', err);
-      // Fallback: just open the folder
-      invoke('open_images_folder').catch(() => {});
-    }
-  };
-
-  const handleContextExportNodePDF = async () => {
-    const data = contextNode?.data as any;
-    const imageUrl = data?.image ?? data?.outputData?.image;
-    if (!imageUrl) return;
-
-    addNotification({ type: 'info', title: 'Exporting PDF...', message: 'Preparing PDF document, please wait.' });
-
-    try {
-      let resolvedUrl = imageUrl;
-      if (imageUrl.startsWith('idb://')) {
-        const cached = await getLocalImage(imageUrl);
-        if (!cached) throw new Error('Could not retrieve image from local database');
-        resolvedUrl = cached;
-      }
-
-      const baseName = `${data?.type || 'node'}_${contextNode!.id}`;
-      const item = {
-        url: resolvedUrl,
-        name: baseName,
-        prompt: data?.prompt ? String(data.prompt) : undefined
-      };
-
-      const filePath = await exportImagesToPDFWithDialog([item], {
-        title: `Anarchy AI Export - ${baseName}`,
-        author: 'Anarchy AI',
-        subject: 'AI Generated Image',
-        includeMetadata: true
-      });
-
-      if (filePath) {
-        addNotification({
-          type: 'success',
-          title: 'PDF Exported ✓',
-          message: `Saved to: ${filePath.split(/[\\/]/).pop()}`
-        });
-      }
-    } catch (err: any) {
-      logger.error('[Node PDF Export] failed:', err);
-      addNotification({
-        type: 'error',
-        title: 'PDF Export Failed',
-        message: err?.message || String(err) || 'Failed to export PDF'
-      });
-    }
-  };
-
-  type ContextAction = 
-    | 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' 
-    | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-dxf' | 'analyze-plan' 
-    | 'export-all' | 'export-pdf' | 'save-project' | 'load-project'
-    | 'open-images-folder' | 'export-node-pdf';
-
-  const runContextAction = (action: ContextAction) => {
+  const runContextAction = useCallback((action: ContextAction) => {
     logger.log('[Context Action]', action, 'contextNode:', contextNode?.id);
-    const actionMap: Record<ContextAction, () => void> = {
-      'add-source':     handleContextAddSource,
-      'rearrange':      handleRearrange,
-      'spawn-ghost':    handleContextSpawnGhost,
-      'retry-node':     handleContextRetryNode,
-      'delete-node':    handleContextDeleteNode,
-      'compare-a':      () => handleContextCompare('A'),
-      'compare-b':      () => handleContextCompare('B'),
-      'save-node-image': handleContextSaveNodeImage,
-      'export-dxf':     handleContextExportDXF,
-      'analyze-plan':   handleContextAnalyzePlan,
-      'export-all':     handleContextExportAll,
-      'export-pdf':     handleContextExportPDF,
-      'save-project':   handleSave,
-      'load-project':   handleLoad,
-      'open-images-folder': handleContextOpenImagesFolder,
-      'export-node-pdf': handleContextExportNodePDF,
-    };
-    actionMap[action]?.();
+    switch (action) {
+      case 'add-source': {
+        const position = contextMenu?.canvasX !== undefined && contextMenu?.canvasY !== undefined
+          ? { x: contextMenu.canvasX, y: contextMenu.canvasY }
+          : undefined;
+        createSourceNode(undefined, undefined, position);
+        break;
+      }
+      case 'rearrange': {
+        rearrangeNodes();
+        setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 100);
+        break;
+      }
+      case 'spawn-ghost': {
+        const data = contextNode?.data as any;
+        if (data?.onAddChild) data.onAddChild('render');
+        else logger.warn('[Context Action] onAddChild not found on node:', contextNode?.id);
+        break;
+      }
+      case 'retry-node': {
+        const data = contextNode?.data as any;
+        if (data?.onRetry) data.onRetry();
+        else logger.warn('[Context Action] onRetry not found on node:', contextNode?.id);
+        break;
+      }
+      case 'delete-node': {
+        const data = contextNode?.data as any;
+        if (data?.type === 'source') {
+          logger.warn('[Context Action] Cannot delete source node:', contextNode?.id);
+        } else if (contextNode) {
+          deleteNode(contextNode.id);
+        }
+        break;
+      }
+      case 'compare-a':
+        handleContextCompare(contextNode, 'A');
+        break;
+      case 'compare-b':
+        handleContextCompare(contextNode, 'B');
+        break;
+      case 'save-node-image':
+        handleContextSaveNodeImage(contextNode);
+        break;
+      case 'export-dxf':
+        handleContextExportDXF(contextNode);
+        break;
+      case 'analyze-plan':
+        void handleContextAnalyzePlan(contextNode);
+        break;
+      case 'export-all':
+        handleContextExportAll();
+        break;
+      case 'export-pdf':
+        handleContextExportPDF();
+        break;
+      case 'save-project':
+        void handleSave();
+        break;
+      case 'load-project':
+        void handleLoad();
+        break;
+      case 'open-images-folder':
+        void handleContextOpenImagesFolder(contextNode);
+        break;
+      case 'export-node-pdf':
+        void handleContextExportNodePDF(contextNode);
+        break;
+      default:
+        break;
+    }
     setContextMenu(null);
-  };
+  }, [
+    contextNode,
+    contextMenu,
+    createSourceNode,
+    rearrangeNodes,
+    fitView,
+    deleteNode,
+    handleContextCompare,
+    handleContextSaveNodeImage,
+    handleContextExportDXF,
+    handleContextAnalyzePlan,
+    handleContextExportAll,
+    handleContextExportPDF,
+    handleSave,
+    handleLoad,
+    handleContextOpenImagesFolder,
+    handleContextExportNodePDF,
+  ]);
 
 
   const canvasHasAnyImage = nodes.some(n => {
@@ -1648,6 +1144,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     <div className="builder-page">
       <div
         className="canvas-container"
+        ref={canvasContainerRef}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -1694,7 +1191,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             onPaneClick={onPaneClick}
             onPaneContextMenu={onPaneContextMenu}
             onNodeContextMenu={onNodeContextMenu}
-            onMoveEnd={saveBuilderViewport}
+            onMoveStart={handleMoveStart}
+            onMoveEnd={handleMoveEnd}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitViewOptions={{ padding: 0.2, minZoom: 0.01, maxZoom: 2, duration: 300 }}
@@ -1740,10 +1238,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
               size={1} 
               color="rgba(255, 255, 255, 0.05)" 
             />
-            {nodesWithCallbacks.length > 0 && nodesWithCallbacks.every(n => 
-              typeof n.position?.x === 'number' && !Number.isNaN(n.position.x) &&
-              typeof n.position?.y === 'number' && !Number.isNaN(n.position.y)
-            ) && (
+            {/* FIX 4: Hide MiniMap above 50 nodes — it re-renders on every node
+                 position change and becomes very expensive at scale. */}
+            {nodesWithCallbacks.length > 0 && nodesWithCallbacks.length <= 50 && (
               <MiniMap
                 position="bottom-right"
                 nodeColor={() => 'rgba(225, 29, 72, 0.8)'}

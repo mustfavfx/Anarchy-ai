@@ -281,33 +281,6 @@ export const AddCreditPage: React.FC = () => {
         </div>
       )}
 
-      {/* Action Buttons - Cloudflare Style */}
-      <div className="credit-actions">
-        <button
-          className="btn-cancel"
-          onClick={() => navigate('/account')}
-          disabled={isProcessing}
-        >
-          Cancel
-        </button>
-        <button
-          className="btn-purchase"
-          onClick={handlePurchase}
-          disabled={isProcessing || (selectedPackage.id === 'custom' && (!customAmount || Number.parseFloat(customAmount) < 10))}
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 size={16} className="spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <CreditCard size={16} />
-              Buy ${selectedPackage.id === 'custom' ? (Number.parseFloat(customAmount) || 0).toFixed(2) : selectedPackage.amount.toFixed(2)} Credit
-            </>
-          )}
-        </button>
-      </div>
       </div>
     </div>
   );

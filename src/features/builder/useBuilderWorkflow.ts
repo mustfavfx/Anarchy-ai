@@ -16,9 +16,11 @@ import {
   type NodeType,
   type NodeState,
   type WorkflowStats,
+  type BuilderNode,
   sanitizeEdges
 } from './types';
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
+import { UpscalerFactory } from '../../services/upscalers/UpscalerFactory';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { watermarkService } from '../../services/watermark/WatermarkService';
 import { addHistoryEntry, type NodeTreeData, cacheLocalImage, getLocalImage, deleteLocalImage } from '../../services/history/HistoryService';
@@ -248,17 +250,35 @@ const createEdge = (
 // ============================================================================
 
 // Snapshot type for undo/redo
-interface HistorySnapshot { nodes: Node[]; edges: Edge[]; }
+interface HistorySnapshot { nodes: BuilderNode[]; edges: Edge[]; }
 
 const MAX_HISTORY = 50;
 
 export const useBuilderWorkflow = (tabId?: string) => {
   const { user } = useAuth();
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [nodes, setNodesInternal, onNodesChange] = useNodesState<BuilderNode>([]);
+  const [edges, setEdgesInternal, onEdgesChange] = useEdgesState<Edge>([]);
+  
   // Refs to track current state for callbacks without circular deps
-  const nodesRef = useRef<Node[]>(nodes);
+  const nodesRef = useRef<BuilderNode[]>(nodes);
   const edgesRef = useRef<Edge[]>(edges);
+
+  const setNodes = useCallback((update: BuilderNode[] | ((curr: BuilderNode[]) => BuilderNode[])) => {
+    setNodesInternal(curr => {
+      const next = typeof update === 'function' ? update(curr) : update;
+      nodesRef.current = next;
+      return next;
+    });
+  }, [setNodesInternal]);
+
+  const setEdges = useCallback((update: Edge[] | ((curr: Edge[]) => Edge[])) => {
+    setEdgesInternal(curr => {
+      const next = typeof update === 'function' ? update(curr) : update;
+      edgesRef.current = next;
+      return next;
+    });
+  }, [setEdgesInternal]);
+
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
@@ -278,7 +298,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
   }, []);
 
   // Call before any structural change (add/delete node, execute)
-  const pushHistory = useCallback((currentNodes: Node[], currentEdges: Edge[]) => {
+  const pushHistory = useCallback((currentNodes: BuilderNode[], currentEdges: Edge[]) => {
     past.current = [...past.current.slice(-MAX_HISTORY + 1), { nodes: currentNodes, edges: currentEdges }];
     future.current = []; // clear redo stack on new action
     setCanUndo(true);
@@ -346,7 +366,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     
     // If no saved nodes, initialize with a default source node
     const sourceNodeId = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const defaultSourceNode: Node = {
+    const defaultSourceNode: BuilderNode = {
       id: sourceNodeId,
       type: 'baseNode',
       position: { x: 200, y: 200 },
@@ -419,34 +439,34 @@ export const useBuilderWorkflow = (tabId?: string) => {
   // UTILITY FUNCTIONS
   // ========================================================================
 
-  const getNode = useCallback((nodeId: string): Node | undefined => {
-    return nodes.find(n => n.id === nodeId);
-  }, [nodes]);
+  const getNode = useCallback((nodeId: string): BuilderNode | undefined => {
+    return nodesRef.current.find(n => n.id === nodeId);
+  }, []);
 
   const getNodeData = useCallback((nodeId: string): BuilderNodeData | undefined => {
     const node = getNode(nodeId);
-    return node?.data as BuilderNodeData | undefined;
+    return node?.data;
   }, [getNode]);
 
-  const getChildren = useCallback((nodeId: string): Node[] => {
-    return nodes.filter(n => {
-      const edge = edges.find(e => e.target === n.id && e.source === nodeId);
+  const getChildren = useCallback((nodeId: string): BuilderNode[] => {
+    return nodesRef.current.filter(n => {
+      const edge = edgesRef.current.find(e => e.target === n.id && e.source === nodeId);
       return !!edge;
     });
-  }, [nodes, edges]);
+  }, []);
 
-  const getParent = useCallback((nodeId: string): Node | undefined => {
-    const edge = edges.find(e => e.target === nodeId);
-    return edge ? nodes.find(n => n.id === edge.source) : undefined;
-  }, [nodes, edges]);
+  const getParent = useCallback((nodeId: string): BuilderNode | undefined => {
+    const edge = edgesRef.current.find(e => e.target === nodeId);
+    return edge ? nodesRef.current.find(n => n.id === edge.source) : undefined;
+  }, []);
 
   // Get ALL parents for multi-input aggregation (e.g., ghost nodes)
-  const getAllParents = useCallback((nodeId: string): Node[] => {
-    const parentEdges = edges.filter(e => e.target === nodeId);
+  const getAllParents = useCallback((nodeId: string): BuilderNode[] => {
+    const parentEdges = edgesRef.current.filter(e => e.target === nodeId);
     return parentEdges
-      .map(e => nodes.find(n => n.id === e.source))
-      .filter((n): n is Node => !!n);
-  }, [nodes, edges]);
+      .map(e => nodesRef.current.find(n => n.id === e.source))
+      .filter((n): n is BuilderNode => !!n);
+  }, []);
 
   // ========================================================================
   // POSITION CALCULATION - Auto layout
@@ -563,7 +583,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
     const packet = finalImageRef ? createDataPacket(finalImageRef, undefined, 'source') : undefined;
 
-    const newNode: Node = {
+    const newNode: BuilderNode = {
       id,
       type: 'baseNode',
       position: position ?? { x: 200, y: 200 },
@@ -660,7 +680,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     // Get parent output for input data (but ghost doesn't inherit image visually)
     const parentOutput = parentData.outputData;
     
-    const newNode: Node = {
+    const newNode: BuilderNode = {
       id,
       type: 'ghostNode',
       position,
@@ -676,8 +696,9 @@ export const useBuilderWorkflow = (tabId?: string) => {
         inputData: parentOutput,
         outputData: undefined,
         prompt: undefined,
-        config: {}
-      } as BuilderNodeData
+        config: {},
+        pendingPlacement: true
+      }
     };
 
     setNodes(nds => [...nds, newNode]);
@@ -701,7 +722,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     nodeId: string,
     prompt: string,
     config?: GenerationConfig
-  ): Promise<void> => {
+  ): Promise<{ image: string }> => {
     const node = getNode(nodeId);
     if (!node) throw new Error(`Node ${nodeId} not found`);
 
@@ -765,7 +786,6 @@ export const useBuilderWorkflow = (tabId?: string) => {
     
     // Check if using an upscale model (Replicate upscale models)
     const isUpscaleModel = (model as string) === 'topazlabs/image-upscale'
-      || (model as string) === 'nightmareai/real-esrgan'
       || (model as string) === 'philz1337x/clarity-upscaler'
       || (model as string) === 'prunaai/p-image-upscale';
     if (isUpscaleModel && !sourceImage) {
@@ -783,7 +803,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
               ...n.data, 
               state: 'processing',
               prompt,
-              config: { ...config }
+              config: { ...config },
+              pendingPlacement: false
             } 
           }
         : n
@@ -795,59 +816,47 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
       // For upscale models, use upscaleImage API
       if (isUpscaleModel) {
-        const scale = config?.upscaleFactor || 4;
-        const resultUrl = await replicateService.upscaleImage(
-          sourceImage,
-          model as import('../../services/replicate').ReplicateUpscaleModel,
-          scale,
-          {
-            prompt: config?.negativePrompt || undefined, // enhancement prompt for clarity
-            negativePrompt: config?.negativePrompt,
-            steps: config?.steps,
-            seed: config?.seed ?? undefined,
-            // Topaz Labs settings
-            enhanceModel: config?.enhanceModel,
-            topazUpscaleFactor: config?.topazUpscaleFactor,
-            topazSubjectDetection: config?.topazSubjectDetection,
-            faceEnhancement: config?.faceEnhancement,
-            faceEnhancementCreativity: config?.faceEnhancementCreativity,
-            faceEnhancementStrength: config?.faceEnhancementStrength,
-            // Clarity Upscaler settings
-            clarityScale: config?.clarityScale,
-            clarityDynamic: config?.clarityDynamic,
-            clarityCreativity: config?.clarityCreativity,
-            clarityResemblance: config?.clarityResemblance,
-            clarityTilingWidth: config?.clarityTilingWidth,
-            clarityTilingHeight: config?.clarityTilingHeight,
-            claritySdModel: config?.claritySdModel,
-            clarityScheduler: config?.clarityScheduler,
-            claritySteps: config?.claritySteps,
-            claritySeed: config?.claritySeed ?? undefined,
-            clarityDownscaling: config?.clarityDownscaling,
-            clarityDownscalingRes: config?.clarityDownscalingRes,
-            claritySharpen: config?.claritySharpen,
-            clarityHandfix: config?.clarityHandfix,
-            clarityOutputFormat: config?.clarityOutputFormat,
-            // Pruna AI settings
-            prunaMode: config?.prunaMode,
-            prunaTarget: config?.prunaTarget,
-            prunaFactor: config?.prunaFactor,
-            prunaEnhanceDetails: config?.prunaEnhanceDetails,
-            prunaEnhanceRealism: config?.prunaEnhanceRealism,
-            prunaQuality: config?.prunaQuality,
-            prunaOutputFormat: config?.prunaOutputFormat,
-          }
-        );
+        const upscaler = UpscalerFactory.create(model);
+        
+        // Build an AIConfig-compatible object from the generation config
+        const aiConfig: any = {
+          model: model as import('../../services/replicate').ReplicateUpscaleModel,
+          upscaleFactor: config?.upscaleFactor ?? 4,
+          negativePrompt: config?.negativePrompt ?? '',
+          steps: config?.steps ?? 20,
+          cfg: config?.cfg ?? 7,
+          seed: config?.seed ?? null,
+          strength: config?.strength ?? 0.75,
+          referenceStrength: config?.referenceStrength ?? 0.5,
+          results: 1,
+          disableSafetyChecker: config?.disableSafetyChecker ?? false,
+          resolution: config?.resolution ?? 'Auto',
+          aspectRatio: config?.aspectRatio ?? 'Auto',
+          selectedTool: 'image-upscaler',
+          enableWatermark: config?.enableWatermark ?? false,
+          watermarkType: 'text',
+          watermarkText: config?.watermarkText ?? '',
+          watermarkImage: '',
+          watermarkImageSize: config?.watermarkFontSize ?? 24,
+          watermarkPosition: config?.watermarkPosition ?? 'bottom-right',
+          watermarkOpacity: config?.watermarkOpacity ?? 0.5,
+          watermarkFontSize: config?.watermarkFontSize ?? 24,
+          ...config
+        };
+
+        upscaler.validateInputs(aiConfig);
+        const upscaleResult = await upscaler.execute(aiConfig, sourceImage);
         
         result = {
-          imageUrl: resultUrl,
+          imageUrl: upscaleResult.imageUrl,
           metadata: {
-            width: sourceDims?.width ? sourceDims.width * scale : 1024,
-            height: sourceDims?.height ? sourceDims.height * scale : 1024,
-            model: model as string,
+            width: upscaleResult.width ?? (sourceDims?.width ? sourceDims.width * (config?.upscaleFactor ?? 4) : 1024),
+            height: upscaleResult.height ?? (sourceDims?.height ? sourceDims.height * (config?.upscaleFactor ?? 4) : 1024),
+            model: upscaleResult.model,
             prompt: prompt || 'Upscale',
           }
         };
+
       } else {
         // For regular image models, use generate or generateImg2Img
         const baseParams = {
@@ -994,7 +1003,6 @@ export const useBuilderWorkflow = (tabId?: string) => {
         'black-forest-labs/flux-kontext-pro':'FLUX Kontext Pro',
         'xai/grok-imagine-image':           'Grok Imagine',
         'stability-ai/stable-diffusion-3.5-large': 'Stable Diffusion 3.5',
-        'nightmareai/real-esrgan':          'Real-ESRGAN',
         'philz1337x/clarity-upscaler':      'Clarity Upscaler',
       };
       const modelLabel = MODEL_DISPLAY_NAMES[model] || model.split('/').pop() || model;
@@ -1032,6 +1040,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
       // Propagate update to children
       propagateNodeUpdate(nodeId);
+
+      return { image: imageKey };
 
     } catch (error) {
       logger.error('Generation failed:', error);
@@ -1266,7 +1276,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
     if (rootNodes.length === 0) return;
 
-    const layoutedNodes: Node[] = [];
+    const layoutedNodes: BuilderNode[] = [];
     const MARGIN_Y = 100;
 
     const getSubtreeHeight = (nodeId: string): number => {

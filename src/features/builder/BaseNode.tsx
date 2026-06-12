@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
 import { ExportModal } from '../../components/ExportModal';
-import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { getLocalImage } from '../../services/history/HistoryService';
 import { NodeLightbox } from './components/NodeLightbox';
 import { NodeUploadPlaceholder } from './components/NodeUploadPlaceholder';
@@ -105,7 +104,9 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const [exportTarget, setExportTarget] = useState<{ url: string; name: string } | null>(null);
   const [lightbox, setLightbox] = useState<'preview' | 'expand' | null>(null);
   const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
-  const enableWatermark = useAIConfigStore(s => s.config.enableWatermark);
+  // FIX 6: Read enableWatermark from node data (set once in BuilderPage) instead
+  // of subscribing to Zustand per-node. Avoids N separate store subscribers.
+  const enableWatermark = nodeData.enableWatermark ?? false;
 
   const handleExportClick = (e: React.MouseEvent) => {
     e.stopPropagation();

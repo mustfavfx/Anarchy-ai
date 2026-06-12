@@ -7,6 +7,7 @@
 import { logger } from '../../utils/logger';
 import { SettingsService } from '../settings';
 import { supabaseUrl, supabaseAnonKey } from '../supabase/supabaseClient';
+import { UpscalerFactory } from '../upscalers/UpscalerFactory';
 
 // ── Image Models ──────────────────────────────────────────────────────────────
 export type ReplicateImageModel =
@@ -23,7 +24,6 @@ export type ReplicateImageModel =
 // ── Upscale Models ────────────────────────────────────────────────────────────
 export type ReplicateUpscaleModel =
   | 'topazlabs/image-upscale'              // Topaz Labs Image Upscale
-  | 'nightmareai/real-esrgan'              // Real-ESRGAN x4
   | 'philz1337x/clarity-upscaler'          // Clarity Upscaler
   | 'prunaai/p-image-upscale';             // Pruna AI P-Image Upscale
 
@@ -317,23 +317,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: [],
     pricePerImage: 0.01,
   },
-  // ── 10. Real-ESRGAN ────────────────────────────────────────────────────────
-  'nightmareai/real-esrgan': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: true,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: ['2x', '4x'],
-    aspectRatios: [],
-    pricePerImage: 0.002,
-  },
+
   // ── 11. Clarity Upscaler ─────────────────────────────────────────────────
   'philz1337x/clarity-upscaler': {
     supportsImg2Img: false,
@@ -758,7 +742,6 @@ class ReplicateService {
   // Community models need version-based endpoint instead of /models/
   private static readonly MODEL_VERSIONS: Record<string, string> = {
     'philz1337x/clarity-upscaler': 'dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e',
-    'nightmareai/real-esrgan':     'b3ef194191d13140337468c916c2c5b96dd0cb06dffc032a022a31807f6a5ea8',
   };
 
   // ── Upload a base64 data URI to Replicate Files API and return serving URL ──
@@ -802,12 +785,15 @@ class ReplicateService {
   }
 
   // ── Submit a prediction and wait for result (with rate-limit retry) ──────
-  private async runPrediction(
+  public async runPrediction(
     modelId: string,
     input: Record<string, any>,
     nodeId?: string,
     userId?: string
   ): Promise<any> {
+    const model = modelId;
+    const payload = input;
+    console.log("Model:", model, "Payload:", payload);
     this.updateApiKey();
     const proxy = getProxyUrl();
     const headers = {
@@ -854,7 +840,10 @@ class ReplicateService {
           ? await proxyPost(proxy, path, body)
           : await apiPost(url, headers, body);
 
-        if (prediction.status === 'succeeded') return prediction;
+        if (prediction.status === 'succeeded') {
+          console.log("Replicate response:", prediction);
+          return prediction;
+        }
         if (prediction.status === 'failed') {
           logger.error('[ReplicateService] Immediate prediction failure:', {
             model: modelId,
@@ -864,7 +853,9 @@ class ReplicateService {
           });
           throw new Error(`Prediction failed: ${JSON.stringify(prediction.error ?? prediction)}`);
         }
-        return this.pollPrediction(prediction.id);
+        const response = await this.pollPrediction(prediction.id);
+        console.log("Replicate response:", response);
+        return response;
       } catch (err: any) {
         const errMsg = err?.message || String(err);
         // E003 = Replicate "Service is currently unavailable due to high demand"
@@ -953,7 +944,7 @@ class ReplicateService {
   }
 
   // ── Extract first image URL from prediction output ────────────────────────
-  private extractImageUrl(output: any): string {
+  public extractImageUrl(output: any): string {
     if (typeof output === 'string') return output;
     if (Array.isArray(output) && output.length > 0) return output[0];
     if (output?.url) return output.url;
@@ -1300,138 +1291,18 @@ class ReplicateService {
   // ── Image Upscaling ───────────────────────────────────────────────────────
   async upscaleImage(
     imageUrl: string,
-    model: ReplicateUpscaleModel = 'nightmareai/real-esrgan',
+    model: ReplicateUpscaleModel = 'topazlabs/image-upscale',
     scale: number = 4,
-    options?: {
-      prompt?: string;
-      negativePrompt?: string;
-      steps?: number;
-      seed?: number;
-      // Topaz Labs settings
-      enhanceModel?: string;
-      topazUpscaleFactor?: string;  // "None" | "2x" | "4x" | "6x"
-      topazSubjectDetection?: string; // "None" | "Foreground" | "Sky" | "Product" | "Person" | "Portrait" | "Architecture" | "Landscape" | "Macro" | "Document" | "Food" | "Subject"
-      topazOutputFormat?: string; // "jpg" | "png" | "webp"
-      faceEnhancement?: boolean;
-      faceEnhancementCreativity?: number;
-      faceEnhancementStrength?: number;
-      // Clarity Upscaler settings
-      clarityScale?: number;
-      clarityDynamic?: number;
-      clarityCreativity?: number;
-      clarityResemblance?: number;
-      clarityTilingWidth?: number;
-      clarityTilingHeight?: number;
-      claritySdModel?: string;
-      clarityScheduler?: string;
-      claritySteps?: number;
-      claritySeed?: number | null;
-      clarityDownscaling?: boolean;
-      clarityDownscalingRes?: number;
-      claritySharpen?: number;
-      clarityHandfix?: string;
-      clarityOutputFormat?: string;
-      // Pruna AI settings
-      prunaMode?: 'target' | 'factor';
-      prunaTarget?: number;
-      prunaFactor?: number;
-      prunaEnhanceDetails?: boolean;
-      prunaEnhanceRealism?: boolean;
-      prunaQuality?: number;
-      prunaOutputFormat?: string;
-    }
+    options?: any
   ): Promise<string> {
-    
-    let input: Record<string, any> = {};
-    
-    // Build model-specific input
-    switch (model) {
-      case 'topazlabs/image-upscale': {
-        // upscale_factor is a STRING enum: "None" | "2x" | "4x" | "6x"
-        const topazFactor = options?.topazUpscaleFactor
-          ?? (scale === 1 ? 'None' : scale === 2 ? '2x' : scale === 6 ? '6x' : '4x');
-        input = {
-          image:             imageUrl,
-          upscale_factor:    topazFactor,
-          enhance_model:     options?.enhanceModel ?? 'Low Resolution V2',
-          subject_detection: options?.topazSubjectDetection ?? 'None',
-          output_format:     options?.topazOutputFormat ?? 'jpg',
-          face_enhancement:  options?.faceEnhancement ?? false,
-        };
-        if (options?.faceEnhancement) {
-          input.face_enhancement_creativity = options.faceEnhancementCreativity ?? 0;
-          input.face_enhancement_strength   = options.faceEnhancementStrength   ?? 0.8;
-        }
-        break;
-      }
-        
-      case 'nightmareai/real-esrgan':
-        // Real-ESRGAN supports 1x-10x
-        input = {
-          image: imageUrl,
-          scale: Math.min(Math.max(scale, 1), 10), // Clamp 1-10
-        };
-        break;
-        
-      case 'philz1337x/clarity-upscaler': {
-        // Clarity model maxes out at 2x per pass.
-        // For higher scales (4x, 8x, 12x) we chain multiple 2x passes.
-        const targetScale = options?.clarityScale ?? scale;
-        const passes = targetScale <= 2 ? 1 : Math.ceil(Math.log2(targetScale)); // 4x=2, 8x=3, 12x=4
-
-        const buildClarityInput = (img: string) => ({
-          image: img,
-          prompt: options?.prompt || 'masterpiece, best quality, highres, <lora:more_details:0.5> <lora:SDXLrender_v2.0:1>',
-          negative_prompt: options?.negativePrompt || '(worst quality, low quality, normal quality:2) JuggernautNegative-neg',
-          scale_factor: 2,
-          dynamic: options?.clarityDynamic ?? 6,
-          creativity: options?.clarityCreativity ?? 0.35,
-          resemblance: options?.clarityResemblance ?? 0.6,
-          tiling_width: options?.clarityTilingWidth ?? 112,
-          tiling_height: options?.clarityTilingHeight ?? 144,
-          sd_model: options?.claritySdModel ?? 'juggernaut_reborn.safetensors [338b85bc4f]',
-          scheduler: options?.clarityScheduler ?? 'DPM++ 3M SDE Karras',
-          num_inference_steps: options?.claritySteps ?? 18,
-          seed: options?.claritySeed ?? 1337,
-          downscaling: options?.clarityDownscaling ?? false,
-          downscaling_resolution: options?.clarityDownscalingRes ?? 768,
-          sharpen: options?.claritySharpen ?? 0,
-          handfix: options?.clarityHandfix ?? 'disabled',
-          output_format: options?.clarityOutputFormat ?? 'png',
-        });
-
-        // Chain: run 2x passes sequentially, feeding output into next input
-        let currentImageUrl = imageUrl;
-        for (let pass = 0; pass < passes; pass++) {
-          const passInput = buildClarityInput(currentImageUrl);
-          const prediction = await this.runPrediction(model, passInput);
-          currentImageUrl = this.extractImageUrl(prediction.output);
-        }
-        return currentImageUrl;
-      }
-        
-      case 'prunaai/p-image-upscale':
-        input = {
-          image: imageUrl,
-          upscale_mode: options?.prunaMode ?? 'target',
-          enhance_details: options?.prunaEnhanceDetails ?? false,
-          enhance_realism: options?.prunaEnhanceRealism ?? true,
-          output_format: options?.prunaOutputFormat ?? 'png',
-          output_quality: options?.prunaQuality ?? 80,
-        };
-        if (options?.prunaMode === 'factor') {
-          input.factor = options.prunaFactor ?? 2;
-        } else {
-          input.target = options?.prunaTarget ?? 4;
-        }
-        break;
-        
-      default:
-        input = { image: imageUrl, scale };
-    }
-    
-    const prediction = await this.runPrediction(model, input);
-    return this.extractImageUrl(prediction.output);
+    const upscaler = UpscalerFactory.create(model);
+    const mockConfig: any = {
+      model,
+      upscaleFactor: scale,
+      ...options,
+    };
+    const result = await upscaler.execute(mockConfig, imageUrl);
+    return result.imageUrl;
   }
 
   // ── Video Generation ──────────────────────────────────────────────────────
