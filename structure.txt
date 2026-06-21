@@ -1,0 +1,708 @@
+Anarchy AI Codebase Structure
+============================
+
+├─ anarchy_audit
+│  ├─ reports
+│  │  ├─ Anarchy_AI_Report_02_Services_Stores_Components.pdf
+│  │  ├─ Anarchy_AI_Report_03_Functional_Audit.pdf
+│  │  ├─ Anarchy_AI_Report_04_Performance_Audit.pdf
+│  │  ├─ Anarchy_AI_Report_06_UX_Audit.pdf
+│  │  ├─ Anarchy_AI_Report_07_Top50_Problems_Top100_Improvements.pdf
+│  │  ├─ Anarchy_AI_Report_08_Roadmap_Competitors_Architecture.pdf
+│  │  ├─ phase_1_architecture.md
+│  │  ├─ phase_2_pages.md
+│  │  └─ phase_3_services.md
+│  ├─ agent_audit.js
+│  ├─ build_pdf_report_02.py
+│  ├─ build_pdf_report_03.py
+│  ├─ build_pdf_report_04.py
+│  ├─ build_pdf_report_06.py
+│  ├─ build_pdf_reports_07_08.py
+│  └─ prompts.json
+├─ public
+│  ├─ auth-callback.html
+│  ├─ favicon.svg
+│  └─ icons.svg
+├─ scripts
+│  ├─ generate-max-icons.ps1
+│  ├─ generate-revit-icon.ps1
+│  ├─ make_transparent.py
+│  ├─ merge_icon_logo_clean.py
+│  ├─ merge_icon_logo.py
+│  ├─ process_new_icon.py
+│  └─ release.js
+├─ src
+│  ├─ app
+│  │  ├─ styles
+│  │  │  ├─ theme.css
+│  │  │  └─ variables.css
+│  │  ├─ App.tsx
+│  │  └─ index.css
+│  ├─ assets
+│  │  ├─ hero.png
+│  │  ├─ react.svg
+│  │  └─ vite.svg
+│  ├─ config
+│  │  ├─ appInfo.ts
+│  │  ├─ changelogData.ts
+│  │  └─ image2cad.ts
+│  ├─ docs
+│  │  ├─ advanced
+│  │  ├─ ai-models
+│  │  ├─ exporting
+│  │  ├─ getting-started
+│  │  │  ├─ 01-introduction.md
+│  │  │  ├─ 02-installation.md
+│  │  │  ├─ 03-first-project.md
+│  │  │  ├─ 04-interface.md
+│  │  │  ├─ 05-shortcuts.md
+│  │  │  ├─ 06-account.md
+│  │  │  └─ 07-replicate-api.md
+│  │  ├─ history
+│  │  ├─ nodes
+│  │  │  └─ 01-overview.md
+│  │  ├─ prompting
+│  │  │  ├─ 01-basics.md
+│  │  │  └─ 02-architectural-keywords.md
+│  │  ├─ tutorials
+│  │  │  └─ 01-quick-start.md
+│  │  ├─ videos
+│  │  ├─ workflows
+│  │  └─ index.md
+│  ├─ entities
+│  ├─ features
+│  │  ├─ account
+│  │  │  ├─ AccountPage.css
+│  │  │  └─ AccountPage.tsx
+│  │  ├─ agent
+│  │  │  ├─ ArchitectAgentPage.css
+│  │  │  └─ ArchitectAgentPage.tsx
+│  │  ├─ auth
+│  │  │  ├─ AuthContext.test.tsx
+│  │  │  ├─ AuthContext.tsx
+│  │  │  ├─ LoginPage.css
+│  │  │  ├─ LoginPage.tsx
+│  │  │  ├─ ProtectedApp.css
+│  │  │  └─ ProtectedApp.tsx
+│  │  ├─ billing
+│  │  │  ├─ AddCreditPage.css
+│  │  │  ├─ AddCreditPage.test.tsx
+│  │  │  └─ AddCreditPage.tsx
+│  │  ├─ builder
+│  │  │  ├─ components
+│  │  │  │  ├─ BuilderContextMenu.tsx
+│  │  │  │  ├─ BuilderPromptBar.tsx
+│  │  │  │  ├─ CreditErrorModal.tsx
+│  │  │  │  ├─ NodeLightbox.tsx
+│  │  │  │  └─ NodeUploadPlaceholder.tsx
+│  │  │  ├─ hooks
+│  │  │  │  ├─ useBuilderCredits.ts
+│  │  │  │  ├─ useBuilderDrop.ts
+│  │  │  │  ├─ useBuilderExport.ts
+│  │  │  │  ├─ useBuilderKeyboard.ts
+│  │  │  │  └─ useBuilderPersistence.ts
+│  │  │  ├─ utils
+│  │  │  │  └─ builderHelpers.tsx
+│  │  │  ├─ AIConfigContext.test.tsx
+│  │  │  ├─ AIConfigContext.tsx
+│  │  │  ├─ AIControlPanel.css
+│  │  │  ├─ AIControlPanel.tsx
+│  │  │  ├─ BaseNode.css
+│  │  │  ├─ BaseNode.glass.css
+│  │  │  ├─ BaseNode.tsx
+│  │  │  ├─ BuilderPage.css
+│  │  │  ├─ BuilderPage.tsx
+│  │  │  ├─ GhostNode.css
+│  │  │  ├─ GhostNode.glass.css
+│  │  │  ├─ GhostNode.tsx
+│  │  │  ├─ MultiBuilderPage.css
+│  │  │  ├─ MultiBuilderPage.tsx
+│  │  │  ├─ presetPrompts.ts
+│  │  │  ├─ types.ts
+│  │  │  ├─ useBuilderWorkflow.ts
+│  │  │  └─ VizGhostAttachEdge.tsx
+│  │  ├─ dashboard
+│  │  │  ├─ ChangelogModal.css
+│  │  │  ├─ ChangelogModal.tsx
+│  │  │  ├─ DashboardPage.css
+│  │  │  ├─ DashboardPage.tsx
+│  │  │  ├─ DocumentationModal.css
+│  │  │  ├─ DocumentationModal.tsx
+│  │  │  ├─ ProjectCard.css
+│  │  │  ├─ ProjectCard.tsx
+│  │  │  ├─ SupportModal.css
+│  │  │  └─ SupportModal.tsx
+│  │  ├─ generate
+│  │  │  ├─ architectureSkill.ts
+│  │  │  ├─ GeneratePage.css
+│  │  │  └─ GeneratePage.tsx
+│  │  ├─ history
+│  │  │  ├─ components
+│  │  │  │  ├─ CollectionsSidebar.tsx
+│  │  │  │  ├─ GroupExplorerModal.tsx
+│  │  │  │  ├─ HistoryCard.tsx
+│  │  │  │  ├─ HistoryFilters.tsx
+│  │  │  │  ├─ HistoryGrid.tsx
+│  │  │  │  ├─ HistoryHeader.tsx
+│  │  │  │  ├─ PreviewModal.tsx
+│  │  │  │  ├─ VirtualHistoryGrid.tsx
+│  │  │  │  └─ WorkflowTimeline.tsx
+│  │  │  ├─ hooks
+│  │  │  │  ├─ useHistory.ts
+│  │  │  │  ├─ useHistoryFilters.ts
+│  │  │  │  ├─ useHistoryGroups.ts
+│  │  │  │  ├─ useHistorySelection.ts
+│  │  │  │  ├─ useLazyImage.ts
+│  │  │  │  └─ useWorkflowTimeline.ts
+│  │  │  ├─ services
+│  │  │  │  ├─ HistoryGroupingService.ts
+│  │  │  │  ├─ HistoryService.ts
+│  │  │  │  ├─ SemanticSearchService.ts
+│  │  │  │  └─ WorkflowTimelineService.ts
+│  │  │  ├─ stores
+│  │  │  ├─ HistoryPage.css
+│  │  │  ├─ HistoryPage.tsx
+│  │  │  └─ types.ts
+│  │  ├─ integrations
+│  │  │  ├─ IntegrationsPage.css
+│  │  │  ├─ IntegrationsPage.tsx
+│  │  │  └─ threeDsMaxPlugin.ts
+│  │  ├─ library
+│  │  │  ├─ components
+│  │  │  │  └─ VirtualLibraryGrid.tsx
+│  │  │  ├─ LibraryPage.css
+│  │  │  └─ LibraryPage.tsx
+│  │  ├─ lora
+│  │  │  ├─ LoraTrainingPage.css
+│  │  │  └─ LoraTrainingPage.tsx
+│  │  ├─ projects
+│  │  │  ├─ components
+│  │  │  │  └─ VirtualProjectsView.tsx
+│  │  │  ├─ ProjectsPage.css
+│  │  │  └─ ProjectsPage.tsx
+│  │  ├─ settings
+│  │  │  ├─ PrivacyPolicy.css
+│  │  │  ├─ PrivacyPolicy.tsx
+│  │  │  ├─ PrivacyPolicyContent.tsx
+│  │  │  ├─ SettingsModals.tsx
+│  │  │  ├─ SettingsPage.css
+│  │  │  └─ SettingsPage.tsx
+│  │  ├─ shell
+│  │  │  ├─ AppShell.css
+│  │  │  ├─ AppShell.tsx
+│  │  │  ├─ EnlargedPreview.css
+│  │  │  ├─ EnlargedPreview.tsx
+│  │  │  ├─ GlobalHeader.css
+│  │  │  ├─ GlobalHeader.tsx
+│  │  │  ├─ MaskCanvas.css
+│  │  │  ├─ MaskCanvas.tsx
+│  │  │  ├─ NavRail.css
+│  │  │  ├─ NavRail.tsx
+│  │  │  ├─ NotificationCenter.css
+│  │  │  ├─ NotificationCenter.tsx
+│  │  │  ├─ NotificationContext.tsx
+│  │  │  ├─ RightSidebar.css
+│  │  │  ├─ RightSidebar.tsx
+│  │  │  ├─ SaveDialog.css
+│  │  │  ├─ SaveDialog.tsx
+│  │  │  ├─ TitleBar.css
+│  │  │  ├─ TitleBar.tsx
+│  │  │  ├─ ToastNotification.css
+│  │  │  └─ ToastNotification.tsx
+│  │  └─ updater
+│  │     ├─ UpdateNotification.css
+│  │     └─ UpdateNotification.tsx
+│  ├─ hooks
+│  │  ├─ index.ts
+│  │  ├─ useLazyImage.ts
+│  │  ├─ useResolvedImage.test.ts
+│  │  ├─ useResolvedImage.ts
+│  │  └─ useVirtualization.ts
+│  ├─ layout
+│  ├─ pages
+│  │  ├─ AccountPage.tsx
+│  │  ├─ AddCreditPage.tsx
+│  │  ├─ DashboardPage.tsx
+│  │  ├─ GeneratePage.tsx
+│  │  ├─ HistoryPage.tsx
+│  │  ├─ IntegrationsPage.tsx
+│  │  ├─ LibraryPage.tsx
+│  │  ├─ LoraTrainingPage.tsx
+│  │  ├─ MultiBuilderPage.tsx
+│  │  ├─ PrivacyPolicy.tsx
+│  │  ├─ ProjectsPage.tsx
+│  │  └─ SettingsPage.tsx
+│  ├─ services
+│  │  ├─ agent
+│  │  │  └─ ArchitectAgentService.ts
+│  │  ├─ credit
+│  │  │  ├─ creditService.supabase.test.ts
+│  │  │  ├─ creditService.test.ts
+│  │  │  └─ creditService.ts
+│  │  ├─ docs
+│  │  │  ├─ DocsService.ts
+│  │  │  └─ index.ts
+│  │  ├─ export
+│  │  │  ├─ ExportService.test.ts
+│  │  │  ├─ ExportService.ts
+│  │  │  └─ index.ts
+│  │  ├─ history
+│  │  │  ├─ CollectionService.ts
+│  │  │  ├─ HistoryGroupingService.ts
+│  │  │  ├─ HistoryPureUtils.test.ts
+│  │  │  ├─ HistoryService.test.ts
+│  │  │  ├─ HistoryService.ts
+│  │  │  ├─ SemanticSearchService.ts
+│  │  │  └─ WorkflowTimelineService.ts
+│  │  ├─ lora
+│  │  │  └─ LoraTrainingService.ts
+│  │  ├─ mask
+│  │  │  └─ MaskService.ts
+│  │  ├─ migration
+│  │  │  ├─ DataMigrationService.ts
+│  │  │  └─ index.ts
+│  │  ├─ pdf
+│  │  │  └─ PdfService.ts
+│  │  ├─ plans
+│  │  │  └─ plansConfig.ts
+│  │  ├─ projects
+│  │  │  └─ ProjectService.ts
+│  │  ├─ replicate
+│  │  │  ├─ index.ts
+│  │  │  ├─ predictionRealtime.ts
+│  │  │  ├─ ReplicateService.test.ts
+│  │  │  └─ ReplicateService.ts
+│  │  ├─ settings
+│  │  │  ├─ index.ts
+│  │  │  └─ SettingsService.ts
+│  │  ├─ supabase
+│  │  │  └─ supabaseClient.ts
+│  │  ├─ tracking
+│  │  │  ├─ trackingService.ts
+│  │  │  └─ useTracker.ts
+│  │  ├─ upscalers
+│  │  │  ├─ BaseUpscaler.ts
+│  │  │  ├─ ClarityUpscaler.ts
+│  │  │  ├─ FluxUpscaler.ts
+│  │  │  ├─ PrunaUpscaler.ts
+│  │  │  ├─ TopazUpscaler.ts
+│  │  │  └─ UpscalerFactory.ts
+│  │  ├─ usage
+│  │  │  └─ usageService.ts
+│  │  ├─ watermark
+│  │  │  └─ WatermarkService.ts
+│  │  ├─ workers
+│  │  │  └─ ImageWorkerService.ts
+│  │  └─ workflow
+│  │     ├─ index.ts
+│  │     └─ WorkflowFileService.ts
+│  ├─ shared
+│  │  └─ components
+│  │     ├─ DocViewer
+│  │     │  ├─ DocViewer.css
+│  │     │  ├─ DocViewer.tsx
+│  │     │  └─ index.ts
+│  │     ├─ ExportPreviewModal
+│  │     │  ├─ ExportPreviewModal.css
+│  │     │  ├─ ExportPreviewModal.tsx
+│  │     │  └─ index.ts
+│  │     ├─ Tooltip
+│  │     │  ├─ index.ts
+│  │     │  ├─ Tooltip.css
+│  │     │  └─ Tooltip.tsx
+│  │     ├─ ui
+│  │     ├─ ConfirmModal.css
+│  │     ├─ ConfirmModal.tsx
+│  │     ├─ ErrorBoundary.css
+│  │     ├─ ErrorBoundary.test.tsx
+│  │     ├─ ErrorBoundary.tsx
+│  │     ├─ ExportModal.css
+│  │     ├─ ExportModal.tsx
+│  │     ├─ OnboardingModal.css
+│  │     ├─ OnboardingModal.tsx
+│  │     ├─ QuotaErrorModal.css
+│  │     └─ QuotaErrorModal.tsx
+│  ├─ store
+│  ├─ stores
+│  │  ├─ aiConfigStore.test.ts
+│  │  ├─ aiConfigStore.ts
+│  │  ├─ historyStore.ts
+│  │  ├─ notificationStore.test.ts
+│  │  └─ notificationStore.ts
+│  ├─ test
+│  │  └─ setup.ts
+│  ├─ types
+│  │  └─ history.ts
+│  ├─ utils
+│  │  ├─ imageExport.ts
+│  │  ├─ logger.ts
+│  │  ├─ pdfExport.ts
+│  │  ├─ storageKeys.ts
+│  │  └─ utils.test.ts
+│  ├─ workers
+│  │  └─ imageWorker.ts
+│  ├─ App.tsx
+│  ├─ index.css
+│  └─ main.tsx
+├─ src-tauri
+│  ├─ capabilities
+│  │  └─ default.json
+│  ├─ icons
+│  │  ├─ android
+│  │  │  ├─ mipmap-anydpi-v26
+│  │  │  │  └─ ic_launcher.xml
+│  │  │  ├─ mipmap-hdpi
+│  │  │  │  ├─ ic_launcher_foreground.png
+│  │  │  │  ├─ ic_launcher_round.png
+│  │  │  │  └─ ic_launcher.png
+│  │  │  ├─ mipmap-mdpi
+│  │  │  │  ├─ ic_launcher_foreground.png
+│  │  │  │  ├─ ic_launcher_round.png
+│  │  │  │  └─ ic_launcher.png
+│  │  │  ├─ mipmap-xhdpi
+│  │  │  │  ├─ ic_launcher_foreground.png
+│  │  │  │  ├─ ic_launcher_round.png
+│  │  │  │  └─ ic_launcher.png
+│  │  │  ├─ mipmap-xxhdpi
+│  │  │  │  ├─ ic_launcher_foreground.png
+│  │  │  │  ├─ ic_launcher_round.png
+│  │  │  │  └─ ic_launcher.png
+│  │  │  ├─ mipmap-xxxhdpi
+│  │  │  │  ├─ ic_launcher_foreground.png
+│  │  │  │  ├─ ic_launcher_round.png
+│  │  │  │  └─ ic_launcher.png
+│  │  │  └─ values
+│  │  │     └─ ic_launcher_background.xml
+│  │  ├─ ios
+│  │  │  ├─ AppIcon-20x20@1x.png
+│  │  │  ├─ AppIcon-20x20@2x-1.png
+│  │  │  ├─ AppIcon-20x20@2x.png
+│  │  │  ├─ AppIcon-20x20@3x.png
+│  │  │  ├─ AppIcon-29x29@1x.png
+│  │  │  ├─ AppIcon-29x29@2x-1.png
+│  │  │  ├─ AppIcon-29x29@2x.png
+│  │  │  ├─ AppIcon-29x29@3x.png
+│  │  │  ├─ AppIcon-40x40@1x.png
+│  │  │  ├─ AppIcon-40x40@2x-1.png
+│  │  │  ├─ AppIcon-40x40@2x.png
+│  │  │  ├─ AppIcon-40x40@3x.png
+│  │  │  ├─ AppIcon-512@2x.png
+│  │  │  ├─ AppIcon-60x60@2x.png
+│  │  │  ├─ AppIcon-60x60@3x.png
+│  │  │  ├─ AppIcon-76x76@1x.png
+│  │  │  ├─ AppIcon-76x76@2x.png
+│  │  │  └─ AppIcon-83.5x83.5@2x.png
+│  │  ├─ 128x128.png
+│  │  ├─ 128x128@2x.png
+│  │  ├─ 32x32.png
+│  │  ├─ 64x64.png
+│  │  ├─ ana-file.ico
+│  │  ├─ ana-file.png
+│  │  ├─ icon.icns
+│  │  ├─ icon.ico
+│  │  ├─ icon.png
+│  │  ├─ README.md
+│  │  ├─ Square107x107Logo.png
+│  │  ├─ Square142x142Logo.png
+│  │  ├─ Square150x150Logo.png
+│  │  ├─ Square284x284Logo.png
+│  │  ├─ Square30x30Logo.png
+│  │  ├─ Square310x310Logo.png
+│  │  ├─ Square44x44Logo.png
+│  │  ├─ Square71x71Logo.png
+│  │  ├─ Square89x89Logo.png
+│  │  ├─ StoreLogo.png
+│  │  ├─ test-erase-mask.png
+│  │  ├─ test-erase-soft.png
+│  │  └─ test-erase.png
+│  ├─ patched_crates
+│  │  └─ time
+│  │     ├─ benchmarks
+│  │     │  ├─ date.rs
+│  │     │  ├─ duration.rs
+│  │     │  ├─ formatting.rs
+│  │     │  ├─ instant.rs
+│  │     │  ├─ main.rs
+│  │     │  ├─ month.rs
+│  │     │  ├─ offset_date_time.rs
+│  │     │  ├─ parse_format_description.rs
+│  │     │  ├─ parsing.rs
+│  │     │  ├─ primitive_date_time.rs
+│  │     │  ├─ rand08.rs
+│  │     │  ├─ rand09.rs
+│  │     │  ├─ time.rs
+│  │     │  ├─ utc_date_time.rs
+│  │     │  ├─ utc_offset.rs
+│  │     │  ├─ util.rs
+│  │     │  └─ weekday.rs
+│  │     ├─ src
+│  │     │  ├─ error
+│  │     │  │  ├─ component_range.rs
+│  │     │  │  ├─ conversion_range.rs
+│  │     │  │  ├─ different_variant.rs
+│  │     │  │  ├─ format.rs
+│  │     │  │  ├─ indeterminate_offset.rs
+│  │     │  │  ├─ invalid_format_description.rs
+│  │     │  │  ├─ invalid_variant.rs
+│  │     │  │  ├─ mod.rs
+│  │     │  │  ├─ parse_from_description.rs
+│  │     │  │  ├─ parse.rs
+│  │     │  │  └─ try_from_parsed.rs
+│  │     │  ├─ ext
+│  │     │  │  ├─ digit_count.rs
+│  │     │  │  ├─ instant.rs
+│  │     │  │  ├─ mod.rs
+│  │     │  │  ├─ numerical_duration.rs
+│  │     │  │  ├─ numerical_std_duration.rs
+│  │     │  │  └─ systemtime.rs
+│  │     │  ├─ format_description
+│  │     │  │  ├─ parse
+│  │     │  │  │  ├─ format_item.rs
+│  │     │  │  │  ├─ lexer_ast.rs
+│  │     │  │  │  ├─ mod.rs
+│  │     │  │  │  └─ strftime.rs
+│  │     │  │  ├─ well_known
+│  │     │  │  │  ├─ iso8601
+│  │     │  │  │  │  └─ adt_hack.rs
+│  │     │  │  │  ├─ iso8601.rs
+│  │     │  │  │  ├─ rfc2822.rs
+│  │     │  │  │  └─ rfc3339.rs
+│  │     │  │  ├─ borrowed_format_item.rs
+│  │     │  │  ├─ component.rs
+│  │     │  │  ├─ format_description_v3.rs
+│  │     │  │  ├─ mod.rs
+│  │     │  │  ├─ modifier.rs
+│  │     │  │  └─ owned_format_item.rs
+│  │     │  ├─ formatting
+│  │     │  │  ├─ component_provider.rs
+│  │     │  │  ├─ formattable.rs
+│  │     │  │  ├─ iso8601.rs
+│  │     │  │  ├─ metadata.rs
+│  │     │  │  └─ mod.rs
+│  │     │  ├─ interop
+│  │     │  │  ├─ js_sys_date_offsetdatetime.rs
+│  │     │  │  ├─ js_sys_date_utcdatetime.rs
+│  │     │  │  ├─ mod.rs
+│  │     │  │  ├─ offsetdatetime_systemtime.rs
+│  │     │  │  ├─ offsetdatetime_utcdatetime.rs
+│  │     │  │  └─ utcdatetime_systemtime.rs
+│  │     │  ├─ parsing
+│  │     │  │  ├─ combinator
+│  │     │  │  │  ├─ rfc
+│  │     │  │  │  │  ├─ iso8601.rs
+│  │     │  │  │  │  ├─ mod.rs
+│  │     │  │  │  │  ├─ rfc2234.rs
+│  │     │  │  │  │  └─ rfc2822.rs
+│  │     │  │  │  └─ mod.rs
+│  │     │  │  ├─ component.rs
+│  │     │  │  ├─ iso8601.rs
+│  │     │  │  ├─ mod.rs
+│  │     │  │  ├─ parsable.rs
+│  │     │  │  ├─ parsed.rs
+│  │     │  │  └─ shim.rs
+│  │     │  ├─ serde
+│  │     │  │  ├─ timestamp
+│  │     │  │  │  ├─ microseconds.rs
+│  │     │  │  │  ├─ milliseconds_i64.rs
+│  │     │  │  │  ├─ milliseconds.rs
+│  │     │  │  │  ├─ mod.rs
+│  │     │  │  │  └─ nanoseconds.rs
+│  │     │  │  ├─ iso8601.rs
+│  │     │  │  ├─ mod.rs
+│  │     │  │  ├─ rfc2822.rs
+│  │     │  │  ├─ rfc3339.rs
+│  │     │  │  └─ visitor.rs
+│  │     │  ├─ sys
+│  │     │  │  ├─ local_offset_at
+│  │     │  │  │  ├─ imp.rs
+│  │     │  │  │  ├─ mod.rs
+│  │     │  │  │  ├─ unix.rs
+│  │     │  │  │  ├─ wasm_js.rs
+│  │     │  │  │  └─ windows.rs
+│  │     │  │  ├─ refresh_tz
+│  │     │  │  │  ├─ imp.rs
+│  │     │  │  │  ├─ mod.rs
+│  │     │  │  │  └─ unix.rs
+│  │     │  │  └─ mod.rs
+│  │     │  ├─ date.rs
+│  │     │  ├─ duration.rs
+│  │     │  ├─ hint.rs
+│  │     │  ├─ instant.rs
+│  │     │  ├─ internal_macros.rs
+│  │     │  ├─ lib.rs
+│  │     │  ├─ macros.rs
+│  │     │  ├─ month.rs
+│  │     │  ├─ num_fmt.rs
+│  │     │  ├─ offset_date_time.rs
+│  │     │  ├─ primitive_date_time.rs
+│  │     │  ├─ quickcheck.rs
+│  │     │  ├─ rand010.rs
+│  │     │  ├─ rand08.rs
+│  │     │  ├─ rand09.rs
+│  │     │  ├─ tests.rs
+│  │     │  ├─ time.rs
+│  │     │  ├─ utc_date_time.rs
+│  │     │  ├─ utc_offset.rs
+│  │     │  ├─ util.rs
+│  │     │  └─ weekday.rs
+│  │     ├─ tests
+│  │     │  └─ integration
+│  │     │     ├─ compile-fail
+│  │     │     │  ├─ invalid_date.rs
+│  │     │     │  ├─ invalid_date.stderr
+│  │     │     │  ├─ invalid_datetime.rs
+│  │     │     │  ├─ invalid_datetime.stderr
+│  │     │     │  ├─ invalid_format_description.rs
+│  │     │     │  ├─ invalid_format_description.stderr
+│  │     │     │  ├─ invalid_offset.rs
+│  │     │     │  ├─ invalid_offset.stderr
+│  │     │     │  ├─ invalid_serializer.rs
+│  │     │     │  ├─ invalid_serializer.stderr
+│  │     │     │  ├─ invalid_time.rs
+│  │     │     │  ├─ invalid_time.stderr
+│  │     │     │  ├─ invalid_utc_datetime.rs
+│  │     │     │  └─ invalid_utc_datetime.stderr
+│  │     │     ├─ serde
+│  │     │     │  ├─ error_conditions.rs
+│  │     │     │  ├─ iso8601.rs
+│  │     │     │  ├─ json.rs
+│  │     │     │  ├─ macros.rs
+│  │     │     │  ├─ mod.rs
+│  │     │     │  ├─ rfc2822.rs
+│  │     │     │  ├─ rfc3339.rs
+│  │     │     │  └─ timestamps.rs
+│  │     │     ├─ convert.rs
+│  │     │     ├─ date.rs
+│  │     │     ├─ derives.rs
+│  │     │     ├─ duration.rs
+│  │     │     ├─ error.rs
+│  │     │     ├─ ext.rs
+│  │     │     ├─ format_description.rs
+│  │     │     ├─ formatting.rs
+│  │     │     ├─ instant.rs
+│  │     │     ├─ macros.rs
+│  │     │     ├─ main.rs
+│  │     │     ├─ meta.rs
+│  │     │     ├─ month.rs
+│  │     │     ├─ offset_date_time.rs
+│  │     │     ├─ parse_format_description.rs
+│  │     │     ├─ parsed.rs
+│  │     │     ├─ parsing.rs
+│  │     │     ├─ primitive_date_time.rs
+│  │     │     ├─ quickcheck.rs
+│  │     │     ├─ rand.rs
+│  │     │     ├─ serde_helpers.rs
+│  │     │     ├─ time.rs
+│  │     │     ├─ utc_date_time.rs
+│  │     │     ├─ utc_offset.rs
+│  │     │     ├─ util.rs
+│  │     │     └─ weekday.rs
+│  │     ├─ .cargo_vcs_info.json
+│  │     ├─ .cargo-ok
+│  │     ├─ Cargo.lock
+│  │     ├─ Cargo.toml
+│  │     ├─ Cargo.toml.orig
+│  │     ├─ LICENSE-Apache
+│  │     ├─ LICENSE-MIT
+│  │     └─ README.md
+│  ├─ resources
+│  │  ├─ autocad-plugin
+│  │  │  ├─ AnarchyAutoCad.cs
+│  │  │  ├─ AnarchyAutoCad2025.cs
+│  │  │  ├─ AnarchyAutoCad2025.csproj.template
+│  │  │  ├─ AnarchyLogo_16.png
+│  │  │  ├─ AnarchyLogo_32.png
+│  │  │  └─ PackageContents.xml.template
+│  │  ├─ maxicons
+│  │  │  ├─ AnarchyLogo_16a.bmp
+│  │  │  ├─ AnarchyLogo_16i.bmp
+│  │  │  ├─ AnarchyLogo_24a.bmp
+│  │  │  └─ AnarchyLogo_24i.bmp
+│  │  ├─ revit-plugin
+│  │  │  ├─ Anarchy.addin.template
+│  │  │  ├─ AnarchyLogo_16.png
+│  │  │  ├─ AnarchyLogo_32.png
+│  │  │  └─ AnarchyRevit.cs
+│  │  └─ AnarchyConnector.ms
+│  ├─ src
+│  │  └─ main.rs
+│  ├─ .gitignore
+│  ├─ build.rs
+│  ├─ Cargo.lock
+│  ├─ Cargo.toml
+│  ├─ custom-hooks.nsh
+│  ├─ keygen.log
+│  └─ tauri.conf.json
+├─ supabase
+│  ├─ .temp
+│  │  ├─ cli-latest
+│  │  ├─ gotrue-version
+│  │  ├─ linked-project.json
+│  │  ├─ pooler-url
+│  │  ├─ postgres-version
+│  │  ├─ project-ref
+│  │  ├─ rest-version
+│  │  ├─ storage-migration
+│  │  └─ storage-version
+│  ├─ functions
+│  │  ├─ create-checkout-session
+│  │  │  └─ index.ts
+│  │  ├─ replicate_webhook
+│  │  │  └─ index.ts
+│  │  ├─ replicate-proxy
+│  │  │  └─ index.ts
+│  │  ├─ send-support-email
+│  │  │  └─ index.ts
+│  │  ├─ stripe-webhook
+│  │  │  └─ index.ts
+│  │  └─ deno.json
+│  ├─ migrations
+│  │  ├─ 20240001_stripe_sessions.sql
+│  │  ├─ 20260528_credit_system.sql
+│  │  └─ 20260530_replicate_webhook.sql
+│  ├─ delete_current_user.sql
+│  ├─ QUICKSTART.md
+│  ├─ SETUP_GUIDE.md
+│  └─ WEBHOOK_SETUP.md
+├─ .env
+├─ .env.example
+├─ .gitignore
+├─ Anarchy AI Desktop Launcher.bat
+├─ Anarchy_AI_Setup.exe
+├─ AUTH_BILLING_STATUS.md
+├─ auth-callback.html
+├─ build_installer.bat
+├─ build_installer.ps1
+├─ Create Desktop Shortcut.ps1
+├─ create_predictions_table.sql
+├─ create-desktop-shortcut.bat
+├─ DEPLOY_WEBHOOK.ps1
+├─ DESKTOP_APP.md
+├─ eslint-report.json
+├─ eslint.config.js
+├─ generate_structure.js
+├─ index.html
+├─ install-node.bat
+├─ installer.iss
+├─ KIE_INTEGRATION_PLAN.md
+├─ LICENSE.txt
+├─ Make Desktop Shortcut.bat
+├─ netlify.toml
+├─ package-lock.json
+├─ package.json
+├─ PRIVACY_POLICY.md
+├─ README.md
+├─ register-file-icon.ps1
+├─ setup.js
+├─ SONARQUBE_FIXES.md
+├─ start.bat
+├─ start.sh
+├─ structure.txt
+├─ tauri-dev.log
+├─ test_plan.png
+├─ test.txt.sig
+├─ tsconfig.app.json
+├─ tsconfig.json
+├─ tsconfig.node.json
+├─ vite.config.ts
+└─ vitest.config.ts

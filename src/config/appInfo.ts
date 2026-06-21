@@ -1,6 +1,6 @@
 export const APP_INFO = {
   name: 'Anarchy AI',
-  version: '0.07',
+  version: '0.0.8',
   description: 'AI-powered architectural visualization and design assistant. Built for architects, by architects.',
   developer: 'Architect Mustafa Hisham',
   links: {

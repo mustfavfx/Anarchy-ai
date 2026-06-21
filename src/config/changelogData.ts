@@ -13,7 +13,7 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.2.0',
+    version: 'v0.0.8',
     date: 'June 12, 2026',
     status: 'current',
     features: [

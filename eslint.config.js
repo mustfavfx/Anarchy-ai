@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'src-tauri', 'target', 'setup_dist', '.venv', 'coverage']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -32,7 +32,7 @@ export default defineConfig([
       'react-hooks/preserve-manual-memoization': 'off',
       'react-hooks/react-compiler': 'off',
       'react-hooks/immutability': 'off',
-      'react-refresh/only-export-components': 'warn',
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

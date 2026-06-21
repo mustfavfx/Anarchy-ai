@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
-import { Search, Grid, List as ListIcon, Plus, Trash2, FolderOpen, Image as ImageIcon, Loader2, Copy, Pencil, ArrowUpDown } from 'lucide-react';
-import { listProjects, deleteProject, renameProject, duplicateProject, timeAgo, type ProjectMeta } from '../../services/projects/ProjectService';
+import { Search, Grid, List as ListIcon, Plus, FolderOpen, Image as ImageIcon, Loader2, ArrowUpDown } from 'lucide-react';
+import { listProjects, deleteProject, renameProject, duplicateProject, type ProjectMeta } from '../../services/projects/ProjectService';
 import { loadWorkflow } from '../../services/workflow';
-import { ConfirmModal } from '../../components/ConfirmModal';
+import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import { useResolvedImage } from '../../hooks/useResolvedImage';
+import { VirtualProjectsView } from './components/VirtualProjectsView';
 import './ProjectsPage.css';
 
-const ProjectImage: React.FC<{ url?: string; alt: string; className?: string }> = ({ url, alt, className }) => {
+export const ProjectImage: React.FC<{ url?: string; alt: string; className?: string }> = ({ url, alt, className }) => {
   const resolved = useResolvedImage(url);
   if (!url || !resolved) {
     return (
@@ -201,98 +202,16 @@ export const ProjectsPage: React.FC = () => {
             </>
           )}
         </div>
-      ) : viewMode === 'grid' ? (
-        <div className="projects-grid">
-          {filtered.map((project) => (
-            <div
-              key={project.filePath}
-              className="project-display-card"
-              onClick={() => handleOpenProject(project)}
-            >
-              <div className="project-image-box">
-                <ProjectImage url={project.thumbnailUrl} alt={project.name} />
-                <div className={`status-tag ${project.status}`}>
-                  {project.status}
-                </div>
-                <div className="project-card-actions">
-                  <button
-                    className="project-action-btn"
-                    onClick={(e) => { e.stopPropagation(); setRenameTarget(project); setRenameValue(project.name); }}
-                    title="Rename"
-                  ><Pencil size={13} /></button>
-                  <button
-                    className="project-action-btn"
-                    onClick={(e) => handleDuplicate(e, project)}
-                    title="Duplicate"
-                  ><Copy size={13} /></button>
-                  <button
-                    className="project-action-btn danger"
-                    onClick={(e) => handleDelete(e, project)}
-                    title="Delete"
-                  >
-                    {deletingPath === project.filePath ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
-                  </button>
-                </div>
-              </div>
-              <div className="project-details-box">
-                <h3 className="project-display-title">{project.name}</h3>
-                <div className="project-metadata">
-                  <span>{project.sourceCount} sources</span>
-                  <span>{project.outputCount} outputs</span>
-                  <span>{project.refCount} refs</span>
-                </div>
-                <div className="project-path-text" title={project.filePath}>
-                  {project.filePath}
-                </div>
-                <div className="project-footer">
-                  <span className="updated-text">Updated {timeAgo(project.updatedAt)}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
       ) : (
-        <div className="projects-list">
-          {filtered.map((project) => (
-            <div
-              key={project.filePath}
-              className="project-list-item"
-              onClick={() => handleOpenProject(project)}
-            >
-              <div className="list-item-thumb">
-                <ProjectImage url={project.thumbnailUrl} alt={project.name} className="small" />
-              </div>
-              <div className="list-item-info">
-                <h3 className="project-display-title">{project.name}</h3>
-                <div className="project-metadata">
-                  <span>{project.sourceCount} sources</span>
-                  <span>{project.outputCount} outputs</span>
-                  <span>{project.refCount} refs</span>
-                </div>
-                <div className="project-path-text list-path" title={project.filePath}>
-                  {project.filePath}
-                </div>
-              </div>
-              <div className={`status-tag ${project.status}`}>{project.status}</div>
-              <span className="updated-text">{timeAgo(project.updatedAt)}</span>
-              <button
-                className="project-action-btn"
-                onClick={(e) => { e.stopPropagation(); setRenameTarget(project); setRenameValue(project.name); }}
-                title="Rename"
-              ><Pencil size={13} /></button>
-              <button
-                className="project-action-btn"
-                onClick={(e) => handleDuplicate(e, project)}
-                title="Duplicate"
-              ><Copy size={13} /></button>
-              <button
-                className="project-action-btn danger"
-                onClick={(e) => handleDelete(e, project)}
-                title="Delete"
-              ><Trash2 size={13} /></button>
-            </div>
-          ))}
-        </div>
+        <VirtualProjectsView
+          projects={filtered}
+          viewMode={viewMode}
+          deletingPath={deletingPath}
+          onOpenProject={handleOpenProject}
+          onRenameClick={(project) => { setRenameTarget(project); setRenameValue(project.name); }}
+          onDuplicateClick={handleDuplicate}
+          onDeleteClick={handleDelete}
+        />
       )}
       {confirmDelete && (
         <ConfirmModal

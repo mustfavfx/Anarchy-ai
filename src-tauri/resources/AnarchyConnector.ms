@@ -60,12 +60,16 @@ fn sendViewportToAnarchy = (
 		save final_img
 		close final_img
 		if final_img != view_img do close view_img
-		local py_cmd = "import urllib.request, base64, json\n"
+		local py_cmd = "import os, urllib.request, base64, json\n"
 		py_cmd += "try:\n"
+		py_cmd += "    token_path = os.path.expandvars(r'%APPDATA%\\\\com.anarchyai.app\\\\.token')\n"
+		py_cmd += "    token = ''\n"
+		py_cmd += "    if os.path.exists(token_path):\n"
+		py_cmd += "        with open(token_path, 'r') as tf: token = tf.read().strip()\n"
 		py_cmd += "    with open(r'" + temp_path + "', 'rb') as f: data = base64.b64encode(f.read()).decode()\n"
 		py_cmd += "    url = 'http://localhost:14400/upload-view'\n"
 		py_cmd += "    payload = json.dumps({'type': 'EXTERNAL_IMAGE_NODE', 'image': 'data:image/jpeg;base64,' + data, 'source': '3dsmax'}).encode('utf-8')\n"
-		py_cmd += "    req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})\n"
+		py_cmd += "    req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'X-Anarchy-Token': token})\n"
 		py_cmd += "    urllib.request.urlopen(req, timeout=2)\n"
 		py_cmd += "    print('Anarchy: Viewport Image Sent Successfully!')\n"
 		py_cmd += "except Exception as e: print('Anarchy: Failed to send viewport image - ' + str(e))"

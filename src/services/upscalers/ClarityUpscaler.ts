@@ -36,7 +36,12 @@ export class ClarityUpscaler implements BaseUpscaler {
     };
   }
 
-  async execute(config: AIConfig, image: string): Promise<UpscaleResult> {
+  async execute(
+    config: AIConfig,
+    image: string,
+    signal?: AbortSignal,
+    onStatusChange?: (status: 'queued' | 'processing') => void
+  ): Promise<UpscaleResult> {
     let currentImageUrl = image;
     
     // Resolve IDB images if passed as local cache keys
@@ -53,7 +58,7 @@ export class ClarityUpscaler implements BaseUpscaler {
     }
 
     const payload = this.buildPayload(config, currentImageUrl);
-    const prediction = await replicateService.runPrediction(this.modelId, payload);
+    const prediction = await replicateService.runPrediction(this.modelId, payload, undefined, undefined, signal, onStatusChange);
     const resultImageUrl = replicateService.extractImageUrl(prediction.output);
 
     const dims = await getImageDimensions(image);

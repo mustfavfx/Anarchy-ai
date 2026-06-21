@@ -1,20 +1,20 @@
 import { create } from 'zustand';
-import type { HistoryEntry, HistoryGroup, FilterType } from '../types';
+import type { HistoryEntry, HistoryGroup, FilterType, HistoryStats, SemanticProgress, NodeTreeData } from '../types/history';
 import { 
   getHistory, 
   getHistoryStats, 
   clearHistory as apiClearHistory,
   deleteHistoryEntry,
   toggleStar as apiToggleStar
-} from '../services/HistoryService';
-import { groupHistoryEntries } from '../services/HistoryGroupingService';
-import { CollectionService } from '../../../services/history/CollectionService';
-import type { Collection } from '../../../services/history/CollectionService';
+} from '../services/history/HistoryService';
+import { groupHistoryEntries } from '../services/history/HistoryGroupingService';
+import { CollectionService } from '../services/history/CollectionService';
+import type { Collection } from '../services/history/CollectionService';
 
 interface HistoryState {
   // State
   entries: HistoryEntry[];
-  stats: any;
+  stats: HistoryStats;
   groupedGroups: HistoryGroup[];
   collections: Collection[];
   
@@ -33,8 +33,13 @@ interface HistoryState {
   isGroupedView: boolean;
   
   isSemanticLoading: boolean;
-  semanticProgress: any;
+  semanticProgress: SemanticProgress | null;
   isSemanticModelError: boolean;
+  useSemanticSearch: boolean;
+
+  // Cache State
+  workflowCache: Record<string, NodeTreeData>;
+  timelineCache: Record<string, any[]>;
 
   // Actions
   refreshHistory: () => void;
@@ -56,12 +61,17 @@ interface HistoryState {
   setActiveSmartCollectionId: (colId: string | null) => void;
   setIsGroupedView: (isGrouped: boolean) => void;
   
-  setSemanticStatus: (loading: boolean, progress: any, error: boolean) => void;
+  setSemanticStatus: (loading: boolean, progress: SemanticProgress | null, error: boolean) => void;
+  setUseSemanticSearch: (useSemantic: boolean) => void;
   
   toggleStar: (id: string) => void;
   deleteEntry: (id: string) => Promise<void>;
+  deleteGroup: (rootSourceId: string) => Promise<void>;
   deleteSelectedEntries: () => Promise<void>;
   clearAllHistory: () => Promise<void>;
+
+  // Cache Actions
+  invalidateCache: () => void;
   
   // Collections Actions
   createCollection: (name: string) => string;
@@ -94,6 +104,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   isSemanticLoading: false,
   semanticProgress: null,
   isSemanticModelError: false,
+  useSemanticSearch: false,
+
+  // Initial Cache State
+  workflowCache: {},
+  timelineCache: {},
 
   // Actions
   refreshHistory: () => {
@@ -140,6 +155,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   
   setSemanticStatus: (isSemanticLoading, semanticProgress, isSemanticModelError) => 
     set({ isSemanticLoading, semanticProgress, isSemanticModelError }),
+  setUseSemanticSearch: (useSemanticSearch) => set({ useSemanticSearch }),
 
   toggleStar: (id) => {
     apiToggleStar(id);
@@ -148,14 +164,33 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   deleteEntry: async (id) => {
     await deleteHistoryEntry(id);
+    get().invalidateCache();
+    get().refreshHistory();
+    get().refreshCollections();
+  },
+
+  deleteGroup: async (rootSourceId) => {
+    const { deleteHistoryGroup } = await import('../services/history/HistoryService');
+    await deleteHistoryGroup(rootSourceId);
+    set({ activeGroup: null });
+    get().invalidateCache();
     get().refreshHistory();
     get().refreshCollections();
   },
 
   deleteSelectedEntries: async () => {
     const ids = Array.from(get().selectedIds);
-    await Promise.all(ids.map(id => deleteHistoryEntry(id)));
+    const results = await Promise.allSettled(ids.map(id => deleteHistoryEntry(id)));
+    
+    // Log failures if any
+    results.forEach((res, i) => {
+      if (res.status === 'rejected') {
+        console.warn(`[HistoryStore] Failed to delete history entry ${ids[i]}:`, res.reason);
+      }
+    });
+
     set({ selectedIds: new Set<string>(), selectMode: false });
+    get().invalidateCache();
     get().refreshHistory();
     get().refreshCollections();
   },
@@ -163,8 +198,13 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   clearAllHistory: async () => {
     await apiClearHistory();
     set({ selectedIds: new Set<string>(), selectMode: false, previewEntry: null, activeGroup: null });
+    get().invalidateCache();
     get().refreshHistory();
     get().refreshCollections();
+  },
+
+  invalidateCache: () => {
+    set({ workflowCache: {}, timelineCache: {} });
   },
 
   createCollection: (name) => {
@@ -191,3 +231,13 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     get().refreshCollections();
   }
 }));
+
+// Register global event listeners for automatic cache invalidation
+if (typeof window !== 'undefined') {
+  const handleInvalidate = () => {
+    useHistoryStore.getState().invalidateCache();
+  };
+  window.addEventListener('history_updated', handleInvalidate);
+  window.addEventListener('history_deleted', handleInvalidate);
+  window.addEventListener('history_imported', handleInvalidate);
+}

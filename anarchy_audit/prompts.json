@@ -1,0 +1,94 @@
+{
+  "phases": {
+    "phase_1_architecture": {
+      "title": "Phase 1: Architecture Review (مراجعة المعمارية)",
+      "description": "Analyze project layout, bundler config, Tauri desktop architecture, and high-level directory relationships.",
+      "prompt": "You are an expert software architect analyzing the Anarchy AI codebase. Review the project directory structure, Vite configuration (vite.config.ts), Tauri desktop setup (src-tauri/), and main entry points (index.html, src/main.tsx, src/App.tsx). Assess how components, features, services, and stores interact. Identify architectural patterns (e.g., feature-based modules, service separation), modularity, layering, and potential violations of clean architecture. Recommend improvements for project structure, decoupling, and Tauri-to-frontend boundary interfaces."
+    },
+    "phase_2_pages": {
+      "title": "Phase 2: Page-by-Page Review (مراجعة كل صفحة)",
+      "description": "Inspect individual pages, routing setup, layout wrapper, and feature-specific views.",
+      "prompt": "Analyze all main page routes and feature views in src/pages/ and src/features/. Verify the page routing structure, the use of layout templates (src/layout/), and how pages fetch and display data. Identify issues like bloated page components, lack of loading state feedback, routing vulnerabilities, or hardcoded state. Document each page's primary responsibility and suggest modularization where appropriate."
+    },
+    "phase_3_services": {
+      "title": "Phase 3: Services Review (مراجعة الخدمات Services)",
+      "description": "Audit third-party integrations, client APIs, and local file/migration managers in src/services/.",
+      "prompt": "Examine all services in src/services/, including Replicate API client, Supabase client wrapper, billing services, and migration/local file managers. Assess how service errors are bubble-up, whether services are mockable, and if their configurations are decoupled from implementation. Look for hardcoded URLs or secret tokens, missing retry logic, and potential memory leaks in active listeners."
+    },
+    "phase_4_stores": {
+      "title": "Phase 4: Stores Review (مراجعة Stores)",
+      "description": "Analyze state management, local storage sync, and cache policies in src/store/ and src/stores/.",
+      "prompt": "Audit all global state stores (Zustand, Context, or Redux) in src/store/ or src/stores/. Review how state transitions are triggered, state persistency settings (localStorage sync), hydration handling, and selectors usage to prevent unnecessary re-renders. Identify potential state desynchronization issues between the React UI state and Tauri rust state."
+    },
+    "phase_5_components": {
+      "title": "Phase 5: Components Review (مراجعة Components)",
+      "description": "Audit shared and core UI components, design tokens, responsiveness, and Tailwind/CSS usage.",
+      "prompt": "Evaluate reusable UI components in src/components/. Assess styling consistency, CSS variables usage (index.css), and responsive design behavior. Check component encapsulation: are styles leaky? Are components over-parameterized? Are they decoupled from features? Check for standard design patterns (like compound components) and visual polish (transitions, active states)."
+    },
+    "phase_6_typescript": {
+      "title": "Phase 6: TypeScript Review (مراجعة TypeScript)",
+      "description": "Review typing safety, interfaces, strict mode compliance, and compilation settings.",
+      "prompt": "Analyze tsconfig.json, tsconfig.app.json, tsconfig.node.json, and ts files for type safety. Look for 'any' types, type assertions ('as'), suppressed compiler errors ('ts-ignore'), and improper interface declarations in src/types/. Assess standard typings for API payloads and react hooks. Highlight areas where strict typing can prevent runtime crashes."
+    },
+    "phase_7_performance": {
+      "title": "Phase 7: Performance Review (مراجعة الأداء)",
+      "description": "Evaluate render cycles, lazy loading, memory usage, and component lifecycle optimizations.",
+      "prompt": "Analyze performance vectors including React Flow node updates, state selector re-renders, hook usage (useMemo, useCallback), image lazy loading (src/hooks/useLazyImage.ts), and bundle size implications. Suggest optimizations like code-splitting, virtualized lists for historical items, and memory management for loaded assets."
+    },
+    "phase_8_errors": {
+      "title": "Phase 8: Errors & Logs Review (مراجعة الأخطاء)",
+      "description": "Inspect exception handling, error boundary wrappers, and log collection.",
+      "prompt": "Examine how runtime exceptions are captured. Look for global React Error Boundaries, local try-catch blocks in async hooks, UI user-facing toast notifications, and Tauri development logs (tauri-dev.log). Evaluate error messages (are they friendly but informative?) and make recommendations for setting up centralized client-side error reporting."
+    },
+    "phase_9_buttons_functionalities": {
+      "title": "Phase 9: Buttons and Functionalities Review (مراجعة الأزرار والوظائف)",
+      "description": "Audit button behaviors, event handlers, keyboard shortcuts, and form validations.",
+      "prompt": "Review interactive UI components: button states (loading, disabled, hover), click event handlers, keyboard accessibility (tab index, enter key activation), and shortcuts. Examine validation logic for settings, workflows, and credit purchases to ensure no invalid user inputs can bypass client-side checks."
+    },
+    "phase_10_security": {
+      "title": "Phase 10: Security Review (الأمن)",
+      "description": "Verify API key management, client/Tauri IPC permissions, and JWT token hygiene.",
+      "prompt": "Conduct a security review focused on API token storage (VITE_REPLICATE_API_TOKEN, Supabase keys), Tauri ipc permission constraints, input sanitization in chat interfaces (preventing XSS), and security of Stripe checkout/webhook configurations. Identify any potential vulnerabilities in the local storage backup/restore file parser."
+    },
+    "phase_11_quality_testing": {
+      "title": "Phase 11: Quality Testing (اختبار الجودة)",
+      "description": "Check automated test setup, test coverage, and mock databases in src/test/.",
+      "prompt": "Analyze the testing infrastructure (vitest.config.ts, src/test/, test files like AuthContext.test.tsx). Assess unit test coverage, mocking of external services (Supabase/Replicate), and integration test setups. Suggest a strategy for end-to-end testing of the Tauri application wrapper."
+    },
+    "phase_12_market_evaluation": {
+      "title": "Phase 12: Market Project Evaluation (تقييم المشروع مقارنة بالسوق)",
+      "description": "Compare project stack, user experience, and features against leading architectural visualization tools.",
+      "prompt": "Evaluate Anarchy AI's value proposition. Compare its node-based generation workflow (React Flow) and desktop wrapper (Tauri) model with other architectural AI products in the market. Assess its competitive advantages (e.g., local storage first, plug-in integration for ArchiCAD/AutoCAD) and identify gaps in the feature set that can increase user retention."
+    },
+    "phase_13_ux_audit": {
+      "title": "Phase 13: UX Audit (مراجعة تجربة المستخدم)",
+      "description": "Analyze information hierarchy, loading feedbacks, transitions, and accessibility.",
+      "prompt": "Audit the user experience: visual feedback during long image generation runs, layout consistency, onboarding, accessibility compliance (font size contrast, keyboard navigability), and ease of workspace management (library folders, project files saving/loading)."
+    },
+    "phase_14_qa_audit": {
+      "title": "Phase 14: QA Audit (مراجعة الاختبارات والجودة)",
+      "description": "Verify overall code compliance, eslint results, test runs, and dev tooling.",
+      "prompt": "Analyze eslint.config.js, eslint-report.json, lint findings, and code quality tools. Review static analysis results and suggest improvements to standard formatting rules to enforce higher code quality."
+    },
+    "phase_15_tauri_desktop": {
+      "title": "Phase 15: Tauri & Desktop Native Integration (مراجعة تكامل Tauri والنظام)",
+      "description": "Analyze Rust src-tauri configuration, shortcuts launcher, installer configuration, and build scripts.",
+      "prompt": "Evaluate the desktop shell. Review src-tauri/tauri.conf.json, installer.iss (Inno Setup), build scripts (build_installer.ps1), system shortcuts, and window controls. Assess native speed, security context of rust-side Tauri commands, and installer creation files."
+    },
+    "phase_16_supabase_db": {
+      "title": "Phase 16: Supabase & Database Schema (مراجعة قاعدة البيانات ومخططات Supabase)",
+      "description": "Review Supabase migrations, database SQL triggers, and tables structures.",
+      "prompt": "Inspect the supabase/ directory, migration scripts, create_predictions_table.sql, and database security guidelines. Analyze Table schemas, indexes, Row Level Security (RLS) policies, and performance of queries against prediction tables."
+    },
+    "phase_17_stripe_billing": {
+      "title": "Phase 17: Stripe Payments & Billing (مراجعة نظام الدفع والفوترة باستخدام Stripe)",
+      "description": "Verify credit balances, checkout webhook security, and payment workflow.",
+      "prompt": "Analyze credit purchase features, checkout session creation flow, and stripe webhook validation (stripe-webhook edge function). Audit code logic preventing double-spending of credits, transaction log recording, and secure checkout redirection."
+    },
+    "phase_18_final_roadmap": {
+      "title": "Phase 18: Final Assessment & Roadmap (التقرير النهائي وخريطة الطريق للمستقبل)",
+      "description": "Synthesize all 17 previous phases, assign grades, and outline the version 0.8.0 improvement plan.",
+      "prompt": "Provide a comprehensive final grade scorecard across all 17 phases. Highlight the top 3 structural issues and the top 3 features to build. Outline an actionable development roadmap with specific tasks, prioritizations, and timelines for the next release (v0.8.0)."
+    }
+  }
+}

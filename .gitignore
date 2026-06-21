@@ -7,9 +7,14 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies and build outputs
 node_modules
 dist
 dist-ssr
+coverage
+.venv
+target
+src-tauri/target
 *.local
 
 # Editor directories and files
@@ -29,7 +34,18 @@ tauri-signing-key.txt
 pub.key
 key.pem
 *.key
+*.pub
 src-tauri/keygen.log
 
 # Environment variables
 .env
+.env.local
+
+# Installer executables
+*.exe
+
+# Audit outputs
+eslint-report.json
+
+# Signatures
+*.sig

@@ -17,7 +17,9 @@ export interface BaseUpscaler {
 
   execute(
     config: AIConfig,
-    image: string
+    image: string,
+    signal?: AbortSignal,
+    onStatusChange?: (status: 'queued' | 'processing') => void
   ): Promise<UpscaleResult>;
 
   parseResult(response: unknown): UpscaleResult;

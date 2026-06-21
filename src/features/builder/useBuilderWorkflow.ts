@@ -22,8 +22,10 @@ import {
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
 import { UpscalerFactory } from '../../services/upscalers/UpscalerFactory';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
+import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { watermarkService } from '../../services/watermark/WatermarkService';
-import { addHistoryEntry, type NodeTreeData, cacheLocalImage, getLocalImage, deleteLocalImage } from '../../services/history/HistoryService';
+import { addHistoryEntry, cacheLocalImage, getLocalImage, deleteLocalImage, revokeObjectUrl } from '../../services/history/HistoryService';
+import type { NodeTreeData } from '../../types/history';
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { track } from '../../services/tracking/trackingService';
@@ -249,12 +251,28 @@ const createEdge = (
 // MAIN HOOK - AI Processing Graph Engine
 // ============================================================================
 
+// Validate workflow schema to prevent crashes from corrupted localStorage data
+function validateWorkflowData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  if (!Array.isArray(data.nodes)) return false;
+  for (const node of data.nodes) {
+    if (!node || typeof node !== 'object') return false;
+    if (typeof node.id !== 'string' || !node.id) return false;
+    if (typeof node.type !== 'string') return false;
+    if (!node.position || typeof node.position !== 'object') return false;
+    if (typeof node.position.x !== 'number' || typeof node.position.y !== 'number') return false;
+    if (!node.data || typeof node.data !== 'object') return false;
+  }
+  if (data.edges && !Array.isArray(data.edges)) return false;
+  return true;
+}
+
 // Snapshot type for undo/redo
 interface HistorySnapshot { nodes: BuilderNode[]; edges: Edge[]; }
 
 const MAX_HISTORY = 50;
 
-export const useBuilderWorkflow = (tabId?: string) => {
+export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
   const { user } = useAuth();
   const [nodes, setNodesInternal, onNodesChange] = useNodesState<BuilderNode>([]);
   const [edges, setEdgesInternal, onEdgesChange] = useEdgesState<Edge>([]);
@@ -283,8 +301,16 @@ export const useBuilderWorkflow = (tabId?: string) => {
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const processingQueue = useRef<Set<string>>(new Set());
+  const abortControllers = useRef<Map<string, AbortController>>(new Map());
   const [isRestored, setIsRestored] = useState(false);
+
+  useEffect(() => {
+    const controllers = abortControllers.current;
+    return () => {
+      // Abort all active generators when this workflow hook unmounts
+      controllers.forEach(ctrl => ctrl.abort());
+    };
+  }, []);
 
   // ── Undo/Redo history ──────────────────────────────────────────────────────
   const past   = useRef<HistorySnapshot[]>([]);
@@ -352,9 +378,23 @@ export const useBuilderWorkflow = (tabId?: string) => {
       const saved = localStorage.getItem(key);
       if (saved) {
         const data = JSON.parse(saved);
-        if (data.nodes && data.nodes.length > 0) {
-          setNodes(data.nodes);
-          setEdges(sanitizeEdges(data.nodes, data.edges || []));
+        if (validateWorkflowData(data) && data.nodes.length > 0) {
+          // Clean up stuck connecting/processing/queued states on load since the session was interrupted
+          const cleanedNodes = data.nodes.map((n: any) => {
+            if (n.data?.type === 'ghost' && (n.data.state === 'connecting' || n.data.state === 'processing' || n.data.state === 'queued')) {
+              return {
+                ...n,
+                data: { 
+                  ...n.data, 
+                  state: 'failed', 
+                  errorMessage: 'Session interrupted. Please retry generation.' 
+                }
+              };
+            }
+            return n;
+          });
+          setNodes(cleanedNodes);
+          setEdges(sanitizeEdges(cleanedNodes, data.edges || []));
           // Delay isRestored so BuilderPage sees the restored nodes before checking
           const timerId = setTimeout(() => setIsRestored(true), 20);
           return () => clearTimeout(timerId);
@@ -391,9 +431,13 @@ export const useBuilderWorkflow = (tabId?: string) => {
         config: {}
       } as BuilderNodeData
     };
+    if (hasInitialState) {
+      setIsRestored(true);
+      return;
+    }
     setNodes([defaultSourceNode]);
     setIsRestored(true);
-  }, [isRestored, tabId, setNodes, setEdges]);
+  }, [isRestored, tabId, setNodes, setEdges, hasInitialState]);
 
   // ========================================================================
   // SILENT AUTO-SAVE: Save to localStorage whenever nodes/edges change
@@ -419,20 +463,30 @@ export const useBuilderWorkflow = (tabId?: string) => {
   // ========================================================================
   // AUTO CLEANUP & SANITIZATION OF EDGES
   // ========================================================================
+  // Performance optimization: Only sanitize edges on structural changes (node count, node types, edge count)
+  // to avoid heavy computations and edge flickering during node dragging.
+  const nodeStructureKey = useMemo(() => {
+    return `${nodes.length}-${nodes.map(n => `${n.id}:${n.data?.type}`).join(',')}`;
+  }, [nodes]);
+
+  const edgeStructureKey = useMemo(() => {
+    return `${edges.length}-${edges.map(e => `${e.id}:${e.targetHandle}`).join(',')}`;
+  }, [edges]);
+
   useEffect(() => {
     if (!isRestored) return;
-    const sanitized = sanitizeEdges(nodes, edges);
+    const sanitized = sanitizeEdges(nodesRef.current, edgesRef.current);
     
     // Check if there are actual changes to avoid infinite loop
-    const hasChanges = sanitized.length !== edges.length || sanitized.some((e, i) => {
-      const orig = edges[i];
+    const hasChanges = sanitized.length !== edgesRef.current.length || sanitized.some((e, i) => {
+      const orig = edgesRef.current[i];
       return !orig || e.id !== orig.id || e.targetHandle !== orig.targetHandle;
     });
 
     if (hasChanges) {
       setEdges(sanitized);
     }
-  }, [nodes, edges, isRestored, setEdges]);
+  }, [nodeStructureKey, edgeStructureKey, isRestored, setEdges]);
 
 
   // ========================================================================
@@ -608,6 +662,13 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
     if (imageUrl) {
       try {
+        const sessionParentId = sessionStorage.getItem('presetParentId') || undefined;
+        const sessionRootId = sessionStorage.getItem('presetRootId') || undefined;
+
+        // Clean up immediately so they are only used for this first node
+        sessionStorage.removeItem('presetParentId');
+        sessionStorage.removeItem('presetRootId');
+
         // Build node tree containing this source node
         const nodeTree: NodeTreeData = {
           nodes: [{
@@ -619,6 +680,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
             processingType: 'source',
           }],
           sourceNodeId: newNode.id,
+          activeNodeId: newNode.id,
           createdAt: Date.now(),
         };
         addHistoryEntry({
@@ -628,6 +690,17 @@ export const useBuilderWorkflow = (tabId?: string) => {
           nodeTree,
           rootSourceId: newNode.id,
           rootSourceImage: imageUrl,
+          parentId: sessionParentId,
+          rootId: sessionRootId,
+          nodeType: 'source',
+        }).then(saved => {
+          setNodes(nds => nds.map(n => 
+            n.id === newNode.id 
+              ? { ...n, data: { ...n.data, historyEntryId: saved.id } }
+              : n
+          ));
+        }).catch(err => {
+          logger.error('[useBuilderWorkflow] Failed to add source history entry:', err);
         });
       } catch {}
     }
@@ -718,7 +791,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     return id;
   }, [getNode, getChildren, calculateChildPosition, setNodes, setEdges]);
 
-  const executeNode = useCallback(async (
+  const executeNodeSingle = useCallback(async (
     nodeId: string,
     prompt: string,
     config?: GenerationConfig
@@ -733,8 +806,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
       throw new Error(`Cannot execute ${nodeData.type} node`);
     }
 
-    // Check if already processing
-    if (processingQueue.current.has(nodeId)) {
+    // Check if already processing (active controller indicates running process)
+    if (abortControllers.current.has(nodeId)) {
       throw new Error('Node is already processing');
     }
 
@@ -771,15 +844,17 @@ export const useBuilderWorkflow = (tabId?: string) => {
     }
     
     // Resolve any IndexedDB image references to actual base64/URL data
-    const resolvedParentImages = await Promise.all(
+    const resolvedParentResults = await Promise.allSettled(
       allParentImages.map(img => resolveImageIfCached(img))
     );
+    const resolvedParentImages = resolvedParentResults.map(r => r.status === 'fulfilled' ? r.value : undefined);
     const validResolvedParentImages = resolvedParentImages.filter((img): img is string => !!img);
 
     // Upload images based on model requirements
-    const uploadedImages = await Promise.all(
+    const uploadedResults = await Promise.allSettled(
       validResolvedParentImages.map(img => uploadImageIfLocal(img, model as string))
     );
+    const uploadedImages = uploadedResults.map(r => r.status === 'fulfilled' ? r.value : undefined).filter((img): img is string => !!img);
 
     // Primary source image is the first connected one
     const sourceImage = uploadedImages[0];
@@ -792,17 +867,20 @@ export const useBuilderWorkflow = (tabId?: string) => {
       throw new Error('Upscaling engines require a source image. Please upload or connect an image first.');
     }
 
-    processingQueue.current.add(nodeId);
+    // Central Queue Store: track connecting state
+    useBuilderQueueStore.getState().addJob(nodeId, {
+      state: 'connecting',
+      errorMessage: undefined,
+    });
 
-    // Update to processing state
+    // Update prompt draft and config once (does not trigger layout/edge recals)
     setNodes(nds => nds.map(n => 
       n.id === nodeId 
         ? { 
             ...n, 
             data: { 
               ...n.data, 
-              state: 'processing',
-              prompt,
+              promptDraft: prompt,
               config: { ...config },
               pendingPlacement: false
             } 
@@ -810,7 +888,17 @@ export const useBuilderWorkflow = (tabId?: string) => {
         : n
     ));
 
+    const controller = new AbortController();
+    abortControllers.current.set(nodeId, controller);
+
     try {
+      const onStatusChange = (status: 'queued' | 'processing', predictionId?: string) => {
+        useBuilderQueueStore.getState().updateJob(nodeId, {
+          state: status,
+          predictionId
+        });
+      };
+
       const sourceDims = nodeData.inputData?.dimensions;
       let result: { imageUrl: string; metadata: { width: number; height: number; model: string; prompt: string } };
 
@@ -845,7 +933,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
         };
 
         upscaler.validateInputs(aiConfig);
-        const upscaleResult = await upscaler.execute(aiConfig, sourceImage);
+        const upscaleResult = await upscaler.execute(aiConfig, sourceImage, controller.signal, onStatusChange);
         
         result = {
           imageUrl: upscaleResult.imageUrl,
@@ -883,8 +971,8 @@ export const useBuilderWorkflow = (tabId?: string) => {
         );
         const useImg2Img = sourceImage && modelCaps.supportsImg2Img;
         result = useImg2Img
-          ? await replicateService.generateImg2Img(baseParams, uploadedImages)
-          : await replicateService.generate(baseParams);
+          ? await replicateService.generateImg2Img(baseParams, uploadedImages, controller.signal, onStatusChange)
+          : await replicateService.generate(baseParams, controller.signal, onStatusChange);
       }
 
       const resultImage = await persistImageLocally(result.imageUrl);
@@ -940,6 +1028,23 @@ export const useBuilderWorkflow = (tabId?: string) => {
         const rootSourceImage = rawRootImage ? await resolveImageIfCached(rawRootImage) : undefined;
         const rootSourceId = rootSourceNode?.id;
 
+        const parentHistoryEntryId = parent ? (parent.data as BuilderNodeData).historyEntryId : undefined;
+        const rootHistoryEntryId = rootSourceNode ? (rootSourceNode.data as BuilderNodeData).historyEntryId : undefined;
+
+        // Fallback to session values if the node is at the root level of the graph
+        const sessionParentId = sessionStorage.getItem('presetParentId') || undefined;
+        const sessionRootId = sessionStorage.getItem('presetRootId') || undefined;
+
+        const finalParentId = parentHistoryEntryId || (!parent ? sessionParentId : undefined);
+        const finalRootId = rootHistoryEntryId || (!parent ? sessionRootId : undefined);
+
+        const nodeType = 
+          nodeData.processingType === 'source' ? 'source' :
+          nodeData.processingType === 'upscale' ? 'upscale' :
+          nodeData.processingType === 'variation' ? 'variation' :
+          nodeData.processingType === 'render' ? 'variation' :
+          'edit';
+
         // Build node tree from current state
         const nodeTree: NodeTreeData = {
           nodes: nodesRef.current.map(n => {
@@ -953,13 +1058,15 @@ export const useBuilderWorkflow = (tabId?: string) => {
               processingType: data.processingType,
               state: data.state,
               parentId: data.lineage?.parentId || undefined,
+              historyEntryId: data.historyEntryId,
             };
           }),
           sourceNodeId: rootSourceId || nodeId,
+          activeNodeId: nodeId,
           createdAt: Date.now(),
         };
         
-        addHistoryEntry({
+        const savedEntry = await addHistoryEntry({
           type: (nodeData.processingType as any) === 'upscale' ? 'upscale' : 'render',
           label: prompt && prompt.length > 50 ? prompt.slice(0, 50) + '...' : (prompt || 'Generation'),
           prompt,
@@ -970,7 +1077,18 @@ export const useBuilderWorkflow = (tabId?: string) => {
           nodeTree,
           rootSourceId,
           rootSourceImage,
+          parentId: finalParentId,
+          rootId: finalRootId,
+          nodeType,
         });
+
+        // Link the canvas node to the newly created history entry
+        setNodes(nds => nds.map(n => 
+          n.id === nodeId 
+            ? { ...n, data: { ...n.data, historyEntryId: savedEntry.id } }
+            : n
+        ));
+
         const isUpscale = (nodeData.processingType as any) === 'upscale';
         track({
           event: isUpscale ? 'image_upscaled' : 'image_generated',
@@ -1045,6 +1163,10 @@ export const useBuilderWorkflow = (tabId?: string) => {
 
     } catch (error) {
       logger.error('Generation failed:', error);
+      useBuilderQueueStore.getState().updateJob(nodeId, {
+        state: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Generation failed'
+      });
       setNodes(nds => nds.map(n => 
         n.id === nodeId 
           ? { 
@@ -1059,9 +1181,92 @@ export const useBuilderWorkflow = (tabId?: string) => {
       ));
       throw error;
     } finally {
-      processingQueue.current.delete(nodeId);
+      abortControllers.current.delete(nodeId);
     }
   }, [getNode, getParent, nodes, setNodes, propagateNodeUpdate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const cancelExecution = useCallback((nodeId: string) => {
+    const controller = abortControllers.current.get(nodeId);
+    if (controller) {
+      controller.abort();
+      abortControllers.current.delete(nodeId);
+    }
+    
+    // Set state to cancelled in central queue store
+    useBuilderQueueStore.getState().updateJob(nodeId, {
+      state: 'cancelled',
+      errorMessage: 'Execution cancelled by user'
+    });
+
+    setNodes(nds => nds.map(n => 
+      n.id === nodeId 
+        ? { 
+            ...n, 
+            data: { 
+              ...n.data, 
+              state: 'cancelled',
+              errorMessage: 'Execution cancelled by user'
+            } 
+          }
+        : n
+    ));
+
+    // Clear execution queue if this node was part of the running queue
+    const queueStore = useBuilderQueueStore.getState();
+    if (queueStore.activeQueue.includes(nodeId)) {
+      queueStore.setQueue([]);
+    }
+  }, [setNodes]);
+
+  const executeNode = useCallback(async (
+    nodeId: string,
+    prompt: string,
+    config?: GenerationConfig
+  ): Promise<{ image: string }> => {
+    const queueStore = useBuilderQueueStore.getState();
+    const order = queueStore.resolveAndQueue(nodeId, nodesRef.current, edgesRef.current);
+    if (order.length === 0) return { image: '' };
+
+    if (order.length === 1 && order[0] === nodeId && !queueStore.isExecuting) {
+      // Execute directly if no pending dependencies and queue is not running
+      return executeNodeSingle(nodeId, prompt, config);
+    }
+
+    // Define single node executor
+    const executeSingle = async (id: string) => {
+      const node = nodesRef.current.find(n => n.id === id);
+      const nodePrompt = id === nodeId ? prompt : (node?.data?.prompt || node?.data?.promptDraft || 'AI generation');
+      const nodeConfig = id === nodeId ? config : (node?.data?.config || {});
+      return executeNodeSingle(id, nodePrompt, nodeConfig);
+    };
+
+    // If queue is already running, wait for this specific node's state to complete or fail
+    if (queueStore.isExecuting) {
+      return new Promise<{ image: string }>((resolve, reject) => {
+        const check = setInterval(() => {
+          const node = nodesRef.current.find(n => n.id === nodeId);
+          const job = useBuilderQueueStore.getState().jobs[nodeId];
+          const state = job?.state || node?.data?.state;
+          
+          if (state === 'completed' || state === 'ready') {
+            clearInterval(check);
+            resolve({ image: node?.data?.image || '' });
+          } else if (state === 'failed' || state === 'error' || state === 'cancelled') {
+            clearInterval(check);
+            reject(new Error(job?.errorMessage || node?.data?.errorMessage || 'Dependency execution failed'));
+          }
+        }, 500);
+      });
+    }
+
+    try {
+      await queueStore.runQueue(executeSingle);
+      const node = nodesRef.current.find(n => n.id === nodeId);
+      return { image: node?.data?.image || '' };
+    } catch (err) {
+      throw err;
+    }
+  }, [executeNodeSingle]);
 
   // ========================================================================
   // LEGACY COMPATIBILITY - Bridge to old API
@@ -1239,15 +1444,30 @@ export const useBuilderWorkflow = (tabId?: string) => {
   const deleteNode = useCallback((nodeId: string, _isRecursive = false): void => {
     if (!_isRecursive) pushHistory(nodesRef.current, edgesRef.current); // snapshot once at top level
     
-    // Clean up cached images from IndexedDB
+    // Abort active generation if any
+    const activeCtrl = abortControllers.current.get(nodeId);
+    if (activeCtrl) {
+      activeCtrl.abort();
+      abortControllers.current.delete(nodeId);
+    }
+
+    // Clean up cached images from IndexedDB and revoke Object URLs to prevent RAM leaks
     const node = getNode(nodeId);
     if (node) {
       const data = node.data as BuilderNodeData;
-      if (data.image && data.image.startsWith('idb://')) {
-        deleteLocalImage(data.image).catch(() => {});
+      if (data.image) {
+        if (data.image.startsWith('idb://')) {
+          deleteLocalImage(data.image).catch(() => {});
+        } else if (data.image.startsWith('blob:')) {
+          revokeObjectUrl(data.image);
+        }
       }
-      if (data.outputData?.image && data.outputData.image.startsWith('idb://')) {
-        deleteLocalImage(data.outputData.image).catch(() => {});
+      if (data.outputData?.image) {
+        if (data.outputData.image.startsWith('idb://')) {
+          deleteLocalImage(data.outputData.image).catch(() => {});
+        } else if (data.outputData.image.startsWith('blob:')) {
+          revokeObjectUrl(data.outputData.image);
+        }
       }
     }
 
@@ -1468,6 +1688,7 @@ export const useBuilderWorkflow = (tabId?: string) => {
     createSourceNode,
     spawnGhostNode,
     executeNode,
+    cancelExecution,
     
     // Legacy API compatibility
     addChildNode,

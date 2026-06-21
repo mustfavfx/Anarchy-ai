@@ -265,6 +265,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
       setSelectedTool(config.selectedTool);
       prevSelectedToolRef.current = config.selectedTool;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only react to external config changes, not local selectedTool state
   }, [config.selectedTool]);
   
   // Sync selectedTool to AIConfigContext - only when local tool changes
@@ -315,6 +316,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
     if (Object.keys(updates).length > 0) {
       onParamsChange({ ...params, ...updates });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: params excluded to avoid infinite update loop (object identity changes every render)
   }, [selectedModel, availableResolutions, availableAspectRatios, modelSettings, onParamsChange]);
 
   // Only auto-switch model when tool changes, not on every render

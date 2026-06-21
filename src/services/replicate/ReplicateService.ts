@@ -2,12 +2,13 @@
  * Replicate API Integration Service
  * Unified image / upscale / video / 3D / chat generation
  * Docs: https://replicate.com/docs
+ *
+ * SECURITY: All API calls go through Supabase Edge Function "replicate-proxy".
+ * The Replicate API key is NEVER stored in the frontend.
  */
 
 import { logger } from '../../utils/logger';
-import { SettingsService } from '../settings';
 import { supabaseUrl, supabaseAnonKey } from '../supabase/supabaseClient';
-import { UpscalerFactory } from '../upscalers/UpscalerFactory';
 
 // ── Image Models ──────────────────────────────────────────────────────────────
 export type ReplicateImageModel =
@@ -100,8 +101,17 @@ export interface ReplicateGenerationResult {
   };
 }
 
+export interface ReplicatePrediction {
+  id: string;
+  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  output: unknown;
+  error?: any;
+  logs?: string;
+  version?: string;
+  input?: Record<string, unknown>;
+}
+
 export interface ReplicateApiConfig {
-  apiKey: string;
   baseUrl: string;
   timeout: number;
   maxRetries: number;
@@ -300,7 +310,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: [],
     pricePerImage: 0.005,
   },
-  // ── 9. Pruna AI P-Image Upscale ───────────────────────────────────────────
+  // ── 11. Pruna AI P-Image Upscale ───────────────────────────────────────────
   'prunaai/p-image-upscale': {
     supportsImg2Img: false,
     supportsMultiImage: false,
@@ -318,7 +328,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     pricePerImage: 0.01,
   },
 
-  // ── 11. Clarity Upscaler ─────────────────────────────────────────────────
+  // ── 12. Clarity Upscaler ─────────────────────────────────────────────────
   'philz1337x/clarity-upscaler': {
     supportsImg2Img: false,
     supportsMultiImage: false,
@@ -335,7 +345,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: [],
     pricePerImage: 0.01,
   },
-  // ── 12. Wan 2.1 i2v 480p ────────────────────────────────────────────────
+  // ── 13. Wan 2.1 i2v 480p ────────────────────────────────────────────────
   'wavespeedai/wan-2.1-i2v-480p': {
     supportsImg2Img: true,
     supportsMultiImage: false,
@@ -352,7 +362,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: [],
     pricePerImage: 0.04,
   },
-  // ── 13. Wan 2.1 i2v 720p ────────────────────────────────────────────────
+  // ── 14. Wan 2.1 i2v 720p ────────────────────────────────────────────────
   'wavespeedai/wan-2.1-i2v-720p': {
     supportsImg2Img: true,
     supportsMultiImage: false,
@@ -369,7 +379,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: [],
     pricePerImage: 0.08,
   },
-  // ── 14. Tripo3D ───────────────────────────────────────────────────────────
+  // ── 15. Tripo3D ───────────────────────────────────────────────────────────
   'zsxkib/tripo3d': {
     supportsImg2Img: true,
     supportsMultiImage: false,
@@ -386,7 +396,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: [],
     pricePerImage: 0.03,
   },
-  // ── 15-17. Chat Models ──────────────────────────────────────────────────
+  // ── 16-18. Chat Models ──────────────────────────────────────────────────
   'meta/meta-llama-3-70b-instruct': {
     supportsImg2Img: false,
     supportsMultiImage: false,
@@ -457,33 +467,21 @@ function resolutionToPixels(res: string): number {
   return isNaN(n) ? 1024 : n;
 }
 
-// ── Detect Tauri runtime ─────────────────────────────────────────────────────
-function isTauriRuntime(): boolean {
-  if (typeof window === 'undefined') return false;
-  // Check for Tauri protocol (tauri:// or other custom protocols)
-  const isTauriProtocol = window.location.protocol.startsWith('tauri') || 
-                          window.location.protocol === 'app:' ||
-                          window.location.protocol === 'file:' && !!(window as any).__TAURI__;
-  // withGlobalTauri:true sets window.__TAURI__; fallback to __TAURI_INTERNALS__
-  const hasTauriGlobal = !!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__;
-  // Check for Tauri-specific navigator properties
-  const isTauriEnv = typeof (window as any).__TAURI_IPC__ !== 'undefined' ||
-                     typeof (window as any).__TAURI_METADATA__ !== 'undefined';
-  return isTauriProtocol || hasTauriGlobal || isTauriEnv;
-}
-
-// ── Supabase proxy URL (only when NOT inside Tauri) ──────────────────────────
-function getProxyUrl(): string | null {
-  // Inside Tauri we use invoke('http_post') directly — no proxy needed/wanted
-  if (isTauriRuntime()) return null;
-  const url  = supabaseUrl;
-  const key  = supabaseAnonKey;
-  if (!url || !key || url.includes('placeholder')) return null;
+// ── Supabase proxy URL ───────────────────────────────────────────────────────
+function getProxyUrl(): string {
+  const url = supabaseUrl;
+  const key = supabaseAnonKey;
+  if (!url || !key || url.includes('placeholder')) {
+    throw new Error(
+      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env. ' +
+      'All Replicate API calls require the Supabase Edge Function proxy.'
+    );
+  }
   return `${url}/functions/v1/replicate-proxy`;
 }
 
-// ── Proxy fetch: strips API key from client, sends via Edge Function ──────────
-async function proxyPost(proxyUrl: string, replicatePath: string, body: unknown): Promise<any> {
+// ── Proxy fetch: all API calls go through Supabase Edge Function ──────────────
+async function proxyPost(proxyUrl: string, replicatePath: string, body: unknown, signal?: AbortSignal): Promise<ReplicatePrediction> {
   const anonKey = supabaseAnonKey;
   const res = await fetch(proxyUrl, {
     method: 'POST',
@@ -495,12 +493,13 @@ async function proxyPost(proxyUrl: string, replicatePath: string, body: unknown)
       'x-replicate-method': 'POST',
     },
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
   return res.json();
 }
 
-async function proxyGet(proxyUrl: string, replicatePath: string): Promise<any> {
+async function proxyGet(proxyUrl: string, replicatePath: string, signal?: AbortSignal): Promise<ReplicatePrediction> {
   const anonKey = supabaseAnonKey;
   const res = await fetch(proxyUrl, {
     method: 'POST',
@@ -511,161 +510,26 @@ async function proxyGet(proxyUrl: string, replicatePath: string): Promise<any> {
       'x-replicate-path':   replicatePath,
       'x-replicate-method': 'GET',
     },
+    signal,
   });
   if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
   return res.json();
 }
 
-// ── Tauri / direct fetch helpers (used when no proxy configured) ──────────────
-async function apiPost(url: string, headers: Record<string,string>, body: unknown): Promise<any> {
-  const tauriDetected = isTauriRuntime();
-  logger.log('[ReplicateService] apiPost called, Tauri detected:', tauriDetected);
-  logger.log('[ReplicateService] apiPost body payload:', JSON.stringify(body, null, 2));
-  
-  if (tauriDetected) {
-    try {
-      logger.log('[ReplicateService] Attempting Tauri invoke...');
-      const { invoke } = await import('@tauri-apps/api/core');
-      logger.log('[ReplicateService] Import successful, calling http_post...');
-      const result = await invoke('http_post', { url, headers, body });
-      logger.log('[ReplicateService] http_post successful');
-      return result;
-    } catch (invokeErr: any) {
-      logger.error('[ReplicateService] Tauri invoke failed:', invokeErr);
-      throw invokeErr;
-    }
-  }
-  
-  // Not in Tauri - use Vite proxy to avoid CORS
-  logger.log('[ReplicateService] Not in Tauri, using Vite proxy...');
-  try {
-    // Convert full URL to proxy path
-    const proxyUrl = url.replace('https://api.replicate.com/v1', '/api/replicate');
-    logger.log('[ReplicateService] Proxy URL:', proxyUrl);
-    
-    const res = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-    return res.json();
-  } catch (fetchErr: any) {
-    logger.error('[ReplicateService] Proxy fetch failed:', fetchErr);
-    throw fetchErr;
-  }
-}
-
-async function apiGet(url: string, headers: Record<string,string>): Promise<any> {
-  const tauriDetected = isTauriRuntime();
-  
-  if (tauriDetected) {
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      return await invoke('http_get', { url, headers });
-    } catch {
-      // Fall through to proxy
-    }
-  }
-  
-  // Use Vite proxy
-  const proxyUrl = url.replace('https://api.replicate.com/v1', '/api/replicate');
-  const res = await fetch(proxyUrl, { headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-function getFallbackReplicateToken(): string {
-  // Split to prevent GitHub push protection from triggering on hardcoded token
-  return [
-    'r8',
-    '_Um',
-    'mNn1K8',
-    'br01f70',
-    'tlJ63XNg',
-    '4WinpcBg',
-    '2AJWj0'
-  ].join('');
-}
-
 // ── Service Class ─────────────────────────────────────────────────────────────
 class ReplicateService {
-  private config: ReplicateApiConfig;
   private lastRequestTime = 0;
   private readonly minRequestInterval = 12_000; // 12s between requests (5 req/min safe)
   private webhookUrl: string = '';
 
   constructor() {
-    // Detect environment
-    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const inTauri = isTauriRuntime();
-    
-    // Try to get API key from SettingsService first, then env, then fallback
-    let apiKey = import.meta.env.VITE_REPLICATE_API_TOKEN ?? '';
-    try {
-      const secureKey = SettingsService.get('apiKey');
-      if (secureKey && secureKey.trim() !== '') apiKey = secureKey;
-    } catch {
-      // Ignore errors if settings service not initialized yet
+    // Webhook URL auto-constructed from Supabase URL
+    if (supabaseUrl && !supabaseUrl.includes('placeholder')) {
+      this.webhookUrl = `${supabaseUrl}/functions/v1/replicate_webhook`;
     }
     
-    if (!apiKey || apiKey.trim() === '') {
-      apiKey = getFallbackReplicateToken();
-    }
-    
-    // Determine base URL:
-    // - In Tauri: use real API (Tauri handles CORS via Rust backend)
-    // - In browser dev: use Vite proxy (/api/replicate -> https://api.replicate.com/v1)
-    // - In browser production: use real API (will need Supabase proxy or similar)
-    let baseUrl: string;
-    if (inTauri) {
-      baseUrl = 'https://api.replicate.com/v1';
-    } else if (isDev) {
-      baseUrl = '/api/replicate'; // Vite dev proxy
-    } else {
-      baseUrl = 'https://api.replicate.com/v1';
-    }
-    
-    this.config = {
-      apiKey,
-      baseUrl,
-      timeout:    120_000,
-      maxRetries: 3,
-    };
-    
-    // Webhook URL for async predictions (set via environment or settings)
-    this.webhookUrl = import.meta.env.VITE_REPLICATE_WEBHOOK_URL ?? '';
-    logger.log('[ReplicateService] VITE_REPLICATE_WEBHOOK_URL:', this.webhookUrl || '(not set)');
-    
-    if (!this.webhookUrl) {
-      // Auto-construct from Supabase URL (works in dev and production)
-      logger.log('[ReplicateService] VITE_SUPABASE_URL:', supabaseUrl || '(not set)');
-      if (supabaseUrl) {
-        this.webhookUrl = `${supabaseUrl}/functions/v1/replicate_webhook`;
-      }
-    }
-    
-    logger.log('[ReplicateService] Final webhookUrl:', this.webhookUrl || '(empty - webhook disabled)');
-    
-    // Debug logging in dev mode
-    if (isDev) {
-      logger.log('[ReplicateService] Mode:', inTauri ? 'Tauri' : 'Browser', '| Base URL:', baseUrl);
-    }
-  }
-
-  // Update API key from settings
-  updateApiKey(): void {
-    try {
-      const secureKey = SettingsService.get('apiKey');
-      if (secureKey && secureKey.trim() !== '') {
-        this.config.apiKey = secureKey;
-      } else {
-        const envKey = import.meta.env.VITE_REPLICATE_API_TOKEN ?? '';
-        this.config.apiKey = envKey && envKey.trim() !== '' ? envKey : getFallbackReplicateToken();
-      }
-    } catch {
-      // Ignore errors
-    }
+    logger.log('[ReplicateService] Webhook URL:', this.webhookUrl || '(empty - webhook disabled)');
+    logger.log('[ReplicateService] Mode: Proxy-only (server-side API key)');
   }
 
   // Wait if needed to respect rate limit
@@ -674,7 +538,6 @@ class ReplicateService {
     const elapsed = now - this.lastRequestTime;
     if (elapsed < this.minRequestInterval) {
       const waitMs = this.minRequestInterval - elapsed;
-      // Wait to respect rate limit
       await new Promise(r => setTimeout(r, waitMs));
     }
     this.lastRequestTime = Date.now();
@@ -711,19 +574,61 @@ class ReplicateService {
   }
 
   // ── Poll a prediction until SUCCEEDED or FAILED ──────────────────────────────
-  private async pollPrediction(predictionId: string): Promise<any> {
+  private async pollPrediction(
+    predictionId: string,
+    signal?: AbortSignal,
+    onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
+  ): Promise<ReplicatePrediction> {
     const proxy = getProxyUrl();
     const path  = `/predictions/${predictionId}`;
-    const headers = {
-      'Authorization': `Token ${this.config.apiKey}`,
-      'Content-Type':  'application/json',
-    };
     const maxAttempts = 120;
+    let hasNotifiedProcessing = false;
+    let consecutiveErrors = 0;
+
     for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-      const data = proxy
-        ? await proxyGet(proxy, path)
-        : await apiGet(`${this.config.baseUrl}${path}`, headers);
+      if (signal?.aborted) {
+        throw new Error('Prediction polling aborted');
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(resolve, 2000);
+        if (signal) {
+          const onAbort = () => {
+            clearTimeout(timeout);
+            reject(new Error('Prediction polling aborted'));
+          };
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      });
+
+      if (signal?.aborted) {
+        throw new Error('Prediction polling aborted');
+      }
+
+      let data: ReplicatePrediction;
+      try {
+        data = await proxyGet(proxy, path, signal);
+        consecutiveErrors = 0; // Reset error count on successful query
+      } catch (err: any) {
+        if (signal?.aborted) {
+          throw new Error('Prediction polling aborted');
+        }
+        consecutiveErrors++;
+        logger.warn(`[ReplicateService] Prediction polling failed (${consecutiveErrors}/5):`, err?.message || err);
+        if (consecutiveErrors >= 5) {
+          throw new Error(`Prediction polling failed after 5 consecutive attempts: ${err?.message || err}`);
+        }
+        continue; // Retry on next iteration
+      }
+      
+      // Update status when prediction transitions to processing status
+      if (data.status === 'processing' && !hasNotifiedProcessing) {
+        hasNotifiedProcessing = true;
+        if (onStatusChange) {
+          onStatusChange('processing', predictionId);
+        }
+      }
+
       if (data.status === 'succeeded') return data;
       if (data.status === 'failed' || data.status === 'canceled') {
         logger.error('[ReplicateService] Prediction failed:', {
@@ -744,9 +649,8 @@ class ReplicateService {
     'philz1337x/clarity-upscaler': 'dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e',
   };
 
-  // ── Upload a base64 data URI to Replicate Files API and return serving URL ──
+  // ── Upload a base64 data URI to Replicate Files API via proxy ──────────────
   async uploadToReplicate(dataUri: string): Promise<string> {
-    this.updateApiKey();
     // Parse data URI
     const commaIdx = dataUri.indexOf(',');
     if (commaIdx === -1) throw new Error('Invalid data URI');
@@ -755,67 +659,57 @@ class ReplicateService {
     const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
     const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
 
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      // Send base64 string to Rust (not byte array — avoids huge JSON serialization)
-      const result: string = await invoke('upload_to_replicate', {
-        api_key: this.config.apiKey,
-        b64_data: b64,
-        filename: `upload.${ext}`,
-        content_type: mime,
-      });
-      return result;
-    } catch {
-      // Fallback: use fetch directly (browser dev mode)
-      const byteStr = atob(b64);
-      const bytes = new Uint8Array(byteStr.length);
-      for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
-      const blob = new Blob([bytes], { type: mime });
-      const formData = new FormData();
-      formData.append('content', blob, `upload.${ext}`);
-      const res = await fetch('https://api.replicate.com/v1/files', {
-        method: 'POST',
-        headers: { 'Authorization': `Token ${this.config.apiKey}` },
-        body: formData,
-      });
-      if (!res.ok) throw new Error(`Replicate upload failed: ${res.status}`);
-      const json = await res.json();
-      return json.urls?.get || json.url;
-    }
+    const proxy = getProxyUrl();
+    logger.log('[ReplicateService] Uploading image via proxy...');
+    const byteStr = atob(b64);
+    const bytes = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+    const formData = new FormData();
+    formData.append('content', blob, `upload.${ext}`);
+    
+    const anonKey = supabaseAnonKey;
+    const res = await fetch(proxy, {
+      method: 'POST',
+      headers: {
+        'apikey':             anonKey,
+        'Authorization':      `Bearer ${anonKey}`,
+        'x-replicate-path':   '/files',
+        'x-replicate-method': 'POST',
+      },
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`Replicate upload via proxy failed: ${res.status} - ${await res.text()}`);
+    const json = await res.json();
+    return json.urls?.get || json.url;
   }
 
   // ── Submit a prediction and wait for result (with rate-limit retry) ──────
   public async runPrediction(
     modelId: string,
-    input: Record<string, any>,
+    input: Record<string, unknown>,
     nodeId?: string,
-    userId?: string
-  ): Promise<any> {
-    const model = modelId;
-    const payload = input;
-    console.log("Model:", model, "Payload:", payload);
-    this.updateApiKey();
+    userId?: string,
+    signal?: AbortSignal,
+    onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
+  ): Promise<ReplicatePrediction> {
     const proxy = getProxyUrl();
-    const headers = {
-      'Authorization': `Token ${this.config.apiKey}`,
-      'Content-Type':  'application/json',
-      'Prefer':        'wait=5',
-    };
+    logger.log("Model:", modelId, "Payload:", input);
 
     // Use version-based endpoint for community models
     const version = ReplicateService.MODEL_VERSIONS[modelId];
     const path = version ? '/predictions' : `/models/${modelId}/predictions`;
-    const url  = `${this.config.baseUrl}${path}`;
     const body: Record<string, unknown> = version ? { version, input } : { input };
     
     // Add webhook URL if configured
     if (this.webhookUrl) {
-      // Add node_id and user_id as query parameters to webhook URL
-      // (Replicate API does not support metadata field)
       const finalNodeId = (nodeId || input.node_id || input.nodeId || 'unknown') as string;
       const finalUserId = (userId || input.user_id || input.userId || 'anonymous') as string;
-      const webhookWithParams = `${this.webhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}`;
-      
+      let webhookWithParams = `${this.webhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(modelId)}`;
+      const workflowIdVal = (input.workflow_id || input.workflowId) as string | undefined;
+      if (workflowIdVal) {
+        webhookWithParams += `&workflow_id=${encodeURIComponent(workflowIdVal)}`;
+      }
       body.webhook = webhookWithParams;
       body.webhook_events_filter = ['completed'];
       
@@ -828,20 +722,25 @@ class ReplicateService {
       inputKeys: Object.keys(input),
       hasImages: input.image_input || input.image || input.input_images ? 'yes' : 'no',
       hasWebhook: !!this.webhookUrl,
-      hasMetadata: !!body.metadata,
     });
-
 
     const maxRetries = 4;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (signal?.aborted) {
+        throw new Error('Prediction aborted');
+      }
+
       try {
         await this.throttle();
-        const prediction = proxy
-          ? await proxyPost(proxy, path, body)
-          : await apiPost(url, headers, body);
+        const prediction = await proxyPost(proxy, path, body, signal);
+
+        // Notify that the prediction has been successfully created (queued)
+        if (onStatusChange) {
+          onStatusChange('queued', prediction.id);
+        }
 
         if (prediction.status === 'succeeded') {
-          console.log("Replicate response:", prediction);
+          logger.log("Replicate response:", prediction);
           return prediction;
         }
         if (prediction.status === 'failed') {
@@ -853,12 +752,15 @@ class ReplicateService {
           });
           throw new Error(`Prediction failed: ${JSON.stringify(prediction.error ?? prediction)}`);
         }
-        const response = await this.pollPrediction(prediction.id);
-        console.log("Replicate response:", response);
+        const response = await this.pollPrediction(prediction.id, signal, onStatusChange);
+        logger.log("Replicate response:", response);
         return response;
       } catch (err: any) {
+        if (signal?.aborted) {
+          throw new Error('Prediction aborted');
+        }
+
         const errMsg = err?.message || String(err);
-        // E003 = Replicate "Service is currently unavailable due to high demand"
         const isHighDemand = errMsg.includes('E003')
           || errMsg.includes('high demand')
           || errMsg.includes('currently unavailable')
@@ -872,12 +774,20 @@ class ReplicateService {
           || errMsg.includes('503');
         if (isRetryable && attempt < maxRetries) {
           const retryMatch = errMsg.match(/"retry_after"\s*:\s*(\d+)/);
-          // High-demand errors need longer waits: 20s, 40s, 60s, 80s
           const waitSec = retryMatch
             ? Number.parseInt(retryMatch[1], 10) + 1
             : isHighDemand ? (attempt + 1) * 20 : (attempt + 1) * 15;
           logger.log(`[ReplicateService] Retryable error (attempt ${attempt + 1}/${maxRetries}), waiting ${waitSec}s...`, errMsg.substring(0, 120));
-          await new Promise(r => setTimeout(r, waitSec * 1000));
+          
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(resolve, waitSec * 1000);
+            if (signal) {
+              signal.addEventListener('abort', () => {
+                clearTimeout(timeout);
+                reject(new Error('Prediction aborted'));
+              }, { once: true });
+            }
+          });
           continue;
         }
         throw err;
@@ -893,21 +803,23 @@ class ReplicateService {
     metadata: { nodeId: string; userId: string; workflowId?: string }
   ): Promise<{ id: string; status: string }> {
     const proxy = getProxyUrl();
-    const url   = proxy
-      ? `${proxy}/models/${model}/predictions`
-      : `${this.config.baseUrl}/models/${model}/predictions`;
+    const version = ReplicateService.MODEL_VERSIONS[model];
+    const path = version ? '/predictions' : `/models/${model}/predictions`;
     
-    const headers: Record<string, string> = {
-      'Authorization': `Token ${this.config.apiKey}`,
-      'Content-Type':  'application/json',
-    };
-    
-    // Replicate webhook events we want to receive
-    const body = {
+    let webhookWithParams = this.webhookUrl;
+    if (this.webhookUrl) {
+      const finalNodeId = metadata.nodeId || 'unknown';
+      const finalUserId = metadata.userId || 'anonymous';
+      webhookWithParams = `${this.webhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(model)}`;
+      if (metadata.workflowId) {
+        webhookWithParams += `&workflow_id=${encodeURIComponent(metadata.workflowId)}`;
+      }
+    }
+
+    const baseBody = {
       input,
-      webhook: this.webhookUrl,
+      webhook: webhookWithParams,
       webhook_events_filter: ['start', 'completed'],
-      // Store metadata for the webhook to use
       metadata: {
         node_id: metadata.nodeId,
         user_id: metadata.userId,
@@ -916,25 +828,17 @@ class ReplicateService {
       },
     };
 
+    const body = version ? { version, ...baseBody } : baseBody;
+
     logger.log('[ReplicateService] Submitting with webhook:', {
       model,
       webhook: this.webhookUrl,
       nodeId: metadata.nodeId,
+      path,
     });
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
+    const data = await proxyPost(proxy, path, body);
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Replicate API error: ${res.status} - ${text}`);
-    }
-
-    const data = await res.json();
-    
     logger.log('[ReplicateService] Prediction submitted:', {
       id: data.id,
       status: data.status,
@@ -944,10 +848,13 @@ class ReplicateService {
   }
 
   // ── Extract first image URL from prediction output ────────────────────────
-  public extractImageUrl(output: any): string {
+  public extractImageUrl(output: unknown): string {
     if (typeof output === 'string') return output;
-    if (Array.isArray(output) && output.length > 0) return output[0];
-    if (output?.url) return output.url;
+    if (Array.isArray(output) && output.length > 0 && typeof output[0] === 'string') return output[0];
+    if (output && typeof output === 'object' && 'url' in output) {
+      const urlVal = (output as Record<string, unknown>).url;
+      if (typeof urlVal === 'string') return urlVal;
+    }
     throw new Error('No image URL in Replicate response');
   }
 
@@ -956,23 +863,19 @@ class ReplicateService {
     params: ReplicateGenerationParams,
     images: string[]
   ): Record<string, any> {
-    // Minimal valid input for Nano Banana 2 - only prompt + image_input
     const promptText = images.length > 0
-      ? params.prompt  // Gemini understands edit context from image_input presence
+      ? params.prompt
       : params.prompt;
     const input: Record<string, any> = { prompt: promptText };
     if (images.length > 0) {
-      input.image_input = images; // array format forces edit mode
+      input.image_input = images;
     }
-    // Add resolution mapping for Nano Banana
-    // Nano Banana uses: 512, 1K, 2K, 4K directly
     const resolutionMap: Record<string, string> = {
       '1K': '1K',
       '2K': '2K',
       '4K': '4K',
     };
     
-    // Debug logging
     logger.log('[NanoBanana] Original resolution param:', params.resolution);
     
     if (params.resolution && params.resolution !== 'Auto') {
@@ -980,14 +883,12 @@ class ReplicateService {
       input.resolution = mappedResolution;
       logger.log('[NanoBanana] Mapped resolution:', mappedResolution);
     } else {
-      // Default to 1K if not specified
       input.resolution = '1K';
       logger.log('[NanoBanana] Using default resolution: 1K');
     }
     
     logger.log('[NanoBanana] Final input:', JSON.stringify(input, null, 2));
     
-    // Only add aspect_ratio for text-to-image (no images)
     if (images.length === 0 && params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
@@ -1002,7 +903,6 @@ class ReplicateService {
     const meta = this.getModelCapabilities(params.model);
     const input: Record<string, any> = { prompt: params.prompt };
 
-    // FLUX Kontext Pro: input_image (singular) + aspect_ratio + seed
     if (params.model === 'black-forest-labs/flux-kontext-pro') {
       if (images.length > 0) {
         input.input_image = images[0];
@@ -1016,7 +916,6 @@ class ReplicateService {
       return input;
     }
 
-    // FLUX 2 Pro uses megapixels + aspect_ratio instead of width/height
     if (params.model === 'black-forest-labs/flux-2-pro') {
       const mpMap: Record<string, string> = {
         '0.5K': '0.5 MP',
@@ -1026,9 +925,7 @@ class ReplicateService {
       };
       input.resolution   = mpMap[params.resolution ?? '1K'] ?? '1 MP';
       
-      // Handle aspect ratio - if images provided and aspect ratio is Auto/Match Input, use match_input_image
       if (images.length > 0) {
-        // When editing with reference images, respect the original aspect ratio
         if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input') {
           input.aspect_ratio = 'match_input_image';
         } else {
@@ -1039,13 +936,11 @@ class ReplicateService {
           input.prompt_strength = params.strength;
         }
       } else {
-        // Text-to-image mode
         input.aspect_ratio = params.aspectRatio ?? '1:1';
       }
       
       if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
     } else {
-      // Other FLUX models (dev, schnell) use width/height
       const base = resolutionToPixels(params.resolution ?? 'Auto');
       const dims = arToSize(params.aspectRatio ?? '1:1', base);
       input.width  = dims.width;
@@ -1069,7 +964,7 @@ class ReplicateService {
     return input;
   }
 
-  // ── Build input for general/fallback models (Recraft, etc) ───────────────
+  // ── Build input for general/fallback models ───────────────────────────────
   private buildGeneralInput(
     params: ReplicateGenerationParams
   ): Record<string, any> {
@@ -1089,12 +984,15 @@ class ReplicateService {
   }
 
   // ── Text-to-Image ─────────────────────────────────────────────────────────
-  async generate(params: ReplicateGenerationParams): Promise<ReplicateGenerationResult> {
-    this.updateApiKey();
+  async generate(
+    params: ReplicateGenerationParams,
+    signal?: AbortSignal,
+    onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
+  ): Promise<ReplicateGenerationResult> {
     const start = Date.now();
     const input = this.buildInput(params, []);
 
-    const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId);
+    const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
     const imageUrl   = this.extractImageUrl(prediction.output);
 
     return this.buildResult(params, imageUrl, {}, start);
@@ -1105,15 +1003,12 @@ class ReplicateService {
     params: ReplicateGenerationParams,
     metadata: { nodeId: string; userId: string; workflowId?: string }
   ): Promise<{ predictionId: string; status: string }> {
-    this.updateApiKey();
-    
     if (!this.webhookUrl) {
-      throw new Error('Webhook URL not configured. Set VITE_REPLICATE_WEBHOOK_URL env var.');
+      throw new Error('Webhook URL not configured. Ensure VITE_SUPABASE_URL is set correctly.');
     }
 
     const input = this.buildInput(params, []);
     
-    // Submit prediction with webhook
     const prediction = await this.submitPredictionWithWebhook(params.model, input, metadata);
     
     return {
@@ -1125,20 +1020,20 @@ class ReplicateService {
   // ── Image-to-Image (with multiple reference images) ───────────────────────
   async generateImg2Img(
     params: ReplicateGenerationParams,
-    images: string | string[]
+    images: string | string[],
+    signal?: AbortSignal,
+    onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
   ): Promise<ReplicateGenerationResult> {
-    this.updateApiKey();
     const start     = Date.now();
     const meta      = this.getModelCapabilities(params.model);
     const imageList = Array.isArray(images) ? images : [images];
 
-    // Respect model's maxReferenceImages limit
     const maxImgs  = meta.maxReferenceImages > 0 ? meta.maxReferenceImages : 14;
     const imgSlice = imageList.slice(0, maxImgs);
 
     const input = this.buildInput(params, imgSlice);
 
-    const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId);
+    const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
     const imageUrl   = this.extractImageUrl(prediction.output);
 
     return this.buildResult(params, imageUrl, input, start);
@@ -1150,13 +1045,10 @@ class ReplicateService {
     images: string[]
   ): Record<string, any> {
     const input: Record<string, any> = { prompt: params.prompt };
-    // image_input: array of URIs (1-14 images)
     if (images.length > 0) {
       input.image_input = images;
     }
-    // size: 2K (default) or 4K
     input.size = params.resolution === '4K' ? '4K' : '2K';
-    // aspect_ratio
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     } else if (images.length > 0) {
@@ -1171,11 +1063,9 @@ class ReplicateService {
     images: string[]
   ): Record<string, any> {
     const input: Record<string, any> = { prompt: params.prompt };
-    // image: single URI for editing
     if (images.length > 0) {
       input.image = images[0];
     }
-    // aspect_ratio (ignored when editing)
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
@@ -1190,18 +1080,15 @@ class ReplicateService {
     const input: Record<string, any> = { prompt: params.prompt };
     
     if (images.length >= 1) {
-      // GPT Image 2 uses 'input_images' for all reference images
       input.input_images = images;
     }
     
-    // GPT Image 2 uses 'quality' param for resolution (low, medium, high, auto)
     if (params.resolution && params.resolution !== 'auto') {
-      input.quality = params.resolution.toLowerCase(); // low / medium / high
+      input.quality = params.resolution.toLowerCase();
     }
     
-    // GPT Image 2 uses 'aspect_ratio' not 'aspectRatio'
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio; // 1:1, 3:2, 2:3
+      input.aspect_ratio = params.aspectRatio;
     }
     
     return input;
@@ -1214,32 +1101,25 @@ class ReplicateService {
   ): Record<string, any> {
     const input: Record<string, any> = { prompt: params.prompt };
     
-    // SD 3.5 img2img: pass source image + strength
     if (images.length > 0) {
       input.image = images[0];
-      // prompt_strength controls how much to change (0=keep original, 1=ignore original)
-      // Default 0.45 for closer match to input image
       input.prompt_strength = params.strength ?? 0.45;
     } else if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
     
-    // SD 3.5 supports cfg (guidance scale) - range 1-10, default 5
     if (params.cfg != null) {
       input.cfg = params.cfg;
     }
     
-    // SD 3.5 supports negative_prompt
     if (params.negativePrompt) {
       input.negative_prompt = params.negativePrompt;
     }
     
-    // SD 3.5 supports steps (20-50)
     if (params.steps != null) {
       input.num_inference_steps = params.steps;
     }
     
-    // SD 3.5 supports seed
     if (params.seed != null) input.seed = params.seed;
     
     return input;
@@ -1288,33 +1168,18 @@ class ReplicateService {
     };
   }
 
-  // ── Image Upscaling ───────────────────────────────────────────────────────
-  async upscaleImage(
-    imageUrl: string,
-    model: ReplicateUpscaleModel = 'topazlabs/image-upscale',
-    scale: number = 4,
-    options?: any
-  ): Promise<string> {
-    const upscaler = UpscalerFactory.create(model);
-    const mockConfig: any = {
-      model,
-      upscaleFactor: scale,
-      ...options,
-    };
-    const result = await upscaler.execute(mockConfig, imageUrl);
-    return result.imageUrl;
-  }
 
   // ── Video Generation ──────────────────────────────────────────────────────
   async generateVideo(
     imageUrl: string,
     prompt: string,
-    model: ReplicateVideoModel = 'wavespeedai/wan-2.1-i2v-480p'
+    model: ReplicateVideoModel = 'wavespeedai/wan-2.1-i2v-480p',
+    signal?: AbortSignal
   ): Promise<string> {
     const prediction = await this.runPrediction(model, {
       image:  imageUrl,
       prompt,
-    });
+    }, undefined, undefined, signal);
     const output = prediction.output;
     if (typeof output === 'string') return output;
     if (Array.isArray(output))      return output[0];
@@ -1324,20 +1189,25 @@ class ReplicateService {
   // ── 3D Generation ─────────────────────────────────────────────────────────
   async generate3D(
     imageUrl: string,
-    model: Replicate3DModel = 'zsxkib/tripo3d'
+    model: Replicate3DModel = 'zsxkib/tripo3d',
+    signal?: AbortSignal
   ): Promise<string> {
-    const prediction = await this.runPrediction(model, { image: imageUrl });
+    const prediction = await this.runPrediction(model, { image: imageUrl }, undefined, undefined, signal);
     const output = prediction.output;
     if (typeof output === 'string') return output;
-    if (output?.mesh_url)           return output.mesh_url;
-    if (Array.isArray(output))      return output[0];
+    if (output && typeof output === 'object' && 'mesh_url' in output) {
+      const meshUrl = (output as Record<string, unknown>).mesh_url;
+      if (typeof meshUrl === 'string') return meshUrl;
+    }
+    if (Array.isArray(output) && output.length > 0 && typeof output[0] === 'string') return output[0];
     throw new Error('No 3D model URL in response');
   }
 
   // ── Chat Completion ───────────────────────────────────────────────────────
   async chatCompletion(
     messages: ReplicateChatMessage[],
-    model: ReplicateChatModel = 'meta/meta-llama-3-70b-instruct'
+    model: ReplicateChatModel = 'meta/meta-llama-3-70b-instruct',
+    signal?: AbortSignal
   ): Promise<ReplicateChatResult> {
     const systemMsg = messages.find(m => m.role === 'system')?.content ?? '';
     const userMsg   = messages.filter(m => m.role !== 'system').map(m => `${m.role}: ${m.content}`).join('\n');
@@ -1345,11 +1215,34 @@ class ReplicateService {
     const prediction = await this.runPrediction(model, {
       system_prompt: systemMsg,
       prompt:        userMsg,
-    });
+    }, undefined, undefined, signal);
 
     const output = prediction.output;
     const content = Array.isArray(output) ? output.join('') : String(output ?? '');
     return { content, model };
+  }
+
+  // ── Warm-up Connection Ping ───────────────────────────────────────────────
+  async pingProxy(): Promise<boolean> {
+    try {
+      const url = getProxyUrl();
+      const anonKey = supabaseAnonKey;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type':       'application/json',
+          'apikey':             anonKey,
+          'Authorization':      `Bearer ${anonKey}`,
+          'x-replicate-path':   '/ping',
+          'x-replicate-method': 'GET',
+        },
+        body: JSON.stringify({ ping: true }),
+      });
+      return res.ok;
+    } catch (err) {
+      logger.warn('[ReplicateService] Warm-up ping failed:', err);
+      return false;
+    }
   }
 
 }

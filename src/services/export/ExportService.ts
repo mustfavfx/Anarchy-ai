@@ -8,7 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import type { Node, Edge } from '@xyflow/react';
 import jsPDF from 'jspdf';
-import { getLocalImage } from '../history/HistoryService';
+
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ export interface PDFExportOptions {
 
 const PROGRAM_IDENTITY = {
   name: 'Anarchy AI',
-  version: '0.07',
+  version: '0.0.8',
   fileExtension: 'ana',
   fileDescription: 'Anarchy AI Project',
   website: 'https://anarchy-ai.com',
@@ -190,8 +190,13 @@ function extractImagesFromNodes(nodes: Node[]): ExportImageItem[] {
 async function loadImageElement(url: string): Promise<HTMLImageElement> {
   let resolvedUrl = url;
   if (url && url.startsWith('idb://')) {
-    const cached = await getLocalImage(url);
-    if (cached) resolvedUrl = cached;
+    try {
+      const { getLocalImage } = await import('../history/HistoryService');
+      const cached = await getLocalImage(url);
+      if (cached) resolvedUrl = cached;
+    } catch (err) {
+      console.error('[ExportService] Failed to load local image dynamically:', err);
+    }
   }
 
   const img = new Image();
@@ -800,10 +805,13 @@ export async function saveDXFFromServer(
 
 /** Strip runtime callbacks from node data */
 function stripCallbacks(data: Record<string, any>): Record<string, any> {
-  const {
-    onAddChild, onImageUpload, onImagesUpload, onDelete, onExecute, onRetry,
-    ...rest
-  } = data;
+  const rest = { ...data };
+  delete rest.onAddChild;
+  delete rest.onImageUpload;
+  delete rest.onImagesUpload;
+  delete rest.onDelete;
+  delete rest.onExecute;
+  delete rest.onRetry;
   return rest;
 }
 

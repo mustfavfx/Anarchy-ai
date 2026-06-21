@@ -14,7 +14,7 @@ import {
   type DocCategory,
   type DocFile 
 } from '../../services/docs';
-import { DocViewer } from '../../components/DocViewer';
+import { DocViewer } from '../../shared/components/DocViewer';
 import { SupportModal } from './SupportModal';
 
 // ── Data (outside component for reference stability) ────────────────────────

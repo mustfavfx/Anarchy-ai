@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import type { Node, Edge } from '@xyflow/react';
-import type { ReplicateImageModel, ReplicateUpscaleModel } from '../services/replicate';
+import type { ReplicateImageModel, ReplicateUpscaleModel } from '../services/replicate/ReplicateService';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

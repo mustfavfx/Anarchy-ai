@@ -1,5 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
-import { logger } from '../utils/logger';
+import { logger } from '@/utils/logger';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import './ErrorBoundary.css';
 

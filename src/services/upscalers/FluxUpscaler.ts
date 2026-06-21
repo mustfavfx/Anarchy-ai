@@ -10,7 +10,7 @@ export class FluxUpscaler implements BaseUpscaler {
     throw new Error('Flux is not a dedicated upscaler model');
   }
 
-  async execute(_config: AIConfig, _image: string): Promise<UpscaleResult> {
+  async execute(_config: AIConfig, _image: string, _signal?: AbortSignal): Promise<UpscaleResult> {
     throw new Error('Flux is not a dedicated upscaler model');
   }
 

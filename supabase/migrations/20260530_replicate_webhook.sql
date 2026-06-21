@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.replicate_predictions (
   user_id         UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   node_id         TEXT NOT NULL,              -- Builder node ID
   workflow_id     TEXT,                       -- Optional workflow ID
-  model           TEXT NOT NULL,
+  model           TEXT,
   prompt          TEXT,
   status          TEXT NOT NULL DEFAULT 'pending' 
                   CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'canceled')),

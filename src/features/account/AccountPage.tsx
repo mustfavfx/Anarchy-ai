@@ -7,7 +7,7 @@ import {
   Sparkles, ArrowUpRight, Loader2, Info, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { ConfirmModal } from '../../components/ConfirmModal';
+import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { getUserCredit, type UserCredit, getTransactionHistory, type CreditTransaction } from '../../services/credit/creditService';
 import './AccountPage.css';
 

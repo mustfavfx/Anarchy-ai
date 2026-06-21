@@ -8,21 +8,22 @@ import {
   useReactFlow,
   ReactFlowProvider,
   SelectionMode,
+  useStore,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useBuilderWorkflow, type ProcessingType } from './useBuilderWorkflow';
+import { PerformanceHUD } from './components/PerformanceHUD';
 import { type BuilderNode } from './types';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { ConfirmModal } from '../../components/ConfirmModal';
+import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { BuilderContextMenu } from './components/BuilderContextMenu';
 import { BuilderPromptBar } from './components/BuilderPromptBar';
 import { CreditErrorModal } from './components/CreditErrorModal';
 import { useBuilderDrop } from './hooks/useBuilderDrop';
 import { useBuilderKeyboard } from './hooks/useBuilderKeyboard';
 import { useAuth } from '../auth/AuthContext';
-import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits, getUserCredit } from '../../services/credit/creditService';
 import { cacheLocalImage } from '../../services/history/HistoryService';
 import { logger } from '../../utils/logger';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
@@ -33,6 +34,7 @@ import { watermarkService } from '../../services/watermark/WatermarkService';
 import { useBuilderCredits } from './hooks/useBuilderCredits';
 import { useBuilderExport } from './hooks/useBuilderExport';
 import { useBuilderPersistence } from './hooks/useBuilderPersistence';
+import { useBuilderGeneration } from './hooks/useBuilderGeneration';
 
 // Helpers
 import {
@@ -87,7 +89,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 }) => {
   const { user: authUser } = useAuth();
   const addNotification = useNotificationStore((state) => state.addNotification);
+  const zoom = useStore((s) => s.transform[2]);
+  const isZoomedOut = zoom < 0.6;
+  
   const hasFittedInitially = useRef(false);
+
+  // Memoize custom node/edge renderer objects to prevent react-flow re-creation warning
+  const memoizedNodeTypes = useMemo(() => nodeTypes, []);
+  const memoizedEdgeTypes = useMemo(() => edgeTypes, []);
 
   // Hook 1: Credits State Management
   const {
@@ -111,6 +120,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     createSourceNode,
     spawnGhostNode,
     executeNode,
+    cancelExecution,
     deleteNode,
     rearrangeNodes,
     setNodes,
@@ -120,7 +130,24 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     redo,
     canUndo,
     canRedo
-  } = useBuilderWorkflow(tabId);
+  } = useBuilderWorkflow(tabId, !!initialWorkflow || !!initialImage);
+
+  // Hook 2: Generation, retry & credit validation operations
+  const {
+    prompt,
+    setPrompt,
+    executeWithNotifications,
+    handleGenerate,
+    makeRetryHandler,
+  } = useBuilderGeneration({
+    nodes,
+    executeNode,
+    createSourceNode,
+    spawnGhostNode,
+    updateNodeData,
+    setUserCredits,
+    setCreditError,
+  });
 
   // Sanitize onNodesChange to prevent NaN position errors
   const handleNodesChange = useCallback((changes: any[]) => {
@@ -183,11 +210,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, []);
 
-  const [prompt, setPrompt] = useState('');
-  const promptRef = useRef(prompt);
-  useEffect(() => {
-    promptRef.current = prompt;
-  }, [prompt]);
+
 
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const spaceRef = useRef(false);
@@ -218,6 +241,53 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       globalThis.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  // Periodic warm-up ping for the Replicate proxy edge function to prevent cold start delays on first generation
+  useEffect(() => {
+    if (!isActive) return;
+
+    let intervalId: any = null;
+    let isDisabled = false;
+
+    const runPing = async () => {
+      if (isDisabled) return;
+      try {
+        const { replicateService } = await import('../../services/replicate');
+        const success = await replicateService.pingProxy();
+        if (!success) {
+          logger.warn('[BuilderPage] Warm-up ping failed (proxy function may not be deployed). Disabling periodic warm-up.');
+          isDisabled = true;
+          if (intervalId) {
+            clearInterval(intervalId);
+          }
+        }
+      } catch (err) {
+        logger.warn('[BuilderPage] Warm-up ping error:', err);
+        isDisabled = true;
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+      }
+    };
+
+    // Run immediately on active
+    runPing();
+
+    // Run every 3 minutes (180000 ms)
+    intervalId = setInterval(() => {
+      if (isDisabled) {
+        if (intervalId) clearInterval(intervalId);
+        return;
+      }
+      runPing();
+    }, 180000);
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isActive]);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -417,6 +487,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: setCurrentFilePathState is a stable setter, adding it causes circular dep
   }, [
     initialProjectPath,
     tabId,
@@ -473,8 +544,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       const customEvent = e as CustomEvent<{ image: string; source: string }>;
       const activeTabId = localStorage.getItem('anarchy_builder_active_tab');
       
+      console.log('EVENT RECEIVED');
+      console.log('tabId=', tabId);
+      console.log('activeTabId=', activeTabId);
+      console.log('equal=', tabId === activeTabId);
+      console.log('isActive=', isActive);
+
       // Only process the external image if this tab is the active tab
-      if (tabId && tabId === activeTabId) {
+      if (isActive) {
         const { image, source } = customEvent.detail;
         if (image) {
           handleExternalImage(image, source);
@@ -486,7 +563,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     return () => {
       window.removeEventListener('anarchy:external-image-global', handleGlobalEvent);
     };
-  }, [tabId, handleExternalImage]);
+  }, [tabId, isActive, handleExternalImage]);
 
   // Viewport restore removed — always start fresh
 
@@ -529,8 +606,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         setSelectedNode({ id: null, type: null, image: undefined, originalImage: undefined, prompt: undefined, state: undefined });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedNodeId, setSelectedNode]); // nodes intentionally omitted — use nodesRef
+  // nodes intentionally omitted — use nodesRef to avoid re-render on every drag frame
+  }, [selectedNodeId, setSelectedNode]);
 
   // Restore viewport from localStorage if available, preventing fitView jump on mount
   const hasRestoredViewport = useRef(false);
@@ -558,58 +635,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
 
 
-  // Execute with notifications wrapper
-  const executeWithNotifications = useCallback(async (
-    nodeId: string, 
-    nodePrompt: string, 
-    config?: any,
-    chargedCost?: number
-  ) => {
-    try {
-      const result = await executeNode(nodeId, nodePrompt, config);
-      const resultImage = result?.image;
-      
-      addNotification({
-        type: 'success',
-        title: 'Image Generated',
-        message: nodePrompt.length > 40 ? nodePrompt.slice(0, 40) + '...' : nodePrompt,
-        nodeId,
-        imageUrl: resultImage,
-        duration: 6000,
-        category: 'generation',
-      });
 
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Generation failed';
-      addNotification({
-        type: 'error',
-        title: 'Generation Failed',
-        message: errorMsg,
-        nodeId,
-        duration: 0,
-        category: 'generation',
-      });
-
-      // Refund credits for this failed node using chargedCost
-      if (authUser?.id && !DEV_MODE && chargedCost) {
-        refundCredits(authUser.id, chargedCost, `Refund: Failed generation for node ${nodeId}`)
-          .then((success) => {
-            if (success) {
-              addNotification({
-                type: 'info',
-                title: 'Credits Refunded',
-                message: `Refunded ${chargedCost} credits for failed generation.`,
-                duration: 4000,
-              });
-              getUserCredit(authUser.id).then(c => c && setUserCredits(c.balance)).catch(() => {});
-            }
-          })
-          .catch((err) => logger.error('[Credit] Refund failed:', err));
-      }
-
-      throw error;
-    }
-  }, [executeNode, addNotification, authUser]);
 
   const makeImageUploadHandler = useCallback((nodeId: string) => (url: string) => {
     if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, state: 'idle', outputData: undefined }); return; }
@@ -629,17 +655,10 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, [createSourceNode, setNodes]);
 
-  const handleRetryExecution = useCallback(async (nodeId: string, prompt: string, config: any) => {
-    try {
-      await executeWithNotifications(nodeId, prompt, config);
-    } catch {
-      // ignored
-    }
-  }, [executeWithNotifications]);
-
   const makeImagesUploadHandler = useCallback((node: BuilderNode) => (urls: string[]) => {
     if (!urls.length) return;
-    Promise.all(urls.map(u => applyWatermarkToSource(u))).then(async (watermarkedUrls) => {
+    Promise.allSettled(urls.map(u => applyWatermarkToSource(u))).then(async (results) => {
+      const watermarkedUrls = results.map((r, idx) => r.status === 'fulfilled' ? r.value : urls[idx]);
       const watermarked = watermarkedUrls[0];
       const imageKey = `idb://${crypto.randomUUID()}`;
       await cacheLocalImage(imageKey, watermarked);
@@ -649,17 +668,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, [updateNodeData, applyWatermarkToSource, spawnExtraSources, setSelectedNode]);
 
-  const makeRetryHandler = useCallback((node: BuilderNode) => {
-    const d = node.data;
-    if (d.state !== 'error' || d.type !== 'ghost') return undefined;
-    return () => {
-      const promptText = d.prompt;
-      if (!promptText) return;
-      updateNodeData(node.id, { state: 'idle', errorMessage: undefined });
-      setTimeout(() => handleRetryExecution(node.id, promptText, d.config), 50);
-    };
-  }, [updateNodeData, handleRetryExecution]);
-
   // FIX 1: nodesRef gives stable callbacks live access to nodes without making
   // stableHandlers depend on the nodes array. This prevents ALL nodes from
   // re-rendering whenever any single node changes position.
@@ -667,6 +675,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   nodesRef.current = nodes;
 
   const mappedNodesCache = useRef<Map<string, BuilderNode>>(new Map());
+  const nodeDataCache = useRef<Map<string, { rawData: any; mappedData: any; enableWatermark: boolean }>>(new Map());
 
   const stableHandlers = useMemo(() => ({
     onAddChild: (id: string, type: ProcessingType) => {
@@ -690,9 +699,12 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     onExecute: (id: string, promptText: string) => {
       const cfg = buildGenConfig(getConfig());
       executeWithNotifications(id, promptText, cfg).catch(() => {});
+    },
+    onCancel: (id: string) => {
+      cancelExecution(id);
     }
     // ↑ nodes intentionally removed from deps — use nodesRef instead
-  }), [addChildNode, deleteNode, makeImageUploadHandler, makeImagesUploadHandler, makeRetryHandler, getConfig, executeWithNotifications]);
+  }), [addChildNode, deleteNode, makeImageUploadHandler, makeImagesUploadHandler, makeRetryHandler, getConfig, executeWithNotifications, cancelExecution]);
 
   // Bind callbacks to nodes - filter out nodes with invalid/unmeasured positions
   const nodesWithCallbacks = useMemo(() => {
@@ -700,24 +712,38 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const result = nodes
       .filter(node => isValidPosition(node))
       .map(node => {
+        // Retrieve or build stable data object to prevent custom nodes from re-rendering during dragging
+        const cachedEntry = nodeDataCache.current.get(node.id);
+        let mappedData = cachedEntry?.mappedData;
+        
+        if (!cachedEntry || cachedEntry.rawData !== node.data || cachedEntry.enableWatermark !== enableWatermark) {
+          mappedData = {
+            ...node.data,
+            onAddChild:      (type: ProcessingType) => stableHandlers.onAddChild(node.id, type),
+            onImageUpload:   node.data.type === 'source' ? (url: string) => stableHandlers.onImageUpload(node.id, url) : undefined,
+            onImagesUpload:  node.data.type === 'source' ? (urls: string[]) => stableHandlers.onImagesUpload(node.id, urls) : undefined,
+            onDelete:        node.data.type === 'source' ? undefined : () => stableHandlers.onDelete(node.id),
+            onRetry:         node.data.type === 'ghost' && (node.data.state === 'error' || node.data.state === 'failed') ? () => stableHandlers.onRetry(node.id) : undefined,
+            onExecute:       node.data.type === 'ghost' ? (promptText: string) => stableHandlers.onExecute(node.id, promptText) : undefined,
+            onCancel:        (node.data.type === 'ghost' || node.data.type === 'result') ? () => stableHandlers.onCancel(node.id) : undefined,
+            enableWatermark, // injected once — avoids per-node Zustand subscription
+          };
+          nodeDataCache.current.set(node.id, {
+            rawData: node.data,
+            mappedData,
+            enableWatermark,
+          });
+        }
+
         const cached = mappedNodesCache.current.get(node.id);
-        if (cached && (cached as any)._raw === node) {
+        if (cached && (cached as any)._raw === node && cached.data === mappedData) {
           nextCache.set(node.id, cached);
           return cached;
         }
         
         const mappedNode: BuilderNode = {
           ...node,
-          data: {
-            ...node.data,
-            onAddChild:      (type: ProcessingType) => stableHandlers.onAddChild(node.id, type),
-            onImageUpload:   node.data.type === 'source' ? (url: string) => stableHandlers.onImageUpload(node.id, url) : undefined,
-            onImagesUpload:  node.data.type === 'source' ? (urls: string[]) => stableHandlers.onImagesUpload(node.id, urls) : undefined,
-            onDelete:        node.data.type === 'source' ? undefined : () => stableHandlers.onDelete(node.id),
-            onRetry:         node.data.type === 'ghost' && node.data.state === 'error' ? () => stableHandlers.onRetry(node.id) : undefined,
-            onExecute:       node.data.type === 'ghost' ? (promptText: string) => stableHandlers.onExecute(node.id, promptText) : undefined,
-            enableWatermark, // injected once — avoids per-node Zustand subscription
-          }
+          data: mappedData
         };
         (mappedNode as any)._raw = node;
         nextCache.set(node.id, mappedNode);
@@ -725,7 +751,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       });
     mappedNodesCache.current = nextCache;
     return result;
-  }, [nodes, stableHandlers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- enableWatermark intentionally omitted per nodesRef pattern above
+  }, [nodes, stableHandlers, enableWatermark]);
 
   // Fit view when nodes are measured to center them perfectly on initial load
   useEffect(() => {
@@ -826,61 +853,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
 
 
-  const executeGhost = useCallback((ghostId: string, genConfig: ReturnType<typeof buildGenConfig>, chargedCost: number) => {
-    executeWithNotifications(ghostId, promptRef.current, genConfig, chargedCost).catch(() => {});
-    setPrompt('');
-  }, [executeWithNotifications, setPrompt]);
 
-  const spawnAndExecute = useCallback((genConfig: ReturnType<typeof buildGenConfig>, chargedCost: number) => {
-    const existingParent =
-      nodes.find(n => (n.data.type === 'source' || n.data.type === 'result') && !!n.data.image) ??
-      nodes.find(n => n.data.type === 'source');
-    const parentId = existingParent ? existingParent.id : createSourceNode();
-    const ghostId = spawnGhostNode(parentId, 'render');
-    if (ghostId) {
-      executeGhost(ghostId, genConfig, chargedCost);
-    }
-  }, [nodes, createSourceNode, spawnGhostNode, executeGhost]);
-
-  const handleGenerate = useCallback(async () => {
-    const aiConfig = getConfig();
-    const cost = getModelCost(aiConfig.model, {
-      resolution: aiConfig.resolution,
-      qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
-      prunaTarget: aiConfig.prunaTarget,
-    });
-
-    const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
-    if (!prompt.trim() && !(isUpscaler && aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1)) return;
-
-    const genConfig = buildGenConfig(aiConfig);
-    const idleGhosts = nodes.filter(n => n.data.type === 'ghost' && n.data.state === 'idle');
-    const totalCost = cost * (idleGhosts.length > 0 ? idleGhosts.length : 1);
-
-    if (authUser?.id && !DEV_MODE) {
-      const creditCheck = await checkCreditBalance(authUser.id, totalCost);
-      if (!creditCheck.hasEnough) {
-        setCreditError({ balance: creditCheck.balance, needed: totalCost });
-        return;
-      }
-    }
-
-    if (authUser?.id && !DEV_MODE) {
-      const deduct = await deductCredits(authUser.id, totalCost, `Generation: ${prompt.slice(0, 30)}...`);
-      if (!deduct.success) {
-        addNotification({ type: 'error', title: 'Deduction Failed', message: deduct.error ?? 'Insufficient balance' });
-        return;
-      }
-      getUserCredit(authUser.id).then(c => c && setUserCredits(c.balance)).catch(() => {});
-    }
-
-    if (idleGhosts.length > 0) {
-      idleGhosts.forEach(g => executeWithNotifications(g.id, prompt, genConfig, cost).catch(() => {}));
-      setPrompt('');
-    } else {
-      spawnAndExecute(genConfig, cost);
-    }
-  }, [getConfig, authUser, prompt, nodes, executeWithNotifications, setPrompt, spawnAndExecute, addNotification]);
 
   const saveBuilderViewport = useCallback(() => {
     try {
@@ -906,6 +879,17 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     canvasContainerRef.current?.classList.remove('canvas-panning');
     saveBuilderViewport();
   }, [saveBuilderViewport]);
+
+  // PERF: Stable drag handlers — extracted from JSX so ReactFlow doesn't get
+  // a new function reference on every render (inline arrows recreate each time).
+  const handleNodeDragStart = useCallback(() => {
+    const container = document.querySelector('.react-flow');
+    if (container) container.classList.add('canvas-node-dragging');
+  }, []);
+  const handleNodeDragStop = useCallback(() => {
+    const container = document.querySelector('.react-flow');
+    if (container) container.classList.remove('canvas-node-dragging');
+  }, []);
 
   const contextNode = contextMenu?.type === 'node'
     ? nodesWithCallbacks.find(n => n.id === contextMenu.nodeId)
@@ -1141,7 +1125,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const canGenerate = isUpscaler ? (hasUpscaleFactor && hasGhostNode && hasSourceWithImage) : true;
 
   return (
-    <div className="builder-page">
+    <div className={`builder-page ${isZoomedOut ? 'lod-zoomed-out' : ''}`}>
       <div
         className="canvas-container"
         ref={canvasContainerRef}
@@ -1193,8 +1177,10 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             onNodeContextMenu={onNodeContextMenu}
             onMoveStart={handleMoveStart}
             onMoveEnd={handleMoveEnd}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
+            onNodeDragStart={handleNodeDragStart}
+            onNodeDragStop={handleNodeDragStop}
+            nodeTypes={memoizedNodeTypes}
+            edgeTypes={memoizedEdgeTypes}
             fitViewOptions={{ padding: 0.2, minZoom: 0.01, maxZoom: 2, duration: 300 }}
             colorMode="dark"
             minZoom={0.01}
@@ -1279,6 +1265,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           imageFileToDataUrl={imageFileToDataUrl}
           spawnFromImage={spawnFromImage}
         />
+
+        <PerformanceHUD />
 
         {/* Watermark */}
         <div className="builder-watermark">ANARCHY</div>

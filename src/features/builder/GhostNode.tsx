@@ -10,12 +10,13 @@
  */
 
 import React, { memo, useMemo, useCallback, useEffect, useState } from 'react';
-import { Handle, Position, type NodeProps, useReactFlow, useEdges, useNodes, useUpdateNodeInternals } from '@xyflow/react';
+import { Handle, Position, type NodeProps, useReactFlow, useUpdateNodeInternals, useStore } from '@xyflow/react';
 import { 
   Loader2, AlertCircle, Eraser, RefreshCw
 } from 'lucide-react';
 import type { ProcessingType, BuilderNodeData } from './types';
 import { predictionRealtime, type PredictionStatus } from '../../services/replicate/predictionRealtime';
+import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import './GhostNode.css';
 import './GhostNode.glass.css';
 
@@ -75,20 +76,18 @@ const GhostPlaceholder = memo(({ connectedCount }: GhostPlaceholderProps) => {
 });
 
 export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) => {
-  const { deleteElements } = useReactFlow();
-  const edges = useEdges();
+  if (process.env.NODE_ENV === 'development' || (globalThis as any).__DEV__) {
+    (globalThis as any).__anarchyNodeRenders = ((globalThis as any).__anarchyNodeRenders || 0) + 1;
+  }
+  const deleteElements = useReactFlow().deleteElements;
 
-
-  const nodes = useNodes();
-
-
-  // Count incoming edges from valid nodes currently present in the canvas
-  const incomingEdges = useMemo(() => {
-    const nodeIds = new Set(nodes.map(n => n.id));
-    const filtered = edges.filter((e) => e.target === id && nodeIds.has(e.source));
-    console.log('[GhostNode] id:', id, 'incomingEdges:', filtered);
-    return filtered;
-  }, [edges, nodes, id]);
+  // ── Granular edge subscription ──────────────────────────────────────────
+  // PERF: useEdges() subscribes to ALL canvas edges, causing every GhostNode
+  // to re-render on every drag frame. useStore with a per-node selector means
+  // this component only re-renders when ITS OWN incoming edges change.
+  const incomingEdges = useStore(
+    useCallback((s) => s.edges.filter((e) => e.target === id), [id])
+  );
 
   const connectedCount = incomingEdges.length;
 
@@ -104,13 +103,12 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
         }
       }
     });
-    console.log('[GhostNode] id:', id, 'maxConnectedIndex:', maxIdx);
     return maxIdx;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- id is the node ID, stable for the lifetime of this component instance
   }, [incomingEdges]);
 
   // Render handles up to max connected index + 1 (min 1 slot, max 8 slots)
   const slotCount = Math.min(8, Math.max(1, maxConnectedIndex + 2));
-  console.log('[GhostNode] id:', id, 'slotCount:', slotCount);
 
   // Force React Flow to re-measure handles when slot count changes
   const updateNodeInternals = useUpdateNodeInternals();
@@ -121,28 +119,47 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
     return () => clearTimeout(timer);
   }, [id, slotCount, updateNodeInternals]);
 
+  // Central queue job store subscription
+  const queueJob = useBuilderQueueStore((s) => s.jobs[id]);
+
   // Node state
-  const isProcessing = data.state === 'processing';
-  const isError = data.state === 'error';
-  const isReady = data.state === 'ready';
+  const isConnecting = (queueJob?.state || data.state) === 'connecting';
+  const isQueued = (queueJob?.state || data.state) === 'queued';
+  const isProcessing = (queueJob?.state || data.state) === 'processing';
+  const isError = (queueJob?.state || data.state) === 'error' || (queueJob?.state || data.state) === 'failed';
+  const isReady = (queueJob?.state || data.state) === 'ready' || (queueJob?.state || data.state) === 'completed';
+  const isCancelled = (queueJob?.state || data.state) === 'cancelled';
+
+  const predictionId = queueJob?.predictionId || data.predictionId;
 
   // Realtime subscription state
   const [generationStatus, setGenerationStatus] = useState<PredictionStatus | null>(null);
 
   // Subscribe to Realtime updates when predictionId is set
   useEffect(() => {
-    if (!data.predictionId || !data.userId) {
+    if (!predictionId || !data.userId) {
       return;
     }
 
-    console.log('[GhostNode] Subscribing to prediction:', data.predictionId);
+    console.log('[GhostNode] Subscribing to prediction:', predictionId);
     
     predictionRealtime.subscribeToPrediction(
-      data.predictionId,
+      predictionId,
       id,
       (status) => {
         console.log('[GhostNode] Prediction update:', status);
         setGenerationStatus(status);
+
+        // Sync status to central queue store
+        useBuilderQueueStore.getState().updateJob(id, {
+          state: status.status === 'pending' ? 'queued' :
+                 status.status === 'processing' ? 'processing' :
+                 status.status === 'completed' ? 'completed' :
+                 status.status === 'failed' ? 'failed' :
+                 status.status === 'canceled' ? 'cancelled' : 'idle',
+          outputUrl: status.outputUrl || status.storageUrl,
+          errorMessage: status.error
+        });
 
         // Call parent's onImageReady callback when completed
         if (status.status === 'completed' && status.storageUrl && data.onImageReady) {
@@ -157,12 +174,13 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
     );
 
     return () => {
-      if (data.predictionId) {
-        console.log('[GhostNode] Unsubscribing from prediction:', data.predictionId);
-        predictionRealtime.unsubscribeFromPrediction(data.predictionId);
+      if (predictionId) {
+        console.log('[GhostNode] Unsubscribing from prediction:', predictionId);
+        predictionRealtime.unsubscribeFromPrediction(predictionId);
       }
     };
-  }, [data.predictionId, data.userId, id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- predictionId/id are stable for this prediction trigger
+  }, [predictionId, data.userId, id]);
 
   const config = PROCESSING_CONFIG[data.processingType] || PROCESSING_CONFIG.render;
 
@@ -181,11 +199,22 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
     return `${start + (spacing * index)}%`;
   };
 
+
+
   return (
     <div 
-      className={`ghost-node minimal ${selected ? 'selected' : ''} ${isProcessing ? 'processing' : ''} ${isError ? 'error' : ''}`}
+      className={`ghost-node minimal ${selected ? 'selected' : ''} ${isProcessing ? 'processing' : ''} ${isConnecting ? 'connecting' : ''} ${isQueued ? 'queued' : ''} ${isError ? 'error' : ''} ${isCancelled ? 'cancelled' : ''}`}
       style={{ '--ghost-color': config.color } as React.CSSProperties}
     >
+      {/* Hidden fallback target handle to prevent React Flow transition warnings */}
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        id="target" 
+        style={{ display: 'none' }} 
+        isConnectable={false}
+      />
+
       {/* Multiple Input Handles on Left Side */}
       {Array.from({ length: slotCount }, (_, i) => {
         const labelText = i === 0 ? 'Primary Source' : `Reference Input #${i}`;
@@ -224,17 +253,46 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
         <GhostPlaceholder connectedCount={connectedCount} />
 
 
-        {/* Processing Overlay */}
-        {isProcessing && (
+        {/* Midjourney style progress thumbnail preview */}
+        {(queueJob?.outputUrl || generationStatus?.outputUrl) && (isProcessing || isConnecting || isQueued) && (
+          <img 
+            src={queueJob?.outputUrl || generationStatus?.outputUrl} 
+            className="ghost-preview-image" 
+            alt="Progress Preview" 
+          />
+        )}
+
+        {/* Processing/Connecting Overlay */}
+        {(isProcessing || isConnecting || isQueued) && (
           <div className="ghost-processing-overlay">
             <Loader2 size={24} className="spin" />
             <span>
-              {generationStatus?.status === 'processing' 
-                ? 'Generating...' 
-                : 'Processing...'}
+              {isConnecting 
+                ? 'Connecting to Model...' 
+                : isQueued 
+                  ? 'Queued...' 
+                  : (generationStatus?.status === 'processing' || isProcessing)
+                    ? 'Generating...' 
+                    : 'Processing...'}
             </span>
-            {generationStatus?.status && (
-              <span className="ghost-status-badge">{generationStatus.status}</span>
+            {(isQueued || isProcessing || generationStatus?.status) && (
+              <span className="ghost-status-badge">
+                {isQueued 
+                  ? 'queued' 
+                  : (generationStatus?.status || 'processing')}
+              </span>
+            )}
+            {data.onCancel && (
+              <button 
+                type="button"
+                className="ghost-cancel-btn" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onCancel?.();
+                }}
+              >
+                Cancel
+              </button>
             )}
           </div>
         )}
@@ -257,6 +315,29 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
               >
                 <RefreshCw size={12} />
                 Retry
+              </button>
+            )}
+          </div>
+        )}
+
+        {isCancelled && (
+          <div className="ghost-cancelled-overlay">
+            <AlertCircle size={24} />
+            <span>Cancelled</span>
+            {data.errorMessage && (
+              <span className="ghost-error-detail">{data.errorMessage}</span>
+            )}
+            {data.onRetry && (
+              <button 
+                type="button"
+                className="ghost-retry-btn" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRetry?.();
+                }}
+              >
+                <RefreshCw size={12} />
+                Restart
               </button>
             )}
           </div>

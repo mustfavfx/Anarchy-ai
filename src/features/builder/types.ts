@@ -9,7 +9,7 @@ import type { Node } from '@xyflow/react';
 // NODE TYPES - Core Processing States
 // ============================================================================
 
-export type NodeState = 'idle' | 'processing' | 'ready' | 'error';
+export type NodeState = 'idle' | 'connecting' | 'queued' | 'processing' | 'ready' | 'completed' | 'error' | 'failed' | 'cancelled';
 
 export type NodeType = 'source' | 'ghost' | 'result';
 
@@ -80,6 +80,7 @@ export interface BuilderNodeData extends Record<string, unknown> {
   errorMessage?: string;
   predictionId?: string;    // Replicate prediction ID for tracking generation
   userId?: string;          // User ID for Realtime subscription
+  historyEntryId?: string;  // Links the canvas node to its history entry ID
   
   // Lineage
   lineage: NodeLineage;
@@ -113,6 +114,7 @@ export interface BuilderNodeData extends Record<string, unknown> {
   onDelete?: () => void;
   onExecute?: (prompt: string) => void;
   onRetry?: () => void;
+  onCancel?: () => void;
   // Performance: injected once from BuilderPage to avoid per-node Zustand subscriptions
   enableWatermark?: boolean;
 }

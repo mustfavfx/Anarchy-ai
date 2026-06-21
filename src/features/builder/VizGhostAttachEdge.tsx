@@ -100,7 +100,7 @@ const VizGhostAttachEdge = memo(({
   style = {},
   markerEnd,
 }: EdgeProps) => {
-  // Generate smooth bezier curve - optimal curvature for perfect curves
+  // Always use smooth bezier curve to prevent path shape flipping/flickering
   const [edgePath] = getBezierPathManual(
     sourceX,
     sourceY,
@@ -111,7 +111,7 @@ const VizGhostAttachEdge = memo(({
     0.35 // Perfect curve balance (not too tight, not too loose)
   );
 
-  // Simple edge style - no glow, no shadow
+  // Define static styles; visual overrides (opacity, strokeWidth, dasharray) are applied in CSS via parent classes during dragging.
   const edgeStyle: React.CSSProperties = {
     ...style,
     strokeWidth: 2,
@@ -120,10 +120,7 @@ const VizGhostAttachEdge = memo(({
     strokeDasharray: '5 5',
     strokeLinecap: 'round',
     filter: 'none', // No glow effect
-    transition: 'all 0.3s ease',
   };
-
-  // No animation - static simple edge
 
   return (
     <>
@@ -134,9 +131,6 @@ const VizGhostAttachEdge = memo(({
         style={edgeStyle} 
         markerEnd={markerEnd}
       />
-      
-      {/* Simple edge without glow or labels */}
-
     </>
   );
 });

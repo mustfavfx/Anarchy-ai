@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Anarchy AI",
-  "version": "0.2.0",
+  "version": "0.0.8",
   "identifier": "com.anarchyai.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -34,7 +34,7 @@
     "security": {
       "csp": {
         "default-src": "'self'",
-        "connect-src": "'self' ipc: http://ipc.localhost tauri: https: http: ws: wss:",
+        "connect-src": "'self' blob: ipc: http://ipc.localhost tauri: https: http: ws: wss:",
         "img-src": "'self' data: blob: https: http:",
         "style-src": "'self' 'unsafe-inline'",
         "script-src": "'self' 'unsafe-eval'",

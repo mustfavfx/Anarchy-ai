@@ -107,11 +107,9 @@ describe('replicateService', () => {
     expect(models.length).toBeGreaterThan(0);
   });
 
-  it('has updateApiKey method', () => {
-    expect(typeof replicateService.updateApiKey).toBe('function');
-  });
-
-  it('updateApiKey does not throw', () => {
-    expect(() => replicateService.updateApiKey()).not.toThrow();
+  it('does not expose any API key', () => {
+    // Verify the service instance has no apiKey property
+    const service = replicateService as any;
+    expect(service.config?.apiKey).toBeUndefined();
   });
 });

@@ -1,0 +1,82 @@
+/* ─── Workflow Graph Explorer Canvas Layout ─── */
+
+.workflow-graph-explorer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 10, 10, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.graph-explorer-canvas-wrapper {
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Override ReactFlow controls styling to match premium theme */
+.workflow-graph-explorer .react-flow__controls {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  overflow: hidden;
+  background: rgba(10, 10, 10, 0.8) !important;
+  backdrop-filter: blur(4px);
+}
+
+.workflow-graph-explorer .react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  fill: currentColor !important;
+}
+
+.workflow-graph-explorer .react-flow__controls-button:hover {
+  background: rgba(225, 29, 72, 0.15) !important;
+  color: #fb7185 !important;
+}
+
+.workflow-graph-explorer .react-flow__controls-button svg {
+  fill: currentColor !important;
+}
+
+/* Node layout tweaks */
+.history-rf-node-card {
+  width: 170px;
+  height: 68px;
+  box-sizing: border-box;
+  background: rgba(20, 20, 22, 0.85) !important;
+  backdrop-filter: blur(6px);
+}
+
+.history-rf-node-card:hover {
+  background: rgba(30, 30, 32, 0.95) !important;
+}
+
+.history-rf-node-card.active {
+  background: rgba(225, 29, 72, 0.12) !important;
+}
+
+/* React Flow custom handles styling */
+.history-rf-node-card .react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #e11d48 !important;
+  border: 1.5px solid #0a0a0c !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease;
+}
+
+.history-rf-node-card:hover .react-flow__handle {
+  transform: scale(1.2);
+  background: #f43f5e !important;
+  box-shadow: 0 0 6px rgba(244, 63, 148, 0.6);
+}

@@ -41,29 +41,29 @@ describe('HistoryService', () => {
 
   // ── addHistoryEntry ────────────────────────────────────────────────────────
   describe('addHistoryEntry', () => {
-    it('returns entry with generated id and timestamp', () => {
-      const result = addHistoryEntry(makeEntry());
+    it('returns entry with generated id and timestamp', async () => {
+      const result = await addHistoryEntry(makeEntry());
       expect(result.id).toMatch(/^h_\d+_/);
       expect(result.timestamp).toBeGreaterThan(0);
     });
 
-    it('persists entry to localStorage', () => {
-      addHistoryEntry(makeEntry({ label: 'Stored Entry' }));
+    it('persists entry to localStorage', async () => {
+      await addHistoryEntry(makeEntry({ label: 'Stored Entry' }));
       const stored = getHistory();
       expect(stored).toHaveLength(1);
       expect(stored[0].label).toBe('Stored Entry');
     });
 
-    it('prepends newer entries (most recent first)', () => {
-      addHistoryEntry(makeEntry({ label: 'First' }));
-      addHistoryEntry(makeEntry({ label: 'Second' }));
+    it('prepends newer entries (most recent first)', async () => {
+      await addHistoryEntry(makeEntry({ label: 'First' }));
+      await addHistoryEntry(makeEntry({ label: 'Second' }));
       const history = getHistory();
       expect(history[0].label).toBe('Second');
       expect(history[1].label).toBe('First');
     });
 
-    it('strips data URL images from localStorage entry', () => {
-      addHistoryEntry(makeEntry({ outputImage: 'data:image/png;base64,abc123' }));
+    it('strips data URL images from localStorage entry', async () => {
+      await addHistoryEntry(makeEntry({ outputImage: 'data:image/png;base64,abc123' }));
       const stored = getHistory();
       expect(stored[0].outputImage).toBeUndefined();
     });
@@ -75,9 +75,9 @@ describe('HistoryService', () => {
       expect(getHistory()).toEqual([]);
     });
 
-    it('returns all stored entries', () => {
-      addHistoryEntry(makeEntry({ label: 'A' }));
-      addHistoryEntry(makeEntry({ label: 'B' }));
+    it('returns all stored entries', async () => {
+      await addHistoryEntry(makeEntry({ label: 'A' }));
+      await addHistoryEntry(makeEntry({ label: 'B' }));
       expect(getHistory()).toHaveLength(2);
     });
   });
@@ -88,8 +88,8 @@ describe('HistoryService', () => {
       expect(getHistoryGrouped()).toEqual([]);
     });
 
-    it('groups entries by source lineage', () => {
-      addHistoryEntry(makeEntry({ label: 'Today Entry' }));
+    it('groups entries by source lineage', async () => {
+      await addHistoryEntry(makeEntry({ label: 'Today Entry' }));
       const groups = getHistoryGrouped();
       expect(groups).toHaveLength(1);
       expect(groups[0].children).toHaveLength(1);
@@ -98,20 +98,20 @@ describe('HistoryService', () => {
 
   // ── toggleStar ─────────────────────────────────────────────────────────────
   describe('toggleStar', () => {
-    it('stars an unstarred entry', () => {
-      const entry = addHistoryEntry(makeEntry());
+    it('stars an unstarred entry', async () => {
+      const entry = await addHistoryEntry(makeEntry());
       toggleStar(entry.id);
       expect(getHistory()[0].starred).toBe(true);
     });
 
-    it('unstars a starred entry', () => {
-      const entry = addHistoryEntry(makeEntry({ starred: true }));
+    it('unstars a starred entry', async () => {
+      const entry = await addHistoryEntry(makeEntry({ starred: true }));
       toggleStar(entry.id);
       expect(getHistory()[0].starred).toBe(false);
     });
 
-    it('does nothing for unknown id', () => {
-      addHistoryEntry(makeEntry());
+    it('does nothing for unknown id', async () => {
+      await addHistoryEntry(makeEntry());
       toggleStar('nonexistent');
       expect(getHistory()).toHaveLength(1);
     });
@@ -119,15 +119,15 @@ describe('HistoryService', () => {
 
   // ── deleteHistoryEntry ─────────────────────────────────────────────────────
   describe('deleteHistoryEntry', () => {
-    it('removes entry by id', () => {
-      const entry = addHistoryEntry(makeEntry());
+    it('removes entry by id', async () => {
+      const entry = await addHistoryEntry(makeEntry());
       deleteHistoryEntry(entry.id);
       expect(getHistory()).toHaveLength(0);
     });
 
-    it('only removes the targeted entry', () => {
-      addHistoryEntry(makeEntry({ label: 'Keep' }));
-      const toDelete = addHistoryEntry(makeEntry({ label: 'Delete' }));
+    it('only removes the targeted entry', async () => {
+      await addHistoryEntry(makeEntry({ label: 'Keep' }));
+      const toDelete = await addHistoryEntry(makeEntry({ label: 'Delete' }));
       deleteHistoryEntry(toDelete.id);
       const remaining = getHistory();
       expect(remaining).toHaveLength(1);
@@ -144,9 +144,9 @@ describe('HistoryService', () => {
       expect(stats.totalDuration).toBe(0);
     });
 
-    it('counts entries and starred correctly', () => {
-      addHistoryEntry(makeEntry({ duration: 1000 }));
-      const starred = addHistoryEntry(makeEntry({ duration: 2000 }));
+    it('counts entries and starred correctly', async () => {
+      await addHistoryEntry(makeEntry({ duration: 1000 }));
+      const starred = await addHistoryEntry(makeEntry({ duration: 2000 }));
       toggleStar(starred.id);
       const stats = getHistoryStats();
       expect(stats.total).toBe(2);
@@ -154,8 +154,8 @@ describe('HistoryService', () => {
       expect(stats.totalDuration).toBe(3000);
     });
 
-    it('counts today entries', () => {
-      addHistoryEntry(makeEntry());
+    it('counts today entries', async () => {
+      await addHistoryEntry(makeEntry());
       expect(getHistoryStats().todayCount).toBe(1);
     });
   });

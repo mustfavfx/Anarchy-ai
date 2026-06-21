@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useHistoryStore } from '../stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
 import type { HistoryEntry } from '../types';
-import { semanticSearch } from '../services/SemanticSearchService';
-import { groupHistoryEntries } from '../services/HistoryGroupingService';
+import { semanticSearch } from '@/services/history/SemanticSearchService';
+import { groupHistoryEntries } from '@/services/history/HistoryGroupingService';
 
 /** Evaluate rules for dynamic smart collections */
 export function evaluateSmartCollection(colId: string, entries: HistoryEntry[]): HistoryEntry[] {
@@ -53,6 +53,8 @@ export function useHistoryFilters() {
     entries, 
     searchQuery, 
     semanticQuery, 
+    setSemanticQuery,
+    useSemanticSearch,
     selectedFilter, 
     selectedModel, 
     sortAsc, 
@@ -63,6 +65,22 @@ export function useHistoryFilters() {
 
   const [semanticResults, setSemanticResults] = useState<HistoryEntry[] | null>(null);
   const [isSemanticSearching, setIsSemanticSearching] = useState(false);
+
+  // Debounce searchQuery into semanticQuery when useSemanticSearch is active
+  useEffect(() => {
+    if (!useSemanticSearch) {
+      if (semanticQuery) {
+        setSemanticQuery('');
+      }
+      return;
+    }
+
+    const handler = setTimeout(() => {
+      setSemanticQuery(searchQuery);
+    }, 450); // 450ms debounce to avoid overwhelming model inference
+
+    return () => clearTimeout(handler);
+  }, [searchQuery, useSemanticSearch, setSemanticQuery, semanticQuery]);
 
   // 1. Handle asynchronous semantic vector search matching
   useEffect(() => {
@@ -97,7 +115,7 @@ export function useHistoryFilters() {
   // 2. Perform standard keyword filtering and channel filters
   const filteredEntries = useMemo(() => {
     // Base entries list (either semantic search results or all entries)
-    let base = semanticResults !== null ? semanticResults : entries;
+    const base = semanticResults !== null ? semanticResults : entries;
 
     return base
       .filter(entry => {

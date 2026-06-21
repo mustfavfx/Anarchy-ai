@@ -166,18 +166,19 @@
 
 /* Smooth node transitions */
 .react-flow__node {
-  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+  transition: box-shadow 0.15s ease-out;
   will-change: transform;
 }
 
+.react-flow__node.react-flow__node-dragging,
 .react-flow__node.dragging {
-  transition: none;
+  transition: none !important;
   z-index: 1000 !important;
 }
 
 /* Smooth pan and zoom */
 .react-flow__viewport {
-  transition: transform 0.1s ease-out;
+  transition: none !important;
 }
 
 /* Optimize edge animations */
@@ -1397,7 +1398,8 @@
   align-items: center;
 }
 
-.prompt-presets-btn {
+.prompt-presets-btn,
+.prompt-translate-btn {
   width: 36px;
   height: 36px;
   display: flex;
@@ -1412,10 +1414,25 @@
   flex-shrink: 0;
 }
 
-.prompt-presets-btn:hover {
+.prompt-presets-btn:hover,
+.prompt-translate-btn:hover:not(:disabled) {
   background: rgba(225, 29, 72, 0.1);
   border-color: rgba(225, 29, 72, 0.4);
   color: #e11d48;
+}
+
+.prompt-translate-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.translate-spinner {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #e11d48;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 .prompt-presets-popup {
@@ -1448,7 +1465,36 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   color: #e11d48;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
+
+.presets-translate-ar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.presets-translate-ar-btn:hover {
+  background: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #e11d48;
+}
+
+.presets-translate-ar-btn svg {
+  flex-shrink: 0;
+}
+
 
 .presets-group {
   margin-bottom: 4px;
@@ -1645,4 +1691,71 @@
 .react-flow__minimap-node rect {
   rx: 2px !important;
   ry: 2px !important;
+}
+
+/* Styling overrides during canvas dragging */
+.react-flow.canvas-node-dragging .react-flow__edge-path {
+  stroke-width: 1.5px !important;
+  opacity: 0.45 !important;
+  stroke-dasharray: none !important;
+}
+
+/* LOD (Level of Detail) Zoomed-out Node Optimizations (CSS-driven) */
+.lod-zoomed-out .anarchy-node,
+.lod-zoomed-out .ghost-node {
+  box-shadow: none !important;
+  filter: none !important;
+  transition: none !important;
+  animation: none !important;
+  background: rgba(20, 20, 25, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.lod-zoomed-out .anarchy-node .node-selection-ring,
+.lod-zoomed-out .anarchy-node .node-selected-glow,
+.lod-zoomed-out .anarchy-node .node-inner-shadow,
+.lod-zoomed-out .anarchy-node .node-gloss,
+.lod-zoomed-out .anarchy-node .node-header,
+.lod-zoomed-out .anarchy-node .image-overlay,
+.lod-zoomed-out .anarchy-node .node-prompt-bar,
+.lod-zoomed-out .anarchy-node .image-res-badge,
+.lod-zoomed-out .anarchy-node .watermark-badge,
+.lod-zoomed-out .ghost-node .ghost-processing-overlay,
+.lod-zoomed-out .ghost-node .ghost-error-overlay,
+.lod-zoomed-out .ghost-node .ghost-cancelled-overlay,
+.lod-zoomed-out .ghost-node .ghost-eraser-btn,
+.lod-zoomed-out .ghost-node .ghost-placeholder,
+.lod-zoomed-out .ghost-node .ghost-handle-label {
+  display: none !important;
+}
+
+/* Make body inside node full-height when zoomed out */
+.lod-zoomed-out .anarchy-node .node-body {
+  height: 100% !important;
+  padding: 4px !important;
+}
+
+.lod-zoomed-out .anarchy-node .node-image-region img {
+  border-radius: 4px !important;
+}
+
+/* Simple spinner for processing ghost nodes under zoom-out */
+.lod-zoomed-out .ghost-node.processing::after,
+.lod-zoomed-out .ghost-node.connecting::after,
+.lod-zoomed-out .ghost-node.queued::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - 8px);
+  left: calc(50% - 8px);
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(225, 29, 72, 0.2);
+  border-top-color: #e11d48;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 10;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

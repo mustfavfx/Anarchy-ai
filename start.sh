@@ -53,20 +53,20 @@ setup_env() {
             echo -e "${YELLOW}[⚠] Creating .env from template...${NC}"
             cp .env.example .env
             echo -e "${GREEN}[✓] Created .env file${NC}"
-            echo -e "${YELLOW}⚠ IMPORTANT: Please edit .env and add your Replicate API token!${NC}"
-            echo "Get token from: https://replicate.com/account/api-tokens"
+            echo -e "${YELLOW}⚠ IMPORTANT: Please edit .env and add your Supabase credentials!${NC}"
             sleep 3
         else
             echo -e "${YELLOW}[⚠] Creating empty .env file${NC}"
-            echo "VITE_REPLICATE_API_TOKEN=" > .env
+            echo "VITE_SUPABASE_URL=" > .env
+            echo "VITE_SUPABASE_ANON_KEY=" >> .env
         fi
     else
         echo -e "${GREEN}[✓] .env file exists${NC}"
         
-        # Check if API token is configured
-        if grep -q "your_replicate_api_token\|^VITE_REPLICATE_API_TOKEN=$" .env 2>/dev/null; then
-            echo -e "${YELLOW}[⚠] API token not configured in .env${NC}"
-            echo "Please edit .env and add your Replicate API token"
+        # Check if Supabase is configured
+        if grep -q "your-project-ref\|placeholder" .env 2>/dev/null; then
+            echo -e "${YELLOW}[⚠] Supabase credentials not configured in .env${NC}"
+            echo "Please edit .env and add your Supabase project URL and anon key"
         fi
     fi
 }

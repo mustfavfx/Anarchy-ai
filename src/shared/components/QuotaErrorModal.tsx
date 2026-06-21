@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Crown, ArrowUpRight, Sparkles } from 'lucide-react';
-import type { QuotaError } from '../services/usage/usageService';
-import { getPlan, type PlanType } from '../services/plans/plansConfig';
+import type { QuotaError } from '../../services/usage/usageService';
+import { getPlan, type PlanType } from '../../services/plans/plansConfig';
 import './QuotaErrorModal.css';
 
 interface QuotaErrorModalProps {
@@ -51,7 +51,7 @@ export const QuotaErrorModal: React.FC<QuotaErrorModalProps> = ({
           <p className="upgrade-desc">Get more generations and premium features</p>
 
           <ul className="upgrade-features">
-            {upgradePlan.features.slice(0, 4).map((feature, idx) => (
+            {upgradePlan.features.slice(0, 4).map((feature: string, idx: number) => (
               <li key={idx}>
                 <span className="feature-check">✓</span>
                 {feature}

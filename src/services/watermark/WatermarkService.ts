@@ -212,8 +212,17 @@ class WatermarkService {
     imageUrls: string[],
     options: WatermarkOptions
   ): Promise<string[]> {
-    const promises = imageUrls.map(url => this.applyWatermark(url, options));
-    return Promise.all(promises);
+    const results = await Promise.allSettled(
+      imageUrls.map(url => this.applyWatermark(url, options))
+    );
+    return results.map((res, idx) => {
+      if (res.status === 'fulfilled') {
+        return res.value;
+      } else {
+        logger.error('Failed to apply watermark to image in batch:', res.reason);
+        return imageUrls[idx];
+      }
+    });
   }
 
   /**

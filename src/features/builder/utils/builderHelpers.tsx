@@ -131,7 +131,7 @@ export function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges:
       position: n.position || { x: 200, y: 200 },
       width: 260,
       data: {
-        label: TYPE_LABELS[n.processingType || ''] || n.processingType || 'Node',
+        label: n.label || TYPE_LABELS[n.processingType || ''] || n.processingType || 'Node',
         type: n.type,
         processingType: n.processingType || 'source',
         state: n.state || 'ready',
@@ -141,7 +141,8 @@ export function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges:
         lineage,
         outputData: outputPacket,
         inputData: undefined,
-        config: {}
+        config: {},
+        historyEntryId: n.historyEntryId,
       }
     };
   });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useHistoryStore } from '../stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
 import type { FilterType } from '../types';
 
 export const HistoryFilters: React.FC = () => {

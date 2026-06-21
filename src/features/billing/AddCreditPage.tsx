@@ -40,6 +40,7 @@ export const AddCreditPage: React.FC = () => {
       setPurchaseError('Payment was canceled. You can try again.');
       globalThis.history.replaceState({}, '', globalThis.location.pathname);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: runs once on mount to check URL params only
   }, []);
 
   useEffect(() => {

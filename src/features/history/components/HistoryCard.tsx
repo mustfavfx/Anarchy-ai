@@ -1,12 +1,14 @@
-import React, { useRef } from 'react';
+import React from 'react';
+
 import type { HistoryEntry, HistoryGroup } from '../types';
 import { useLazyImage } from '../hooks/useLazyImage';
-import { useHistoryStore } from '../stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
 import { 
   CheckSquare, Square, Star, FolderOpen, Eye, 
-  Trash2, BookmarkPlus, ChevronsLeftRight, Timer, Layers
+  Trash2, BookmarkPlus, ChevronsLeftRight, Timer, Layers,
+  Image as ImageIcon
 } from 'lucide-react';
-import { formatDuration, getDateLabel } from '../services/HistoryService';
+import { formatDuration, getDateLabel } from '@/services/history/HistoryService';
 
 interface HistoryCardProps {
   entry?: HistoryEntry;
@@ -36,15 +38,11 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
     collections
   } = useHistoryStore();
 
-  const cardRef = useRef<HTMLDivElement | null>(null);
-
   // Determine target ID and slot for lazy image loading
   const targetId = isGroup ? group!.sourceImageId : entry!.id;
-  
-  // Try loading output slot first, fallback to root_source if group
-  const { src: imageSrc } = useLazyImage(targetId, isGroup ? 'root_source' : 'output', cardRef);
 
-  const isLoading = !imageSrc;
+  // containerRef is a callback ref — attach it directly to the root div
+  const { containerRef, src: imageSrc, isLoading, error } = useLazyImage(targetId, isGroup ? 'root_source' : 'output');
   
   const isSelected = isGroup
     ? Array.from(selectedIds).some(id => group!.children.some(c => c.id === id))
@@ -93,7 +91,7 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
 
     return (
       <div
-        ref={cardRef}
+        ref={containerRef}
         className={`history-grid-item group-card ${isLoading ? 'skeleton-card' : ''} ${isSelected ? 'selected' : ''}`}
         onClick={handleCardClick}
       >
@@ -112,7 +110,13 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
         ) : (
           <>
             <div className="grid-image-container single-image">
-              <img src={imageSrc} alt={mainEntry.label} className="grid-img-out" loading="lazy" />
+              {error || !imageSrc ? (
+                <div className="grid-img-error">
+                  <ImageIcon size={24} style={{ opacity: 0.25, color: '#ffffff' }} />
+                </div>
+              ) : (
+                <img src={imageSrc} alt={mainEntry.label} className="grid-img-out" loading="lazy" />
+              )}
               
               {/* Group Overlay Badge */}
               <div className="group-variants-badge">
@@ -145,7 +149,7 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
 
   return (
     <div
-      ref={cardRef}
+      ref={containerRef}
       className={`history-grid-item ${isLoading ? 'skeleton-card' : ''} ${isStarred ? 'starred' : ''} ${isSelected ? 'selected' : ''}`}
       onClick={handleCardClick}
     >
@@ -165,7 +169,13 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
       ) : (
         <>
           <div className="grid-image-container single-image">
-            <img src={imageSrc} alt={entry!.label} className="grid-img-out" loading="lazy" />
+            {error || !imageSrc ? (
+              <div className="grid-img-error">
+                <ImageIcon size={24} style={{ opacity: 0.25, color: '#ffffff' }} />
+              </div>
+            ) : (
+              <img src={imageSrc} alt={entry!.label} className="grid-img-out" loading="lazy" />
+            )}
 
             {selectMode && (
               <div className="item-select-check">

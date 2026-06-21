@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHistory } from './hooks/useHistory';
 import { useHistorySelection } from './hooks/useHistorySelection';
-import { useHistoryStore } from './stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
+import { loadWorkflowTree } from '@/services/history/HistoryService';
+import { buildWorkflowTreeForEntry, type HistoryTreeNode } from './components/WorkflowTreeRenderer';
+import type { NodeTreeData } from '@/types/history';
 import { HistoryHeader } from './components/HistoryHeader';
 import { HistoryFilters } from './components/HistoryFilters';
 import { HistoryGrid } from './components/HistoryGrid';
 import { PreviewModal } from './components/PreviewModal';
 import { GroupExplorerModal } from './components/GroupExplorerModal';
 import { CollectionsSidebar } from './components/CollectionsSidebar';
-import { ConfirmModal } from '../../components/ConfirmModal';
-import { ExportModal } from '../../components/ExportModal';
+import { ConfirmModal } from '../../shared/components/ConfirmModal';
+import { ExportModal } from '../../shared/components/ExportModal';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import type { Collection } from '../../services/history/CollectionService';
 import type { HistoryEntry } from './types';
@@ -44,12 +47,12 @@ const BulkActionBar: React.FC<{
   onExportPdfClick: () => void;
 }> = ({ onDeleteClick, onExportZipClick, onExportPdfClick }) => {
   const { selectMode, selectedIds, entries } = useHistoryStore();
+  const toggleSelectAll = useHistoryStore(s => s.toggleSelectAll);
   
   if (!selectMode) return null;
   
   const selectedCount = selectedIds.size;
   const totalCount = entries.length;
-  const toggleSelectAll = useHistoryStore(s => s.toggleSelectAll);
 
   const handleToggleAll = () => {
     toggleSelectAll(entries.map(e => e.id));
@@ -191,53 +194,224 @@ export const HistoryPage: React.FC = () => {
     }
   };
 
-  const handleOpenWorkflow = (entry: HistoryEntry) => {
-    // Save to session cache and redirect to builder
-    if (entry.nodeTree) {
-      sessionStorage.setItem(SESSION_KEYS.LOADED_WORKFLOW, JSON.stringify(entry.nodeTree));
+  const handleOpenWorkflow = async (entry: HistoryEntry) => {
+    try {
+      // Reconstruct the full lineage tree from the history list
+      const allEntries = useHistoryStore.getState().entries;
+      const { root } = buildWorkflowTreeForEntry(entry, allEntries);
+      
+      // Map of ID -> TreeNode
+      const nodesMap = new Map<string, HistoryTreeNode>();
+      const collectNodes = (node: HistoryTreeNode) => {
+        nodesMap.set(node.id, node);
+        node.children.forEach(collectNodes);
+      };
+      collectNodes(root);
+      
+      // Calculate layout positions
+      const positions = new Map<string, { x: number, y: number }>();
+      let currentY = 150;
+      
+      const layoutNode = (node: HistoryTreeNode, depth: number = 0) => {
+        const x = 120 + depth * 380;
+        const y = currentY;
+        positions.set(node.id, { x, y });
+        
+        if (node.children.length === 0) {
+          currentY += 280; // spacing between branches
+        } else {
+          node.children.forEach((child) => {
+            layoutNode(child, depth + 1);
+          });
+        }
+      };
+      
+      layoutNode(root);
+      
+      const rootId = root.id;
+      
+      const getHistoryNodeLabel = (entryItem: HistoryEntry): string => {
+        const icons: Record<string, string> = {
+          variation: '🎨',
+          edit: '🪄',
+          upscale: '🔍',
+          generate: '📷',
+          render: '📷',
+          source: '📷',
+        };
+        const icon = icons[entryItem.type] || icons[entryItem.nodeType || ''] || '📷';
+        const modelName = entryItem.model || entryItem.params?.model || '';
+        const cleanModel = modelName ? (modelName.length > 20 ? modelName.slice(0, 20) + '...' : modelName) : '';
+        if (cleanModel) {
+          return `${icon} ${cleanModel}`;
+        }
+        const typeStr = entryItem.type || entryItem.nodeType || 'Node';
+        const cleanType = typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
+        return `${icon} ${cleanType}`;
+      };
+
+      const nodes = Array.from(nodesMap.values()).map(node => {
+        const pos = positions.get(node.id) || { x: 200, y: 200 };
+        const isRoot = node.id === rootId;
+        const entryItem = node.entry;
+        
+        const imgUrl = isRoot 
+          ? `idb://${entryItem.id}_root_source` 
+          : `idb://${entryItem.id}_output`;
+          
+        return {
+          id: node.id,
+          type: isRoot ? 'source' as const : 'result' as const,
+          position: pos,
+          image: imgUrl,
+          label: getHistoryNodeLabel(entryItem),
+          prompt: entryItem.prompt,
+          processingType: isRoot ? 'source' : (entryItem.type === 'upscale' ? 'upscale' : entryItem.type),
+          state: 'ready' as const,
+          parentId: node.parentId,
+          historyEntryId: entryItem.id
+        };
+      });
+      
+      const nodeTree: NodeTreeData = {
+        nodes,
+        sourceNodeId: rootId,
+        activeNodeId: entry.id,
+        createdAt: Date.now()
+      };
+      
+      navigate('/builder');
+
+      // Dispatch the workflow loading event after navigation
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('anarchy:load-workflow', {
+          detail: nodeTree
+        }));
+      }, 80);
+    } catch (err) {
+      console.error('[HistoryPage] Failed to restore workflow:', err);
+    }
+  };
+
+  // ── Send to Canvas ──────────────────────────────────────────────────────────
+  // IMPORTANT: Do NOT use sessionStorage + navigate here. The MultiBuilderPage
+  // is ALWAYS mounted (hidden via CSS) so its startup useEffect only runs once.
+  // Any sessionStorage writes after that are never picked up.
+  //
+  // Instead, we:
+  //   1. Convert the blob URL → base64 BEFORE navigate() so the blob is still
+  //      valid (HistoryPage/PreviewModal unmount on navigation, revoking blobs).
+  //   2. Call navigate('/builder') to reveal the canvas.
+  //   3. Dispatch 'anarchy:external-image-global' which BuilderPage already
+  //      listens to and uses to create a source node on the active tab.
+  const handleSendToCanvas = async (url: string, entry: HistoryEntry) => {
+    try {
+      let imageData = url;
+      // Convert blob URL to base64 data URL before navigation.
+      // fetch() starts reading the blob synchronously so the data is captured
+      // even though revokeObjectURL() fires later during cleanup.
+      if (url.startsWith('blob:')) {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        imageData = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      const getHistoryNodeLabel = (entryItem: HistoryEntry): string => {
+        const icons: Record<string, string> = {
+          variation: '🎨',
+          edit: '🪄',
+          upscale: '🔍',
+          generate: '📷',
+          render: '📷',
+          source: '📷',
+        };
+        const icon = icons[entryItem.type] || icons[entryItem.nodeType || ''] || '📷';
+        const modelName = entryItem.model || entryItem.params?.model || '';
+        const cleanModel = modelName ? (modelName.length > 20 ? modelName.slice(0, 20) + '...' : modelName) : '';
+        if (cleanModel) {
+          return `${icon} ${cleanModel}`;
+        }
+        const typeStr = entryItem.type || entryItem.nodeType || 'Node';
+        const cleanType = typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
+        return `${icon} ${cleanType}`;
+      };
+
+      const nodeLabel = getHistoryNodeLabel(entry);
+
+      navigate('/builder');
+
+      // Small delay so the builder tab becomes visually active before the
+      // event fires (prevents any edge case where the tab hasn't mounted yet).
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('anarchy:external-image-global', {
+          detail: {
+            image: imageData,
+            source: entry.id ? `history:${entry.id}` : 'history',
+            label: nodeLabel,
+          }
+        }));
+      }, 80);
+    } catch (err) {
+      console.error('[HistoryPage] handleSendToCanvas failed:', err);
+      navigate('/builder'); // navigate anyway as fallback
+    }
+  };
+
+  const handleSendGroupToCanvas = async (urls: string[]) => {
+    if (urls.length === 0) return;
+    try {
+      // Convert all blob URLs to base64 before navigation (same reasoning as above)
+      const imageDatas = await Promise.all(
+        urls.map(async (url, _i) => {
+          if (!url.startsWith('blob:')) return url;
+          const res = await fetch(url);
+          const blob = await res.blob();
+          return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        })
+      );
+
+      navigate('/builder');
+
+      // Stagger events so each source node gets positioned independently
+      imageDatas.forEach((imageData, index) => {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('anarchy:external-image-global', {
+            detail: {
+              image: imageData,
+              source: `history-group:${index}`,
+            }
+          }));
+        }, 80 + index * 220);
+      });
+    } catch (err) {
+      console.error('[HistoryPage] handleSendGroupToCanvas failed:', err);
       navigate('/builder');
     }
   };
 
-  const handleSendToCanvas = (url: string) => {
-    sessionStorage.setItem(SESSION_KEYS.PRESET_IMAGE, url);
-    navigate('/builder');
-  };
-
-  const handleSendGroupToCanvas = (urls: string[]) => {
-    if (urls.length === 0) return;
-    const timestamp = Date.now();
-    const nodes = urls.map((url, index) => {
-      const nodeId = `source_${timestamp}_${index}`;
-      return {
-        id: nodeId,
-        type: 'baseNode',
-        position: { x: 120, y: 200 + index * 240 },
-        data: {
-          type: 'source',
-          processingType: 'source',
-          state: 'ready',
-          label: `Source ${index + 1}`,
-          image: url,
-          createdAt: timestamp,
-          lineage: {
-            parentId: null,
-            rootSourceId: nodeId,
-            generation: 0,
-            branchIndex: 0,
-            processingType: 'source',
-            ancestry: []
-          }
-        }
-      };
-    });
-    const presetWf = { nodes, edges: [] };
-    sessionStorage.setItem(SESSION_KEYS.PRESET_WORKFLOW, JSON.stringify(presetWf));
-    navigate('/builder');
-  };
-
-  const handleReusePrompt = (prompt: string, _id: string) => {
+  const handleReusePrompt = (prompt: string, id: string) => {
     sessionStorage.setItem(SESSION_KEYS.PRESET_PROMPT, prompt);
+    if (id) {
+      sessionStorage.setItem('presetParentId', id);
+      const entry = entries.find(e => e.id === id);
+      if (entry?.rootId) {
+        sessionStorage.setItem('presetRootId', entry.rootId);
+      } else if (entry?.rootSourceId) {
+        sessionStorage.setItem('presetRootId', entry.rootSourceId);
+      } else if (entry) {
+        sessionStorage.setItem('presetRootId', entry.id);
+      }
+    }
     navigate('/builder');
   };
 
@@ -293,6 +467,7 @@ export const HistoryPage: React.FC = () => {
           onSendToCanvas={handleSendToCanvas}
           onSendGroupToCanvas={handleSendGroupToCanvas}
           onReusePrompt={handleReusePrompt}
+          onPreviewChange={setPreviewEntry}
         />
       )}
 
@@ -303,6 +478,9 @@ export const HistoryPage: React.FC = () => {
           onClose={() => setActiveGroup(null)}
           onStar={(_, id) => toggleStar(id)}
           onDelete={(_, id) => deleteEntry(id)}
+          onDeleteGroup={async (groupId) => {
+            await useHistoryStore.getState().deleteGroup(groupId);
+          }}
           onAddToCollection={(_, id) => setAddToColEntryId(id)}
           onOpenWorkflow={handleOpenWorkflow}
         />

@@ -65,8 +65,7 @@ if not exist ".env" (
     copy .env.example .env >nul
     echo  [✓] Created .env file
     echo.
-    echo  ⚠ IMPORTANT: Please edit .env and add your Replicate API token!
-    echo  Get token from: https://replicate.com/account/api-tokens
+    echo  ⚠ IMPORTANT: Please edit .env and add your Supabase credentials!
     echo.
     timeout /t 3 /nobreak >nul
 )

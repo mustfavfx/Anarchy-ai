@@ -21,10 +21,7 @@ async function verifyWebhookSignature(
   body: string,
   signature: string
 ): Promise<boolean> {
-  // DEBUG: Skip signature verification temporarily
-  console.log('[replicate-webhook] DEBUG: Skipping signature verification');
-  return true;
-  
+
   if (!WEBHOOK_SIGNING_KEY) {
     console.warn('[replicate-webhook] No signing key configured, skipping verification');
     return true; // Allow in development if no key set
@@ -230,6 +227,7 @@ Deno.serve(async (req) => {
     const node_id = url.searchParams.get('node_id');
     const user_id = url.searchParams.get('user_id');
     const workflow_id = url.searchParams.get('workflow_id');
+    const model = url.searchParams.get('model') || 'unknown';
     
     console.log('[replicate-webhook] Received (verified):', {
       id: payload.id,
@@ -237,6 +235,7 @@ Deno.serve(async (req) => {
       hasOutput: !!payload.output,
       node_id,
       user_id,
+      model,
     });
 
     if (!node_id || !user_id) {
@@ -250,6 +249,7 @@ Deno.serve(async (req) => {
       user_id,
       node_id,
       workflow_id,
+      model,
       status: payload.status,
       created_at: new Date().toISOString(),
     }, { onConflict: 'replicate_id' });

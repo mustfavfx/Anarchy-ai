@@ -1,8 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
+import App from './app/App.tsx'
 import { AuthProvider } from './features/auth/AuthContext'
-import './index.css'
+import './app/index.css'
 
 const rootEl = document.getElementById('root') ?? document.body;
 ReactDOM.createRoot(rootEl).render(

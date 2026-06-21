@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { logger } from '../../utils/logger';
 import { Image as ImageIcon, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download } from 'lucide-react';
-import { ExportModal } from '../../components/ExportModal';
+import { ExportModal } from '../../shared/components/ExportModal';
 import { AIControlPanel } from '../builder/AIControlPanel';
 import { MaskCanvas } from './MaskCanvas';
 import { useAIConfigStore } from '../../stores/aiConfigStore';

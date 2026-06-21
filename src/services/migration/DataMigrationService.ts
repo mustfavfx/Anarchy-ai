@@ -20,7 +20,15 @@ export const DataMigrationService = {
   /**
    * Export all application data
    */
-  exportAll(): AppDataExport {
+  async exportAll(): Promise<AppDataExport> {
+    let indexedDBData = null;
+    try {
+      const { exportIndexedDBData } = await import('../history/HistoryService');
+      indexedDBData = await exportIndexedDBData();
+    } catch (err) {
+      logger.warn('[DataMigration] Failed to export IndexedDB data:', err);
+    }
+
     const data: AppDataExport = {
       version: '0.7.0',
       exportedAt: new Date().toISOString(),
@@ -31,14 +39,19 @@ export const DataMigrationService = {
         library: localStorage.getItem('anarchy_library'),
       }
     };
+
+    if (indexedDBData) {
+      (data as any).indexedDB = indexedDBData;
+    }
+
     return data;
   },
 
   /**
    * Export to JSON file (downloads file)
    */
-  exportToFile(): void {
-    const data = this.exportAll();
+  async exportToFile(): Promise<void> {
+    const data = await this.exportAll();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
@@ -54,7 +67,7 @@ export const DataMigrationService = {
   /**
    * Import from JSON string
    */
-  importFromJSON(jsonString: string): boolean {
+  async importFromJSON(jsonString: string): Promise<boolean> {
     try {
       const data: AppDataExport = JSON.parse(jsonString);
       
@@ -77,6 +90,12 @@ export const DataMigrationService = {
         localStorage.setItem('anarchy_library', data.data.library);
       }
 
+      // Import IndexedDB data if present
+      if ((data as any).indexedDB) {
+        const { importIndexedDBData } = await import('../history/HistoryService');
+        await importIndexedDBData((data as any).indexedDB);
+      }
+
       return true;
     } catch (error) {
       logger.error('[DataMigration] Import failed:', error);
@@ -90,7 +109,7 @@ export const DataMigrationService = {
   async importFromFile(file: File): Promise<boolean> {
     try {
       const content = await file.text();
-      return this.importFromJSON(content);
+      return await this.importFromJSON(content);
     } catch {
       return false;
     }

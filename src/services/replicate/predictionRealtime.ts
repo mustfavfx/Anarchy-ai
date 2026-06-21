@@ -1,5 +1,6 @@
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '../supabase/supabaseClient';
+import { logger } from '../../utils/logger';
 
 export interface PredictionStatus {
   replicateId: string;
@@ -15,19 +16,19 @@ export type PredictionCallback = (status: PredictionStatus) => void;
 
 export class PredictionRealtimeService {
   private channel: RealtimeChannel | null = null;
+  private predictionChannels: Map<string, RealtimeChannel> = new Map();
   private callbacks: Map<string, PredictionCallback> = new Map();
-  private isSubscribed = false;
 
   /**
    * Subscribe to prediction updates for a specific user
    */
   subscribe(userId: string, onPredictionUpdate: PredictionCallback): void {
-    if (this.isSubscribed) {
-      console.log('[PredictionRealtime] Already subscribed');
+    if (this.channel) {
+      logger.log('[PredictionRealtime] Already subscribed');
       return;
     }
 
-    console.log('[PredictionRealtime] Subscribing for user:', userId);
+    logger.log('[PredictionRealtime] Subscribing for user:', userId);
 
     this.channel = supabase
       .channel(`predictions-${userId}`)
@@ -44,8 +45,7 @@ export class PredictionRealtimeService {
         }
       )
       .subscribe((status) => {
-        console.log('[PredictionRealtime] Subscription status:', status);
-        this.isSubscribed = status === 'SUBSCRIBED';
+        logger.log('[PredictionRealtime] Subscription status:', status);
       });
   }
 
@@ -57,13 +57,12 @@ export class PredictionRealtimeService {
     _nodeId: string,
     callback: PredictionCallback
   ): void {
-    console.log('[PredictionRealtime] Subscribing to prediction:', predictionId);
+    logger.log('[PredictionRealtime] Subscribing to prediction:', predictionId);
     
     this.callbacks.set(predictionId, callback);
 
-    // If not already subscribed to the channel, create one
-    if (!this.channel) {
-      this.channel = supabase
+    if (!this.predictionChannels.has(predictionId)) {
+      const channel = supabase
         .channel(`prediction-${predictionId}`)
         .on(
           'postgres_changes',
@@ -79,8 +78,9 @@ export class PredictionRealtimeService {
           }
         )
         .subscribe((status) => {
-          console.log('[PredictionRealtime] Prediction subscription:', status);
+          logger.log('[PredictionRealtime] Prediction subscription:', status);
         });
+      this.predictionChannels.set(predictionId, channel);
     }
   }
 
@@ -88,15 +88,18 @@ export class PredictionRealtimeService {
    * Unsubscribe from all predictions
    */
   unsubscribe(): void {
-    console.log('[PredictionRealtime] Unsubscribing');
+    logger.log('[PredictionRealtime] Unsubscribing');
     
     if (this.channel) {
       supabase.removeChannel(this.channel);
       this.channel = null;
     }
     
+    for (const chan of this.predictionChannels.values()) {
+      supabase.removeChannel(chan);
+    }
+    this.predictionChannels.clear();
     this.callbacks.clear();
-    this.isSubscribed = false;
   }
 
   /**
@@ -104,6 +107,11 @@ export class PredictionRealtimeService {
    */
   unsubscribeFromPrediction(predictionId: string): void {
     this.callbacks.delete(predictionId);
+    const chan = this.predictionChannels.get(predictionId);
+    if (chan) {
+      supabase.removeChannel(chan);
+      this.predictionChannels.delete(predictionId);
+    }
   }
 
   private handlePredictionChange(
@@ -112,7 +120,7 @@ export class PredictionRealtimeService {
   ): void {
     const status = this.parsePayload(payload.new);
     
-    console.log('[PredictionRealtime] Prediction update:', {
+    logger.log('[PredictionRealtime] Prediction update:', {
       id: status.replicateId,
       nodeId: status.nodeId,
       status: status.status,

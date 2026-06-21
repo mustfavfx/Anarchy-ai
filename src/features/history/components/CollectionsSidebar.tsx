@@ -1,5 +1,5 @@
 import React from 'react';
-import { useHistoryStore } from '../stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
 import type { SmartCollection } from '../types';
 import { evaluateSmartCollection } from '../hooks/useHistoryFilters';
 import { 

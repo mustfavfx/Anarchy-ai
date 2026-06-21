@@ -203,114 +203,44 @@ async function createUserCredit(userId: string): Promise<UserCredit | null> {
   return data ? mapDbToUserCredit(data) : null;
 }
 
-/**
- * Add credits (after purchase)
- */
 export async function addCredits(
   userId: string,
   credits: number,
   amountUsd: number,
-  paymentId?: string
+  _paymentId?: string
 ): Promise<boolean> {
   const { error: rpcError } = await supabase.rpc('add_credits', {
     p_user_id: userId,
     p_credits: credits,
+    p_description: `Purchased ${credits} credits for $${amountUsd}`,
   });
 
   if (rpcError) {
     logger.error('[Credit] Failed to add credits:', rpcError);
-    // Fallback: manual update
-    return manualAddCredits(userId, credits, amountUsd, paymentId);
-  }
-
-  return true;
-}
-
-async function manualAddCredits(
-  userId: string,
-  credits: number,
-  amountUsd: number,
-  paymentId?: string
-): Promise<boolean> {
-  const credit = await getUserCredit(userId);
-  if (!credit) return false;
-
-  const newBalance = credit.balance + credits;
-  const newTotalPurchased = credit.totalPurchased + credits;
-
-  const { error } = await supabase
-    .from('user_credits')
-    .update({
-      balance: newBalance,
-      total_purchased: newTotalPurchased,
-      last_purchase_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId);
-
-  if (error) {
-    logger.error('[Credit] Manual add failed:', error);
     return false;
   }
 
-  // Record transaction
-  await recordTransaction({
-    userId,
-    type: 'purchase',
-    amount: credits,
-    balanceAfter: newBalance,
-    description: `Purchased ${credits} credits for $${amountUsd}`,
-    metadata: { amount_usd: amountUsd, payment_id: paymentId },
-  });
-
   return true;
 }
 
-/**
- * Deduct credits for generation
- */
 export async function deductCredits(
   userId: string,
   cost: number,
   description: string
 ): Promise<{ success: boolean; remaining: number; error?: string }> {
-  const credit = await getUserCredit(userId);
-  if (!credit) {
-    return { success: false, remaining: 0, error: 'Unable to verify credits' };
-  }
-
-  if (credit.balance < cost) {
-    return {
-      success: false,
-      remaining: credit.balance,
-      error: `Insufficient credits. Need ${cost}, have ${credit.balance}`,
-    };
-  }
-
-  const newBalance = credit.balance - cost;
-  const newTotalUsed = credit.totalUsed + cost;
-
-  const { error } = await supabase
-    .from('user_credits')
-    .update({
-      balance: newBalance,
-      total_used: newTotalUsed,
-    })
-    .eq('user_id', userId);
-
-  if (error) {
-    logger.error('[Credit] Failed to deduct:', error);
-    return { success: false, remaining: credit.balance, error: 'Deduction failed' };
-  }
-
-  // Record transaction
-  await recordTransaction({
-    userId,
-    type: 'usage',
-    amount: -cost,
-    balanceAfter: newBalance,
-    description,
+  // Use the atomic RPC to prevent double-spend race conditions
+  const { data: rpcData, error: rpcError } = await supabase.rpc('deduct_credits', {
+    p_user_id: userId,
+    p_amount: cost,
+    p_description: description,
   });
 
+  if (rpcError) {
+    logger.error('[Credit] RPC deduct_credits failed:', rpcError);
+    return { success: false, remaining: 0, error: rpcError.message || 'Deduction failed' };
+  }
+
+  const newBalance = typeof rpcData === 'number' ? rpcData : 0;
   return { success: true, remaining: newBalance };
 }
 
@@ -355,81 +285,27 @@ export async function getTransactionHistory(
   return (data || []).map(mapDbToTransaction);
 }
 
-/**
- * Refund credits for a failed operation
- */
 export async function refundCredits(
   userId: string,
   credits: number,
   description: string
 ): Promise<boolean> {
-  const { error: rpcError } = await supabase.rpc('add_credits', {
+  const { error: rpcError } = await supabase.rpc('refund_credits', {
     p_user_id: userId,
-    p_credits: credits,
+    p_amount: credits,
+    p_description: description,
   });
 
   if (rpcError) {
     logger.error('[Credit] Failed to refund credits via RPC:', rpcError);
-    // Fallback: manual update
-    const credit = await getUserCredit(userId);
-    if (!credit) return false;
-
-    const newBalance = credit.balance + credits;
-    const { error } = await supabase
-      .from('user_credits')
-      .update({
-        balance: newBalance,
-      })
-      .eq('user_id', userId);
-
-    if (error) {
-      logger.error('[Credit] Manual refund failed:', error);
-      return false;
-    }
-
-    await recordTransaction({
-      userId,
-      type: 'refund',
-      amount: credits,
-      balanceAfter: newBalance,
-      description,
-    });
-    return true;
+    return false;
   }
-
-  // If RPC succeeded, get new balance to record transaction
-  const credit = await getUserCredit(userId);
-  const newBalance = credit ? credit.balance : 0;
-
-  await recordTransaction({
-    userId,
-    type: 'refund',
-    amount: credits,
-    balanceAfter: newBalance,
-    description,
-  });
 
   return true;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function recordTransaction(
-  tx: Omit<CreditTransaction, 'id' | 'createdAt'>
-): Promise<void> {
-  const { error } = await supabase.from('credit_transactions').insert({
-    user_id: tx.userId,
-    type: tx.type,
-    amount: tx.amount,
-    balance_after: tx.balanceAfter,
-    description: tx.description,
-    metadata: tx.metadata || {},
-  });
-
-  if (error) {
-    logger.error('[Credit] Failed to record transaction:', error);
-  }
-}
 
 function mapDbToUserCredit(data: any): UserCredit {
   return {

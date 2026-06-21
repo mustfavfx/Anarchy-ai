@@ -1,27 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Bot, Send, Building2, Ruler, DraftingCompass, ChevronDown, Check } from 'lucide-react';
-import { architectAgent, type ArchitectAgentRequest, type ArchitectAgentMessage } from '../../services/agent/ArchitectAgentService';
-import type { ReplicateChatModel } from '../../services/replicate/ReplicateService';
-import { useAuth } from '../auth/AuthContext';
-import { deductCredits, GENERATION_COST, DEV_MODE, refundCredits } from '../../services/credit/creditService';
-import { logger } from '../../utils/logger';
+import { useAgentChat, ARCHITECTURE_MODELS } from './hooks/useAgentChat';
+import type { AgentMode } from './hooks/useAgentChat';
 import './GeneratePage.css';
-
-type ChatRole = 'user' | 'assistant';
-
-interface ChatMessage {
-  id: string;
-  role: ChatRole;
-  text: string;
-}
-
-type AgentMode = 'general' | 'prompt' | 'analysis' | 'guidance';
-
-const ARCHITECTURE_MODELS: { id: ReplicateChatModel; label: string; focus: string }[] = [
-  { id: 'anthropic/claude-3.7-sonnet', label: 'Claude 3.7 Sonnet', focus: 'Best for architecture' },
-  { id: 'deepseek-ai/deepseek-r1', label: 'DeepSeek R1', focus: 'Deep analysis' },
-  { id: 'meta/meta-llama-3-70b-instruct', label: 'Llama 3 70B', focus: 'Balanced' },
-];
 
 const MODE_OPTIONS: { id: AgentMode; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'General', icon: <Bot size={13} /> },
@@ -37,27 +18,24 @@ const QUICK_PROMPTS = [
   'Guide me on lighting for north-facing room',
 ];
 
-const WELCOME_MESSAGE =
-  'Hello. I am your Architect AI Agent. I specialize in architectural notes, professional prompt generation, design analysis, and style guidance.';
-
 export const GeneratePage: React.FC = () => {
-  const { user: authUser } = useAuth();
-  const [selectedModel, setSelectedModel] = useState<ReplicateChatModel>('anthropic/claude-3.7-sonnet');
-  const [selectedMode, setSelectedMode] = useState<AgentMode>('general');
-  const [draft, setDraft] = useState('');
-  const [isSending, setIsSending] = useState(false);
+  const {
+    selectedModel,
+    setSelectedModel,
+    selectedMode,
+    setSelectedMode,
+    draft,
+    setDraft,
+    isSending,
+    messages,
+    selectedModelInfo,
+    sendMessage,
+  } = useAgentChat();
+
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'welcome', role: 'assistant', text: WELCOME_MESSAGE },
-  ]);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
   const modeDropdownRef = useRef<HTMLDivElement>(null);
-
-  const selectedModelInfo = useMemo(
-    () => ARCHITECTURE_MODELS.find(model => model.id === selectedModel) || ARCHITECTURE_MODELS[0],
-    [selectedModel]
-  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -77,79 +55,6 @@ export const GeneratePage: React.FC = () => {
       document.removeEventListener('click', handleClickOutside, true);
     };
   }, []);
-
-  const sendMessage = async (text: string) => {
-    const content = text.trim();
-    if (!content || isSending) return;
-
-    // Deduct credits
-    const chatCost = GENERATION_COST.chat;
-    if (authUser?.id && !DEV_MODE) {
-      const deduct = await deductCredits(authUser.id, chatCost, `AI Agent: ${selectedMode}`);
-      if (!deduct.success) {
-        const errorMessage: ChatMessage = {
-          id: `assistant-error-${Date.now()}`,
-          role: 'assistant',
-          text: `Insufficient credits. You need ${chatCost} credit for this request.`,
-        };
-        setMessages(prev => [...prev, errorMessage]);
-        return;
-      }
-    }
-
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      text: content,
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setDraft('');
-
-    setIsSending(true);
-    try {
-      const conversationHistory: ArchitectAgentMessage[] = messages
-        .filter(m => m.id !== 'welcome')
-        .map(m => ({
-          role: m.role,
-          content: m.text,
-        }));
-
-      const request: ArchitectAgentRequest = {
-        message: content,
-        mode: selectedMode,
-        model: selectedModel,
-        conversationHistory,
-      };
-
-      const response = await architectAgent.generateResponse(request);
-
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        text: response.response,
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: `assistant-error-${Date.now()}`,
-        role: 'assistant',
-        text: error instanceof Error
-          ? `Error: ${error.message}`
-          : 'Failed to generate response',
-      };
-      setMessages(prev => [...prev, errorMessage]);
-
-      // Refund credits
-      if (authUser?.id && !DEV_MODE) {
-        refundCredits(authUser.id, chatCost, `Refund: Failed agent query for ${selectedMode}`)
-          .catch((err) => logger.error('[Credit] Refund failed:', err));
-      }
-    } finally {
-      setIsSending(false);
-    }
-  };
 
   return (
     <div className="generate-page">

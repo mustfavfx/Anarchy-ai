@@ -122,8 +122,8 @@ Deno.serve(async (req) => {
       }],
       mode: 'payment',
       customer_email: user.email,
-      success_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${appUrl}/billing/add-credit`,
+      success_url: `${appUrl}/add-credit?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${appUrl}/add-credit?canceled=true`,
       metadata: {
         user_id:    user.id,
         package_id: packageId,

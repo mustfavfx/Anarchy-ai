@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { loadFullImage } from '../services/history/HistoryService';
+import { loadFullImage, revokeObjectUrl } from '../services/history/HistoryService';
 
 /**
  * Lazy-loads a history image when its container enters the viewport.
@@ -35,16 +35,27 @@ export function useLazyImage(
     if (!isIntersecting) return;
 
     let active = true;
+    let loadedUrl: string | null = null;
+
     const load = async () => {
       try {
         const img = await loadFullImage(entryId, imageSlot);
-        if (active && img) setSrc(img);
+        if (active && img) {
+          setSrc(img);
+          loadedUrl = img;
+        }
       } catch (err) {
         console.error(`[useLazyImage] Failed to load ${imageSlot} for ${entryId}:`, err);
       }
     };
     load();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+      if (loadedUrl) {
+        revokeObjectUrl(loadedUrl);
+      }
+    };
   }, [entryId, imageSlot, inlineImage, isIntersecting]);
 
   // IntersectionObserver — watches containerRef

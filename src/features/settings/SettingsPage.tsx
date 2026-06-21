@@ -6,11 +6,10 @@ import {
   Zap, History, Bell, FileText,
   Download, Upload
 } from 'lucide-react';
-import { replicateService } from '../../services/replicate';
 import { DataMigrationService } from '../../services/migration';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { WatermarkPosition } from '../../stores/aiConfigStore';
-import { ConfirmModal } from '../../components/ConfirmModal';
+import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { notify } from '../../stores/notificationStore';
 import './SettingsPage.css';
 import { APP_INFO } from '../../config/appInfo';
@@ -110,7 +109,6 @@ export const SettingsPage: React.FC = () => {
 
   const saveSettings = () => {
     SettingsService.updateSettings(settings);
-    replicateService.updateApiKey();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -122,7 +120,6 @@ export const SettingsPage: React.FC = () => {
     await SettingsService.resetSettings();
     const current = SettingsService.getSettings();
     setSettings(current);
-    replicateService.updateApiKey();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -139,8 +136,8 @@ export const SettingsPage: React.FC = () => {
   };
 
   // Export/Import handlers
-  const handleExport = () => {
-    DataMigrationService.exportToFile();
+  const handleExport = async () => {
+    await DataMigrationService.exportToFile();
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -628,7 +625,7 @@ export const SettingsPage: React.FC = () => {
       {confirmReset && (
         <ConfirmModal
           title="Reset Settings"
-          message="Reset all settings to defaults? Your API key and preferences will be cleared from secure storage."
+          message="Reset all settings to defaults? Your preferences will be reset."
           confirmLabel="Reset"
           danger
           onConfirm={doResetSettings}

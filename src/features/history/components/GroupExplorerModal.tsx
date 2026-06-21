@@ -1,13 +1,14 @@
 import React from 'react';
 import type { HistoryGroup, HistoryEntry } from '../types';
 import { HistoryCard } from './HistoryCard';
-import { X, Layers } from 'lucide-react';
+import { X, Layers, Trash2 } from 'lucide-react';
 
 interface GroupExplorerModalProps {
   group: HistoryGroup;
   onClose: () => void;
   onStar: (e: React.MouseEvent, id: string) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
+  onDeleteGroup: (groupId: string) => void;
   onAddToCollection: (e: React.MouseEvent, id: string) => void;
   onOpenWorkflow: (entry: HistoryEntry) => void;
 }
@@ -17,6 +18,7 @@ export const GroupExplorerModal: React.FC<GroupExplorerModalProps> = ({
   onClose,
   onStar,
   onDelete,
+  onDeleteGroup,
   onAddToCollection,
   onOpenWorkflow
 }) => {
@@ -37,6 +39,31 @@ export const GroupExplorerModal: React.FC<GroupExplorerModalProps> = ({
               {group.children.length} variations derived from original source
             </span>
           </div>
+          <button 
+            className="group-delete-btn"
+            onClick={() => {
+              if (window.confirm("Delete this group and all its variations?")) {
+                onDeleteGroup(group.id);
+              }
+            }}
+            title="Delete Group"
+            style={{
+              marginLeft: 'auto',
+              marginRight: 40,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 6,
+              background: 'rgba(225, 29, 72, 0.1)',
+              color: '#e11d48',
+              border: '1px solid rgba(225, 29, 72, 0.2)',
+              cursor: 'pointer',
+              fontSize: 12
+            }}
+          >
+            <Trash2 size={13} /> Delete Group
+          </button>
         </div>
 
         {/* Scrollable Children Grid */}

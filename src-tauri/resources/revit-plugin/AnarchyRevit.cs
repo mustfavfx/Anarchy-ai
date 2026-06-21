@@ -109,11 +109,27 @@ namespace AnarchyRevit
                 string json = "{\"type\":\"EXTERNAL_IMAGE_NODE\",\"image\":\"" + dataUrl + "\",\"source\":\"revit\"}";
                 byte[] payload = Encoding.UTF8.GetBytes(json);
 
+                string token = "";
+                try
+                {
+                    string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                    string tokenFile = Path.Combine(appData, "com.anarchyai.app", ".token");
+                    if (File.Exists(tokenFile))
+                    {
+                        token = File.ReadAllText(tokenFile).Trim();
+                    }
+                }
+                catch { }
+
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create("http://localhost:14400/upload-view");
                 req.Method = "POST";
                 req.ContentType = "application/json";
                 req.ContentLength = payload.Length;
                 req.Timeout = 5000;
+                if (!string.IsNullOrEmpty(token))
+                {
+                    req.Headers.Add("X-Anarchy-Token", token);
+                }
                 using (Stream s = req.GetRequestStream()) { s.Write(payload, 0, payload.Length); }
                 using (var resp = (HttpWebResponse)req.GetResponse()) { }
 

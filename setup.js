@@ -60,25 +60,26 @@ function setupEnv() {
   if (fs.existsSync(envPath)) {
     log('✅ .env file already exists', 'green');
     
-    // Check if API token is set
+    // Check if Supabase is configured
     const envContent = fs.readFileSync(envPath, 'utf8');
-    if (envContent.includes('your_replicate_api_token') || !envContent.includes('r8_')) {
-      log('⚠️  Warning: API token not configured in .env', 'yellow');
-      log('   Please edit .env and add your Replicate API token', 'cyan');
+    if (envContent.includes('placeholder') || !envContent.includes('supabase.co')) {
+      log('⚠️  Warning: Supabase not configured in .env', 'yellow');
+      log('   Please edit .env and add your Supabase project URL and anon key', 'cyan');
     } else {
-      log('✅ API token configured', 'green');
+      log('✅ Supabase configured', 'green');
     }
+    log('ℹ️  Replicate API key is managed server-side via Supabase secrets', 'cyan');
     return;
   }
   
   if (fs.existsSync(envExamplePath)) {
     fs.copyFileSync(envExamplePath, envPath);
     log('✅ Created .env from .env.example', 'green');
-    log('⚠️  Please edit .env and add your Replicate API token', 'yellow');
-    log('   Get token from: https://replicate.com/account/api-tokens', 'cyan');
+    log('⚠️  Please edit .env and add your Supabase credentials', 'yellow');
+    log('ℹ️  Replicate API key → set via: supabase secrets set REPLICATE_API_TOKEN=r8_...', 'cyan');
   } else {
     log('⚠️  .env.example not found, creating empty .env', 'yellow');
-    fs.writeFileSync(envPath, 'VITE_REPLICATE_API_TOKEN=\n');
+    fs.writeFileSync(envPath, 'VITE_SUPABASE_URL=\nVITE_SUPABASE_ANON_KEY=\n');
   }
 }
 

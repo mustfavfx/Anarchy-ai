@@ -1,15 +1,16 @@
 import React, { memo, useRef, useState } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type NodeProps, useStore } from '@xyflow/react';
 import { 
   FileInput, Wand2, X, Sun, Moon, Users, 
   Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright,
-  Eye, Maximize2
+  Eye, Maximize2, Copy
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
-import { ExportModal } from '../../components/ExportModal';
-import { getLocalImage } from '../../services/history/HistoryService';
+import { ExportModal } from '../../shared/components/ExportModal';
+import { getLocalImageAsObjectURL, revokeObjectUrl } from '../../services/history/HistoryService';
 import { NodeLightbox } from './components/NodeLightbox';
 import { NodeUploadPlaceholder } from './components/NodeUploadPlaceholder';
+import { useNotificationStore } from '../../stores/notificationStore';
 import './BaseNode.css';
 import './BaseNode.glass.css';
 import type { ProcessingType, BuilderNodeData } from './types';
@@ -34,9 +35,29 @@ const PROCESSING_CONFIG: Record<ProcessingType, { icon: React.ReactNode; color: 
 
 
 export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
+  if (process.env.NODE_ENV === 'development' || (globalThis as any).__DEV__) {
+    (globalThis as any).__anarchyNodeRenders = ((globalThis as any).__anarchyNodeRenders || 0) + 1;
+  }
   const nodeData = data;
   const displayImageRaw = nodeData.image || nodeData.outputData?.image;
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | undefined>(undefined);
+  const [copied, setCopied] = useState(false);
+  const addNotification = useNotificationStore((s) => s.addNotification);
+
+  const handleCopyPrompt = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (nodeData.prompt) {
+      navigator.clipboard.writeText(nodeData.prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      addNotification({
+        type: 'success',
+        title: 'Prompt Copied',
+        message: 'Prompt copied to clipboard successfully.',
+        duration: 2000
+      });
+    }
+  };
 
   React.useEffect(() => {
     let active = true;
@@ -48,27 +69,40 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
     }
 
     const resolveImage = async () => {
-      let rawUrl = displayImageRaw;
       if (displayImageRaw.startsWith('idb://')) {
-        const cached = await getLocalImage(displayImageRaw);
-        if (cached) rawUrl = cached;
+        const cachedUrl = await getLocalImageAsObjectURL(displayImageRaw);
+        if (!active) {
+          if (cachedUrl && cachedUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(cachedUrl);
+          }
+          return;
+        }
+        if (cachedUrl) {
+          if (cachedUrl.startsWith('blob:')) {
+            currentBlobUrl = cachedUrl;
+          }
+          setResolvedImageUrl(cachedUrl);
+        } else {
+          setResolvedImageUrl(undefined);
+        }
+        return;
       }
 
       if (!active) return;
 
-      if (rawUrl.startsWith('data:')) {
+      if (displayImageRaw.startsWith('data:')) {
         try {
-          const response = await fetch(rawUrl);
+          const response = await fetch(displayImageRaw);
           const blob = await response.blob();
           if (!active) return;
           const blobUrl = URL.createObjectURL(blob);
           currentBlobUrl = blobUrl;
           setResolvedImageUrl(blobUrl);
         } catch {
-          if (active) setResolvedImageUrl(rawUrl);
+          if (active) setResolvedImageUrl(displayImageRaw);
         }
       } else {
-        setResolvedImageUrl(rawUrl);
+        setResolvedImageUrl(displayImageRaw);
       }
     };
 
@@ -77,7 +111,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
     return () => {
       active = false;
       if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
+        revokeObjectUrl(currentBlobUrl);
       }
     };
   }, [displayImageRaw]);
@@ -92,8 +126,9 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   
   // Determine state flags
   const isProcessing = nodeState === 'processing';
-  const isReady = nodeState === 'ready';
-  const isError = nodeState === 'error';
+  const isReady = nodeState === 'ready' || nodeState === 'completed';
+  const isError = nodeState === 'error' || nodeState === 'failed';
+  const isCancelled = nodeState === 'cancelled';
   
   const processingType = nodeData.processingType || 'source';
   const config = PROCESSING_CONFIG[processingType] || PROCESSING_CONFIG.source;
@@ -195,6 +230,8 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const errorState = isError ? 'node-error' : '';
   const readyState = isReady ? 'node-ready' : '';
   
+
+
   return (
     <div 
       className={`
@@ -241,6 +278,12 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                 <span className="node-status-badge error">
                   <AlertCircle size={10} />
                   Error
+                </span>
+              )}
+              {isCancelled && (
+                <span className="node-status-badge cancelled">
+                  <X size={10} />
+                  Cancelled
                 </span>
               )}
             </div>
@@ -390,12 +433,23 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
           className="node-prompt-bar"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <span
-            className="node-prompt-text"
-            style={{ userSelect: 'text', cursor: 'text' }}
-          >
-            {String(nodeData.prompt)}
-          </span>
+          <div className="node-prompt-content-wrap">
+            <button
+              type="button"
+              className={`node-prompt-copy-btn ${copied ? 'copied' : ''}`}
+              onClick={handleCopyPrompt}
+              title={copied ? "Copied!" : "Copy Prompt"}
+            >
+              <Copy size={10} />
+            </button>
+            <span
+              className="node-prompt-text"
+              style={{ userSelect: 'text', cursor: 'text' }}
+              title={String(nodeData.prompt)}
+            >
+              {nodeData.prompt.length > 80 ? nodeData.prompt.slice(0, 80) + '...' : nodeData.prompt}
+            </span>
+          </div>
         </div>
       )}
     </div>

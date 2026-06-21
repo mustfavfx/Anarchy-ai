@@ -1,9 +1,10 @@
 import React from 'react';
-import { useHistoryStore } from '../stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
 import { 
   Search, ArrowUpDown, CheckSquare, BookOpen, Trash2, 
-  Layers, Grid, SlidersHorizontal
+  Layers, Grid, SlidersHorizontal, Sparkles
 } from 'lucide-react';
+import { resetModelError } from '@/services/history/SemanticSearchService';
 
 interface HistoryHeaderProps {
   onClearClick: () => void;
@@ -29,7 +30,12 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
     selectMode,
     setSelectMode,
     isGroupedView,
-    setIsGroupedView
+    setIsGroupedView,
+    useSemanticSearch,
+    setUseSemanticSearch,
+    isSemanticLoading,
+    semanticProgress,
+    isSemanticModelError
   } = useHistoryStore();
 
   // Extract unique model names
@@ -44,17 +50,55 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
       <div className="header-left-group">
         <h1 className="page-title">History</h1>
         
-        {/* Search Input */}
+        {/* Search Input Container */}
         <div className="history-search-container">
-          <div className="history-search">
-            <Search size={14} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search prompt, model..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+          <div className="history-search-wrapper">
+            <div className="history-search">
+              <Search size={14} className="search-icon" />
+              <input
+                type="text"
+                placeholder={useSemanticSearch ? "AI Search: describe mood, concept, style..." : "Search prompt, model..."}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            <button
+              className={`ai-search-toggle ${useSemanticSearch ? 'active' : ''}`}
+              onClick={() => setUseSemanticSearch(!useSemanticSearch)}
+              title={useSemanticSearch ? "Disable AI Semantic Search" : "Enable AI Semantic Search (conceptual/meaning match)"}
+            >
+              <Sparkles size={12} className={useSemanticSearch ? 'sparkle-glow' : ''} />
+              <span>AI Search</span>
+            </button>
           </div>
+
+          {/* Semantic Loading Progress bar */}
+          {useSemanticSearch && isSemanticLoading && (
+            <div className="semantic-progress-container">
+              <div className="semantic-progress-bar">
+                <div 
+                  className="semantic-progress-bar-fill"
+                  style={{ width: `${semanticProgress?.progress || 15}%` }}
+                />
+              </div>
+              <span className="semantic-progress-text">
+                {semanticProgress?.progress 
+                  ? `Loading AI Model... ${Math.round(semanticProgress.progress)}%`
+                  : 'Initializing AI Search Engine...'}
+              </span>
+            </div>
+          )}
+
+          {/* Semantic Error State */}
+          {useSemanticSearch && isSemanticModelError && (
+            <div className="semantic-error-container">
+              <span className="semantic-error-text">AI search offline. Model load failed.</span>
+              <button className="semantic-retry-btn" onClick={resetModelError}>
+                Retry
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Model Dropdown Filter */}

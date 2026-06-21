@@ -11,11 +11,14 @@ import {
   Search, PersonStanding, Layers,
   Clapperboard, BookImage, CircleDashed, PenLine, Paintbrush,
   SwatchBook, PanelTop, Ruler, Scissors, Box, Map,
-  Aperture, BookOpen, Coins,
+  Aperture, BookOpen, Coins, Languages,
   type LucideIcon
 } from 'lucide-react';
 import { PRESET_PROMPTS } from '../presetPrompts';
+import { PRESETS_TRANSLATIONS_AR } from '../presetPromptsAr';
 import { getModelCost } from '../../../services/credit/creditService';
+import { replicateService } from '../../../services/replicate/ReplicateService';
+import { useNotificationStore } from '../../../stores/notificationStore';
 
 const PRESET_ICON_MAP: Record<string, LucideIcon> = {
   Camera, Sparkles, Building2, HardHat, Blend,
@@ -65,7 +68,9 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   onPromptContextMenu,
 }) => {
   const [showPresets, setShowPresets] = useState(false);
+  const [isArabicPresets, setIsArabicPresets] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const addNotification = useNotificationStore((s) => s.addNotification);
 
   useEffect(() => {
     if (!showPresets) return;
@@ -127,85 +132,120 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
           </button>
           {showPresets && (
             <div className="prompt-presets-popup">
-              <div className="presets-header">Preset Prompts</div>
-              {PRESET_PROMPTS.map((group) => (
-                <div key={group.category} className="presets-group">
-                  <div className="presets-category">
-                    {PRESET_ICON_MAP[group.icon] && (() => {
-                      const Icon = PRESET_ICON_MAP[group.icon];
-                      return <Icon size={12} className="category-icon" style={{ marginRight: '6px', verticalAlign: 'middle', display: 'inline-block' }} />;
-                    })()}
-                    <span style={{ verticalAlign: 'middle' }}>{group.category}</span>
-                  </div>
-                  {group.prompts.map((p) => {
-                    const hasRefImage = hasSourceWithImage;
-                    const needsRefImage = p.requiresReferenceImage && !hasRefImage;
-                    return (
-                      <button
-                        type="button"
-                        key={p.label}
-                        className={`preset-item ${p.tier === 'advanced' ? 'advanced-tier' : ''}`}
-                        onClick={() => {
-                          setPrompt(p.text);
-                          setShowPresets(false);
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <span className="preset-label">
-                            {PRESET_ICON_MAP[p.icon] && (() => { 
-                              const Icon = PRESET_ICON_MAP[p.icon]; 
-                              return <Icon size={16} className="preset-icon" />; 
-                            })()}
-                            {p.label}
-                          </span>
-                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                            {p.tier === 'advanced' && (
-                              <span style={{
-                                fontSize: '8px',
-                                padding: '1px 4px',
-                                borderRadius: '4px',
-                                background: 'rgba(225, 29, 72, 0.15)',
-                                border: '1px solid rgba(225, 29, 72, 0.3)',
-                                color: '#e11d48',
-                                fontWeight: 600,
-                                textTransform: 'uppercase'
-                              }}>
-                                Advanced
-                              </span>
-                            )}
-                            {p.requiresReferenceImage && (
-                              <span style={{
-                                fontSize: '8px',
-                                padding: '1px 4px',
-                                borderRadius: '4px',
-                                background: needsRefImage ? 'rgba(239, 68, 68, 0.15)' : 'rgba(251, 191, 36, 0.15)',
-                                border: needsRefImage ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(251, 191, 36, 0.3)',
-                                color: needsRefImage ? '#ef4444' : '#fbbf24',
-                                fontWeight: 600,
-                                textTransform: 'uppercase'
-                              }} title={needsRefImage ? "Warning: Needs a reference image but none is uploaded!" : "Requires reference image"}>
-                                Ref Image
-                              </span>
-                            )}
+              <div className="presets-header">
+                <span>{isArabicPresets ? 'البرومتات الجاهزة' : 'Preset Prompts'}</span>
+                <button
+                  type="button"
+                  className="presets-translate-ar-btn"
+                  onClick={() => setIsArabicPresets(prev => !prev)}
+                  title={isArabicPresets ? "Show English" : "ترجمة للعربية"}
+                >
+                  <Languages size={14} />
+                  <span>{isArabicPresets ? 'EN' : 'AR'}</span>
+                </button>
+              </div>
+              {PRESET_PROMPTS.map((group) => {
+                const categoryLabel = isArabicPresets ? (PRESETS_TRANSLATIONS_AR[group.category] || group.category) : group.category;
+                return (
+                  <div key={group.category} className="presets-group">
+                    <div className="presets-category" style={{ direction: isArabicPresets ? 'rtl' : 'ltr' }}>
+                      {PRESET_ICON_MAP[group.icon] && (() => {
+                        const Icon = PRESET_ICON_MAP[group.icon];
+                        return <Icon size={12} className="category-icon" style={{ [isArabicPresets ? 'marginLeft' : 'marginRight']: '6px', verticalAlign: 'middle', display: 'inline-block' }} />;
+                      })()}
+                      <span style={{ verticalAlign: 'middle' }}>{categoryLabel}</span>
+                    </div>
+                    {group.prompts.map((p) => {
+                      const hasRefImage = hasSourceWithImage;
+                      const needsRefImage = p.requiresReferenceImage && !hasRefImage;
+                      const displayLabel = isArabicPresets ? (PRESETS_TRANSLATIONS_AR[p.label] || p.label) : p.label;
+                      const displayText = isArabicPresets ? (PRESETS_TRANSLATIONS_AR[p.text] || p.text) : p.text;
+                      const displayNote = p.note ? (isArabicPresets ? (PRESETS_TRANSLATIONS_AR[p.note] || p.note) : p.note) : undefined;
+                      const displayTier = p.tier === 'advanced' ? (isArabicPresets ? 'متقدم' : 'Advanced') : undefined;
+                      const displayRefImage = p.requiresReferenceImage ? (isArabicPresets ? 'صورة مرجعية' : 'Ref Image') : undefined;
+
+                      return (
+                        <button
+                          type="button"
+                          key={p.label}
+                          className={`preset-item ${p.tier === 'advanced' ? 'advanced-tier' : ''}`}
+                          onClick={() => {
+                            const selectedText = isArabicPresets ? (PRESETS_TRANSLATIONS_AR[p.text] || p.text) : p.text;
+                            setPrompt(selectedText);
+                            setShowPresets(false);
+                            if (isArabicPresets) {
+                              addNotification({
+                                type: 'success',
+                                title: 'تم اختيار البروموت',
+                                message: 'تم تحميل البروموت المترجم باللغة العربية.',
+                                duration: 3000
+                              });
+                            }
+                          }}
+                          style={{ direction: isArabicPresets ? 'rtl' : 'ltr' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexDirection: isArabicPresets ? 'row-reverse' : 'row' }}>
+                            <span className="preset-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexDirection: isArabicPresets ? 'row-reverse' : 'row' }}>
+                              {PRESET_ICON_MAP[p.icon] && (() => { 
+                                const Icon = PRESET_ICON_MAP[p.icon]; 
+                                return <Icon size={16} className="preset-icon" style={{ [isArabicPresets ? 'marginLeft' : 'marginRight']: '6px' }} />; 
+                              })()}
+                              {displayLabel}
+                            </span>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexDirection: isArabicPresets ? 'row-reverse' : 'row' }}>
+                              {p.tier === 'advanced' && (
+                                <span style={{
+                                  fontSize: '8px',
+                                  padding: '1px 4px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(225, 29, 72, 0.15)',
+                                  border: '1px solid rgba(225, 29, 72, 0.3)',
+                                  color: '#e11d48',
+                                  fontWeight: 600,
+                                  textTransform: 'uppercase'
+                                }}>
+                                  {displayTier}
+                                </span>
+                              )}
+                              {p.requiresReferenceImage && (
+                                <span style={{
+                                  fontSize: '8px',
+                                  padding: '1px 4px',
+                                  borderRadius: '4px',
+                                  background: needsRefImage ? 'rgba(239, 68, 68, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+                                  border: needsRefImage ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(251, 191, 36, 0.3)',
+                                  color: needsRefImage ? '#ef4444' : '#fbbf24',
+                                  fontWeight: 600,
+                                  textTransform: 'uppercase'
+                                }} title={needsRefImage ? (isArabicPresets ? "تحذير: يحتاج صورة مرجعية ولكن لم يتم رفع أي صورة!" : "Warning: Needs a reference image but none is uploaded!") : (isArabicPresets ? "يتطلب صورة مرجعية" : "Requires reference image")}>
+                                  {displayRefImage}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <span className="preset-preview">{p.text.length > 70 ? `${p.text.slice(0, 70)}...` : p.text}</span>
-                        {p.note && (
-                          <span style={{
-                            fontSize: '9px',
-                            color: 'rgba(255, 255, 255, 0.35)',
-                            fontStyle: 'italic',
-                            marginTop: '2px',
-                            paddingLeft: '22px'
-                          }}>
-                            * {p.note}
+                          <span className="preset-preview" style={{ textAlign: isArabicPresets ? 'right' : 'left' }}>
+                            {displayText.length > 70 ? `${displayText.slice(0, 70)}...` : displayText}
                           </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+                          {displayNote && (
+                            <span style={{
+                              fontSize: '9px',
+                              color: 'rgba(255, 255, 255, 0.35)',
+                              fontStyle: 'italic',
+                              marginTop: '2px',
+                              paddingRight: isArabicPresets ? '22px' : '0px',
+                              paddingLeft: isArabicPresets ? '0px' : '22px',
+                              textAlign: isArabicPresets ? 'right' : 'left',
+                              display: 'block'
+                            }}>
+                              * {displayNote}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

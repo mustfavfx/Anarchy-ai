@@ -2,17 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../../utils/logger';
 import { 
   Search, FolderOpen, Loader2, X, 
-  Trash2, Edit3, Copy, Layers, FileDown,
+  Trash2, Edit3, Copy, FileDown,
   Calendar, Clock, Image as ImageIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ConfirmModal } from '../../components/ConfirmModal';
+import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { 
   listProjects, 
   deleteProject, 
   duplicateProject, 
   renameProject, 
-  timeAgo, 
   type ProjectMeta 
 } from '../../services/projects/ProjectService';
 import { SESSION_KEYS } from '../../utils/storageKeys';
@@ -20,6 +19,7 @@ import { exportImagesToPDFWithDialog } from '../../services/export';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { invoke } from '@tauri-apps/api/core';
 import { useResolvedImage } from '../../hooks/useResolvedImage';
+import { VirtualLibraryGrid } from './components/VirtualLibraryGrid';
 import './LibraryPage.css';
 
 type FilterType = 'all' | 'active' | 'draft';
@@ -31,7 +31,7 @@ interface ProjectThumbnailProps {
   large?: boolean;
 }
 
-const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({ url, alt, className, large }) => {
+export const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({ url, alt, className, large }) => {
   const resolvedUrl = useResolvedImage(url);
 
   if (!resolvedUrl) {
@@ -90,6 +90,7 @@ export const LibraryPage: React.FC = () => {
 
   useEffect(() => {
     loadProjects();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: runs once on mount; loadProjects not wrapped in useCallback to avoid dep churn
   }, []);
 
   // Filter projects by search query and category tab
@@ -257,54 +258,14 @@ export const LibraryPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="assets-grid">
-          {filteredProjects.map(project => {
-            return (
-              <div
-                key={project.filePath}
-                className="asset-card source-card"
-                onClick={() => setSelectedProject(project)}
-              >
-                <div className="asset-image-box">
-                  <ProjectThumbnail url={project.thumbnailUrl} alt={project.name} />
-
-                  <div className={`project-status-badge ${project.status}`}>
-                    {project.status === 'active' ? 'Active' : 'Draft'}
-                  </div>
-
-                  <div className="result-count-badge">
-                    <Layers size={12} />
-                    <span>{project.outputCount} outputs</span>
-                  </div>
-
-                  {/* Actions overlay */}
-                  <div className="asset-hover-actions" onClick={e => e.stopPropagation()}>
-                    <button className="asset-action-btn" onClick={() => handleOpenProject(project.filePath)} title="Open Project">
-                      <FolderOpen size={14} />
-                    </button>
-                    <button className="asset-action-btn" onClick={(e) => handleRenameClick(e, project)} title="Rename">
-                      <Edit3 size={14} />
-                    </button>
-                    <button className="asset-action-btn" onClick={(e) => handleDuplicate(e, project.filePath)} title="Duplicate">
-                      <Copy size={14} />
-                    </button>
-                    <button className="asset-action-btn danger" onClick={(e) => handleDeleteClick(e, project)} title="Delete">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="asset-details">
-                  <h4 className="asset-name" title={project.name}>{project.name}</h4>
-                  <div className="project-meta-row">
-                    <span className="project-node-count">{project.sourceCount} nodes</span>
-                    <span className="project-time-badge">{timeAgo(project.updatedAt)}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <VirtualLibraryGrid
+          projects={filteredProjects}
+          onSelectProject={setSelectedProject}
+          onOpenProject={handleOpenProject}
+          onRenameClick={handleRenameClick}
+          onDuplicate={handleDuplicate}
+          onDeleteClick={handleDeleteClick}
+        />
       )}
 
       {/* Project Details Modal */}

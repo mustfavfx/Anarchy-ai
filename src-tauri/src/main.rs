@@ -2,6 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
+
+static VIEWPORT_TOKEN: OnceLock<String> = OnceLock::new();
 use reqwest::multipart;
 use base64::Engine as _;
 use tauri::{Emitter, Manager};
@@ -329,7 +332,24 @@ fn is_path_safe(path_str: &str) -> Result<(), String> {
             .unwrap_or_else(|_| "C:\\Windows".to_string());
         if let Ok(win_path) = Path::new(&win_dir).canonicalize() {
             if canonical_base.starts_with(&win_path) {
-                return Err("Access denied. Writing to system folders is not allowed.".to_string());
+                return Err("Access denied. System folder access is not allowed.".to_string());
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    {
+        let system_prefixes = [
+            "/etc", "/bin", "/sbin", "/var", "/usr", "/System", "/private", "/boot", "/sys", "/proc", "/dev"
+        ];
+        for prefix in &system_prefixes {
+            let pref_path = Path::new(prefix);
+            if let Ok(pref_canon) = pref_path.canonicalize() {
+                if canonical_base.starts_with(&pref_canon) {
+                    return Err(format!("Access denied. System folder access to {} is not allowed.", prefix));
+                }
+            } else if canonical_base.starts_with(pref_path) {
+                return Err(format!("Access denied. System folder access to {} is not allowed.", prefix));
             }
         }
     }
@@ -583,7 +603,8 @@ async fn detect_autodesk_installs(target: String) -> Result<Vec<AutodeskInstall>
 }
 
 #[tauri::command]
-async fn install_3dsmax_plugin(script: String, versions: Option<Vec<String>>) -> Result<Vec<String>, String> {
+async fn install_3dsmax_plugin(_script: String, versions: Option<Vec<String>>) -> Result<Vec<String>, String> {
+    let script = include_str!("../resources/AnarchyConnector.ms");
     let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
     let max_root = std::path::Path::new(&local_app_data).join("Autodesk").join("3dsMax");
 
@@ -1227,6 +1248,23 @@ fn get_app_data_dir(app_handle: tauri::AppHandle) -> Result<String, String> {
 }
 
 async fn start_anarchy_viewport_server(app_handle: tauri::AppHandle) {
+    // Generate token if not set
+    let token = VIEWPORT_TOKEN.get_or_init(|| {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(123456789);
+        let pid = std::process::id();
+        format!("{:x}-{:x}", timestamp, pid)
+    });
+
+    // Write token to app data directory
+    if let Ok(app_dir) = app_handle.path().app_data_dir() {
+        let _ = std::fs::create_dir_all(&app_dir);
+        let token_path = app_dir.join(".token");
+        let _ = std::fs::write(&token_path, token);
+    }
+
     let listener = match TcpListener::bind("127.0.0.1:14400").await {
         Ok(listener) => listener,
         Err(error) => {
@@ -1293,6 +1331,25 @@ async fn start_anarchy_viewport_server(app_handle: tauri::AppHandle) {
             let headers = String::from_utf8_lossy(&buffer[..end]);
             let body = String::from_utf8_lossy(&buffer[end..]);
 
+            // Token authentication check
+            let has_valid_token = headers.lines().any(|line| {
+                if let Some((name, value)) = line.split_once(':') {
+                    if name.trim().eq_ignore_ascii_case("x-anarchy-token") {
+                        if let Some(expected) = VIEWPORT_TOKEN.get() {
+                            return value.trim() == expected;
+                        }
+                    }
+                }
+                false
+            });
+
+            if !has_valid_token {
+                eprintln!("[viewport-server] Unauthorized access attempt: missing or invalid token");
+                let status = "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"ok\":false,\"error\":\"Unauthorized\"}";
+                let _ = socket.write_all(status.as_bytes()).await;
+                return;
+            }
+
             let is_upload_view = headers.starts_with("POST /upload-view ");
             let status = if is_upload_view {
                 match serde_json::from_str::<UploadViewPayload>(&body) {
@@ -1317,6 +1374,12 @@ async fn start_anarchy_viewport_server(app_handle: tauri::AppHandle) {
 
 #[tauri::command]
 async fn save_image_to_documents(data_uri: String, file_name: String) -> Result<String, String> {
+    // Validate file_name to prevent path traversal
+    let file_path = std::path::Path::new(&file_name);
+    if file_name.contains("..") || file_name.contains('/') || file_name.contains('\\') || (file_path.parent().is_some() && file_path.parent().unwrap() != std::path::Path::new("")) {
+        return Err("Invalid file name. Directory traversal is not allowed.".to_string());
+    }
+
     // Strip data URI prefix: "data:image/png;base64,..."
     let b64 = data_uri
         .splitn(2, ',')
@@ -1522,6 +1585,7 @@ fn read_clipboard_image() -> Result<String, String> {
 /// Read a local image file from disk and return it as a base64 data URI
 #[tauri::command]
 async fn read_local_image(path: String) -> Result<String, String> {
+    is_path_safe(&path)?;
     let bytes = std::fs::read(&path)
         .map_err(|e| format!("Failed to read image file: {}", e))?;
 
@@ -1583,6 +1647,9 @@ async fn open_images_folder() -> Result<(), String> {
 
 #[tauri::command]
 async fn open_url(url: String) -> Result<(), String> {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("Access denied. Only http:// and https:// URLs are allowed.".to_string());
+    }
     open::that(&url).map_err(|e| format!("Failed to open URL: {}", e))
 }
 

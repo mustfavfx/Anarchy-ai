@@ -1,6 +1,6 @@
 import React from 'react';
 import { useHistoryFilters } from '../hooks/useHistoryFilters';
-import { useHistoryStore } from '../stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
 import { VirtualHistoryGrid } from './VirtualHistoryGrid';
 import type { HistoryEntry } from '../types';
 import { Image as ImageIcon } from 'lucide-react';

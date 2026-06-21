@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { List } from 'react-window';
+const AnyList = List as React.ComponentType<any>;
 import type { HistoryEntry, HistoryGroup } from '../types';
 import { HistoryCard } from './HistoryCard';
-
-const VirtualList = List as any;
 
 interface VirtualHistoryGridProps {
   entries: HistoryEntry[];
@@ -25,20 +24,20 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
   onOpenWorkflow
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [containerWidth, setContainerWidth] = useState<number>(1000);
+  const [dimensions, setDimensions] = useState({ width: 1000, height: 600 });
 
-  // Measure container width responsively
+  // Measure container width and height responsively
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const resizeObserver = new ResizeObserver((entries) => {
       if (entries && entries[0]) {
-        // Adjust for padding (roughly 24px on each side)
-        const width = entries[0].contentRect.width;
-        if (width > 0) {
-          setContainerWidth(width);
-        }
+        const { width, height } = entries[0].contentRect;
+        setDimensions({
+          width: width > 0 ? width : 1000,
+          height: height > 0 ? height : 600,
+        });
       }
     });
 
@@ -53,9 +52,9 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
   
   // Calculate dynamic column count based on container width
   const columnsCount = useMemo(() => {
-    const cols = Math.floor((containerWidth + gap) / (cardWidth + gap));
+    const cols = Math.floor((dimensions.width + gap) / (cardWidth + gap));
     return Math.max(1, cols);
-  }, [containerWidth]);
+  }, [dimensions.width]);
 
   // Dynamic grid data
   const gridItems = isGrouped ? groups : entries;
@@ -120,23 +119,25 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
     );
   };
 
+
+
   return (
     <div 
       ref={containerRef} 
       className="virtual-history-grid-wrapper"
-      style={{ width: '100%', height: 'calc(100vh - 180px)', minHeight: '300px' }}
+      style={{ width: '100%', height: 'calc(100vh - 200px)', minHeight: '300px' }}
     >
       {gridItems.length === 0 ? (
         <div className="history-empty">
           <h3>No matches found</h3>
         </div>
       ) : (
-        <VirtualList
+        <AnyList
           rowCount={rowCount}
           rowHeight={rowHeight + gap}
-          style={{ width: '100%', height: `${containerRef.current?.clientHeight || 600}px`, overflowX: 'hidden' }}
           rowComponent={Row}
-          rowProps={useMemo(() => ({}), [])}
+          rowProps={{}}
+          style={{ width: '100%', height: `${dimensions.height}px`, overflowX: 'hidden' }}
         />
       )}
     </div>

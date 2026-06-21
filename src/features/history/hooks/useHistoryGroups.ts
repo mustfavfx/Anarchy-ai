@@ -1,4 +1,4 @@
-import { useHistoryStore } from '../stores/historyStore';
+import { useHistoryStore } from '@/stores/historyStore';
 
 export function useHistoryGroups() {
   const {

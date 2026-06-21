@@ -76,3 +76,119 @@
   position: relative;
   background: #0a0a0b;
 }
+
+/* ── Dev Monitor Panel (Premium Glassmorphic Styling) ── */
+.dev-monitor-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 200px;
+  background: linear-gradient(135deg, rgba(20, 20, 25, 0.85) 0%, rgba(10, 10, 12, 0.95) 100%);
+  border: 1px solid rgba(225, 29, 72, 0.3); /* subtle red border for dev theme */
+  border-radius: 12px;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(225, 29, 72, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  z-index: 9999;
+  padding: 12px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  animation: devPanelSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+@keyframes devPanelSlideIn {
+  from {
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.dev-monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.dev-monitor-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+}
+
+.dev-monitor-badge {
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(225, 29, 72, 0.15);
+  color: #e11d48;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.dev-monitor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dev-monitor-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stat-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: #10b981; /* Default healthy green */
+  font-family: monospace;
+}
+
+.stat-value.warning {
+  color: #fbbf24; /* Warning yellow if too many blobs */
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+.dev-monitor-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.dev-monitor-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dev-monitor-btn:hover {
+  background: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #ffffff;
+}
+
+.dev-monitor-btn:active {
+  transform: scale(0.97);
+}

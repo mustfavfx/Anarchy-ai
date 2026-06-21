@@ -28,9 +28,14 @@ export class TopazUpscaler implements BaseUpscaler {
     return payload;
   }
 
-  async execute(config: AIConfig, image: string): Promise<UpscaleResult> {
+  async execute(
+    config: AIConfig,
+    image: string,
+    signal?: AbortSignal,
+    onStatusChange?: (status: 'queued' | 'processing') => void
+  ): Promise<UpscaleResult> {
     const payload = this.buildPayload(config, image);
-    const prediction = await replicateService.runPrediction(this.modelId, payload);
+    const prediction = await replicateService.runPrediction(this.modelId, payload, undefined, undefined, signal, onStatusChange);
     const imageUrl = replicateService.extractImageUrl(prediction.output);
     
     const dims = await getImageDimensions(image);
