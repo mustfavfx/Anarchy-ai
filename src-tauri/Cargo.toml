@@ -1,6 +1,6 @@
 [package]
 name = "anarchy-ai"
-version = "0.0.8"
+version = "0.2.1"
 description = "Anarchy AI - AI Image Builder Desktop App"
 authors = ["Anarchy AI Team"]
 edition = "2021"

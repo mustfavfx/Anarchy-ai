@@ -16,7 +16,7 @@ const FILE_DESCRIPTION = 'Anarchy AI Project';
 const FILE_VERSION = 1;
 const PROGRAM_SIGNATURE = 'ANARCHY_AI_PROJECT_FILE';
 const PROGRAM_NAME = 'Anarchy AI';
-const PROGRAM_VERSION = '0.0.8';
+const PROGRAM_VERSION = '0.2.1';
 
 export interface WorkflowFile {
   signature: string; // Program identity signature

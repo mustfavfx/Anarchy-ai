@@ -41,7 +41,7 @@ export interface PDFExportOptions {
 
 const PROGRAM_IDENTITY = {
   name: 'Anarchy AI',
-  version: '0.0.8',
+  version: '0.2.1',
   fileExtension: 'ana',
   fileDescription: 'Anarchy AI Project',
   website: 'https://anarchy-ai.com',

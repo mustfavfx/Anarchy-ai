@@ -1,7 +1,7 @@
 END USER LICENSE AGREEMENT & PRIVACY POLICY
 
 Software Name: Anarchy AI
-Application Version: 0.0.8
+Application Version: 0.2.1
 Developer: Architect Mustafa Hisham
 Effective Date: June 7, 2026
 
