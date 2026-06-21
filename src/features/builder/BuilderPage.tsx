@@ -89,8 +89,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 }) => {
   const { user: authUser } = useAuth();
   const addNotification = useNotificationStore((state) => state.addNotification);
-  const zoom = useStore((s) => s.transform[2]);
-  const isZoomedOut = zoom < 0.6;
+  const isZoomedOut = useStore((s) => s.transform[2] < 0.6);
   
   const hasFittedInitially = useRef(false);
 
@@ -129,7 +128,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     undo,
     redo,
     canUndo,
-    canRedo
+    canRedo,
+    spawnBenchmarkLayout
   } = useBuilderWorkflow(tabId, !!initialWorkflow || !!initialImage);
 
   // Hook 2: Generation, retry & credit validation operations
@@ -1265,7 +1265,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           spawnFromImage={spawnFromImage}
         />
 
-        <PerformanceHUD />
+        <PerformanceHUD onSpawnBenchmark={spawnBenchmarkLayout} />
 
         {/* Watermark */}
         <div className="builder-watermark">ANARCHY</div>

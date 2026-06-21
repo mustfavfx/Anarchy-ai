@@ -1668,6 +1668,129 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     }
   }, [setNodes, setEdges, pushHistory]);
 
+  const spawnBenchmarkLayout = useCallback((nodeCount: number, edgeCount: number) => {
+    logger.log('[Benchmark] Spawning layout with', nodeCount, 'nodes and', edgeCount, 'edges');
+    
+    // Clear queue and jobs
+    const queueStore = useBuilderQueueStore.getState();
+    queueStore.clearQueue();
+
+    const newNodes: BuilderNode[] = [];
+    const newEdges: Edge[] = [];
+
+    // 1. Generate Nodes
+    // Place them in a grid structure
+    const cols = Math.max(2, Math.ceil(Math.sqrt(nodeCount)));
+
+    for (let i = 0; i < nodeCount; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+
+      const x = 100 + col * HORIZONTAL_SPACING;
+      // Stagger rows slightly for organic look
+      const y = 100 + row * 220 + (col % 2 === 0 ? 0 : 50);
+
+      const nodeId = `node_${i}`;
+      const type = i === 0 ? 'source' : 'ghost';
+
+      const data: BuilderNodeData = {
+        label: i === 0 ? 'Benchmark Source' : `Node #${i}`,
+        type: type as any,
+        processingType: i === 0 ? 'source' : 'render',
+        state: i === 0 ? 'ready' : 'idle',
+        image: i === 0 ? 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400' : undefined,
+        prompt: i === 0 ? undefined : `Modern architectural render, node ${i}, hyperrealistic`,
+        createdAt: Date.now(),
+        lineage: {
+          parentId: null,
+          rootSourceId: 'node_0',
+          generation: col,
+          branchIndex: row,
+          processingType: i === 0 ? 'source' : 'render',
+          ancestry: []
+        }
+      };
+
+      newNodes.push({
+        id: nodeId,
+        type: i === 0 ? 'baseNode' : 'ghostNode',
+        position: { x, y },
+        data
+      });
+    }
+
+    // 2. Generate Edges
+    const maxEdges = (nodeCount * (nodeCount - 1)) / 2;
+    const targetEdgesCount = Math.min(edgeCount, maxEdges);
+    let edgesAdded = 0;
+
+    for (let i = 1; i < nodeCount; i++) {
+      const col = i % cols;
+      let parentIdx = 0;
+      if (col > 0) {
+        const prevColNodes = [];
+        for (let j = 0; j < i; j++) {
+          if (j % cols === col - 1) {
+            prevColNodes.push(j);
+          }
+        }
+        if (prevColNodes.length > 0) {
+          parentIdx = prevColNodes[Math.floor(Math.random() * prevColNodes.length)];
+        } else {
+          parentIdx = Math.floor(Math.random() * i);
+        }
+      } else {
+        parentIdx = Math.floor(Math.random() * i);
+      }
+
+      const sourceId = `node_${parentIdx}`;
+      const targetId = `node_${i}`;
+
+      const edge = createEdge(sourceId, targetId, {
+        animated: false,
+        targetHandleIndex: 0
+      });
+      if (sourceId !== 'node_0') {
+        edge.sourceHandle = 'ghost-source';
+      }
+      newEdges.push(edge);
+      edgesAdded++;
+    }
+
+    let attempts = 0;
+    const edgeSet = new Set(newEdges.map(e => `${e.source}->${e.target}`));
+
+    while (edgesAdded < targetEdgesCount && attempts < 2000) {
+      attempts++;
+      const sourceIdx = Math.floor(Math.random() * (nodeCount - 1));
+      const targetIdx = sourceIdx + 1 + Math.floor(Math.random() * (nodeCount - sourceIdx - 1));
+
+      if (sourceIdx === targetIdx) continue;
+
+      const sourceId = `node_${sourceIdx}`;
+      const targetId = `node_${targetIdx}`;
+      const edgeKey = `${sourceId}->${targetId}`;
+
+      if (!edgeSet.has(edgeKey)) {
+        const targetIncomingCount = newEdges.filter(e => e.target === targetId).length;
+        const edge = createEdge(sourceId, targetId, {
+          animated: false,
+          targetHandleIndex: targetIncomingCount
+        });
+        if (sourceId !== 'node_0') {
+          edge.sourceHandle = 'ghost-source';
+        }
+        newEdges.push(edge);
+        edgeSet.add(edgeKey);
+        edgesAdded++;
+      }
+    }
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+    pushHistory(newNodes, newEdges);
+  }, [setNodes, setEdges, pushHistory]);
+
   // ========================================================================
   // RETURN
   // ========================================================================
@@ -1729,6 +1852,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     canRedo,
 
     // Workflow restoration
-    restoreWorkflow
+    restoreWorkflow,
+    spawnBenchmarkLayout
   };
 };

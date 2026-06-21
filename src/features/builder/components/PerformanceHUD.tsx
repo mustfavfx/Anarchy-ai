@@ -2,7 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Activity, Gauge, Zap } from 'lucide-react';
 import './PerformanceHUD.css';
 
-export const PerformanceHUD: React.FC = () => {
+interface PerformanceHUDProps {
+  onSpawnBenchmark?: (nodes: number, edges: number) => void;
+}
+
+export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark }) => {
   const [fps, setFps] = useState(60);
   const [renders, setRenders] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -92,6 +96,39 @@ export const PerformanceHUD: React.FC = () => {
             {renders}
           </span>
         </div>
+
+        {onSpawnBenchmark && (
+          <>
+            <div className="perf-hud-divider" />
+            <span className="perf-hud-section-title">Spawn Benchmark</span>
+            <div className="perf-hud-actions">
+              <button 
+                type="button" 
+                className="perf-hud-btn" 
+                onClick={() => onSpawnBenchmark(50, 100)}
+              >
+                <span>50 Nodes</span>
+                <span className="perf-hud-btn-count">100 E</span>
+              </button>
+              <button 
+                type="button" 
+                className="perf-hud-btn" 
+                onClick={() => onSpawnBenchmark(100, 200)}
+              >
+                <span>100 Nodes</span>
+                <span className="perf-hud-btn-count">200 E</span>
+              </button>
+              <button 
+                type="button" 
+                className="perf-hud-btn" 
+                onClick={() => onSpawnBenchmark(200, 500)}
+              >
+                <span>200 Nodes</span>
+                <span className="perf-hud-btn-count">500 E</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

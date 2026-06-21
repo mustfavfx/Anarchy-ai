@@ -75,6 +75,21 @@ const GhostPlaceholder = memo(({ connectedCount }: GhostPlaceholderProps) => {
   );
 });
 
+const edgeArrayEquality = (a: any[], b: any[]) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].id !== b[i].id || 
+      a[i].source !== b[i].source || 
+      a[i].target !== b[i].target || 
+      a[i].targetHandle !== b[i].targetHandle
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
 export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) => {
   if (process.env.NODE_ENV === 'development' || (globalThis as any).__DEV__) {
     (globalThis as any).__anarchyNodeRenders = ((globalThis as any).__anarchyNodeRenders || 0) + 1;
@@ -86,7 +101,8 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
   // to re-render on every drag frame. useStore with a per-node selector means
   // this component only re-renders when ITS OWN incoming edges change.
   const incomingEdges = useStore(
-    useCallback((s) => s.edges.filter((e) => e.target === id), [id])
+    useCallback((s) => s.edges.filter((e) => e.target === id), [id]),
+    edgeArrayEquality
   );
 
   const connectedCount = incomingEdges.length;
