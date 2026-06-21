@@ -1235,8 +1235,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     // Define single node executor
     const executeSingle = async (id: string) => {
       const node = nodesRef.current.find(n => n.id === id);
-      const nodePrompt = id === nodeId ? prompt : (node?.data?.prompt || node?.data?.promptDraft || 'AI generation');
-      const nodeConfig = id === nodeId ? config : (node?.data?.config || {});
+      const nodePrompt = id === nodeId ? prompt : ((node?.data?.prompt || node?.data?.promptDraft || 'AI generation') as string);
+      const nodeConfig = id === nodeId ? config : (node?.data?.config as GenerationConfig || undefined);
       return executeNodeSingle(id, nodePrompt, nodeConfig);
     };
 
@@ -1246,7 +1246,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         const check = setInterval(() => {
           const node = nodesRef.current.find(n => n.id === nodeId);
           const job = useBuilderQueueStore.getState().jobs[nodeId];
-          const state = job?.state || node?.data?.state;
+          const state = (job?.state || node?.data?.state) as NodeState;
           
           if (state === 'completed' || state === 'ready') {
             clearInterval(check);

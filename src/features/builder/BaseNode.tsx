@@ -1,5 +1,5 @@
 import React, { memo, useRef, useState } from 'react';
-import { Handle, Position, type NodeProps, useStore } from '@xyflow/react';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { 
   FileInput, Wand2, X, Sun, Moon, Users, 
   Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright,

@@ -13,7 +13,6 @@ interface UseBuilderGenerationProps {
   executeNode: (nodeId: string, promptText: string, config?: any) => Promise<any>;
   createSourceNode: (imageUrl?: string, label?: string, position?: { x: number; y: number }) => string;
   spawnGhostNode: (parentId: string, type: 'render' | 'variation' | 'upscale') => string | null;
-  updateNodeData: (id: string, data: Record<string, any>) => void;
   setUserCredits: (credits: number) => void;
   setCreditError: (error: { balance: number; needed: number } | null) => void;
 }
@@ -23,7 +22,6 @@ export function useBuilderGeneration({
   executeNode,
   createSourceNode,
   spawnGhostNode,
-  updateNodeData,
   setUserCredits,
   setCreditError,
 }: UseBuilderGenerationProps) {

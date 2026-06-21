@@ -17,7 +17,6 @@ import {
 import { PRESET_PROMPTS } from '../presetPrompts';
 import { PRESETS_TRANSLATIONS_AR } from '../presetPromptsAr';
 import { getModelCost } from '../../../services/credit/creditService';
-import { replicateService } from '../../../services/replicate/ReplicateService';
 import { useNotificationStore } from '../../../stores/notificationStore';
 
 const PRESET_ICON_MAP: Record<string, LucideIcon> = {

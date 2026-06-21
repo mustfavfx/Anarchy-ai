@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useHistory } from './hooks/useHistory';
 import { useHistorySelection } from './hooks/useHistorySelection';
 import { useHistoryStore } from '@/stores/historyStore';
-import { loadWorkflowTree } from '@/services/history/HistoryService';
 import { buildWorkflowTreeForEntry, type HistoryTreeNode } from './components/WorkflowTreeRenderer';
 import type { NodeTreeData } from '@/types/history';
 import { HistoryHeader } from './components/HistoryHeader';

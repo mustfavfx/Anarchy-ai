@@ -14,7 +14,7 @@ import { Handle, Position, type NodeProps, useReactFlow, useUpdateNodeInternals,
 import { 
   Loader2, AlertCircle, Eraser, RefreshCw
 } from 'lucide-react';
-import type { ProcessingType, BuilderNodeData } from './types';
+import type { ProcessingType, BuilderNodeData, NodeState } from './types';
 import { predictionRealtime, type PredictionStatus } from '../../services/replicate/predictionRealtime';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import './GhostNode.css';
@@ -122,13 +122,15 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
   // Central queue job store subscription
   const queueJob = useBuilderQueueStore((s) => s.jobs[id]);
 
+  const activeState = (queueJob?.state || data.state) as NodeState;
+
   // Node state
-  const isConnecting = (queueJob?.state || data.state) === 'connecting';
-  const isQueued = (queueJob?.state || data.state) === 'queued';
-  const isProcessing = (queueJob?.state || data.state) === 'processing';
-  const isError = (queueJob?.state || data.state) === 'error' || (queueJob?.state || data.state) === 'failed';
-  const isReady = (queueJob?.state || data.state) === 'ready' || (queueJob?.state || data.state) === 'completed';
-  const isCancelled = (queueJob?.state || data.state) === 'cancelled';
+  const isConnecting = activeState === 'connecting';
+  const isQueued = activeState === 'queued';
+  const isProcessing = activeState === 'processing';
+  const isError = activeState === 'error' || activeState === 'failed';
+  const isReady = activeState === 'ready' || activeState === 'completed';
+  const isCancelled = activeState === 'cancelled';
 
   const predictionId = queueJob?.predictionId || data.predictionId;
 

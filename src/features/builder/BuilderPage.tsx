@@ -144,7 +144,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     executeNode,
     createSourceNode,
     spawnGhostNode,
-    updateNodeData,
     setUserCredits,
     setCreditError,
   });

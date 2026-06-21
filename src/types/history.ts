@@ -29,7 +29,7 @@ export interface NodeTreeData {
     image?: string;
     prompt?: string;
     processingType?: string;
-    state?: 'idle' | 'connecting' | 'queued' | 'processing' | 'ready' | 'completed' | 'error';
+    state?: 'idle' | 'connecting' | 'queued' | 'processing' | 'ready' | 'completed' | 'error' | 'failed' | 'cancelled';
     children?: string[];
     parentId?: string;
     historyEntryId?: string; // Links this graph node to its corresponding history entry ID
