@@ -84,17 +84,21 @@ export const LoginPage: React.FC = () => {
         <button
           type="button"
           onClick={async () => {
-            // Only clear Supabase auth data, preserve user data
-            const keysToRemove = Object.keys(localStorage).filter(key => 
-              key.startsWith('sb-') || key.includes('supabase') || key === 'user'
-            );
-            keysToRemove.forEach(key => localStorage.removeItem(key));
-            
-            // Sign out from Supabase to clear session
-            const { supabase } = await import('../../services/supabase/supabaseClient');
-            await supabase.auth.signOut();
-            
-            window.location.reload();
+            try {
+              // Sign out from Supabase to clear session
+              const { supabase } = await import('../../services/supabase/supabaseClient');
+              await supabase.auth.signOut();
+            } catch (err) {
+              console.error('Error during clear session signOut:', err);
+            } finally {
+              // Only clear Supabase auth data, preserve user data
+              const keysToRemove = Object.keys(localStorage).filter(key => 
+                key.startsWith('sb-') || key.includes('supabase') || key === 'user'
+              );
+              keysToRemove.forEach(key => localStorage.removeItem(key));
+              
+              window.location.reload();
+            }
           }}
           className="clear-session-btn"
         >

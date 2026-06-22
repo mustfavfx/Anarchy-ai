@@ -138,14 +138,19 @@ export const AccountPage: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    // Only clear auth data, preserve all user data (history, workflows, settings)
-    const keysToRemove = Object.keys(localStorage).filter(key => 
-      key.startsWith('sb-') || key.includes('supabase') || key === 'user'
-    );
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    globalThis.dispatchEvent(new Event('anarchy-account-updated'));
-    await signOut();
+    try {
+      await signOut();
+    } catch (error) {
+      logger.error('[Account] Error during Supabase signOut:', error);
+    } finally {
+      // Only clear auth data, preserve all user data (history, workflows, settings)
+      const keysToRemove = Object.keys(localStorage).filter(key => 
+        key.startsWith('sb-') || key.includes('supabase') || key === 'user'
+      );
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      globalThis.dispatchEvent(new Event('anarchy-account-updated'));
+    }
   };
 
   const handleSwitchAccount = async () => {
@@ -162,13 +167,18 @@ export const AccountPage: React.FC = () => {
 
     try {
       await deleteAccount();
+      try {
+        await signOut();
+      } catch (err) {
+        logger.error('[Account] Signout error after account deletion:', err);
+      }
+      
       // Clear only auth data, preserve user workflows/history
       const keysToRemove = Object.keys(localStorage).filter(key => 
         key.startsWith('sb-') || key.includes('supabase') || key === 'user' || key === 'anarchy_account'
       );
       keysToRemove.forEach(key => localStorage.removeItem(key));
       globalThis.dispatchEvent(new Event('anarchy-account-updated'));
-      await signOut();
     } catch (error) {
       setAccountStatus(
         error instanceof Error

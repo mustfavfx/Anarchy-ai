@@ -1,7 +1,7 @@
 {
   "name": "anarchy-ai-0-07",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,6 +22,7 @@
     "release:major": "node scripts/release.js major"
   },
   "dependencies": {
+    "@sentry/react": "^10.59.0",
     "@supabase/supabase-js": "^2.105.1",
     "@tanstack/react-virtual": "^3.13.24",
     "@tauri-apps/api": "^2.10.1",
