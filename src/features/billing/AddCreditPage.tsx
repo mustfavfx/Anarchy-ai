@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard, Check, ArrowLeft, Loader2, Coins, AlertCircle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { CREDIT_PACKAGES, getUserCredit, type CreditPackage } from '../../services/credit/creditService';
-import { supabase, supabaseUrl } from '../../services/supabase/supabaseClient';
+import { supabase, supabaseUrl, isSupabaseConfigured } from '../../services/supabase/supabaseClient';
 import { invoke } from '@tauri-apps/api/core';
 import './AddCreditPage.css';
 
@@ -88,6 +88,13 @@ export const AddCreditPage: React.FC = () => {
     setIsProcessing(true);
 
     try {
+      if (!isSupabaseConfigured) {
+        // Mock Stripe Checkout URL redirection
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await invoke('open_url', { url: 'https://checkout.stripe.com/mock-session' });
+        return;
+      }
+
       // Get current session token
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');

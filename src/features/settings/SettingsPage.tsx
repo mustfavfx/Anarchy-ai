@@ -4,7 +4,7 @@ import {
   Check,
   Save, RefreshCw, Trash2, Info,
   Zap, History, Bell, FileText,
-  Download, Upload
+  Download, Upload, Activity
 } from 'lucide-react';
 import { DataMigrationService } from '../../services/migration';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
@@ -15,12 +15,14 @@ import './SettingsPage.css';
 import { APP_INFO } from '../../config/appInfo';
 import { SettingsService, type AppSettings } from '../../services/settings';
 import { PrivacyPolicyModal, ChangelogModal } from './SettingsModals';
+import { supabase, isSupabaseConfigured, supabaseUrl } from '../../services/supabase/supabaseClient';
+import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 
 export const SettingsPage: React.FC = () => {
   const aiConfig = useAIConfigStore((s) => s.config);
   const setAIConfig = useAIConfigStore((s) => s.setConfig);
   const [settings, setSettings] = useState<AppSettings>(SettingsService.getSettings());
-  const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about' | 'health'>('general');
   const [saved, setSaved] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
@@ -30,6 +32,73 @@ export const SettingsPage: React.FC = () => {
   const [confirmClearData, setConfirmClearData] = useState(false);
   const [appVersion, setAppVersion] = useState('...');
   
+  // System Health States
+  const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error' | 'not-configured'>('checking');
+  const [replicateStatus, setReplicateStatus] = useState<'checking' | 'active' | 'error' | 'not-configured'>('checking');
+  const [storageStatus, setStorageStatus] = useState<'checking' | 'healthy' | 'error'>('checking');
+  const [pingTime, setPingTime] = useState<number | null>(null);
+
+  const queueLength = useBuilderQueueStore((s) => s.activeQueue.length);
+  const isQueueExecuting = useBuilderQueueStore((s) => s.isExecuting);
+
+  const checkSystemHealth = useCallback(async () => {
+    // 1. Check Database Status
+    if (!isSupabaseConfigured) {
+      setDbStatus('not-configured');
+    } else {
+      setDbStatus('checking');
+      const start = performance.now();
+      try {
+        const { error } = await supabase.auth.getSession();
+        if (error) {
+          setDbStatus('error');
+        } else {
+          setDbStatus('connected');
+          setPingTime(Math.round(performance.now() - start));
+        }
+      } catch {
+        setDbStatus('error');
+      }
+    }
+
+    // 2. Check Replicate Status
+    if (!isSupabaseConfigured) {
+      setReplicateStatus('not-configured');
+    } else {
+      setReplicateStatus('checking');
+      try {
+        const urlObj = new URL(supabaseUrl);
+        const replicateWebhook = `https://${urlObj.hostname}/functions/v1/replicate_webhook`;
+        const res = await fetch(replicateWebhook, { method: 'HEAD' });
+        if (res.status >= 200 && res.status < 500) {
+          setReplicateStatus('active');
+        } else {
+          setReplicateStatus('error');
+        }
+      } catch {
+        setReplicateStatus('error');
+      }
+    }
+
+    // 3. Check Storage Status
+    setStorageStatus('checking');
+    try {
+      if (window.indexedDB) {
+        setStorageStatus('healthy');
+      } else {
+        setStorageStatus('error');
+      }
+    } catch {
+      setStorageStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'health') {
+      checkSystemHealth();
+    }
+  }, [activeTab, checkSystemHealth]);
+
   const watermarkFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -192,6 +261,7 @@ export const SettingsPage: React.FC = () => {
           {[
             { id: 'general' as const, label: 'General', icon: <Settings size={16} /> },
             { id: 'storage' as const, label: 'Storage', icon: <Database size={16} /> },
+            { id: 'health' as const, label: 'System Health', icon: <Activity size={16} /> },
             { id: 'about' as const, label: 'About', icon: <Info size={16} /> },
           ].map(tab => (
             <button
@@ -541,6 +611,126 @@ export const SettingsPage: React.FC = () => {
                   <button className="btn-danger" onClick={clearAllData}>
                     <Trash2 size={14} />
                     Clear All
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* System Health */}
+          {activeTab === 'health' && (
+            <>
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <Activity size={18} className="card-icon" />
+                  <h3>System Health & Subsystems</h3>
+                  <button 
+                    className="btn-secondary" 
+                    onClick={checkSystemHealth}
+                    style={{ marginLeft: 'auto', height: 30, padding: '0 12px', fontSize: 11, minWidth: 'auto' }}
+                    disabled={dbStatus === 'checking' || replicateStatus === 'checking'}
+                  >
+                    <RefreshCw size={12} className={dbStatus === 'checking' ? 'spin' : ''} />
+                    Refresh Status
+                  </button>
+                </div>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <label>Application Version</label>
+                    <span className="setting-desc">Current release version and build tag</span>
+                  </div>
+                  <span className="setting-value" style={{ fontFamily: 'monospace' }}>v{appVersion}</span>
+                </div>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <label>Build Target</label>
+                    <span className="setting-desc">Vite compiler environment mode</span>
+                  </div>
+                  <span className="setting-value" style={{ textTransform: 'capitalize' }}>
+                    {import.meta.env.MODE} ({import.meta.env.DEV ? 'Dev' : 'Production'})
+                  </span>
+                </div>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <label>Database Connection (Supabase)</label>
+                    <span className="setting-desc">Status of the remote Supabase PostgreSQL database</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {pingTime !== null && dbStatus === 'connected' && (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{pingTime}ms ping</span>
+                    )}
+                    <span className={`status-badge ${dbStatus}`}>
+                      {dbStatus === 'checking' && 'Checking...'}
+                      {dbStatus === 'connected' && 'Connected (Healthy)'}
+                      {dbStatus === 'error' && 'Connection Error'}
+                      {dbStatus === 'not-configured' && 'Not Configured (Offline Mode)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <label>Replicate API Status</label>
+                    <span className="setting-desc">Connectivity to Replicate AI generation endpoints</span>
+                  </div>
+                  <span className={`status-badge ${replicateStatus}`}>
+                    {replicateStatus === 'checking' && 'Checking...'}
+                    {replicateStatus === 'active' && 'Active (Reachable)'}
+                    {replicateStatus === 'error' && 'Service Unreachable'}
+                    {replicateStatus === 'not-configured' && 'Not Configured (Supabase Missing)'}
+                  </span>
+                </div>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <label>Local Storage (IndexedDB)</label>
+                    <span className="setting-desc">Availability of local browser database for workflows and images</span>
+                  </div>
+                  <span className={`status-badge ${storageStatus === 'healthy' ? 'connected' : storageStatus === 'checking' ? 'checking' : 'error'}`}>
+                    {storageStatus === 'checking' && 'Checking...'}
+                    {storageStatus === 'healthy' && 'Healthy'}
+                    {storageStatus === 'error' && 'Unavailable'}
+                  </span>
+                </div>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <label>Generation Background Queue</label>
+                    <span className="setting-desc">Status of the local asynchronous task scheduler</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {queueLength > 0 && (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{queueLength} job(s) pending</span>
+                    )}
+                    <span className={`status-badge ${isQueueExecuting ? 'connected' : 'idle'}`}>
+                      {isQueueExecuting ? 'Active Execution' : 'Idle (Waiting)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <label>Telemetry & Diagnostics</label>
+                    <span className="setting-desc">Export system diagnostic bundles and crash telemetry logs for debugging</span>
+                  </div>
+                  <button 
+                    type="button"
+                    className="btn-secondary"
+                    onClick={async () => {
+                      try {
+                        const { DiagnosticBundleService } = await import('../../services/monitoring/DiagnosticBundleService');
+                        await DiagnosticBundleService.export();
+                        notify.success('Diagnostics Exported', 'Bundle downloaded successfully.');
+                      } catch (err) {
+                        notify.error('Export Failed', err instanceof Error ? err.message : 'Unknown error');
+                      }
+                    }}
+                    style={{ height: 32, padding: '0 16px', fontSize: 12 }}
+                  >
+                    Export Bundle
                   </button>
                 </div>
               </div>

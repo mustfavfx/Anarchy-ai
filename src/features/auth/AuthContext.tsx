@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { isSupabaseConfigured, supabase } from '../../services/supabase/supabaseClient';
 import { track } from '../../services/tracking/trackingService';
+import { ErrorReportingService } from '../../services/monitoring/ErrorReportingService';
 
 interface AuthContextValue {
   user: User | null;
@@ -106,6 +107,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubPromise.then((unsub) => unsub()).catch((err) => console.error(err));
     };
   }, []);
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      ErrorReportingService.setUser(session?.user?.id ?? null).catch((err) => {
+        console.error('[AuthContext] Failed to set Sentry user context:', err);
+      });
+    } else {
+      ErrorReportingService.setUser('mock-user-id').catch(() => {});
+    }
+  }, [session]);
 
   const signInWithEmail = async (email: string, password: string) => {
     setError(null);

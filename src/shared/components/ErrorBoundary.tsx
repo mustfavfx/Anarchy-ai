@@ -2,6 +2,7 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { logger } from '@/utils/logger';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import './ErrorBoundary.css';
+import { ErrorReportingService } from '@/services/monitoring/ErrorReportingService';
 
 interface Props {
   children: ReactNode;
@@ -30,10 +31,15 @@ export class ErrorBoundary extends Component<Props, State> {
     logger.error('Uncaught error:', error, errorInfo);
     this.setState({ error, errorInfo });
     
-    // You can also log to an error reporting service here
-    // logErrorToService(error, errorInfo);
+    // Log to error reporting service (Sentry & local buffer)
+    try {
+      ErrorReportingService.captureError(error, {
+        componentStack: errorInfo.componentStack,
+      });
+    } catch (err) {
+      logger.error('[ErrorBoundary] Failed to log error to service:', err);
+    }
   }
-
   private readonly handleReset = () => {
     this.setState({ hasError: false, error: null, errorInfo: null });
     this.props.onReset?.();

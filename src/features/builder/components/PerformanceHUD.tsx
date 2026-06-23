@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, Gauge, Zap } from 'lucide-react';
+import { Activity, Gauge, Zap, Cpu } from 'lucide-react';
 import './PerformanceHUD.css';
 
 /**
- * PerformanceHUD — Visualizer for Frame Rate (FPS) and Node Rendering activity.
+ * PerformanceHUD — Visualizer for Frame Rate (FPS), Node Rendering activity, and Memory.
  * 
  * Target & Observed Benchmark Statistics (Windows Release Build, Intel i7 / RTX 4070):
  * ----------------------------------------------------------------------------
@@ -21,6 +21,7 @@ interface PerformanceHUDProps {
 export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark }) => {
   const [fps, setFps] = useState(60);
   const [renders, setRenders] = useState(0);
+  const [memory, setMemory] = useState<string>('N/A');
   const [isOpen, setIsOpen] = useState(false);
   
   const frameTimes = useRef<number[]>([]);
@@ -59,23 +60,35 @@ export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark
       const currentRenders = (globalThis as any).__anarchyNodeRenders || 0;
       (globalThis as any).__anarchyNodeRenders = 0; // reset
       setRenders(currentRenders * 2); // since we update every 500ms, multiply by 2 for per-second
+
+      // Memory tracking
+      const memInfo = (performance as any).memory;
+      if (memInfo) {
+        const heap = memInfo.usedJSHeapSize;
+        setMemory(`${Math.round(heap / 1048576)} MB`);
+      } else {
+        setMemory('N/A');
+      }
     }, 500);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Toggle HUD
+  // Listen to keyboard shortcut to toggle HUD (Ctrl + Shift + P)
+  useEffect(() => {
+    const handleShortcut = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setIsOpen((prev) => !prev);
+      }
+    };
+    globalThis.addEventListener('keydown', handleShortcut);
+    return () => globalThis.removeEventListener('keydown', handleShortcut);
+  }, []);
+
+  // Toggle HUD - Hide from regular user view when closed
   if (!isOpen) {
-    return (
-      <button
-        type="button"
-        className="perf-hud-toggle-btn"
-        onClick={() => setIsOpen(true)}
-        title="Show Performance HUD"
-      >
-        <Activity size={14} />
-      </button>
-    );
+    return null;
   }
 
   return (
@@ -106,6 +119,13 @@ export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark
           <span className="perf-hud-label">Node Renders/s:</span>
           <span className={`perf-hud-value ${renders > 15 ? 'warn' : 'good'}`}>
             {renders}
+          </span>
+        </div>
+        <div className="perf-hud-item">
+          <Cpu size={12} className="perf-hud-icon text-blue-500" />
+          <span className="perf-hud-label">Memory:</span>
+          <span className="perf-hud-value good">
+            {memory}
           </span>
         </div>
 

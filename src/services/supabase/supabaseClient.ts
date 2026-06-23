@@ -18,6 +18,7 @@ export const supabaseAnonKey = rawSupabaseAnonKey && rawSupabaseAnonKey.trim() !
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseUrl !== 'https://placeholder.supabase.co' &&
+  !supabaseUrl.includes('mock-supabase') &&
   supabaseUrl.trim() !== '' &&
   supabaseAnonKey &&
   supabaseAnonKey !== 'placeholder-anon-key' &&

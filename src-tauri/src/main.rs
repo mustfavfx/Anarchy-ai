@@ -1723,7 +1723,52 @@ fn get_deep_link(state: tauri::State<'_, StartupState>) -> Option<String> {
     lock.take()
 }
 
+#[tauri::command]
+fn get_tauri_panic() -> Option<String> {
+    if let Some(cache_dir) = dirs::cache_dir() {
+        let panic_path = cache_dir.join("anarchy-ai").join(".panic");
+        if panic_path.exists() {
+            if let Ok(contents) = std::fs::read_to_string(&panic_path) {
+                let _ = std::fs::remove_file(&panic_path); // Clear it
+                return Some(contents);
+            }
+        }
+    }
+    None
+}
+
 fn main() {
+    std::panic::set_hook(Box::new(|info| {
+        let message = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown rust panic".to_string()
+        };
+        let location = info.location().map(|l| (l.file().to_string(), l.line()));
+        
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        let panic_info = serde_json::json!({
+            "message": message,
+            "file": location.as_ref().map(|l| &l.0),
+            "line": location.as_ref().map(|l| l.1),
+            "timestamp": timestamp
+        });
+
+        if let Some(cache_dir) = dirs::cache_dir() {
+            let panic_dir = cache_dir.join("anarchy-ai");
+            let _ = std::fs::create_dir_all(&panic_dir);
+            let _ = std::fs::write(
+                panic_dir.join(".panic"),
+                serde_json::to_string(&panic_info).unwrap_or_default(),
+            );
+        }
+    }));
     let mut startup_file = None;
     let mut deep_link = None;
     let args: Vec<String> = std::env::args().collect();
@@ -1764,7 +1809,7 @@ fn main() {
             save_image_to_documents, save_image_to_path, read_local_image, read_clipboard_image,
             check_update, install_update, restart_app,
             open_url, get_startup_file, get_deep_link, exit_app, analyze_floor_plan, open_images_folder, show_in_explorer,
-            save_secure_key, load_secure_key, delete_secure_key
+            save_secure_key, load_secure_key, delete_secure_key, get_tauri_panic
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

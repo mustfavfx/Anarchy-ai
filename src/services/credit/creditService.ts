@@ -3,7 +3,7 @@
  * Users buy credit upfront, consume per generation
  */
 
-import { supabase } from '../supabase/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../supabase/supabaseClient';
 import { logger } from '../../utils/logger';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -161,6 +161,16 @@ export const DEV_MODE = false;
  * Get user credit balance
  */
 export async function getUserCredit(userId: string): Promise<UserCredit | null> {
+  if (!isSupabaseConfigured) {
+    return {
+      userId,
+      balance: 1000,
+      totalPurchased: 1000,
+      totalUsed: 0,
+      lastPurchaseAt: new Date().toISOString(),
+    };
+  }
+
   const { data, error } = await supabase
     .from('user_credits')
     .select('*')
@@ -209,6 +219,10 @@ export async function addCredits(
   amountUsd: number,
   _paymentId?: string
 ): Promise<boolean> {
+  if (!isSupabaseConfigured) {
+    return true;
+  }
+
   const { error: rpcError } = await supabase.rpc('add_credits', {
     p_user_id: userId,
     p_credits: credits,
@@ -228,6 +242,10 @@ export async function deductCredits(
   cost: number,
   description: string
 ): Promise<{ success: boolean; remaining: number; error?: string }> {
+  if (!isSupabaseConfigured) {
+    return { success: true, remaining: 1000 - cost };
+  }
+
   // Use the atomic RPC to prevent double-spend race conditions
   const { data: rpcData, error: rpcError } = await supabase.rpc('deduct_credits', {
     p_user_id: userId,
@@ -270,6 +288,20 @@ export async function getTransactionHistory(
   userId: string,
   limit: number = 50
 ): Promise<CreditTransaction[]> {
+  if (!isSupabaseConfigured) {
+    return [
+      {
+        id: 't_mock_1',
+        userId,
+        type: 'bonus',
+        amount: 1000,
+        balanceAfter: 1000,
+        description: 'Welcome Bonus Credits (Mock)',
+        createdAt: new Date().toISOString(),
+      }
+    ];
+  }
+
   const { data, error } = await supabase
     .from('credit_transactions')
     .select('*')
@@ -290,6 +322,10 @@ export async function refundCredits(
   credits: number,
   description: string
 ): Promise<boolean> {
+  if (!isSupabaseConfigured) {
+    return true;
+  }
+
   const { error: rpcError } = await supabase.rpc('refund_credits', {
     p_user_id: userId,
     p_amount: credits,
