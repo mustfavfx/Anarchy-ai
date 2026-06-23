@@ -18,7 +18,7 @@ icon = [
 tauri-build = { version = "2.5.6", features = ["config-json5"] }
 
 [dependencies]
-tauri = { version = "2.10.3", features = ["devtools"] }
+tauri = { version = "2.11.1", features = ["devtools"] }
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-shell = "2.0.0"
