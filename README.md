@@ -99,7 +99,6 @@ Anarchy AI is built using a modern desktop-first architecture:
 * IndexedDB
 * Supabase
 * Stripe
-* Replicate API
 
 The platform combines local storage performance with cloud-powered AI services while maintaining a responsive desktop experience.
 
