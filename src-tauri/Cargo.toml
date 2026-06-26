@@ -1,6 +1,6 @@
 [package]
 name = "anarchy-ai"
-version = "0.2.9"
+version = "0.3.0"
 description = "Anarchy AI - AI Image Builder Desktop App"
 authors = ["Anarchy AI Team"]
 edition = "2021"
@@ -18,7 +18,7 @@ icon = [
 tauri-build = { version = "2.5.6", features = ["config-json5"] }
 
 [dependencies]
-tauri = { version = "2.11.1", features = ["devtools"] }
+tauri = { version = "2.11.1" }
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-shell = "2.0.0"

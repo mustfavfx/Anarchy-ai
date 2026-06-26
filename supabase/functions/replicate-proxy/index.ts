@@ -79,21 +79,20 @@ serve(async (req: Request) => {
     headers.set('prefer', prefer);
   }
 
-  // Read body as arrayBuffer to preserve binary data (e.g. for file uploads)
-  let body: ArrayBuffer | undefined = undefined;
-  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-    body = await req.arrayBuffer();
-  }
+  // Stream request body directly to avoid memory buffering and CPU resource limits
+  const body = (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS')
+    ? req.body
+    : null;
 
   const upstreamRes = await fetch(targetUrl, {
     method,
     headers,
     body,
+    ...(body ? { duplex: 'half' } : {}),
   });
 
-  const responseBody = await upstreamRes.text();
-
-  return new Response(responseBody, {
+  // Stream response body directly back to the client
+  return new Response(upstreamRes.body, {
     status:  upstreamRes.status,
     headers: {
       ...CORS,

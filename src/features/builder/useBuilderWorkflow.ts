@@ -48,7 +48,8 @@ async function uploadImageIfLocal(url: string, _model?: string): Promise<string>
     try {
       const { replicateService } = await import('../../services/replicate');
       return await replicateService.uploadToReplicate(url);
-    } catch {
+    } catch (err) {
+      logger.error('[uploadImageIfLocal] Replicate upload failed (data URI), falling back to inline:', err);
       return url; // fallback: send data URI inline (works for small images)
     }
   }
@@ -60,11 +61,14 @@ async function uploadImageIfLocal(url: string, _model?: string): Promise<string>
         try {
           const { replicateService } = await import('../../services/replicate');
           return await replicateService.uploadToReplicate(b64);
-        } catch {
+        } catch (err) {
+          logger.error('[uploadImageIfLocal] Replicate upload failed (blob/local), falling back to inline:', err);
           return b64; // fallback: send data URI inline
         }
       }
-    } catch { /* fall through */ }
+    } catch (err) {
+      logger.error('[uploadImageIfLocal] Failed to convert local URL to base64:', err);
+    }
     return url;
   }
   return url;
@@ -724,9 +728,14 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     // Only toggle-delete an IDLE ghost (one that hasn't taken work yet).
     // Ghosts that are processing/ready/error must persist so the user can
     // spawn additional ghosts from the same parent for branching workflows.
+    const queueStore = useBuilderQueueStore.getState();
     const existingIdleGhost = getChildren(parentId).find(n => {
       const d = n.data as BuilderNodeData;
-      return d.type === 'ghost' && d.state === 'idle';
+      const job = queueStore.jobs[n.id];
+      const isQueuedOrExecuting = queueStore.activeQueue.includes(n.id) || 
+                                  (job && job.state !== 'idle') || 
+                                  d.state !== 'idle';
+      return d.type === 'ghost' && !isQueuedOrExecuting;
     });
     
     if (existingIdleGhost) {
@@ -880,6 +889,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
             ...n, 
             data: { 
               ...n.data, 
+              state: 'connecting',
               promptDraft: prompt,
               config: { ...config },
               pendingPlacement: false
@@ -897,6 +907,18 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           state: status,
           predictionId
         });
+        setNodes(nds => nds.map(n => 
+          n.id === nodeId 
+            ? { 
+                ...n, 
+                data: { 
+                  ...n.data, 
+                  state: status,
+                  predictionId
+                } 
+              }
+            : n
+        ));
       };
 
       const sourceDims = nodeData.inputData?.dimensions;

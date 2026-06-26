@@ -298,8 +298,8 @@
 
 .crop-border {
   position: absolute;
-  border: 1.5px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(0, 0, 0, 0.35);
   z-index: 16;
   cursor: move;
   box-sizing: border-box;
@@ -308,7 +308,7 @@
 /* Rule-of-thirds grid */
 .crop-grid-line {
   position: absolute;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.3);
   pointer-events: none;
 }
 
@@ -327,23 +327,30 @@
 /* Corner handles */
 .crop-handle {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   background: white;
-  border: 2px solid rgba(0, 0, 0, 0.5);
-  border-radius: 2px;
+  border: 2px solid #e11d48;
+  border-radius: 50%;
   z-index: 17;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
-.crop-handle-tl { top: -7px;  left: -7px;  cursor: nwse-resize; }
-.crop-handle-tr { top: -7px;  right: -7px; cursor: nesw-resize; }
-.crop-handle-bl { bottom: -7px; left: -7px;  cursor: nesw-resize; }
-.crop-handle-br { bottom: -7px; right: -7px; cursor: nwse-resize; }
+.crop-handle:hover {
+  transform: scale(1.35);
+  background: #e11d48;
+}
 
-.crop-handle-t { top: -7px; left: calc(50% - 7px); cursor: ns-resize; }
-.crop-handle-b { bottom: -7px; left: calc(50% - 7px); cursor: ns-resize; }
-.crop-handle-l { top: calc(50% - 7px); left: -7px; cursor: ew-resize; }
-.crop-handle-r { top: calc(50% - 7px); right: -7px; cursor: ew-resize; }
+.crop-handle-tl { top: -5px;  left: -5px;  cursor: nwse-resize; }
+.crop-handle-tr { top: -5px;  right: -5px; cursor: nesw-resize; }
+.crop-handle-bl { bottom: -5px; left: -5px;  cursor: nesw-resize; }
+.crop-handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+.crop-handle-t { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+.crop-handle-b { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+.crop-handle-l { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
+.crop-handle-r { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
 
 /* Crop size label */
 .crop-size-label {

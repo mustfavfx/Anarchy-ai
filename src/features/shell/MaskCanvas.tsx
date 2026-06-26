@@ -1,10 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Brush, Eraser, Scissors, Trash2, RotateCcw, RotateCw, Download, Crop, Check, X } from 'lucide-react';
+import { Brush, Eraser, Scissors, Trash2, RotateCcw, RotateCw, Download, Crop, Check, X, Loader2 } from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
 import './MaskCanvas.css';
 
 interface CropRect { x: number; y: number; w: number; h: number; }
-type CropHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'move' | 'new' | null;
+type CropHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'move' | 'new' | 'new-drag' | null;
 
 export interface MaskCanvasProps {
   image: string | null;
@@ -13,6 +13,7 @@ export interface MaskCanvasProps {
   onCrop?: (croppedDataUrl: string) => void;
   showGenerateButton?: boolean;
   className?: string;
+  isGenerating?: boolean;
 }
 
 export const MaskCanvas: React.FC<MaskCanvasProps> = ({
@@ -21,7 +22,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   onGenerate,
   onCrop,
   showGenerateButton = false,
-  className = ''
+  className = '',
+  isGenerating = false
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -289,11 +291,50 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       if (cropDragRef.current?.handle === 'new') {
         const startX = cropDragRef.current.startX;
         const startY = cropDragRef.current.startY;
-        if (Math.abs(cssX - startX) > 5 || Math.abs(cssY - startY) > 5) {
-          cropDragRef.current.handle = 'br';
-          return { x: orig.x, y: orig.y, w: 1, h: 1 };
+        if (Math.abs(cssX - startX) > 10 || Math.abs(cssY - startY) > 10) {
+          const canvasRect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / canvasRect.width;
+          const scaleY = canvas.height / canvasRect.height;
+          
+          const startCanvasX = (startX - canvasRect.left) * scaleX;
+          const startCanvasY = (startY - canvasRect.top) * scaleY;
+          const currentCanvasX = (cssX - canvasRect.left) * scaleX;
+          const currentCanvasY = (cssY - canvasRect.top) * scaleY;
+          
+          const x = Math.min(startCanvasX, currentCanvasX);
+          const y = Math.min(startCanvasY, currentCanvasY);
+          const w = Math.abs(currentCanvasX - startCanvasX);
+          const h = Math.abs(currentCanvasY - startCanvasY);
+
+          cropDragRef.current = {
+            handle: 'new-drag',
+            startX,
+            startY,
+            origRect: { x, y, w, h }
+          };
+          return { x, y, w, h };
         }
         return prev;
+      }
+      
+      if (cropDragRef.current?.handle === 'new-drag') {
+        const startX = cropDragRef.current.startX;
+        const startY = cropDragRef.current.startY;
+        const canvasRect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / canvasRect.width;
+        const scaleY = canvas.height / canvasRect.height;
+        
+        const startCanvasX = (startX - canvasRect.left) * scaleX;
+        const startCanvasY = (startY - canvasRect.top) * scaleY;
+        const currentCanvasX = (cssX - canvasRect.left) * scaleX;
+        const currentCanvasY = (cssY - canvasRect.top) * scaleY;
+        
+        const x = clamp(Math.min(startCanvasX, currentCanvasX), 0, canvas.width);
+        const y = clamp(Math.min(startCanvasY, currentCanvasY), 0, canvas.height);
+        const w = clamp(Math.abs(currentCanvasX - startCanvasX), MIN_SIZE, canvas.width - x);
+        const h = clamp(Math.abs(currentCanvasY - startCanvasY), MIN_SIZE, canvas.height - y);
+        
+        return { x, y, w, h };
       }
 
       switch (cropDragRef.current?.handle) {
@@ -496,11 +537,54 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     }
   }, [image]);
 
+  const getBlackAndWhiteMask = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return null;
+    
+    tempCtx.fillStyle = '#000000';
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    
+    const origCtx = canvas.getContext('2d');
+    if (!origCtx) return null;
+    
+    const imgData = origCtx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+    
+    const maskImgData = tempCtx.createImageData(canvas.width, canvas.height);
+    const maskData = maskImgData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const alpha = data[i + 3];
+      if (alpha > 5) {
+        maskData[i] = 255;
+        maskData[i + 1] = 255;
+        maskData[i + 2] = 255;
+        maskData[i + 3] = 255;
+      } else {
+        maskData[i] = 0;
+        maskData[i + 1] = 0;
+        maskData[i + 2] = 0;
+        maskData[i + 3] = 255;
+      }
+    }
+    
+    tempCtx.putImageData(maskImgData, 0, 0);
+    return tempCanvas.toDataURL('image/png');
+  };
+
   const handleGenerate = () => {
     const canvas = canvasRef.current;
     if (!canvas || !maskPrompt.trim() || !onGenerate) return;
-    const maskData = canvas.toDataURL('image/png');
-    onGenerate(maskData, maskPrompt);
+    const maskData = getBlackAndWhiteMask();
+    if (maskData) {
+      onGenerate(maskData, maskPrompt);
+    }
   };
 
   if (!image) {
@@ -620,6 +704,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         onMouseMove={maskTool === 'crop' ? onCropWrapperMove : undefined}
         onMouseUp={maskTool === 'crop' ? onCropWrapperUp : undefined}
         onMouseLeave={maskTool === 'crop' ? onCropWrapperUp : undefined}
+        style={{ cursor: maskTool === 'crop' ? 'crosshair' : 'default' }}
       >
         <img
           src={resolvedImage || image || ''}
@@ -702,17 +787,25 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         <div className="mask-canvas-generate">
           <input
             type="text"
-            placeholder="Enter prompt for masked generation..."
+            placeholder={isGenerating ? "Generating..." : "Enter prompt for masked generation..."}
             className="mask-canvas-prompt"
             value={maskPrompt}
             onChange={(e) => setMaskPrompt(e.target.value)}
+            disabled={isGenerating}
           />
           <button
             className="mask-canvas-generate-btn"
             onClick={handleGenerate}
-            disabled={!maskPrompt.trim()}
+            disabled={!maskPrompt.trim() || isGenerating}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}
           >
-            Generate
+            {isGenerating ? (
+              <>
+                <Loader2 className="spin" size={14} /> Generating...
+              </>
+            ) : (
+              'Generate'
+            )}
           </button>
         </div>
       )}

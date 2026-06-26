@@ -16,6 +16,7 @@ import { useBuilderWorkflow, type ProcessingType } from './useBuilderWorkflow';
 import { PerformanceHUD } from './components/PerformanceHUD';
 import { type BuilderNode } from './types';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
+import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { BuilderContextMenu } from './components/BuilderContextMenu';
@@ -797,10 +798,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     // Only delete ghost nodes that are brand-new (within 3s) and still idle — avoids
     // wiping ghost nodes that finished processing and are waiting for the user
     const now = Date.now();
+    const queueStore = useBuilderQueueStore.getState();
     nodes.forEach(node => {
+      const job = queueStore.jobs[node.id];
+      const isQueuedOrExecuting = queueStore.activeQueue.includes(node.id) || 
+                                  (job && job.state !== 'idle') || 
+                                  node.data.state !== 'idle';
       if (
         node.data.type === 'ghost' &&
-        node.data.state === 'idle' &&
+        !isQueuedOrExecuting &&
         typeof node.data.createdAt === 'number' &&
         now - node.data.createdAt < 3000
       ) {
@@ -954,6 +960,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   });
 
   useBuilderKeyboard({
+    isActive,
     handleSave,
     handleSaveAs,
     handleLoad,

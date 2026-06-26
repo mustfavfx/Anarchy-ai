@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { logger } from '../../utils/logger';
-import { Image as ImageIcon, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download } from 'lucide-react';
+import { Image as ImageIcon, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download, Check } from 'lucide-react';
 import { ExportModal } from '../../shared/components/ExportModal';
 import { AIControlPanel } from '../builder/AIControlPanel';
 import { MaskCanvas } from './MaskCanvas';
@@ -194,6 +194,7 @@ export const RightSidebar: React.FC = () => {
   const [showExpandModal, setShowExpandModal] = React.useState(false);
   const [showExportModal, setShowExportModal] = React.useState(false);
   const [expandModalTab, setExpandModalTab] = React.useState<'preview' | 'draw'>('preview');
+  const [isMaskGenerating, setIsMaskGenerating] = React.useState(false);
 
   // Zoom/Pan state for Preview mode
   const [zoom, setZoom]         = useState(1);
@@ -330,25 +331,64 @@ export const RightSidebar: React.FC = () => {
   }, [selectedNode, setSelectedNode, nodeImageUpdateFn]);
 
   // Handle mask generation
-  const handleMaskGenerate = useCallback(async (_maskDataUrl: string, prompt: string) => {
+  const handleMaskGenerate = useCallback(async (maskDataUrl: string, prompt: string) => {
     if (!selectedNode?.image || !prompt.trim()) return;
+    setIsMaskGenerating(true);
 
     try {
-      const result = await replicateService.generateImg2Img({
-        prompt,
-        model: 'black-forest-labs/flux-kontext-pro',
-        strength: 0.85,
-        resolution: 'Auto',
-        aspectRatio: 'Auto',
-      }, selectedNode.image);
+      // 1. Resolve and upload the base image
+      let baseImageUrl = resolvedSelectedImage || selectedNode.image;
+      if (baseImageUrl.startsWith('data:') || baseImageUrl.startsWith('blob:')) {
+        baseImageUrl = await replicateService.uploadToReplicate(baseImageUrl);
+      } else if (baseImageUrl.startsWith('idb://')) {
+        const { getLocalImage } = await import('../../services/history/HistoryService');
+        const localData = await getLocalImage(baseImageUrl);
+        if (localData) {
+          baseImageUrl = await replicateService.uploadToReplicate(localData);
+        }
+      }
 
-      if (result.imageUrl) {
-        setMaskResult(result.imageUrl);
+      // 2. Upload the generated binary mask
+      const maskUrl = await replicateService.uploadToReplicate(maskDataUrl);
+
+      // 3. Submit inpainting prediction to Replicate (flux-1-fill)
+      const result = await replicateService.runPrediction(
+        'black-forest-labs/flux-1-fill',
+        {
+          image: baseImageUrl,
+          mask: maskUrl,
+          prompt: prompt,
+          num_inference_steps: 28,
+          guidance: 30,
+          output_format: 'png',
+        }
+      );
+
+      const imageUrl = replicateService.extractImageUrl(result.output);
+      if (imageUrl) {
+        setMaskResult(imageUrl);
       }
     } catch (error) {
       logger.error('Mask generation failed:', error);
+    } finally {
+      setIsMaskGenerating(false);
     }
-  }, [selectedNode?.image]);
+  }, [selectedNode, resolvedSelectedImage, replicateService]);
+
+  // Handle apply mask result — cache it in IndexedDB/Tauri and update ReactFlow workspace node
+  const handleApplyMaskResult = useCallback(async () => {
+    if (!selectedNode?.id || !maskResult) return;
+    
+    try {
+      setSelectedNode({ ...selectedNode, image: maskResult });
+      nodeImageUpdateFn?.(selectedNode.id, maskResult);
+      setMaskResult(null);
+      setPreviewMode('preview');
+      setShowExpandModal(false);
+    } catch (err) {
+      logger.error('[Mask] Failed to apply mask result to node:', err);
+    }
+  }, [selectedNode, setSelectedNode, maskResult, nodeImageUpdateFn]);
 
   return (
     <div className={`right-sidebar-wrapper ${isCollapsed ? 'collapsed' : ''}`}>
@@ -468,17 +508,26 @@ export const RightSidebar: React.FC = () => {
                     onGenerate={handleMaskGenerate}
                     onCrop={handleCrop}
                     showGenerateButton={true}
+                    isGenerating={isMaskGenerating}
                     className="sidebar-mask-canvas"
                   />
                   {maskResult && (
                     <div className="mask-result-overlay">
                       <img src={maskResult} alt="Generated Result" />
-                      <button
-                        className="mask-result-close"
-                        onClick={() => setMaskResult(null)}
-                      >
-                        <X size={16} />
-                      </button>
+                      <div className="mask-result-actions">
+                        <button
+                          className="mask-result-apply-btn"
+                          onClick={handleApplyMaskResult}
+                        >
+                          <Check size={14} /> Apply to Node
+                        </button>
+                        <button
+                          className="mask-result-discard-btn"
+                          onClick={() => setMaskResult(null)}
+                        >
+                          <X size={14} /> Discard
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -622,7 +671,7 @@ export const RightSidebar: React.FC = () => {
                 onError={e => { e.currentTarget.style.display = 'none'; }}
               />
             ) : (
-              <div className="preview-expand-mask-wrap">
+              <div className="preview-expand-mask-wrap" style={{ position: 'relative' }}>
                 <MaskCanvas
                   image={resolvedSelectedImage || null}
                   onGenerate={handleMaskGenerate}
@@ -634,8 +683,28 @@ export const RightSidebar: React.FC = () => {
                     setExpandModalTab('preview');
                   }}
                   showGenerateButton={true}
+                  isGenerating={isMaskGenerating}
                   className="expand-modal-mask-canvas"
                 />
+                {maskResult && (
+                  <div className="mask-result-overlay">
+                    <img src={maskResult} alt="Generated Result" />
+                    <div className="mask-result-actions">
+                      <button
+                        className="mask-result-apply-btn"
+                        onClick={handleApplyMaskResult}
+                      >
+                        <Check size={14} /> Apply to Node
+                      </button>
+                      <button
+                        className="mask-result-discard-btn"
+                        onClick={() => setMaskResult(null)}
+                      >
+                        <X size={14} /> Discard
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

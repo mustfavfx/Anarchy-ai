@@ -7,6 +7,7 @@ import { logger } from '../../../utils/logger';
 const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 
 interface UseBuilderKeyboardProps {
+  isActive?: boolean;
   handleSave: () => Promise<string | null>;
   handleSaveAs: () => Promise<string | null>;
   handleLoad: () => void;
@@ -27,6 +28,7 @@ interface UseBuilderKeyboardProps {
 }
 
 export function useBuilderKeyboard({
+  isActive = true,
   handleSave,
   handleSaveAs,
   handleLoad,
@@ -82,7 +84,25 @@ export function useBuilderKeyboard({
       await pasteFromWebClipboard();
     };
 
+    const handlePaste = async (e: ClipboardEvent) => {
+      if (!isActive) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      e.preventDefault();
+      if (copiedNode) {
+        const newNodeId = createSourceNode(copiedNode.image);
+        if (copiedNode.prompt) {
+          updateNodeData(newNodeId, { prompt: copiedNode.prompt });
+        }
+        addNotification({ type: 'success', title: 'Node Pasted', message: 'Image copied to canvas' });
+      } else {
+        await handlePasteShortcut();
+      }
+    };
+
     const handleKeyDown = async (e: KeyboardEvent) => {
+      if (!isActive) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
@@ -119,18 +139,6 @@ export function useBuilderKeyboard({
             }
           }
           break;
-        case 'v':
-          e.preventDefault();
-          if (copiedNode) {
-            const newNodeId = createSourceNode(copiedNode.image);
-            if (copiedNode.prompt) {
-              updateNodeData(newNodeId, { prompt: copiedNode.prompt });
-            }
-            addNotification({ type: 'success', title: 'Node Pasted', message: 'Image copied to canvas' });
-          } else {
-            await handlePasteShortcut();
-          }
-          break;
         case 'n':
           e.preventDefault();
           handleNewCanvas();
@@ -164,8 +172,13 @@ export function useBuilderKeyboard({
       }
     };
     globalThis.addEventListener('keydown', handleKeyDown);
-    return () => globalThis.removeEventListener('keydown', handleKeyDown);
+    globalThis.addEventListener('paste', handlePaste as any);
+    return () => {
+      globalThis.removeEventListener('keydown', handleKeyDown);
+      globalThis.removeEventListener('paste', handlePaste as any);
+    };
   }, [
+    isActive,
     handleSave,
     handleSaveAs,
     handleLoad,
