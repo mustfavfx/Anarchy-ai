@@ -13,9 +13,46 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.0',
+    date: 'June 26, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'feature',
+        title: 'Multi-Tab Paste Isolation',
+        description: 'Restrained image copy-paste behavior to target only the active workspace, preventing duplicate images from pasting into background tabs.'
+      },
+      {
+        type: 'fix',
+        title: 'Fixed Save Image Action',
+        description: 'Implemented a hybrid base64 converter to bypass CORS policies and blob URL security restrictions, restoring full node image saving functionality.'
+      },
+      {
+        type: 'improvement',
+        title: 'Compact Export Modal & Click Isolation',
+        description: 'Resized the export modal to an elegant 320px width and blocked event bubbling to prevent clicking modal buttons from selecting nodes or spawning ghost nodes underneath.'
+      },
+      {
+        type: 'feature',
+        title: 'Ghost Node Retention & Branching',
+        description: 'Ensured ghost nodes remain active on canvas clicks during generation, and allowed spawning multiple parallel ghost nodes from the same parent.'
+      },
+      {
+        type: 'feature',
+        title: 'Advanced Inpainting & FLUX Fill',
+        description: 'Integrated the official flux-1-fill model with black-and-white binary mask conversion and redesigned interactive click-and-drag crop handles.'
+      },
+      {
+        type: 'improvement',
+        title: 'Protected Production Builds',
+        description: 'Disabled F12, developer tools shortcuts, and context menu inspection in production builds for enhanced code protection.'
+      }
+    ]
+  },
+  {
     version: 'v0.2.1',
     date: 'June 12, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'fix',
