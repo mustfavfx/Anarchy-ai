@@ -21,7 +21,7 @@
   background: #141414;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  width: 380px;
+  width: 320px;
   max-width: calc(100vw - 32px);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
   overflow: hidden;
@@ -70,14 +70,14 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .export-thumb {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid rgba(255,255,255,0.1);
@@ -107,7 +107,7 @@
 
 /* Section */
 .export-section {
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -263,7 +263,7 @@
 .export-actions {
   display: flex;
   gap: 8px;
-  padding: 14px 16px 10px;
+  padding: 12px 12px 8px;
 }
 
 .export-btn {
@@ -276,7 +276,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s, transform 0.1s;
-  padding: 9px 14px;
+  padding: 8px 12px;
 }
 .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .export-btn:active:not(:disabled) { transform: scale(0.97); }
@@ -305,7 +305,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 0 16px 14px;
+  padding: 0 12px 10px;
   font-size: 10px;
   color: #3a3a3a;
   line-height: 1.4;

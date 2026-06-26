@@ -98,9 +98,51 @@ export const ExportModal: React.FC<ExportModalProps> = ({ imageUrl, imageName = 
     <div
       className="export-overlay"
       ref={overlayRef}
-      onClick={e => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={e => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
+        if (e.target === overlayRef.current) onClose();
+      }}
+      onMouseDown={e => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
+      }}
+      onMouseUp={e => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
+      }}
+      onPointerDown={e => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
+      }}
+      onPointerUp={e => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
+      }}
     >
-      <div className="export-modal">
+      <div 
+        className="export-modal"
+        onClick={e => {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+        }}
+        onMouseDown={e => {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+        }}
+        onMouseUp={e => {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+        }}
+        onPointerDown={e => {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+        }}
+        onPointerUp={e => {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+        }}
+      >
 
         {/* Header */}
         <div className="export-header">
