@@ -60,10 +60,37 @@ const timestamp = () => new Date().toISOString().replaceAll(':', '-').replaceAll
  */
 export async function urlToDataUri(url: string, format: 'png' | 'jpg' | 'webp' = 'jpg', quality: number = 0.92): Promise<string> {
   if (url.startsWith('data:')) return url;
+
+  // Handle blob URLs directly via fetch & FileReader to avoid CORS/security blocks
+  if (url.startsWith('blob:')) {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      return dataUri;
+    } catch (err) {
+      console.warn('[urlToDataUri] Failed to read blob URL:', err);
+    }
+  }
+
+  // Try Tauri Rust command to bypass CORS for remote images
+  try {
+    const dataUri = await invoke<string>('url_to_base64', { url });
+    if (dataUri?.startsWith('data:')) return dataUri;
+  } catch (err) {
+    console.warn('[urlToDataUri] Tauri url_to_base64 failed, falling back to browser:', err);
+  }
   
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth || img.width || 512;
