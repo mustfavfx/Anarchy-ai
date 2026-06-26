@@ -299,19 +299,6 @@ export const SettingsPage: React.FC = () => {
                     />
                   </div>
                 </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Sound Effects</label>
-                    <span className="setting-desc">Play sound on generation complete</span>
-                  </div>
-                  <div className="setting-control">
-                    <button
-                      className={`toggle-switch ${settings.soundEffects ? 'on' : ''}`}
-                      onClick={() => updateSetting('soundEffects', !settings.soundEffects)}
-                    />
-                  </div>
-                </div>
               </div>
 
               {/* Watermark Card */}
