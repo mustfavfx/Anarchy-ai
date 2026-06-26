@@ -261,7 +261,7 @@ export const IntegrationsPage: React.FC = () => {
   const openPluginDetails = (plugin: Plugin) => {
     setSelected(plugin);
     setInstallMessage(null);
-    setShowInstructions(false);
+    setShowInstructions(plugin.status === 'installed');
     loadDetectedInstalls(plugin);
   };
 
@@ -559,6 +559,40 @@ export const IntegrationsPage: React.FC = () => {
 
             <p className="int-modal-desc">{selected.description}</p>
 
+            {showInstructions && selected.id === '3dsmax' && (
+              <div className="int-modal-section">
+                <div className="int-doc-panel">
+                  <h4>How to use inside 3ds Max</h4>
+                  <ol>
+                    <li>Restart 3ds Max after installation.</li>
+                    <li>Open Customize → Customize User Interface.</li>
+                    <li>Open the Toolbars tab.</li>
+                    <li>Choose Category: Anarchy.</li>
+                    <li>Drag the Anarchy command to the top toolbar.</li>
+                    <li>Open Anarchy AI Builder, then click the red A button in 3ds Max.</li>
+                  </ol>
+                  <p>The active viewport image will arrive as a Source Node in the Builder canvas.</p>
+                </div>
+              </div>
+            )}
+
+            {showInstructions && selected.id === 'revit' && (
+              <div className="int-modal-section">
+                <div className="int-doc-panel">
+                  <h4>Revit installation & usage</h4>
+                  <ol>
+                    <li>Close Revit before installing.</li>
+                    <li>Select the detected Revit version(s) above and click Install Plugin.</li>
+                    <li>The plugin is compiled against your Revit API and installed to %APPDATA%\Autodesk\Revit\Addins.</li>
+                    <li>Open Revit — a new <strong>Anarchy</strong> tab will appear in the ribbon.</li>
+                    <li>Open any project, set the desired view, then click <strong>Send to Anarchy</strong>.</li>
+                    <li>The current view image is sent to the Builder canvas as a Source Node.</li>
+                  </ol>
+                  <p><strong>Requirements:</strong> Revit 2022-2024 installed under Program Files\Autodesk. Revit 2025+ uses .NET 8 and is not yet supported.</p>
+                </div>
+              </div>
+            )}
+
             <div className="int-modal-section">
               <h4>Features</h4>
               <div className="int-features">
@@ -618,40 +652,6 @@ export const IntegrationsPage: React.FC = () => {
                 </div>
               );
             })()}
-
-            {showInstructions && selected.id === '3dsmax' && (
-              <div className="int-modal-section">
-                <div className="int-doc-panel">
-                  <h4>How to use inside 3ds Max</h4>
-                  <ol>
-                    <li>Restart 3ds Max after installation.</li>
-                    <li>Open Customize → Customize User Interface.</li>
-                    <li>Open the Toolbars tab.</li>
-                    <li>Choose Category: Anarchy.</li>
-                    <li>Drag the Anarchy command to the top toolbar.</li>
-                    <li>Open Anarchy AI Builder, then click the red A button in 3ds Max.</li>
-                  </ol>
-                  <p>The active viewport image will arrive as a Source Node in the Builder canvas.</p>
-                </div>
-              </div>
-            )}
-
-            {showInstructions && selected.id === 'revit' && (
-              <div className="int-modal-section">
-                <div className="int-doc-panel">
-                  <h4>Revit installation & usage</h4>
-                  <ol>
-                    <li>Close Revit before installing.</li>
-                    <li>Select the detected Revit version(s) above and click Install Plugin.</li>
-                    <li>The plugin is compiled against your Revit API and installed to %APPDATA%\Autodesk\Revit\Addins.</li>
-                    <li>Open Revit — a new <strong>Anarchy</strong> tab will appear in the ribbon.</li>
-                    <li>Open any project, set the desired view, then click <strong>Send to Anarchy</strong>.</li>
-                    <li>The current view image is sent to the Builder canvas as a Source Node.</li>
-                  </ol>
-                  <p><strong>Requirements:</strong> Revit 2022-2024 installed under Program Files\Autodesk. Revit 2025+ uses .NET 8 and is not yet supported.</p>
-                </div>
-              </div>
-            )}
 
             {/* AutoCAD instructions removed */}
 
