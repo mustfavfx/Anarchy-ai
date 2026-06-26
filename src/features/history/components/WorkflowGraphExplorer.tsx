@@ -10,7 +10,8 @@ import {
   useReactFlow,
   ReactFlowProvider,
   BaseEdge,
-  type EdgeProps
+  type EdgeProps,
+  useStore
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { HistoryEntry } from '../types';
@@ -182,7 +183,7 @@ function WorkflowGraphExplorerInner({
   onCompareToggle,
 }: WorkflowGraphExplorerProps) {
   const { entries: allEntries } = useHistoryStore();
-  const { fitView, zoomIn, zoomOut, getViewport } = useReactFlow();
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
@@ -342,7 +343,8 @@ function WorkflowGraphExplorerInner({
     fitView({ padding: 0.15, duration: 400 });
   };
 
-  const currentZoom = Math.round((getViewport().zoom || 1) * 100);
+  const zoom = useStore((s) => s.transform[2]);
+  const currentZoom = Math.round((zoom || 1) * 100);
 
   return (
     <div className="workflow-graph-explorer">
