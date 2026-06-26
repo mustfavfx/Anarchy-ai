@@ -67,7 +67,7 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
     return imageHeight + detailsHeight;
   }, [itemWidth]);
 
-  const listRowHeight = 74;
+  const listRowHeight = 96;
 
   const rowCount = viewMode === 'grid'
     ? Math.ceil(projects.length / columnsCount)
@@ -82,7 +82,7 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
     if (!project) return null;
 
     return (
-      <div style={{ ...style, paddingBottom: '2px', boxSizing: 'border-box' }}>
+      <div style={{ ...style, paddingBottom: '8px', boxSizing: 'border-box' }}>
         <div
           className="project-list-item"
           onClick={() => onOpenProject(project)}
