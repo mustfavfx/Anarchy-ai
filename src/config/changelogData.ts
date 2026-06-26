@@ -13,9 +13,36 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.0',
+    version: 'v0.3.1',
     date: 'June 26, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'improvement',
+        title: 'Reactive History Graph Zoom',
+        description: 'Fixed the zoom percentage label in the History Evolution Graph toolbar to update dynamically when zooming in, zooming out, or resetting the view.'
+      },
+      {
+        type: 'improvement',
+        title: 'Projects List View Spacing',
+        description: 'Increased list view row height to 96px and added a clean 8px vertical separation gap between project cards to prevent overlapping and clipping.'
+      },
+      {
+        type: 'improvement',
+        title: 'Streamlined Integration Instructions',
+        description: 'Raised "How to Use" plugin documentation to the top of the detail modal, and enabled auto-expanding instructions by default for installed integrations to reduce scrolling.'
+      },
+      {
+        type: 'improvement',
+        title: 'Cleaned Up Settings Panels',
+        description: 'Removed the legacy, unused Sound Effects toggle from the notifications settings UI for a more polished settings panel.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.0',
+    date: 'June 26, 2026',
+    status: 'release',
     features: [
       {
         type: 'feature',
