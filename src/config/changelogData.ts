@@ -13,9 +13,21 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.8',
+    version: 'v0.3.9',
     date: 'June 27, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'fix',
+        title: 'Project File Icon Association',
+        description: 'Updated NSIS installer scripts to use SHCTX registry contexts and classes path structures. This allows per-user installations (non-admin runs) to successfully register the file extension .ana and correctly display the red A logo icon for project files on Windows.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.8',
+    date: 'June 27, 2026',
+    status: 'release',
     features: [
       {
         type: 'fix',
