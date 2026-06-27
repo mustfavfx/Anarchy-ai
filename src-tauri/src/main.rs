@@ -652,38 +652,63 @@ async fn install_3dsmax_plugin(_script: String, versions: Option<Vec<String>>) -
             }
         };
 
-        let startup_dir = profile_path.join("ENU").join("scripts").join("startup");
-        let usermacros_dir = profile_path.join("ENU").join("usermacros");
-        std::fs::create_dir_all(&startup_dir)
-            .map_err(|e| format!("Failed to create startup folder: {}", e))?;
-        std::fs::create_dir_all(&usermacros_dir)
-            .map_err(|e| format!("Failed to create usermacros folder: {}", e))?;
+        // Detect all active language folders (e.g. ENU, DEU, FRA, JPN, CHS, KOR, PTB)
+        let mut languages = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(&profile_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        // 3ds Max language folder names are 3 letters and uppercase
+                        if name.len() == 3 && name.chars().all(|c| c.is_ascii_uppercase()) {
+                            languages.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
 
-        let script_path = startup_dir.join("AnarchyConnector.ms");
-        std::fs::write(&script_path, &script)
-            .map_err(|e| format!("Failed to write plugin script: {}", e))?;
-        installed_paths.push(script_path.to_string_lossy().to_string());
+        // Fallback to ENU if no language folders exist yet
+        if languages.is_empty() {
+            languages.push("ENU".to_string());
+        }
 
-        let macro_path = usermacros_dir.join("Anarchy-AnarchySync.mcr");
-        std::fs::write(&macro_path, &script)
-            .map_err(|e| format!("Failed to write plugin macro: {}", e))?;
-        installed_paths.push(macro_path.to_string_lossy().to_string());
-
-        let usericons_dir = profile_path.join("ENU").join("usericons");
-        let _ = std::fs::create_dir_all(&usericons_dir);
         const ICON_24I: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24i.bmp");
         const ICON_24A: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24a.bmp");
         const ICON_16I: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_16i.bmp");
         const ICON_16A: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_16a.bmp");
-        for (name, bytes) in [
-            ("AnarchyLogo_24i.bmp", ICON_24I),
-            ("AnarchyLogo_24a.bmp", ICON_24A),
-            ("AnarchyLogo_16i.bmp", ICON_16I),
-            ("AnarchyLogo_16a.bmp", ICON_16A),
-        ] {
-            let icon_path = usericons_dir.join(name);
-            if std::fs::write(&icon_path, bytes).is_ok() {
-                installed_paths.push(icon_path.to_string_lossy().to_string());
+
+        for lang in &languages {
+            let startup_dir = profile_path.join(lang).join("scripts").join("startup");
+            let usermacros_dir = profile_path.join(lang).join("usermacros");
+            let usericons_dir = profile_path.join(lang).join("usericons");
+
+            std::fs::create_dir_all(&startup_dir)
+                .map_err(|e| format!("Failed to create startup folder for {}: {}", lang, e))?;
+            std::fs::create_dir_all(&usermacros_dir)
+                .map_err(|e| format!("Failed to create usermacros folder for {}: {}", lang, e))?;
+            let _ = std::fs::create_dir_all(&usericons_dir);
+
+            let script_path = startup_dir.join("AnarchyConnector.ms");
+            std::fs::write(&script_path, &script)
+                .map_err(|e| format!("Failed to write plugin script for {}: {}", lang, e))?;
+            installed_paths.push(script_path.to_string_lossy().to_string());
+
+            let macro_path = usermacros_dir.join("Anarchy-AnarchySync.mcr");
+            std::fs::write(&macro_path, &script)
+                .map_err(|e| format!("Failed to write plugin macro for {}: {}", lang, e))?;
+            installed_paths.push(macro_path.to_string_lossy().to_string());
+
+            for (name, bytes) in [
+                ("AnarchyLogo_24i.bmp", ICON_24I),
+                ("AnarchyLogo_24a.bmp", ICON_24A),
+                ("AnarchyLogo_16i.bmp", ICON_16I),
+                ("AnarchyLogo_16a.bmp", ICON_16A),
+            ] {
+                let icon_path = usericons_dir.join(name);
+                if std::fs::write(&icon_path, bytes).is_ok() {
+                    installed_paths.push(icon_path.to_string_lossy().to_string());
+                }
             }
         }
     }

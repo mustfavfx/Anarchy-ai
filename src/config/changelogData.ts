@@ -13,9 +13,21 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.7',
+    version: 'v0.3.8',
     date: 'June 27, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'fix',
+        title: '3ds Max Localization Support',
+        description: 'Fixed 3ds Max plugin installation to detect and write files to all active language profile folders (e.g. DEU, FRA, JPN, CHS, KOR, PTB) instead of only hardcoded English ENU, resolving issues where the plugin would not appear in non-English 3ds Max installations.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.7',
+    date: 'June 27, 2026',
+    status: 'release',
     features: [
       {
         type: 'improvement',
