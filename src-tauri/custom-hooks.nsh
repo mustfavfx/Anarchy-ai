@@ -6,7 +6,7 @@
   WriteRegStr SHCTX "Software\Classes\AnarchyAI.ana" "" "Anarchy AI Project File"
   
   ; Set the default icon for the associated file type
-  WriteRegStr SHCTX "Software\Classes\AnarchyAI.ana\DefaultIcon" "" "$INSTDIR\resources\icons\ana-file.ico"
+  WriteRegStr SHCTX "Software\Classes\AnarchyAI.ana\DefaultIcon" "" "$INSTDIR\icons\ana-file.ico"
   
   ; Set the default open command
   WriteRegStr SHCTX "Software\Classes\AnarchyAI.ana\shell\open\command" "" '"$INSTDIR\Anarchy AI.exe" "%1"'

@@ -13,9 +13,21 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.9',
+    version: 'v0.3.10',
     date: 'June 27, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'fix',
+        title: 'Registry Icon Path Alignment',
+        description: 'Corrected the Windows registry path for the .ana file association icon in custom-hooks.nsh. The icon is now correctly mapped to $INSTDIR\\icons\\ana-file.ico (where it is bundled relative to the executable) rather than the non-existent resources folder.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.9',
+    date: 'June 27, 2026',
+    status: 'release',
     features: [
       {
         type: 'fix',
