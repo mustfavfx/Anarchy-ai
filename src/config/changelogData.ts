@@ -13,9 +13,26 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.7',
+    date: 'June 27, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'improvement',
+        title: 'GitHub Actions Node.js 24 Upgrade',
+        description: 'Upgraded setup-node and checkout actions to v6 to target Node.js 24 natively and resolve runner deprecation warnings.'
+      },
+      {
+        type: 'improvement',
+        title: 'SonarCloud Exclusions Setup',
+        description: 'Configured .sonarcloud.properties to target production files and exclude build artifacts, dependencies, and test logs, preventing analysis time-outs.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.1',
     date: 'June 26, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'improvement',
