@@ -1765,6 +1765,79 @@ struct StartupState {
     deep_link: Mutex<Option<String>>,
 }
 
+/// Automatically fixes the .ana file icon association in the Windows registry.
+/// This runs on every startup so that users who installed older versions also
+/// get the correct icon without needing to reinstall.
+#[cfg(target_os = "windows")]
+fn fix_ana_file_association() {
+    use std::os::windows::process::CommandExt;
+
+    // Determine the path where the executable currently lives
+    let exe_path = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let install_dir = match exe_path.parent() {
+        Some(p) => p.to_path_buf(),
+        None => return,
+    };
+
+    // Expected icon path relative to the executable
+    let icon_path = install_dir.join("resources").join("icons").join("ana-file.ico");
+    if !icon_path.exists() {
+        return; // Icon not present – nothing to register
+    }
+    let icon_str = match icon_path.to_str() {
+        Some(s) => s.to_string(),
+        None => return,
+    };
+    let exe_str = match exe_path.to_str() {
+        Some(s) => s.to_string(),
+        None => return,
+    };
+
+    // Helper: open or create a registry key under HKCU\Software\Classes
+    fn set_reg_value(subkey: &str, value: &str) {
+        let _ = std::process::Command::new("reg")
+            .args(["add", subkey, "/ve", "/d", value, "/f"])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .output();
+    }
+
+    // 1. Ensure .ana maps to our ProgID
+    set_reg_value("HKCU\\Software\\Classes\\.ana", "AnarchyAI.ana");
+
+    // 2. Set the human-readable type name
+    set_reg_value("HKCU\\Software\\Classes\\AnarchyAI.ana", "Anarchy AI Project File");
+
+    // 3. Set the correct icon path
+    set_reg_value("HKCU\\Software\\Classes\\AnarchyAI.ana\\DefaultIcon", &icon_str);
+
+    // 4. Set the open command
+    let open_cmd = format!("\"{}\" \"%1\"", exe_str);
+    set_reg_value("HKCU\\Software\\Classes\\AnarchyAI.ana\\shell\\open\\command", &open_cmd);
+
+    // 5. Windows 10/11 SystemFileAssociations (modern icon engine)
+    set_reg_value("HKCU\\Software\\Classes\\SystemFileAssociations\\.ana", "Anarchy AI Project File");
+    set_reg_value("HKCU\\Software\\Classes\\SystemFileAssociations\\.ana\\DefaultIcon", &icon_str);
+    set_reg_value("HKCU\\Software\\Classes\\SystemFileAssociations\\.ana\\shell\\open\\command", &open_cmd);
+
+    // 6. Notify the Windows Shell to refresh icon cache immediately
+    // SHChangeNotify(SHCNE_ASSOCCHANGED=0x08000000, SHCNF_IDLIST=0, 0, 0)
+    #[link(name = "shell32")]
+    extern "system" {
+        fn SHChangeNotify(we: i32, ui: u32, item1: *mut std::ffi::c_void, item2: *mut std::ffi::c_void);
+    }
+    unsafe {
+        SHChangeNotify(0x08000000i32, 0u32, std::ptr::null_mut(), std::ptr::null_mut());
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn fix_ana_file_association() {
+    // No-op on macOS / Linux — file associations handled by the OS bundle
+}
+
 #[tauri::command]
 fn get_startup_file(state: tauri::State<'_, StartupState>) -> Option<String> {
     let mut lock = state.file_path.lock().unwrap();
@@ -1851,6 +1924,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
+            // Auto-fix .ana file icon registry for all Windows users on every launch
+            fix_ana_file_association();
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(start_anarchy_viewport_server(app_handle));
             Ok(())
