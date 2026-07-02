@@ -543,7 +543,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         window.dispatchEvent(new Event('resize'));
         setTimeout(() => {
           if (!hasFittedInitially.current) {
-            fitView({ padding: 0.3, duration: 400 });
+            fitView({ padding: 0.3, minZoom: 0.6, duration: 400 });
             hasFittedInitially.current = true;
           }
         }, 150);
@@ -964,7 +964,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setTimeout(() => setNodes(patchSpawnedNode(nodeId)), 50);
     setSelectedNodeId(nodeId);
     setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
-    setTimeout(() => { fitView({ padding: 0.3, duration: 400 }); }, 200);
+    setTimeout(() => { fitView({ padding: 0.3, minZoom: 0.6, duration: 400 }); }, 200);
     logger.log('[Spawn From Image] Source node created successfully:', nodeId);
   }, [createSourceNode, setSelectedNodeId, setSelectedNode, fitView, setNodes, applyWatermarkToSource]);
 
@@ -1049,7 +1049,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
       case 'rearrange': {
         rearrangeNodes();
-        setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 100);
+        setTimeout(() => fitView({ padding: 0.2, minZoom: 0.6, duration: 500 }), 100);
         break;
       }
       case 'spawn-ghost': {
@@ -1212,7 +1212,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             onNodeDragStop={handleNodeDragStop}
             nodeTypes={memoizedNodeTypes}
             edgeTypes={memoizedEdgeTypes}
-            fitViewOptions={{ padding: 0.2, minZoom: 0.01, maxZoom: 2, duration: 300 }}
+            fitViewOptions={{ padding: 0.2, minZoom: 0.6, maxZoom: 2, duration: 300 }}
             colorMode="dark"
             minZoom={0.01}
             maxZoom={2}

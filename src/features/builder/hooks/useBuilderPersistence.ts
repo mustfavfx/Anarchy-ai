@@ -106,7 +106,7 @@ export function useBuilderPersistence({
       hasFittedInitiallyRef.current = false;
     }
 
-    setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 200);
+    setTimeout(() => fitView({ padding: 0.3, minZoom: 0.6, duration: 400 }), 200);
     addNotification({ type: 'success', title: 'Project Loaded', message: name });
   }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef]);
 
@@ -173,7 +173,7 @@ export function useBuilderPersistence({
         isDirtyRef.current = false;
         onDirtyChange?.(false);
         addNotification({ type: 'success', title: 'Project Loaded', message: result.name });
-        setTimeout(() => fitView({ padding: 0.3, duration: 400 }), 100);
+        setTimeout(() => fitView({ padding: 0.3, minZoom: 0.6, duration: 400 }), 100);
       }
     } catch (err) {
       logger.error('[Load] failed:', err);
@@ -194,7 +194,7 @@ export function useBuilderPersistence({
     isDirtyRef.current = false;
     setTimeout(() => {
       createSourceNode();
-      setTimeout(() => fitView({ padding: 0.8, duration: 400 }), 100);
+      setTimeout(() => fitView({ padding: 0.8, minZoom: 0.6, duration: 400 }), 100);
     }, 30);
   }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange, onProjectPathChange]);
 
