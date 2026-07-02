@@ -1,6 +1,6 @@
 ; Inno Setup Script for Anarchy AI
 #define AppName "Anarchy AI"
-#define AppVersion "0.2.1"
+#define AppVersion "0.3.45"
 #define AppPublisher "Anarchy AI Team"
 #define AppExeName "Anarchy AI.exe"
 
@@ -54,8 +54,13 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 ; File Association for .ana (Anarchy AI Project)
 Root: HKA; Subkey: "Software\Classes\.ana"; ValueType: string; ValueName: ""; ValueData: "AnarchyAI.ana"; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\AnarchyAI.ana"; ValueType: string; ValueName: ""; ValueData: "Anarchy AI Project File"; Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\AnarchyAI.ana\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\resources\icons\ana-file.ico,0"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\AnarchyAI.ana\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\resources\icons\ana-file.ico"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\AnarchyAI.ana\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""; Flags: uninsdeletekey
+
+; Modern Windows 10/11 System File Association to guarantee icon display
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.ana"; ValueType: string; ValueName: ""; ValueData: "Anarchy AI Project File"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.ana\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\resources\icons\ana-file.ico"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.ana\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""; Flags: uninsdeletekey
 
 ; URL Protocol Association for anarchy-ai:// deep linking
 Root: HKA; Subkey: "Software\Classes\anarchy-ai"; ValueType: string; ValueName: ""; ValueData: "URL:Anarchy AI Protocol"; Flags: uninsdeletekey
