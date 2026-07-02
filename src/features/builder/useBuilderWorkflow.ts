@@ -31,9 +31,14 @@ import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { track } from '../../services/tracking/trackingService';
 import { useAuth } from '../auth/AuthContext';
 
+import { getCurrentUserId } from '../../services/supabase/supabaseClient';
+
 // Silent auto-save key — accepts optional tabId suffix for multi-tab isolation
-const getAutosaveKey = (tabId?: string) =>
-  tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+const getAutosaveKey = (tabId?: string) => {
+  const uid = getCurrentUserId();
+  const base = uid && uid !== 'default_user' ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${uid}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+  return tabId ? `${base}_${tabId}` : base;
+};
 
 // ── Upload helper: converts local/data-URI images ─────────────────────────────
 // Nano Banana models accept base64 data URIs directly (best quality, no expiry)
@@ -42,6 +47,27 @@ async function uploadImageIfLocal(url: string, _model?: string): Promise<string>
   if (!url) return url;
   // Public HTTPS URL (not localhost) - safe to use directly
   if (url.startsWith('https://')) return url;
+  
+  // Resolve IndexedDB-backed images first
+  if (url.startsWith('idb://')) {
+    try {
+      const { getLocalImage } = await import('../../services/history/HistoryService');
+      const cached = await getLocalImage(url);
+      if (cached) {
+        try {
+          const { replicateService } = await import('../../services/replicate');
+          return await replicateService.uploadToReplicate(cached);
+        } catch (err) {
+          logger.error('[uploadImageIfLocal] Replicate upload failed (idb resolution), falling back to inline:', err);
+          return cached;
+        }
+      }
+    } catch (err) {
+      logger.error('[uploadImageIfLocal] Failed to resolve idb image:', err);
+    }
+    return url;
+  }
+
   // Already a data URI — upload to Replicate Files API to get a serving URL
   // This is more reliable than sending huge base64 inline in JSON body
   if (url.startsWith('data:')) {

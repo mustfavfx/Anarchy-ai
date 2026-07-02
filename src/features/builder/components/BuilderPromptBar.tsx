@@ -46,7 +46,9 @@ interface BuilderPromptBarProps {
   liveResolution: string;
   liveQuality: string;
   livePruna: number | undefined;
+  upscaleFactor?: number;
   userCredits: number | null;
+  isTrial?: boolean;
   onGenerate: () => void;
   onPromptContextMenu: (event: React.MouseEvent) => void;
 }
@@ -62,7 +64,9 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   liveResolution,
   liveQuality,
   livePruna,
+  upscaleFactor,
   userCredits,
+  isTrial = true,
   onGenerate,
   onPromptContextMenu,
 }) => {
@@ -104,6 +108,8 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
     resolution: liveResolution,
     qualityVariant: liveQuality,
     prunaTarget: livePruna,
+    upscaleFactor,
+    isTrial,
   });
 
   return (
@@ -262,12 +268,12 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
       <div className="prompt-bottom-badges-container">
         <span className="generate-cost-badge" title="Credits required per generation">
           <Coins size={10} />
-          Cost: {cost}
+          Cost: {cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
         </span>
         {userCredits !== null && (
           <span className="user-balance-badge" title="Your available credits">
             <Coins size={10} className="balance-icon" />
-            Balance: {userCredits.toFixed(1)}
+            Balance: {userCredits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </span>
         )}
       </div>

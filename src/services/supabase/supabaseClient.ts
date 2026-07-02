@@ -36,3 +36,21 @@ export const supabase = createClient(
     },
   }
 );
+
+/** Retrieve the current authenticated user's ID synchronously from LocalStorage auth token */
+export function getCurrentUserId(): string {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          const userId = parsed?.user?.id;
+          if (userId) return userId;
+        }
+      }
+    }
+  } catch {}
+  return 'default_user';
+}

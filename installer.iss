@@ -101,7 +101,7 @@ begin
           if FileExists(APIDll) then
           begin
             VerStr := Copy(FindRec.Name, 7, Length(FindRec.Name) - 6);
-            if (VerStr = '2022') or (VerStr = '2023') or (VerStr = '2024') or (VerStr = '2025') or (VerStr = '2026') or (VerStr = '2027') then
+            if (VerStr = '2020') or (VerStr = '2021') or (VerStr = '2022') or (VerStr = '2023') or (VerStr = '2024') or (VerStr = '2025') or (VerStr = '2026') or (VerStr = '2027') then
             begin
               RevitVersions[RevitCount] := VerStr;
               RevitPaths[RevitCount] := RevitDir + FindRec.Name;
@@ -139,7 +139,7 @@ begin
             if SpacePos > 0 then
             begin
               VerStr := Copy(FindRec.Name, 1, SpacePos - 1);
-              if (VerStr = '2022') or (VerStr = '2023') or (VerStr = '2024') or (VerStr = '2025') or (VerStr = '2026') or (VerStr = '2027') then
+              if (VerStr = '2020') or (VerStr = '2021') or (VerStr = '2022') or (VerStr = '2023') or (VerStr = '2024') or (VerStr = '2025') or (VerStr = '2026') or (VerStr = '2027') then
               begin
                 MaxVersions[MaxCount] := VerStr;
                 MaxPaths[MaxCount] := MaxDir + FindRec.Name;

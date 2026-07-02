@@ -177,7 +177,7 @@ export const AddCreditPage: React.FC = () => {
           </div>
           <div className="balance-info">
             <span className="balance-label">Current Balance</span>
-            <span className="balance-amount">{currentBalance.toLocaleString()} Credits</span>
+            <span className="balance-amount">{currentBalance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Credits</span>
           </div>
         </div>
       </div>

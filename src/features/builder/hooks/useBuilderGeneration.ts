@@ -109,15 +109,42 @@ export function useBuilderGeneration({
 
   const handleGenerate = useCallback(async () => {
     const aiConfig = getConfig();
+    
+    // Fetch user credit to determine isTrial status
+    let isTrial = true;
+    if (authUser?.id && !DEV_MODE) {
+      try {
+        const credit = await getUserCredit(authUser.id);
+        if (credit) {
+          isTrial = credit.totalPurchased === 0;
+        }
+      } catch (err) {
+        logger.error('[BuilderCredits] Error loading user credit for cost calculation:', err);
+      }
+    }
+
+    let resolvedUpscaleFactor: number | undefined = undefined;
+    if (aiConfig.model === 'topazlabs/image-upscale') {
+      const topazFactor = (aiConfig as any).topazUpscaleFactor ?? '4x';
+      if (topazFactor === '2x') resolvedUpscaleFactor = 2;
+      else if (topazFactor === '4x') resolvedUpscaleFactor = 4;
+      else if (topazFactor === '6x') resolvedUpscaleFactor = 6;
+      else resolvedUpscaleFactor = 4;
+    } else if (aiConfig.model === 'philz1337x/clarity-upscaler') {
+      resolvedUpscaleFactor = (aiConfig as any).clarityScale ?? 2;
+    }
+
     const cost = getModelCost(aiConfig.model, {
       resolution: aiConfig.resolution,
       qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
       prunaTarget: aiConfig.prunaTarget,
+      upscaleFactor: resolvedUpscaleFactor,
+      isTrial,
     });
 
     const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
     const promptText = prompt.trim();
-    if (!promptText && !(isUpscaler && aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1)) return;
+    if (!promptText && !(isUpscaler && resolvedUpscaleFactor && resolvedUpscaleFactor > 1)) return;
 
     const genConfig = buildGenConfig(aiConfig);
     const idleGhosts = nodes.filter(n => n.data.type === 'ghost' && n.data.state === 'idle');

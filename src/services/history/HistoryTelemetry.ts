@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger';
+import { getHistoryStorageKey } from './HistoryService';
 
 export interface PerformanceStats {
   imageSaveDurations: number[];
@@ -80,7 +81,7 @@ class HistoryTelemetryService {
    */
   public getLocalStorageSizeBytes(): number {
     try {
-      const raw = localStorage.getItem('anarchy_history');
+      const raw = localStorage.getItem(getHistoryStorageKey());
       return raw ? new Blob([raw]).size : 0;
     } catch {
       return 0;

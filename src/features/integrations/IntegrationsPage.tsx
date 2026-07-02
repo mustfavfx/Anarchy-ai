@@ -84,8 +84,8 @@ const PLUGINS: Plugin[] = [
 
 // All versions supported for each Autodesk product
 const SUPPORTED_VERSIONS: Record<string, string[]> = {
-  '3dsmax': ['2022', '2023', '2024', '2025', '2026', '2027'],
-  'revit':  ['2022', '2023', '2024', '2025', '2026', '2027'],
+  '3dsmax': ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
+  'revit':  ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
 };
 
 const SoftwareLogo: React.FC<{ id: Plugin['icon'] }> = ({ id }) => {

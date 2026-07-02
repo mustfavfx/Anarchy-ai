@@ -50,6 +50,7 @@ vi.mock('../services/supabase/supabaseClient', () => {
     isSupabaseConfigured: true,
     supabaseUrl: 'https://test.supabase.co',
     supabaseAnonKey: 'test-anon-key',
+    getCurrentUserId: vi.fn(() => 'default_user'),
   };
 });
 

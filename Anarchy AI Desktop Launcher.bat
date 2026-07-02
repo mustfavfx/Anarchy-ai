@@ -38,10 +38,9 @@ if not exist ".env" (
 
 REM Start the app
 echo.
-echo Starting Anarchy AI...
-echo Open http://localhost:5173 in your browser
+echo Starting Anarchy AI Desktop App (Developer Version)...
 echo.
-call npm run dev
+call npm run tauri:dev
 
 if errorlevel 1 (
     echo Failed to start

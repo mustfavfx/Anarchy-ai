@@ -16,13 +16,19 @@
 .canvas-panning .anarchy-node *,
 .canvas-panning .react-flow__node,
 .canvas-panning .ghost-node,
-.canvas-panning .ghost-node * {
+.canvas-panning .ghost-node *,
+.canvas-node-dragging .anarchy-node,
+.canvas-node-dragging .anarchy-node *,
+.canvas-node-dragging .react-flow__node,
+.canvas-node-dragging .ghost-node,
+.canvas-node-dragging .ghost-node * {
   transition: none !important;
   animation-play-state: paused !important;
 }
 
-/* Also kill the edge animations while panning */
-.canvas-panning .react-flow__edge-path {
+/* Also kill the edge animations while panning or dragging */
+.canvas-panning .react-flow__edge-path,
+.canvas-node-dragging .react-flow__edge-path {
   animation: none !important;
   transition: none !important;
 }
@@ -168,6 +174,8 @@
 .react-flow__node {
   transition: box-shadow 0.15s ease-out;
   will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .react-flow__node.react-flow__node-dragging,
@@ -179,6 +187,9 @@
 /* Smooth pan and zoom */
 .react-flow__viewport {
   transition: none !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Optimize edge animations */

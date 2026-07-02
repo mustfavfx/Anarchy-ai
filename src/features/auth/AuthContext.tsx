@@ -85,27 +85,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // 3. Check for initial startup deep link parameter
-    invoke<string | null>('get_deep_link')
-      .then((url) => {
-        if (url && mounted) {
-          handleDeepLink(url);
+    const isTauri = (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'test');
+
+    if (isTauri) {
+      // 3. Check for initial startup deep link parameter
+      invoke<string | null>('get_deep_link')
+        .then((url) => {
+          if (url && mounted) {
+            handleDeepLink(url);
+          }
+        })
+        .catch((err) => console.error('Failed to get initial deep link:', err));
+
+      // 4. Register listener for subsequent deep links (single-instance callback events)
+      const unsubPromise = listen<string>('deep-link', (event) => {
+        if (mounted && event.payload) {
+          handleDeepLink(event.payload);
         }
-      })
-      .catch((err) => console.error('Failed to get initial deep link:', err));
+      });
 
-    // 4. Register listener for subsequent deep links (single-instance callback events)
-    const unsubPromise = listen<string>('deep-link', (event) => {
-      if (mounted && event.payload) {
-        handleDeepLink(event.payload);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-      unsubPromise.then((unsub) => unsub()).catch((err) => console.error(err));
-    };
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+        unsubPromise.then((unsub) => unsub()).catch((err) => console.error(err));
+      };
+    } else {
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+      };
+    }
   }, []);
   useEffect(() => {
     if (isSupabaseConfigured) {
@@ -158,7 +167,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw googleError;
       }
       if (data?.url) {
-        await invoke('open_url', { url: data.url });
+        const isTauri = (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'test');
+        if (isTauri) {
+          await invoke('open_url', { url: data.url });
+        } else {
+          window.location.href = data.url;
+        }
       } else {
         throw new Error('Unable to retrieve Google login URL');
       }

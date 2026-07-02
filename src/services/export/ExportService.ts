@@ -61,6 +61,19 @@ const timestamp = () => new Date().toISOString().replaceAll(':', '-').replaceAll
 export async function urlToDataUri(url: string, format: 'png' | 'jpg' | 'webp' = 'jpg', quality: number = 0.92): Promise<string> {
   if (url.startsWith('data:')) return url;
 
+  // Handle idb:// URLs (IndexedDB local cache)
+  if (url.startsWith('idb://')) {
+    try {
+      const { getLocalImage } = await import('../history/HistoryService');
+      const cached = await getLocalImage(url);
+      if (cached) {
+        url = cached;
+      }
+    } catch (err) {
+      console.warn('[urlToDataUri] Failed to resolve idb image:', err);
+    }
+  }
+
   // Handle blob URLs directly via fetch & FileReader to avoid CORS/security blocks
   if (url.startsWith('blob:')) {
     try {

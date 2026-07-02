@@ -6,7 +6,8 @@ import {
   loadRawData,
   saveThumbnail,
   deleteRawData,
-  blobToDataURL
+  blobToDataURL,
+  getHistoryStorageKey
 } from './HistoryService';
 
 export interface SelfHealReport {
@@ -96,11 +97,10 @@ export async function selfHealHistory(): Promise<SelfHealReport> {
   logger.log('[HistorySelfHealing] Starting history integrity self-healing check...');
 
   let entries: HistoryEntry[] = [];
-  const STORAGE_KEY = 'anarchy_history';
 
   // 1. Metadata Validation & Salvage
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getHistoryStorageKey());
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
@@ -110,7 +110,7 @@ export async function selfHealHistory(): Promise<SelfHealReport> {
           // Reset if it exists but is not an array
           logger.warn('[HistorySelfHealing] Metadata is not an array, performing reset.');
           entries = [];
-          localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+          localStorage.setItem(getHistoryStorageKey(), JSON.stringify([]));
           report.repairedMetadata = true;
         }
       } catch (jsonErr) {

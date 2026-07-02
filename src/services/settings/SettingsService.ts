@@ -25,7 +25,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   clearOnExit: false,
 };
 
-const STORAGE_KEY = 'anarchy_settings';
+import { getCurrentUserId } from '@/services/supabase/supabaseClient';
+
+function getSettingsStorageKey(): string {
+  const uid = getCurrentUserId();
+  return uid && uid !== 'default_user' ? `anarchy_settings_${uid}` : 'anarchy_settings';
+}
 
 export const SettingsService = {
   /**
@@ -50,7 +55,7 @@ export const SettingsService = {
   getSettings(): AppSettings {
     let settings = DEFAULT_SETTINGS;
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(getSettingsStorageKey());
       if (saved) {
         settings = { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
       }
@@ -75,7 +80,7 @@ export const SettingsService = {
     const merged = { ...current, ...updates };
 
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(getSettingsStorageKey(), JSON.stringify(merged));
     } catch (err) {
       console.warn('[SettingsService] Failed to save settings to localStorage:', err);
     }
@@ -90,7 +95,7 @@ export const SettingsService = {
    */
   async resetSettings(): Promise<void> {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS));
+      localStorage.setItem(getSettingsStorageKey(), JSON.stringify(DEFAULT_SETTINGS));
       this.applyTheme(DEFAULT_SETTINGS.theme);
     } catch (err) {
       console.warn('[SettingsService] Failed to reset settings:', err);
@@ -102,7 +107,7 @@ export const SettingsService = {
    */
   onChange(callback: (settings: AppSettings) => void): () => void {
     const handler = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
+      if (e.key === getSettingsStorageKey()) {
         callback(this.getSettings());
       }
     };

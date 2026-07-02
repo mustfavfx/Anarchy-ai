@@ -442,7 +442,7 @@ fn detect_3dsmax_installs() -> Vec<AutodeskInstall> {
             .unwrap_or(name)
             .to_string();
 
-        if matches!(version.as_str(), "2022" | "2023" | "2024" | "2025" | "2026" | "2027") {
+        if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027") {
             installs.push(AutodeskInstall {
                 version,
                 path: profile.to_string_lossy().to_string(),
@@ -473,7 +473,7 @@ fn detect_revit_installs() -> Vec<AutodeskInstall> {
                 continue;
             }
             let version = name.trim_start_matches("Revit ").to_string();
-            if matches!(version.as_str(), "2022" | "2023" | "2024" | "2025" | "2026" | "2027") {
+            if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027") {
                 let api_dll = path.join("RevitAPI.dll");
                 if api_dll.exists() {
                     installs.push(AutodeskInstall {
@@ -683,20 +683,28 @@ async fn install_3dsmax_plugin(_script: String, versions: Option<Vec<String>>) -
             let usermacros_dir = profile_path.join(lang).join("usermacros");
             let usericons_dir = profile_path.join(lang).join("usericons");
 
-            std::fs::create_dir_all(&startup_dir)
-                .map_err(|e| format!("Failed to create startup folder for {}: {}", lang, e))?;
-            std::fs::create_dir_all(&usermacros_dir)
-                .map_err(|e| format!("Failed to create usermacros folder for {}: {}", lang, e))?;
+            if let Err(e) = std::fs::create_dir_all(&startup_dir) {
+                eprintln!("Warning: Failed to create startup folder for {}: {}", lang, e);
+                continue;
+            }
+            if let Err(e) = std::fs::create_dir_all(&usermacros_dir) {
+                eprintln!("Warning: Failed to create usermacros folder for {}: {}", lang, e);
+                continue;
+            }
             let _ = std::fs::create_dir_all(&usericons_dir);
 
             let script_path = startup_dir.join("AnarchyConnector.ms");
-            std::fs::write(&script_path, &script)
-                .map_err(|e| format!("Failed to write plugin script for {}: {}", lang, e))?;
+            if let Err(e) = std::fs::write(&script_path, &script) {
+                eprintln!("Warning: Failed to write plugin script for {}: {}", lang, e);
+                continue;
+            }
             installed_paths.push(script_path.to_string_lossy().to_string());
 
             let macro_path = usermacros_dir.join("Anarchy-AnarchySync.mcr");
-            std::fs::write(&macro_path, &script)
-                .map_err(|e| format!("Failed to write plugin macro for {}: {}", lang, e))?;
+            if let Err(e) = std::fs::write(&macro_path, &script) {
+                eprintln!("Warning: Failed to write plugin macro for {}: {}", lang, e);
+                continue;
+            }
             installed_paths.push(macro_path.to_string_lossy().to_string());
 
             for (name, bytes) in [
@@ -819,16 +827,22 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
 
         let addins_dir = std::path::PathBuf::from(&app_data)
             .join("Autodesk").join("Revit").join("Addins").join(version);
-        std::fs::create_dir_all(&addins_dir)
-            .map_err(|e| format!("Failed to create addins folder: {}", e))?;
+        if let Err(e) = std::fs::create_dir_all(&addins_dir) {
+            eprintln!("Warning: Failed to create addins folder: {}", e);
+            continue;
+        }
 
         let plugin_dir = addins_dir.join("AnarchyRevit");
-        std::fs::create_dir_all(&plugin_dir)
-            .map_err(|e| format!("Failed to create plugin folder: {}", e))?;
+        if let Err(e) = std::fs::create_dir_all(&plugin_dir) {
+            eprintln!("Warning: Failed to create plugin folder: {}", e);
+            continue;
+        }
 
         let cs_path = plugin_dir.join("AnarchyRevit.cs");
-        std::fs::write(&cs_path, CS_SOURCE)
-            .map_err(|e| format!("Failed to write C# source: {}", e))?;
+        if let Err(e) = std::fs::write(&cs_path, CS_SOURCE) {
+            eprintln!("Warning: Failed to write C# source: {}", e);
+            continue;
+        }
 
         let icon32_path = plugin_dir.join("AnarchyLogo_32.png");
         let icon16_path = plugin_dir.join("AnarchyLogo_16.png");
@@ -840,14 +854,29 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
             let _ = std::fs::remove_file(&dll_path);
         }
 
-        let presentation_core = find_wpf_assembly("PresentationCore.dll")
-            .ok_or_else(|| "PresentationCore.dll not found on system".to_string())?;
-        let windows_base = find_wpf_assembly("WindowsBase.dll")
-            .ok_or_else(|| "WindowsBase.dll not found on system".to_string())?;
-        let system_xaml = find_wpf_assembly("System.Xaml.dll")
-            .ok_or_else(|| "System.Xaml.dll not found on system".to_string())?;
+        let presentation_core = match find_wpf_assembly("PresentationCore.dll") {
+            Some(p) => p,
+            None => {
+                eprintln!("Warning: PresentationCore.dll not found on system");
+                continue;
+            }
+        };
+        let windows_base = match find_wpf_assembly("WindowsBase.dll") {
+            Some(p) => p,
+            None => {
+                eprintln!("Warning: WindowsBase.dll not found on system");
+                continue;
+            }
+        };
+        let system_xaml = match find_wpf_assembly("System.Xaml.dll") {
+            Some(p) => p,
+            None => {
+                eprintln!("Warning: System.Xaml.dll not found on system");
+                continue;
+            }
+        };
 
-        let output = std::process::Command::new(&csc)
+        let output = match std::process::Command::new(&csc)
             .arg("/target:library")
             .arg("/nologo")
             .arg("/platform:x64")
@@ -861,22 +890,20 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
             .arg("/reference:System.Core.dll")
             .arg("/reference:System.Drawing.dll")
             .arg(&cs_path)
-            .output()
-            .map_err(|e| format!("Failed to invoke csc.exe: {}", e))?;
+            .output() {
+                Ok(out) => out,
+                Err(e) => {
+                    eprintln!("Warning: Failed to invoke csc.exe: {}", e);
+                    continue;
+                }
+            };
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
             let combined = format!("{}\n{}", stdout, stderr);
-            if combined.contains("CS0016") || combined.contains("used by another process") || combined.contains("being used") {
-                return Err(format!(
-                    "Revit is currently running and locking the plugin file. Please close Revit and try again."
-                ));
-            }
-            return Err(format!(
-                "Compilation failed for Revit {}:\n{}",
-                version, combined
-            ));
+            eprintln!("Warning: Compilation failed for Revit {}:\n{}", version, combined);
+            continue;
         }
 
         let addin_content = ADDIN_TEMPLATE.replace(
@@ -884,8 +911,10 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
             &dll_path.to_string_lossy().replace('\\', "\\"),
         );
         let addin_path = addins_dir.join("Anarchy.addin");
-        std::fs::write(&addin_path, addin_content)
-            .map_err(|e| format!("Failed to write .addin manifest: {}", e))?;
+        if let Err(e) = std::fs::write(&addin_path, addin_content) {
+            eprintln!("Warning: Failed to write .addin manifest: {}", e);
+            continue;
+        }
 
         installed.push(dll_path.to_string_lossy().to_string());
         installed.push(addin_path.to_string_lossy().to_string());

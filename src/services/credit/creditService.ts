@@ -67,20 +67,31 @@ export const CREDIT_PACKAGES: CreditPackage[] = [
 //   Clarity Upscaler    → 1
 //   P Image Upscale 1-4MP → 1 | 4-8MP → 1 | 8-16MP → 1 | 16-32MP → 1 | 32-64MP → 1 | 64-128MP → 2
 
-// Legacy flat costs (kept for Video / Chat which still use them)
-export const GENERATION_COST = {
-  standard: 1,     // default fallback
-  hd: 2,           // GPT Image 2 high
-  '4k': 3,         // Nano Banana 2 4K
-
-  // Video Generation (per second)
-  video480: 14,    // ~$0.09/sec
-  video720: 38,    // ~$0.25/sec
-
-  // Other operations
-  upscale: 2,      // Topaz Labs ~$0.08
-  chat: 1,         // Per 1K tokens ~$0.01
+// Old costs (Trial)
+export const TRIAL_GENERATION_COST = {
+  standard: 1,
+  hd: 2,
+  '4k': 3,
+  video480: 14,
+  video720: 38,
+  upscale: 2,
+  chat: 1,
 };
+
+// Paid costs (Stripe 10% fee + 35% profit margin = 55% budget ratio)
+// Formula: credits = roundTo(actual_cost / 0.055, 2)
+export const PAID_GENERATION_COST = {
+  standard: 0.91,    // $0.05 / 0.055 = 0.91
+  hd: 1.82,          // $0.10 / 0.055 = 1.82
+  '4k': 2.75,        // $0.151 / 0.055 = 2.75
+  video480: 1.64,    // $0.09 / 0.055 = 1.64
+  video720: 4.55,    // $0.25 / 0.055 = 4.55
+  upscale: 1.45,     // $0.08 / 0.055 = 1.45
+  chat: 0.18,        // $0.01 / 0.055 = 0.18
+};
+
+// Backwards compatibility default reference
+export const GENERATION_COST = TRIAL_GENERATION_COST;
 
 // ── Per-model cost lookup ─────────────────────────────────────────────────────
 // resolution param: aiConfig.resolution  e.g. '1024x1024', '2048x2048', '4096x4096'
@@ -91,6 +102,8 @@ export interface ModelCostParams {
   resolution?: string;       // e.g. '1024x1024'
   qualityVariant?: string;   // GPT Image 2: 'low' | 'medium' | 'high' | 'auto'
   prunaTarget?: number;      // P Image Upscale target megapixels
+  upscaleFactor?: number;    // upscale factor e.g. 2, 4, 6, 8, 12
+  isTrial?: boolean;         // check if user is on trial mode
 }
 
 // ── Per-model helpers (keep each helper ≤ 5 branches) ───────────────────────
@@ -100,50 +113,138 @@ function resolveResPixels(resolution: string): number {
   return (w && h) ? w * h : 0;
 }
 
-function costNanaBanana2(resolution: string, px: number): number {
-  if (px >= 4096 * 4096 || resolution.includes('4K')) return 3;
-  if (px >= 2048 * 2048 || resolution.includes('2K')) return 2;
-  return 2;
+function costNanaBanana2(resolution: string, px: number, isTrial: boolean): number {
+  if (isTrial) {
+    if (px >= 4096 * 4096 || resolution.includes('4K')) return 3;
+    if (px >= 2048 * 2048 || resolution.includes('2K')) return 2;
+    return 2;
+  } else {
+    // Paid rates: 1K = 1.4, 2K = 1.5, 4K = 2.5
+    if (px >= 4096 * 4096 || resolution.includes('4K')) return 2.5;
+    if (px >= 2048 * 2048 || resolution.includes('2K')) return 1.5;
+    return 1.4;
+  }
 }
 
-function costNanaBananaPro(resolution: string, px: number): number {
-  if (px >= 4096 * 4096 || resolution.includes('4K')) return 5;
-  if (px >= 1024 * 1024 || resolution.includes('1K') || resolution.includes('2K')) return 3;
-  return 1;
+function costNanaBananaPro(resolution: string, px: number, isTrial: boolean): number {
+  if (isTrial) {
+    if (px >= 4096 * 4096 || resolution.includes('4K')) return 5;
+    if (px >= 1024 * 1024 || resolution.includes('1K') || resolution.includes('2K')) return 3;
+    return 1;
+  } else {
+    // Paid rates: 1K = 1.6, 2K = 2.5, 4K = 3.0
+    if (px >= 4096 * 4096 || resolution.includes('4K')) return 3.0;
+    if (px >= 2048 * 2048 || resolution.includes('2K')) return 2.5;
+    return 1.6;
+  }
 }
 
-function costGptImage2(qualityVariant: string): number {
-  if (qualityVariant === 'low')    return 1;
-  if (qualityVariant === 'medium') return 1;
-  return 2; // auto / high
+function costSeedream4_5(resolution: string, px: number, isTrial: boolean): number {
+  if (isTrial) {
+    return 1;
+  } else {
+    // Paid rates: 2K = 1.0, 4K = 1.5
+    if (px >= 4096 * 4096 || resolution.includes('4K')) return 1.5;
+    return 1.0;
+  }
 }
 
-function costPrunaUpscale(prunaTarget: number = 4): number {
-  const mp = prunaTarget;
-  if (mp <= 32) return 1;
-  return 2;   // 32-128MP
+function costFlux2Pro(resolution: string, px: number, isTrial: boolean): number {
+  if (isTrial) {
+    return 1;
+  } else {
+    // Paid rates: 0.5K = 0.5, 1K = 1.2, 2K = 1.6
+    if (px >= 2048 * 2048 || resolution.includes('2K')) return 1.6;
+    if (px >= 1024 * 1024 || resolution.includes('1K')) return 1.2;
+    if (px <= 512 * 512 || resolution.includes('512') || resolution.includes('0.5K')) return 0.5;
+    return 1.0; // standard 1K fallback
+  }
+}
+
+function costGptImage2(qualityVariant: string, isTrial: boolean): number {
+  if (isTrial) {
+    if (qualityVariant === 'low')    return 1;
+    if (qualityVariant === 'medium') return 1;
+    return 2; // auto / high
+  } else {
+    // Paid rates: auto = 1.8, low/medium/high = 2.0
+    if (qualityVariant === 'auto') return 1.8;
+    return 2.0;
+  }
+}
+
+function costPrunaUpscale(prunaTarget: number = 4, isTrial: boolean): number {
+  if (isTrial) {
+    if (prunaTarget <= 32) return 1;
+    return 2;   // 32-128MP
+  } else {
+    // Paid rates: 4 MP = 0.2, 8 MP = 0.4, 16 MP = 0.6, 32 MP = 0.8, 64 MP = 1.25, 128 MP = 2.5
+    const mp = prunaTarget;
+    if (mp <= 4)   return 0.2;
+    if (mp <= 8)   return 0.4;
+    if (mp <= 16)  return 0.6;
+    if (mp <= 32)  return 0.8;
+    if (mp <= 64)  return 1.25;
+    return 2.5; // 64-128MP
+  }
+}
+
+function costTopazUpscale(upscaleFactor: number = 2, isTrial: boolean): number {
+  if (isTrial) {
+    return 2.0;
+  } else {
+    // 2x & 4x = 1.45, 6x = 1.8
+    if (upscaleFactor >= 6) return 1.8;
+    return 1.45;
+  }
+}
+
+function costClarityUpscale(upscaleFactor: number = 2, isTrial: boolean): number {
+  if (isTrial) {
+    return 1.0;
+  } else {
+    // 2x & 4x = 1, 8x = 1.25, 12x = 2
+    if (upscaleFactor >= 12) return 2.0;
+    if (upscaleFactor >= 8)  return 1.25;
+    return 1.0;
+  }
 }
 
 // ── Flat cost table for simple models ────────────────────────────────────────
-const FLAT_MODEL_COSTS: Record<string, number> = {
+const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'bytedance/seedream-4.5':                        1,
   'black-forest-labs/flux-2-pro':                  1,
   'black-forest-labs/flux-kontext-pro':            1,
   'xai/grok-imagine-image':                        1,
-  'stability-ai/stable-diffusion-3.5-large':       1,  // $0.065 actual → 1 credit ($0.10) = 54% margin
+  'stability-ai/stable-diffusion-3.5-large':       1,
   'topazlabs/image-upscale':                       2,
   'philz1337x/clarity-upscaler':                   1,
 };
 
+const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
+  'black-forest-labs/flux-kontext-pro':            1.0,
+  'xai/grok-imagine-image':                        1.0,
+  'stability-ai/stable-diffusion-3.5-large':       1.18, // $0.065 / 0.055
+};
+
 export function getModelCost(model: string, params: ModelCostParams = {}): number {
-  const { resolution = '', qualityVariant = 'auto', prunaTarget } = params;
+  const { resolution = '', qualityVariant = 'auto', prunaTarget, upscaleFactor, isTrial = true } = params;
   const px = resolveResPixels(resolution);
 
-  if (model === 'google/nano-banana-2')   return costNanaBanana2(resolution, px);
-  if (model === 'google/nano-banana-pro') return costNanaBananaPro(resolution, px);
-  if (model === 'openai/gpt-image-2')     return costGptImage2(qualityVariant);
-  if (model === 'prunaai/p-image-upscale') return costPrunaUpscale(prunaTarget);
-  return FLAT_MODEL_COSTS[model] ?? GENERATION_COST.standard;
+  if (model === 'google/nano-banana-2')   return costNanaBanana2(resolution, px, isTrial);
+  if (model === 'google/nano-banana-pro') return costNanaBananaPro(resolution, px, isTrial);
+  if (model === 'openai/gpt-image-2')     return costGptImage2(qualityVariant, isTrial);
+  if (model === 'bytedance/seedream-4.5')   return costSeedream4_5(resolution, px, isTrial);
+  if (model === 'black-forest-labs/flux-2-pro') return costFlux2Pro(resolution, px, isTrial);
+  if (model === 'prunaai/p-image-upscale') return costPrunaUpscale(prunaTarget, isTrial);
+  if (model === 'topazlabs/image-upscale') return costTopazUpscale(upscaleFactor, isTrial);
+  if (model === 'philz1337x/clarity-upscaler') return costClarityUpscale(upscaleFactor, isTrial);
+  
+  if (isTrial) {
+    return TRIAL_FLAT_MODEL_COSTS[model] ?? TRIAL_GENERATION_COST.standard;
+  } else {
+    return PAID_FLAT_MODEL_COSTS[model] ?? PAID_GENERATION_COST.standard;
+  }
 }
 
 // Credit value: $1 = 100 credits
@@ -198,7 +299,7 @@ async function createUserCredit(userId: string): Promise<UserCredit | null> {
     .from('user_credits')
     .insert({
       user_id: userId,
-      balance: 0,
+      balance: 20,
       total_purchased: 0,
       total_used: 0,
     })
@@ -267,17 +368,21 @@ export async function deductCredits(
  */
 export async function checkCreditBalance(
   userId: string,
-  cost: number = GENERATION_COST.standard
+  cost?: number
 ): Promise<{ hasEnough: boolean; balance: number; needed: number }> {
   const credit = await getUserCredit(userId);
   if (!credit) {
-    return { hasEnough: false, balance: 0, needed: cost };
+    const defaultCost = GENERATION_COST.standard;
+    return { hasEnough: false, balance: 0, needed: defaultCost };
   }
 
+  const isTrial = credit.totalPurchased === 0;
+  const resolvedCost = cost !== undefined ? cost : (isTrial ? TRIAL_GENERATION_COST.standard : PAID_GENERATION_COST.standard);
+
   return {
-    hasEnough: credit.balance >= cost,
+    hasEnough: credit.balance >= resolvedCost,
     balance: credit.balance,
-    needed: cost,
+    needed: resolvedCost,
   };
 }
 

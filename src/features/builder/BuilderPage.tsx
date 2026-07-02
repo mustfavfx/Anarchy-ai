@@ -36,6 +36,13 @@ import { useBuilderCredits } from './hooks/useBuilderCredits';
 import { useBuilderExport } from './hooks/useBuilderExport';
 import { useBuilderPersistence } from './hooks/useBuilderPersistence';
 import { useBuilderGeneration } from './hooks/useBuilderGeneration';
+import { getCurrentUserId } from '../../services/supabase/supabaseClient';
+
+const getAutosaveKey = (tabId?: string) => {
+  const uid = getCurrentUserId();
+  const base = uid && uid !== 'default_user' ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${uid}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+  return tabId ? `${base}_${tabId}` : base;
+};
 
 // Helpers
 import {
@@ -104,6 +111,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setUserCredits,
     creditError,
     setCreditError,
+    isTrial,
   } = useBuilderCredits(authUser?.id);
 
   const {
@@ -173,6 +181,20 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const liveResolution = useAIConfigStore((state) => state.config.resolution);
   const liveQuality    = useAIConfigStore((state) => (state.config as any).qualityVariant ?? 'auto');
   const livePruna      = useAIConfigStore((state) => state.config.prunaTarget);
+  const liveUpscaleFactor = useAIConfigStore((state) => {
+    const model = state.config.model;
+    if (model === 'topazlabs/image-upscale') {
+      const factorStr = state.config.topazUpscaleFactor ?? '4x';
+      if (factorStr === '2x') return 2;
+      if (factorStr === '4x') return 4;
+      if (factorStr === '6x') return 6;
+      return 4;
+    }
+    if (model === 'philz1337x/clarity-upscaler') {
+      return state.config.clarityScale ?? 2;
+    }
+    return undefined;
+  });
   const setSelectedNode = useAIConfigStore((state) => state.setSelectedNode);
   const setCompareSlot = useAIConfigStore((state) => state.setCompareSlot);
   const setConfig = useAIConfigStore((state) => state.setConfig);
@@ -427,7 +449,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   useEffect(() => {
     if (hasLoadedRef.current) return;
 
-    const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+    const key = getAutosaveKey(tabId);
     const hasAutosave = (() => {
       try {
         const saved = localStorage.getItem(key);
@@ -516,11 +538,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // Re-measure container and fit view when tab becomes active
   useEffect(() => {
-    if (isActive) {
+    if (isActive && !hasFittedInitially.current) {
       setTimeout(() => {
         window.dispatchEvent(new Event('resize'));
         setTimeout(() => {
-          fitView({ padding: 0.3, duration: 400 });
+          if (!hasFittedInitially.current) {
+            fitView({ padding: 0.3, duration: 400 });
+            hasFittedInitially.current = true;
+          }
         }, 150);
       }, 100);
     }
@@ -615,7 +640,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     if (!isRestored || hasRestoredViewport.current) return;
     
     try {
-      const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+      const key = getAutosaveKey(tabId);
       const saved = localStorage.getItem(key);
       if (saved) {
         const data = JSON.parse(saved);
@@ -862,7 +887,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const saveBuilderViewport = useCallback(() => {
     try {
-      const key = tabId ? `${STORAGE_KEYS.BUILDER_AUTOSAVE}_${tabId}` : STORAGE_KEYS.BUILDER_AUTOSAVE;
+      const key = getAutosaveKey(tabId);
       const saved = localStorage.getItem(key);
       const data = saved ? JSON.parse(saved) : {};
       localStorage.setItem(key, JSON.stringify({
@@ -1291,7 +1316,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             liveResolution={liveResolution}
             liveQuality={liveQuality}
             livePruna={livePruna}
+            upscaleFactor={liveUpscaleFactor}
             userCredits={userCredits}
+            isTrial={isTrial}
             onGenerate={handleGenerate}
             onPromptContextMenu={onPromptContextMenu}
           />

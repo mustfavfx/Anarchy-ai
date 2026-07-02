@@ -432,7 +432,7 @@ export const AccountPage: React.FC = () => {
                       {isLoadingCredit ? (
                         <Loader2 size={24} className="spin" />
                       ) : (
-                        <>{(credit?.balance || 0).toLocaleString()} Credits</>
+                        <>{(credit?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Credits</>
                       )}
                     </span>
                     <span style={{ fontSize: 10, opacity: 0.5, display: 'block', marginTop: 4 }}>
@@ -451,11 +451,11 @@ export const AccountPage: React.FC = () => {
                 <div className="credit-stats">
                   <div className="credit-stat-item">
                     <span className="stat-label">Total Purchased</span>
-                    <span className="stat-value">{(credit?.totalPurchased || 0).toLocaleString()}</span>
+                    <span className="stat-value">{(credit?.totalPurchased || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="credit-stat-item">
                     <span className="stat-label">Total Used</span>
-                    <span className="stat-value">{(credit?.totalUsed || 0).toLocaleString()}</span>
+                    <span className="stat-value">{(credit?.totalUsed || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
@@ -497,59 +497,59 @@ export const AccountPage: React.FC = () => {
                 <div className={`cost-breakdown ${isCostsExpanded ? 'expanded' : 'collapsed'}`}>
                   <div className="cost-item">
                     <span className="cost-name">FLUX 2 Pro</span>
-                    <span className="cost-value">1 Credit</span>
+                    <span className="cost-value">0.75 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Seedream 4.5</span>
-                    <span className="cost-value">1 Credit</span>
+                    <span className="cost-value">0.75 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">FLUX Kontext Pro</span>
-                    <span className="cost-value">1 Credit</span>
+                    <span className="cost-value">0.75 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Grok Imagine</span>
-                    <span className="cost-value">1 Credit</span>
+                    <span className="cost-value">0.75 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">GPT Image 2 (low/medium)</span>
-                    <span className="cost-value">1 Credit</span>
+                    <span className="cost-value">0.75 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">GPT Image 2 (high/auto)</span>
-                    <span className="cost-value">2 Credits</span>
+                    <span className="cost-value">1.5 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Nano Banana 2 (1K/2K)</span>
-                    <span className="cost-value">2 Credits</span>
+                    <span className="cost-value">1.5 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Nano Banana 2 (4K)</span>
-                    <span className="cost-value">3 Credits</span>
+                    <span className="cost-value">2.25 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Nano Banana Pro (1K/2K)</span>
-                    <span className="cost-value">3 Credits</span>
+                    <span className="cost-value">2.25 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Nano Banana Pro (4K)</span>
-                    <span className="cost-value">5 Credits</span>
+                    <span className="cost-value">3.75 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Topaz Labs Upscale</span>
-                    <span className="cost-value">2 Credits</span>
+                    <span className="cost-value">1.5 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Clarity Upscaler</span>
-                    <span className="cost-value">1 Credit</span>
+                    <span className="cost-value">0.75 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Video 480p (per sec)</span>
-                    <span className="cost-value">14 Credits</span>
+                    <span className="cost-value">10.5 Credits</span>
                   </div>
                   <div className="cost-item">
                     <span className="cost-name">Video 720p (per sec)</span>
-                    <span className="cost-value">38 Credits</span>
+                    <span className="cost-value">28.5 Credits</span>
                   </div>
                 </div>
               </div>
@@ -575,9 +575,9 @@ export const AccountPage: React.FC = () => {
                         </div>
                         <div className="transaction-amount">
                           <span className={tx.amount > 0 ? 'positive' : 'negative'}>
-                            {tx.amount > 0 ? '+' : ''}{tx.amount}
+                            {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                           </span>
-                          <span className="balance-after">Balance: {tx.balanceAfter}</span>
+                          <span className="balance-after">Balance: {tx.balanceAfter.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                         </div>
                       </div>
                     ))}
@@ -622,8 +622,8 @@ export const AccountPage: React.FC = () => {
             <div className="pricing-modal-content">
               <div className="pricing-section">
                 <h3>Credit Value</h3>
-                <p className="pricing-highlight">1 Credit = $0.01 USD</p>
-                <p>$1 = 100 Credits</p>
+                <p className="pricing-highlight">1 Credit = $0.10 USD</p>
+                <p>$1 = 10 Credits</p>
               </div>
 
               <div className="pricing-section">

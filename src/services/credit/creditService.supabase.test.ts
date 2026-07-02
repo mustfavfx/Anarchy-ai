@@ -215,12 +215,20 @@ describe('checkCreditBalance', () => {
     expect(res.hasEnough).toBe(false);
   });
 
-  it('defaults to standard generation cost when cost omitted', async () => {
+  it('defaults to standard generation cost when cost omitted for trial user', async () => {
     const query: any = supabase.from('user_credits');
-    query.single.mockResolvedValueOnce({ data: mockDbRow({ balance: 5 }), error: null });
+    query.single.mockResolvedValueOnce({ data: mockDbRow({ balance: 5, total_purchased: 0 }), error: null });
     const res = await checkCreditBalance('user-123');
     expect(res.hasEnough).toBe(true);
     expect(res.needed).toBe(1);
+  });
+
+  it('defaults to standard generation cost when cost omitted for paid user', async () => {
+    const query: any = supabase.from('user_credits');
+    query.single.mockResolvedValueOnce({ data: mockDbRow({ balance: 5, total_purchased: 200 }), error: null });
+    const res = await checkCreditBalance('user-123');
+    expect(res.hasEnough).toBe(true);
+    expect(res.needed).toBe(0.91);
   });
 });
 

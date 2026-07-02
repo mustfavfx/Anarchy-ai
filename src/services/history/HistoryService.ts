@@ -3,9 +3,19 @@ import { logger } from '@/utils/logger';
 import type { HistoryEntry, NodeTreeData, HistoryGroup } from '@/types/history';
 import { groupHistoryEntries } from './HistoryGroupingService';
 
-const STORAGE_KEY = 'anarchy_history';
+import { getCurrentUserId } from '@/services/supabase/supabaseClient';
+
+export function getHistoryStorageKey(): string {
+  const uid = getCurrentUserId();
+  return uid && uid !== 'default_user' ? `anarchy_history_${uid}` : 'anarchy_history';
+}
+
+export function getIDBName(): string {
+  const uid = getCurrentUserId();
+  return uid && uid !== 'default_user' ? `anarchy_history_images_${uid}` : 'anarchy_history_images';
+}
+
 const DEFAULT_MAX_ENTRIES = 1000; // Increased max entries since localStorage is metadata-only now!
-const IDB_NAME = 'anarchy_history_images';
 const IDB_STORE = 'images';
 const IDB_CACHE_STORE = 'local_image_cache';
 const IDB_EMBEDDINGS_STORE = 'embeddings';
@@ -148,7 +158,7 @@ const idbMigrations: IDBMigration[] = [
 
 export function openImageDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    const req = indexedDB.open(getIDBName(), IDB_VERSION);
     req.onupgradeneeded = (event) => {
       const db = req.result;
       const oldVersion = event.oldVersion;
@@ -748,7 +758,7 @@ function getMaxEntries(): number {
 
 export function loadEntries(): HistoryEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getHistoryStorageKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
@@ -761,7 +771,7 @@ export function saveEntries(entries: HistoryEntry[]): void {
   const max = getMaxEntries();
   const trimmed = entries.slice(0, max);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(getHistoryStorageKey(), JSON.stringify(trimmed));
     window.dispatchEvent(new CustomEvent('anarchy:history:updated'));
     window.dispatchEvent(new CustomEvent('history_updated'));
     globalThis.dispatchEvent(new CustomEvent('anarchy:history:updated'));
@@ -906,7 +916,7 @@ export async function deleteHistoryEntry(id: string): Promise<void> {
 
 /** Clear all history metadata and IndexedDB caches */
 export async function clearHistory(): Promise<void> {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(getHistoryStorageKey());
 
   // Empty all collection entries to prevent dangling IDs
   try {
@@ -961,7 +971,7 @@ export function getHistoryStats() {
 
 export async function migrateLegacyHistory(): Promise<void> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getHistoryStorageKey());
     if (!raw) return;
     const entries = JSON.parse(raw);
     if (!Array.isArray(entries)) return;
@@ -1004,7 +1014,7 @@ export async function migrateLegacyHistory(): Promise<void> {
     if (migrated) {
       // Reload current entries from localStorage to avoid overwriting any updates/new entries
       // that happened during the async IndexedDB migration phase.
-      const currentRaw = localStorage.getItem(STORAGE_KEY);
+      const currentRaw = localStorage.getItem(getHistoryStorageKey());
       let currentEntries = currentRaw ? JSON.parse(currentRaw) : [];
       if (!Array.isArray(currentEntries)) currentEntries = [];
 
@@ -1018,7 +1028,7 @@ export async function migrateLegacyHistory(): Promise<void> {
         }
       }
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentEntries));
+      localStorage.setItem(getHistoryStorageKey(), JSON.stringify(currentEntries));
       logger.log('[HistoryMigration] Migration completed successfully. LocalStorage cleared of base64 data.');
     }
   } catch (err) {
