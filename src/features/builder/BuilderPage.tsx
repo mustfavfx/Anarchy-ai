@@ -463,22 +463,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
     const pathToLoad = initialProjectPath;
 
-    if (hasAutosave) {
-      hasLoadedRef.current = true;
-      if (pathToLoad) {
-        setCurrentFilePathState(pathToLoad);
-        onProjectPathChange?.(pathToLoad);
-      }
-      return;
-    }
-
+    // If a specific file was opened (e.g. double-click on .ana), ALWAYS load it
+    // even if there's an autosave — the user explicitly chose that file.
     if (pathToLoad) {
       hasLoadedRef.current = true;
       (async () => {
         try {
           const contents = await invoke<string>('load_file', { path: pathToLoad });
           const wf = JSON.parse(contents);
-          const fallback = pathToLoad.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') ?? 'Project';
+          const fallback = pathToLoad.split(/[\\\/]/).pop()?.replace(/\.ana$/i, '') ?? 'Project';
           setCurrentFilePathState(pathToLoad);
           onProjectPathChange?.(pathToLoad);
           applyWorkflow(wf, fallback);
@@ -487,7 +480,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
         }
       })();
-    } else if (initialWorkflow) {
+      return;
+    }
+
+    if (hasAutosave) {
+      hasLoadedRef.current = true;
+      return;
+    }
+
+    if (initialWorkflow) {
       hasLoadedRef.current = true;
       try {
         let wf = initialWorkflow;
