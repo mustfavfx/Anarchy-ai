@@ -132,10 +132,10 @@ function costNanaBananaPro(resolution: string, px: number, isTrial: boolean): nu
     if (px >= 1024 * 1024 || resolution.includes('1K') || resolution.includes('2K')) return 3;
     return 1;
   } else {
-    // Paid rates: 1K = 1.6, 2K = 2.5, 4K = 3.0
-    if (px >= 4096 * 4096 || resolution.includes('4K')) return 3.0;
+    // Paid rates: 1K = 2.2, 2K = 2.5, 4K = 3.5
+    if (px >= 4096 * 4096 || resolution.includes('4K')) return 3.5;
     if (px >= 2048 * 2048 || resolution.includes('2K')) return 2.5;
-    return 1.6;
+    return 2.2;
   }
 }
 
@@ -153,7 +153,8 @@ function costFlux2Pro(resolution: string, px: number, isTrial: boolean): number 
   if (isTrial) {
     return 1;
   } else {
-    // Paid rates: 0.5K = 0.5, 1K = 1.2, 2K = 1.6
+    // Paid rates: 0.5K = 0.5, 1K = 1.2, 2K = 1.6, 4K = 2.0
+    if (px >= 4096 * 4096 || resolution.includes('4K')) return 2.0;
     if (px >= 2048 * 2048 || resolution.includes('2K')) return 1.6;
     if (px >= 1024 * 1024 || resolution.includes('1K')) return 1.2;
     if (px <= 512 * 512 || resolution.includes('512') || resolution.includes('0.5K')) return 0.5;
@@ -167,8 +168,7 @@ function costGptImage2(qualityVariant: string, isTrial: boolean): number {
     if (qualityVariant === 'medium') return 1;
     return 2; // auto / high
   } else {
-    // Paid rates: auto = 1.8, low/medium/high = 2.0
-    if (qualityVariant === 'auto') return 1.8;
+    // Paid rates: auto = 2.0, low/medium/high = 2.0
     return 2.0;
   }
 }

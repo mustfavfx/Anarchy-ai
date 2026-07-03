@@ -76,6 +76,7 @@ describe('Credit Service', () => {
         expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '512x512', isTrial: false })).toBe(0.5);
         expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '1024x1024', isTrial: false })).toBe(1.2);
         expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '2048x2048', isTrial: false })).toBe(1.6);
+        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '4096x4096', isTrial: false })).toBe(2.0);
         expect(getModelCost('black-forest-labs/flux-kontext-pro', { isTrial: false })).toBe(1.0);
       });
       
@@ -89,7 +90,7 @@ describe('Credit Service', () => {
         expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'low', isTrial: false })).toBe(2.0);
         expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'medium', isTrial: false })).toBe(2.0);
         expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'high', isTrial: false })).toBe(2.0);
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'auto', isTrial: false })).toBe(1.8);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'auto', isTrial: false })).toBe(2.0);
       });
       
       it('should return correct cost for Nano Banana based on resolution', () => {
@@ -99,9 +100,9 @@ describe('Credit Service', () => {
       });
       
       it('should return correct cost for Nano Banana Pro', () => {
-        expect(getModelCost('google/nano-banana-pro', { resolution: '1024x1024', isTrial: false })).toBe(1.6);
+        expect(getModelCost('google/nano-banana-pro', { resolution: '1024x1024', isTrial: false })).toBe(2.2);
         expect(getModelCost('google/nano-banana-pro', { resolution: '2048x2048', isTrial: false })).toBe(2.5);
-        expect(getModelCost('google/nano-banana-pro', { resolution: '4096x4096', isTrial: false })).toBe(3.0);
+        expect(getModelCost('google/nano-banana-pro', { resolution: '4096x4096', isTrial: false })).toBe(3.5);
       });
       
       it('should return correct cost for upscale models', () => {
