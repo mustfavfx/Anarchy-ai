@@ -140,9 +140,11 @@ export const SettingsPage: React.FC = () => {
       if (!shouldUpdate) {
         setTimeout(() => setUpdateStatus('idle'), 4000);
       }
-    } catch {
+    } catch (err) {
+      console.error('Update check failed:', err);
+      notify.error('Update Check Failed', String(err));
       setUpdateStatus('error');
-      setTimeout(() => setUpdateStatus('idle'), 3000);
+      setTimeout(() => setUpdateStatus('idle'), 5000);
     }
   }, [updateStatus]);
 
