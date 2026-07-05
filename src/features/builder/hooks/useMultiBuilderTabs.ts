@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { SESSION_KEYS } from '../../../utils/storageKeys';
 
 const TABS_STORAGE_KEY = 'anarchy_builder_tabs';
@@ -42,6 +42,7 @@ function loadPersistedTabs(): { tabs: Tab[]; activeTabId: string | null } {
 
 export function useMultiBuilderTabs() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [tabs, setTabs] = useState<Tab[]>(() => loadPersistedTabs().tabs);
   const [activeTabId, setActiveTabId] = useState<string | null>(() => loadPersistedTabs().activeTabId);
   const [closeConfirm, setCloseConfirm] = useState<CloseConfirm | null>(null);
@@ -116,6 +117,9 @@ export function useMultiBuilderTabs() {
         if (path) {
           console.log('[Startup] Found startup file path:', path);
           
+          // Navigate to builder page immediately
+          navigate('/builder');
+
           setTabs(prev => {
             const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(path));
             if (existing) {
@@ -139,7 +143,65 @@ export function useMultiBuilderTabs() {
     };
 
     checkStartupFile();
-  }, []);
+  }, [navigate]);
+
+  // Listen for dynamic file open events (single-instance callback events)
+  useEffect(() => {
+    let active = true;
+    let disposeFn: (() => void) | undefined;
+
+    const setupListener = async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        const dispose = await listen<string>('open-file', (event) => {
+          const path = event.payload;
+          if (path && active) {
+            console.log('[Startup] Received open-file event for path:', path);
+            
+            // Navigate to builder page immediately
+            navigate('/builder');
+
+            // Force window focus/de-minimize if needed
+            import('@tauri-apps/api/webviewWindow').then(({ getCurrentWebviewWindow }) => {
+              const win = getCurrentWebviewWindow();
+              win.setFocus().catch(() => {});
+            }).catch(() => {});
+
+            setTabs(prev => {
+              const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(path));
+              if (existing) {
+                setTimeout(() => setActiveTabId(existing.id), 0);
+                return prev;
+              }
+              const newTab: Tab = {
+                id: generateTabId(),
+                title: 'Loading...',
+                projectPath: path,
+                isDirty: false,
+                everEdited: false,
+              };
+              setTimeout(() => setActiveTabId(newTab.id), 0);
+              return [...prev, newTab];
+            });
+          }
+        });
+
+        if (!active) {
+          dispose();
+        } else {
+          disposeFn = dispose;
+        }
+      } catch (err) {
+        console.error('Failed to subscribe to open-file event:', err);
+      }
+    };
+
+    setupListener();
+    return () => {
+      active = false;
+      if (disposeFn) disposeFn();
+    };
+  }, [navigate]);
 
   // Listen for dynamic workflow loads via custom event
   useEffect(() => {

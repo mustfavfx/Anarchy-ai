@@ -1918,6 +1918,14 @@ fn main() {
             if let Some(link) = found_link {
                 let _ = app.emit("deep-link", link);
             }
+            let found_file = args.iter().find(|arg| arg.ends_with(".ana"));
+            if let Some(file_path) = found_file {
+                let _ = app.emit("open-file", file_path);
+            }
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+                let _ = window.unminimize();
+            }
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())

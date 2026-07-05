@@ -14,8 +14,8 @@ ALTER TABLE public.credit_transactions
   ALTER COLUMN amount TYPE NUMERIC(12, 2) USING amount::NUMERIC(12, 2),
   ALTER COLUMN balance_after TYPE NUMERIC(12, 2) USING balance_after::NUMERIC(12, 2);
 
-ALTER TABLE public.usage_events 
-  ALTER COLUMN credits TYPE NUMERIC(12, 2) USING credits::NUMERIC(12, 2);
+-- ALTER TABLE public.usage_events 
+--   ALTER COLUMN credits TYPE NUMERIC(12, 2) USING credits::NUMERIC(12, 2);
 
 ALTER TABLE public.stripe_sessions 
   ALTER COLUMN credits TYPE NUMERIC(12, 2) USING credits::NUMERIC(12, 2),

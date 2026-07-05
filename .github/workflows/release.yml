@@ -49,6 +49,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASES_PAT }}
         with:
+          token: ${{ secrets.RELEASES_PAT }}
           repository: mustfavfx/Anarchy-ai-releases
           tag_name: v${{ steps.get_version.outputs.version }}
           name: 'Anarchy AI v${{ steps.get_version.outputs.version }}'

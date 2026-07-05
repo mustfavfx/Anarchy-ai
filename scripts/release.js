@@ -61,12 +61,22 @@ function updateVersion(newVersion) {
   );
   writeFileSync(cargoTomlPath, cargoToml);
   console.log(`✅ Updated Cargo.toml to v${newVersion}`);
+
+  // Update installer.iss
+  const installerIssPath = join(rootDir, 'installer.iss');
+  let installerIss = readFileSync(installerIssPath, 'utf8');
+  installerIss = installerIss.replace(
+    /^#define AppVersion "[\d.]+"$/m,
+    `#define AppVersion "${newVersion}"`
+  );
+  writeFileSync(installerIssPath, installerIss);
+  console.log(`✅ Updated installer.iss to v${newVersion}`);
 }
 
 function createGitTag(version) {
   try {
     // Stage changes
-    execSync('git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml', { cwd: rootDir });
+    execSync('git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml installer.iss', { cwd: rootDir });
     
     // Commit
     execSync(`git commit -m "Release v${version}"`, { cwd: rootDir });
