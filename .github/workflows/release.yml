@@ -36,21 +36,26 @@ jobs:
           CLEANED_KEY=$(echo -n "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" | tr -d '\r\n[:space:]')
           echo "TAURI_SIGNING_PRIVATE_KEY=$CLEANED_KEY" >> $GITHUB_ENV
 
-      - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v0
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
         env:
-          # ← رمز وصول شخصي يملك صلاحية write على مستودع Anarchy-ai-releases
           GITHUB_TOKEN: ${{ secrets.RELEASES_PAT }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://ejzsbkxpqmhpjuqmszvd.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqenNia3hwcW1ocGp1cW1senZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjEzNjIsImV4cCI6MjA5MzE5NzM2Mn0.lbKXt_BLTNXjTKpmqdPLvU6vC-mWNjbVRYjfSGFVZcc' }}
         with:
-          # ← اسم المستودع العام الذي يُرفع عليه الـ release
-          owner: mustfavfx
-          repo: Anarchy-ai-releases
-          tagName: v__VERSION__
-          releaseName: 'Anarchy AI v__VERSION__'
-          releaseBody: |
+          repository: mustfavfx/Anarchy-ai-releases
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: 'Anarchy AI v${{ steps.get_version.outputs.version }}'
+          draft: false
+          prerelease: false
+          target_commitish: main
+          body: |
             ## What's New
             
             🚀 New features and improvements in this release.
@@ -62,5 +67,18 @@ jobs:
             
             ### Notes
             - Windows: Download `Anarchy_AI_Setup.exe`
-          releaseDraft: false
-          prerelease: false
+
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          # ← رمز وصول شخصي يملك صلاحية write على مستودع Anarchy-ai-releases
+          GITHUB_TOKEN: ${{ secrets.RELEASES_PAT }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://ejzsbkxpqmhpjuqmszvd.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqenNia3hwcW1senZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjEzNjIsImV4cCI6MjA5MzE5NzM2Mn0.lbKXt_BLTNXjTKpmqdPLvU6vC-mWNjbVRYjfSGFVZcc' }}
+        with:
+          # ← اسم المستودع العام الذي يُرفع عليه الـ release
+          owner: mustfavfx
+          repo: Anarchy-ai-releases
+          tagName: v${{ steps.get_version.outputs.version }}
+          releaseId: ${{ steps.create_release.outputs.id }}
