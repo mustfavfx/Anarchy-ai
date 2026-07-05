@@ -47,10 +47,10 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASES_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          token: ${{ secrets.RELEASES_PAT }}
-          repository: mustfavfx/Anarchy-ai-releases
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: mustfavfx/Anarchy-ai
           tag_name: v${{ steps.get_version.outputs.version }}
           name: 'Anarchy AI v${{ steps.get_version.outputs.version }}'
           draft: false
@@ -72,14 +72,12 @@ jobs:
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
-          # ← رمز وصول شخصي يملك صلاحية write على مستودع Anarchy-ai-releases
-          GITHUB_TOKEN: ${{ secrets.RELEASES_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://ejzsbkxpqmhpjuqmszvd.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqenNia3hwcW1ocGp1cW1zenZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjEzNjIsImV4cCI6MjA5MzE5NzM2Mn0.lbKXt_BLTNXjTKpmqdPLvU6vC-mWNjbVRYjfSGFVZcc' }}
         with:
-          # ← اسم المستودع العام الذي يُرفع عليه الـ release
           owner: mustfavfx
-          repo: Anarchy-ai-releases
+          repo: Anarchy-ai
           tagName: v${{ steps.get_version.outputs.version }}
           releaseId: ${{ steps.create_release.outputs.id }}

@@ -320,7 +320,11 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     nodeId?: string;
   } | null>(null);
 
-  const { fitView, getViewport, fitBounds, getNode: getRFNode, screenToFlowPosition, setViewport } = useReactFlow();
+  const { fitView: rawFitView, getViewport, fitBounds, getNode: getRFNode, screenToFlowPosition, setViewport } = useReactFlow();
+  const fitView = useCallback((options?: any) => {
+    if (!isActive) return;
+    rawFitView(options);
+  }, [rawFitView, isActive]);
 
   // Register node image update callback so RightSidebar crop/edit updates node data in canvas
   useEffect(() => {
@@ -782,14 +786,17 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // Fit view when nodes are measured to center them perfectly on initial load
   useEffect(() => {
-    if (nodesWithCallbacks.length > 0 && !hasFittedInitially.current) {
+    if (isActive && nodesWithCallbacks.length > 0 && !hasFittedInitially.current) {
       const allMeasured = nodesWithCallbacks.every(n => n.measured && typeof n.measured.width === 'number' && n.measured.width > 0);
       if (allMeasured) {
-        fitView({ padding: 0.3, duration: 0 });
-        hasFittedInitially.current = true;
+        const timer = setTimeout(() => {
+          fitView({ padding: 0.3, duration: 0 });
+          hasFittedInitially.current = true;
+        }, 50);
+        return () => clearTimeout(timer);
       }
     }
-  }, [nodesWithCallbacks, fitView]);
+  }, [isActive, nodesWithCallbacks, fitView]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: BuilderNode) => {
     if (event.button !== 0) return;
