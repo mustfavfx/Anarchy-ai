@@ -121,6 +121,18 @@ function serializeEdges(edges: Edge[]): SerializedEdge[] {
   }));
 }
 
+// Safe UUID generator in case crypto.randomUUID is not available in WebView context
+function safeGenerateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
   const deserializedList: Node[] = [];
   for (const s of serialized) {
@@ -129,7 +141,7 @@ async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
     
     // Cache main image from Base64 back to IDB
     if (dataCopy.image && dataCopy.image.startsWith('data:')) {
-      const uuid = crypto.randomUUID();
+      const uuid = safeGenerateUUID();
       mainImageKey = `idb://${uuid}`;
       await cacheLocalImage(mainImageKey, dataCopy.image);
       dataCopy.image = mainImageKey;
@@ -140,7 +152,7 @@ async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
       if (dataCopy.originalImage === s.data.image && mainImageKey) {
         dataCopy.originalImage = mainImageKey;
       } else {
-        const uuid = crypto.randomUUID();
+        const uuid = safeGenerateUUID();
         const imageKey = `idb://${uuid}`;
         await cacheLocalImage(imageKey, dataCopy.originalImage);
         dataCopy.originalImage = imageKey;
@@ -152,7 +164,7 @@ async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
       if (dataCopy.outputData.image === s.data.image && mainImageKey) {
         dataCopy.outputData.image = mainImageKey;
       } else {
-        const uuid = crypto.randomUUID();
+        const uuid = safeGenerateUUID();
         const imageKey = `idb://${uuid}`;
         await cacheLocalImage(imageKey, dataCopy.outputData.image);
         dataCopy.outputData.image = imageKey;
@@ -287,6 +299,37 @@ export async function loadWorkflow(): Promise<{
   if (!selected) return null; // User cancelled
 
   const filePath = selected;
+  const contents: string = await invoke('load_file', { path: filePath });
+  const workflow: WorkflowFile = JSON.parse(contents);
+
+  // Version check
+  if (!workflow.version || !workflow.nodes) {
+    throw new Error('Invalid workflow file format');
+  }
+
+  // Validate program signature (if present - for backwards compatibility)
+  if (workflow.signature && workflow.signature !== PROGRAM_SIGNATURE) {
+    throw new Error('Invalid project file signature. This file may be corrupted or from a different program.');
+  }
+
+  lastSavePath = filePath;
+  return {
+    nodes: await deserializeNodes(workflow.nodes),
+    edges: deserializeEdges(workflow.edges),
+    name: workflow.name || extractFilename(filePath),
+    filePath,
+  };
+}
+
+/**
+ * Load workflow from a specific file path without showing the open dialog.
+ */
+export async function loadWorkflowFromPath(filePath: string): Promise<{
+  nodes: Node[];
+  edges: Edge[];
+  name: string;
+  filePath: string;
+} | null> {
   const contents: string = await invoke('load_file', { path: filePath });
   const workflow: WorkflowFile = JSON.parse(contents);
 

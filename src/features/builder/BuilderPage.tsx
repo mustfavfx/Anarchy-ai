@@ -37,6 +37,7 @@ import { useBuilderExport } from './hooks/useBuilderExport';
 import { useBuilderPersistence } from './hooks/useBuilderPersistence';
 import { useBuilderGeneration } from './hooks/useBuilderGeneration';
 import { getCurrentUserId } from '../../services/supabase/supabaseClient';
+import { loadWorkflowFromPath } from '../../services/workflow';
 
 const getAutosaveKey = (tabId?: string) => {
   const uid = getCurrentUserId();
@@ -467,18 +468,16 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
     const pathToLoad = initialProjectPath;
 
-    // If a specific file was opened (e.g. double-click on .ana), ALWAYS load it
-    // even if there's an autosave — the user explicitly chose that file.
     if (pathToLoad) {
       hasLoadedRef.current = true;
       (async () => {
         try {
-          const contents = await invoke<string>('load_file', { path: pathToLoad });
-          const wf = JSON.parse(contents);
-          const fallback = pathToLoad.split(/[\\\/]/).pop()?.replace(/\.ana$/i, '') ?? 'Project';
-          setCurrentFilePathState(pathToLoad);
-          onProjectPathChange?.(pathToLoad);
-          applyWorkflow(wf, fallback);
+          const result = await loadWorkflowFromPath(pathToLoad);
+          if (result) {
+            setCurrentFilePathState(result.filePath);
+            onProjectPathChange?.(result.filePath);
+            applyWorkflow(result, result.name);
+          }
         } catch (err) {
           logger.error('[Builder] Auto-load failed:', err);
           addNotification({ type: 'error', title: 'Load Failed', message: String(err) });

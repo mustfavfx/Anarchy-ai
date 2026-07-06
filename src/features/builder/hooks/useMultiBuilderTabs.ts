@@ -238,6 +238,7 @@ export function useMultiBuilderTabs() {
     const projectPath = sessionStorage.getItem(SESSION_KEYS.OPEN_PROJECT_PATH);
     const presetWorkflow = sessionStorage.getItem(SESSION_KEYS.PRESET_WORKFLOW);
     const presetImage = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
+    const loadedWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
 
     if (projectPath) {
       sessionStorage.removeItem(SESSION_KEYS.OPEN_PROJECT_PATH);
@@ -258,6 +259,23 @@ export function useMultiBuilderTabs() {
         setTimeout(() => setActiveTabId(newTab.id), 0);
         return [...prev, newTab];
       });
+    } else if (loadedWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.LOADED_WORKFLOW);
+      try {
+        const wf = JSON.parse(loadedWorkflow);
+        const newTab: Tab = {
+          id: generateTabId(),
+          title: wf.name || 'Imported Project',
+          projectPath: null,
+          isDirty: false,
+          everEdited: false,
+          initialWorkflow: wf,
+        };
+        setTabs(prev => [...prev, newTab]);
+        setTimeout(() => setActiveTabId(newTab.id), 0);
+      } catch (err) {
+        console.error('Failed to parse loaded workflow:', err);
+      }
     } else if (presetWorkflow) {
       sessionStorage.removeItem(SESSION_KEYS.PRESET_WORKFLOW);
       const img = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);

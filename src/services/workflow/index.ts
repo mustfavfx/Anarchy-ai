@@ -2,6 +2,7 @@ export {
   saveWorkflow,
   saveWorkflowAs,
   loadWorkflow,
+  loadWorkflowFromPath,
   getCurrentFilePath,
   setCurrentFilePath,
   resetFilePath,
