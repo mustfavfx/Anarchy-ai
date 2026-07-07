@@ -91,4 +91,19 @@ icon:#("AnarchyLogo", 1)
 		global sendViewportToAnarchy
 		sendViewportToAnarchy()
 	)
+)
+
+-- Auto-create Menu Item on startup
+(
+	local mainMenuBar = menuMan.getMainMenuBar()
+	local menuName = "Anarchy"
+	local existingMenu = menuMan.findMenu menuName
+	if existingMenu == undefined do (
+		local newMenu = menuMan.createMenu menuName
+		local actionItem = menuMan.createActionItem "AnarchySync" "Anarchy"
+		newMenu.addItem actionItem 1
+		local subMenuItem = menuMan.createSubMenuItem menuName newMenu
+		mainMenuBar.addItem subMenuItem (mainMenuBar.numItems() + 1)
+		menuMan.updateMenuBar()
+	)
 )`;

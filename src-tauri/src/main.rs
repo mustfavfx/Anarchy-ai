@@ -417,6 +417,9 @@ fn detect_3dsmax_installs() -> Vec<AutodeskInstall> {
         return Vec::new();
     }
 
+    let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
+    let autodesk_root = std::path::Path::new(&program_files).join("Autodesk");
+
     let mut installs = Vec::new();
     let Ok(entries) = std::fs::read_dir(&max_root) else {
         return installs;
@@ -443,10 +446,14 @@ fn detect_3dsmax_installs() -> Vec<AutodeskInstall> {
             .to_string();
 
         if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027") {
-            installs.push(AutodeskInstall {
-                version,
-                path: profile.to_string_lossy().to_string(),
-            });
+            // Verify that the actual 3dsmax.exe exists under Program Files\Autodesk\3ds Max <version>\3dsmax.exe
+            let max_exe = autodesk_root.join(format!("3ds Max {}", version)).join("3dsmax.exe");
+            if max_exe.exists() {
+                installs.push(AutodeskInstall {
+                    version,
+                    path: profile.to_string_lossy().to_string(),
+                });
+            }
         }
     }
 
