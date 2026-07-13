@@ -115,6 +115,7 @@ export interface SelectedNodeInfo {
   prompt: string | undefined;
   state: string | undefined;
   isVideo?: boolean;
+  errorMessage?: string;
 }
 
 export interface CompareImages {

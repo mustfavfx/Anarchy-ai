@@ -32,6 +32,7 @@ const PROCESSING_CONFIG: Record<ProcessingType, { color: string; label: string }
   lighting:  { color: '#e11d48', label: 'Lighting' },
   material:  { color: '#e11d48', label: 'Material' },
   local:     { color: '#e11d48', label: 'Local Edit' },
+  video:     { color: '#e11d48', label: 'Video' },
   variation: { color: '#e11d48', label: 'Variation' }
 };
 

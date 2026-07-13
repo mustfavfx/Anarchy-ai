@@ -59,6 +59,7 @@ export interface SelectedNodeInfo {
   image: string | undefined;
   prompt: string | undefined;
   state: string | undefined;
+  errorMessage?: string;
 }
 
 export interface CompareImages {

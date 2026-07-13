@@ -213,6 +213,7 @@ const TYPE_LABELS: Record<ProcessingType, string> = {
   lighting: 'Lighting',
   material: 'Materials',
   local: 'Local Edit',
+  video: 'Video',
   variation: 'Variation'
 };
 

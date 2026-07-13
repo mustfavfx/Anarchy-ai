@@ -10,7 +10,7 @@ import {
   Banana,
   Flame, Crown, Star,
   Sprout, Clapperboard, Brain, Layers, Rocket, Globe,
-  X, FolderOpen, FileVideo, FileImage, Volume2
+  X, FolderOpen, Volume2
 } from 'lucide-react';
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel, type ReplicateVideoModel } from '../../services/replicate';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
@@ -296,112 +296,7 @@ const PanelFileSelector: React.FC<PanelFileSelectorProps> = ({
   );
 };
 
-interface PanelMultipleFilesSelectorProps {
-  label: string;
-  value: string[] | null | undefined;
-  accept: string;
-  hint?: string;
-  onChange: (urls: string[]) => void;
-}
-const PanelMultipleFilesSelector: React.FC<PanelMultipleFilesSelectorProps> = ({
-  label,
-  value = [],
-  accept,
-  hint,
-  onChange
-}) => {
-  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
 
-    const readPromises = files.map(file => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          resolve(ev.target?.result as string);
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-
-    Promise.all(readPromises).then(newUrls => {
-      onChange([...(value || []), ...newUrls]);
-    });
-  };
-
-  const removeFile = (index: number) => {
-    const newVal = [...(value || [])];
-    newVal.splice(index, 1);
-    onChange(newVal);
-  };
-
-  return (
-    <div className="control-section" style={{ marginTop: '12px' }}>
-      <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <ImagePlus size={12} />
-        {label}
-      </label>
-
-      {/* Grid of uploaded reference images */}
-      {value && value.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '6px' }}>
-          {value.map((url, idx) => (
-            <div key={idx} style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '4px', overflow: 'hidden', border: '1px solid #334155', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img
-                src={url}
-                alt={`ref-${idx}`}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              <button
-                type="button"
-                onClick={() => removeFile(idx)}
-                style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(244,63,94,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
-              >
-                <X size={10} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Upload button area */}
-      <label
-        style={{
-          display: 'block',
-          marginTop: '6px',
-          cursor: 'pointer',
-          border: '1px dashed #475569',
-          borderRadius: '6px',
-          padding: '10px',
-          textAlign: 'center',
-          backgroundColor: 'rgba(30,41,59,0.5)',
-          color: '#94a3b8',
-          fontSize: '12px',
-          transition: 'all 0.2s'
-        }}
-        onMouseOver={(e) => e.currentTarget.style.borderColor = '#e11d48'}
-        onMouseOut={(e) => e.currentTarget.style.borderColor = '#475569'}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-          <ImagePlus size={14} /> Add multiple files
-        </span>
-        <input
-          type="file"
-          accept={accept}
-          multiple
-          onChange={handleFilesChange}
-          style={{ display: 'none' }}
-        />
-      </label>
-
-      {hint && (
-        <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
-          {hint}
-        </span>
-      )}
-    </div>
-  );
-};
 
 // Tool types matching the reference design
 type ToolType = 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator';

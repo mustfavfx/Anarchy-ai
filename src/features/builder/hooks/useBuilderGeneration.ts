@@ -5,14 +5,14 @@ import { useAIConfigStore } from '../../../stores/aiConfigStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { logger } from '../../../utils/logger';
 import { buildGenConfig } from '../utils/builderHelpers';
-import type { BuilderNode } from '../types';
+import type { BuilderNode, ProcessingType } from '../types';
 import { useBuilderQueueStore } from '../../../stores/builderQueueStore';
 
 interface UseBuilderGenerationProps {
   nodes: BuilderNode[];
   executeNode: (nodeId: string, promptText: string, config?: any) => Promise<any>;
   createSourceNode: (imageUrl?: string, label?: string, position?: { x: number; y: number }) => string;
-  spawnGhostNode: (parentId: string, type: 'render' | 'variation' | 'upscale') => string | null;
+  spawnGhostNode: (parentId: string, type: ProcessingType) => string | null;
   setUserCredits: (credits: number) => void;
   setCreditError: (error: { balance: number; needed: number } | null) => void;
 }
