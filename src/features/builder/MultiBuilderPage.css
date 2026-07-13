@@ -314,7 +314,16 @@
 .tab-pane {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
   flex-direction: column;
+  pointer-events: none;
+}
+
+.tab-pane.active {
+  display: flex !important;
+  pointer-events: auto !important;
 }
 
 /* ============================================

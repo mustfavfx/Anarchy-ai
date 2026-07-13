@@ -87,6 +87,7 @@ export const VirtualLibraryGrid: React.FC<VirtualLibraryGridProps> = ({
         style={{
           ...style,
           display: 'flex',
+          alignItems: 'flex-start',
           gap: `${gap}px`,
           paddingLeft: '4px',
           paddingRight: '4px',

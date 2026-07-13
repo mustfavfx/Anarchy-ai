@@ -49,6 +49,8 @@ export interface AIConfig {
   prunaEnhanceRealism?: boolean;
   prunaQuality?: number;
   prunaOutputFormat?: string;
+  sequentialImageGeneration?: string;
+  maxImages?: number;
 }
 
 export interface SelectedNodeInfo {
@@ -106,6 +108,8 @@ const DEFAULT_CONFIG: AIConfig = {
   prunaEnhanceRealism: true,
   prunaQuality: 80,
   prunaOutputFormat: 'png',
+  sequentialImageGeneration: 'disabled',
+  maxImages: 1,
 };
 
 interface AIConfigContextType {

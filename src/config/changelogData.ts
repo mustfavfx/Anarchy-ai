@@ -13,9 +13,62 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.59',
+    date: 'July 13, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'feature',
+        title: 'Video Engines — Seedance 2.0, Kling v3, Grok Video, Pruna P-Video, Veo 3.1, PixVerse v6, Sora 2 Pro',
+        description: 'Integrated 7 new professional video generation engines with full resolution, duration, aspect ratio, and audio controls. Each engine includes model-specific parameters (start/end frame, reference video, audio generation, etc.) and an adaptive aspect ratio mode that preserves the source image proportions.'
+      },
+      {
+        type: 'feature',
+        title: 'Nano Banana 2 Lite & Seedream 5 Image Engines',
+        description: 'Added Google Nano Banana 2 Lite (ultra-fast generation) and Seedream 5 (premium quality with style presets) as new image generation engines with full parameter control.'
+      },
+      {
+        type: 'feature',
+        title: 'Architecture Effects — 19 Exclusive Cinematic Video Prompts',
+        description: 'Added a dedicated "Architecture Effects" prompt category with 19 signature video prompts: Sketch to Render, Blueprint to Reality, Massing to Masterpiece, Floor-by-Floor Construction, Structural X-Ray, Exploded Axonometric, Section Cut, Seasonal Transformation, and more — fully translated to Arabic.'
+      },
+      {
+        type: 'feature',
+        title: 'Dynamic Video Prompt Library',
+        description: 'The prompt bar now automatically switches to architecture-specific video prompts (Interior Movements, Exterior Movements, Architecture Effects) when a video engine is selected, and reverts to image prompts otherwise.'
+      },
+      {
+        type: 'improvement',
+        title: 'Account Page — Complete Professional Redesign',
+        description: 'Rebuilt the account page with a premium layout: real-time credit balance with Stripe top-up integration, usage statistics, subscription management, profile editing, security settings, and a polished dark UI with micro-animations.'
+      },
+      {
+        type: 'improvement',
+        title: 'Adaptive Aspect Ratio for All Video Engines',
+        description: '"Adaptive" is now the default aspect ratio for all video engines, ensuring generated videos preserve the source image proportions without manual selection.'
+      },
+      {
+        type: 'fix',
+        title: 'Video Lightbox — Eye Icon & Close Button',
+        description: 'Fixed the eye-icon preview for video nodes: videos now auto-play correctly in the lightbox. The close (X) button has been repositioned to a fixed top-right corner with a glassmorphism style, clearly visible regardless of media dimensions.'
+      },
+      {
+        type: 'fix',
+        title: 'Enter Key on Selected Node No Longer Triggers Node Expansion',
+        description: 'Pressing Enter to submit a prompt no longer accidentally spawns a ghost node or expands the currently selected canvas node.'
+      },
+      {
+        type: 'improvement',
+        title: 'Video Prompt Quality Upgrade',
+        description: 'All short one-liner camera movement prompts (Interior & Exterior) were rewritten into full cinematic director-level briefs with material quality, lighting, timing, and composition guidance for significantly better video model outputs.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.10',
     date: 'June 27, 2026',
-    status: 'current',
+    status: 'release',
+
     features: [
       {
         type: 'fix',

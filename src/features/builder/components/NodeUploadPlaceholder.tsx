@@ -21,7 +21,7 @@ export const NodeUploadPlaceholder: React.FC<NodeUploadPlaceholderProps> = ({
             <span className="upload-primary">
               {isPdfLoading ? 'Converting PDF...' : 'Drop or click to upload'}
             </span>
-            <span className="upload-secondary">Images or PDF files</span>
+            <span className="upload-secondary">Images, Videos or PDF files</span>
           </div>
         </>
       ) : (

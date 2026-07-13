@@ -22,6 +22,7 @@ interface UseBuilderPersistenceArgs {
   setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>;
   setSelectedNode: (node: any) => void;
   hasFittedInitiallyRef?: React.RefObject<boolean>;
+  forceCanvasRepaint?: () => void;
 }
 
 export function useBuilderPersistence({
@@ -41,6 +42,7 @@ export function useBuilderPersistence({
   setSelectedNodeId,
   setSelectedNode,
   hasFittedInitiallyRef,
+  forceCanvasRepaint,
 }: UseBuilderPersistenceArgs) {
   const [currentFilePath, setCurrentFilePathState] = useState<string | null>(initialProjectPath ?? null);
   const [confirmNewCanvas, setConfirmNewCanvas] = useState(false);
@@ -106,9 +108,11 @@ export function useBuilderPersistence({
       hasFittedInitiallyRef.current = false;
     }
 
-    setTimeout(() => fitView({ padding: 0.3, minZoom: 0.6, duration: 400 }), 200);
     addNotification({ type: 'success', title: 'Project Loaded', message: name });
-  }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef]);
+    // Force a real GPU repaint after nodes settle — fixes WebView2 black canvas bug.
+    // Uses display:none toggle which triggers a synchronous reflow, same as tab switching.
+    setTimeout(() => forceCanvasRepaint?.(), 150);
+  }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef, forceCanvasRepaint]);
 
   const handleSave = useCallback(async (): Promise<string | null> => {
     try {
@@ -164,6 +168,9 @@ export function useBuilderPersistence({
     try {
       const result = await loadWorkflow();
       if (result) {
+        if (hasFittedInitiallyRef) {
+          hasFittedInitiallyRef.current = false;
+        }
         setNodes(result.nodes as BuilderNode[]);
         setEdges(sanitizeEdges(result.nodes, result.edges || []));
         onTitleChange?.(result.name);
@@ -173,13 +180,14 @@ export function useBuilderPersistence({
         isDirtyRef.current = false;
         onDirtyChange?.(false);
         addNotification({ type: 'success', title: 'Project Loaded', message: result.name });
-        setTimeout(() => fitView({ padding: 0.3, minZoom: 0.6, duration: 400 }), 100);
+        // Force a real GPU repaint after nodes settle — fixes WebView2 black canvas bug.
+        setTimeout(() => forceCanvasRepaint?.(), 150);
       }
     } catch (err) {
       logger.error('[Load] failed:', err);
       addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
     }
-  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange, onProjectPathChange]);
+  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange, onProjectPathChange, hasFittedInitiallyRef, forceCanvasRepaint]);
 
   const doNewCanvas = useCallback(() => {
     resetFilePath();

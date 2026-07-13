@@ -599,6 +599,167 @@ export const PRESET_PROMPTS: PresetGroup[] = [
 
 ];
 
+// ─── Video Preset Prompts ─────────────────────────────────────────────────────
+
+export const VIDEO_PRESET_PROMPTS: PresetGroup[] = [
+
+  // ── Architecture Effects (SIGNATURE — most distinctive, shown first) ─────────
+  {
+    category: 'Architecture Effects',
+    icon: 'Clapperboard',
+    prompts: [
+      p(
+        'Sketch to Render',
+        'PenLine',
+        'Cinematic morphing from hand-drawn architectural line sketch to fully photorealistic rendered building. Pencil strokes gradually dissolve — revealing premium materials, cast shadows, accurate reflections, and professional lighting. Architectural precision preserved throughout. Smooth progressive emergence, ultra-high detail, cinematic color grade.',
+      ),
+      p(
+        'Blueprint to Reality',
+        'Ruler',
+        'Cinematic transformation beginning from precise technical blueprint drawings — crisp blue-white lines, dimension strings, section hatching, and annotations — progressively morphing into a fully realized photorealistic building. Each technical line solidifies into real material. Smooth architectural reveal, cinematic pacing.',
+      ),
+      p(
+        'Massing to Masterpiece',
+        'Layers',
+        'Seamless cinematic transition from a clean white architectural massing model into a fully detailed photorealistic visualization. Premium facade materials, glazing reflections, detailed landscaping, and atmospheric lighting emerge surface by surface over the pristine white base. Elegant materialization, cinematic lighting evolution.',
+      ),
+      p(
+        'Materialization Effect',
+        'Sparkles',
+        'Building structure begins as invisible wireframe, then solidifies surface by surface — concrete textures appear, glass panels become transparent, steel connections form, wood cladding grain emerges, stone courses materialize — each layer with cinematic timing. Realistic reflections and shadows activate progressively. Premium architectural detail emerges.',
+      ),
+      p(
+        'Design Evolution',
+        'GitBranch',
+        'Cinematic morphing sequence through architectural design stages — raw concept massing → schematic geometry → detailed design development → final photorealistic masterpiece. Each stage dissolves into the next with increasing material resolution, shadow depth, and environmental richness. Design process visualized cinematically.',
+      ),
+      p(
+        'Facade Build-Up',
+        'Building2',
+        'Cinematic close-up of architectural facade panels self-assembling from bottom to top. Each cladding unit, curtain wall module, louver blade, and stone tile snaps precisely into position. Material quality and surface texture revealed progressively. Realistic shadows form with each new element. Premium glazing reflections appear as panels complete.',
+      ),
+      p(
+        'Floor-by-Floor Construction',
+        'HardHat',
+        'Dramatic architectural animation of a tower being constructed one storey at a time — structural columns rise, floor slabs pour, facade panels close, glazing inserts — each floor stacking onto the last with accelerated cinematic timing. Aerial perspective. Crane movements. Realistic scale. Building reveals itself dramatically against the skyline.',
+      ),
+      p(
+        'Structural X-Ray',
+        'Aperture',
+        'Cinematic X-ray visualization: facade cladding dissolves to transparent revealing the full structural skeleton — columns, shear walls, transfer beams, flat slabs, and concrete core. Technical precision. Structural elements highlighted. Camera orbits slowly around the exposed frame. Fade smoothly between opaque and transparent states. Engineering visualization quality.',
+      ),
+      p(
+        'Exploded Axonometric',
+        'Box',
+        'Smooth cinematic exploded axonometric: building layers separate and float apart in sequence — foundation, structural frame, service runs, floor plates, interior partitions, facade skin, roof system. Each system drifts to its exploded position, pauses for clarity, then reassembles in reverse. Premium technical visualization, crisp architectural drafting quality.',
+      ),
+      p(
+        'Section Cut Animation',
+        'Scissors',
+        'An invisible precision cutting plane slices dramatically through the building — interior spaces, floor-to-floor heights, room volumes, material thicknesses, and structural sections are revealed as the cut plane travels. Interior spaces illuminate as they are exposed. Camera follows the cut plane. Architectural section rendering quality.',
+      ),
+      p(
+        'Furniture Auto Assembly',
+        'Sofa',
+        'Cinematic sequence in an empty luxury interior where furniture self-assembles — chairs, sofas, dining tables, pendant lighting, artwork, and decorative objects materialize from nothing, scale in from zero, or float precisely into position. Room transforms from raw architectural shell into a fully styled luxury living space. Elegant choreography and timing.',
+      ),
+      p(
+        'Landscape Growth',
+        'Sprout',
+        'Time-accelerated cinematic growth of architectural landscape from bare ground — trees grow from saplings to full mature canopy, lawns establish, water features activate and fill, planting beds bloom in waves, pathways reveal themselves. Building remains constant. Ultra-realistic botanical progression. Season-neutral warm light. Architectural landscape quality.',
+      ),
+      p(
+        'Lights Turning On',
+        'Lightbulb',
+        'Cinematic dusk transition: as sky dims, interior ambient lighting activates room by room, floor by floor. Warm glow appears behind glazing. Facade accent lighting illuminates architectural features. Landscape uplights activate. Pool lights illuminate water. Reflections appear on wet surfaces. Luxury night lighting choreography from darkened building to fully illuminated landmark.',
+      ),
+      p(
+        'Glass Reflection Sweep',
+        'Waves',
+        'The sky behind the building shifts — clouds move, light angle changes — creating a dynamic cinematic sweep of reflections across large curtain wall glass surfaces. Structural mullions appear through reflection. Interior spaces glimpsed. Sky colors transition across the facade. Camera holds steady while the glass becomes a living mirror. Premium glazing quality.',
+      ),
+      p(
+        'Seasonal Transformation',
+        'Snowflake',
+        'Full cinematic year-in-one-minute: architecture holds constant while the world around it transforms — cherry blossom spring, dense summer canopy, warm amber autumn foliage, bare winter branches with snow settling on horizontal surfaces. Sky quality, light temperature, and vegetation transform seamlessly through all four seasons. Seamless morphing, realistic environmental transitions.',
+      ),
+      p(
+        'Interior to Exterior Transition',
+        'DoorOpen',
+        'Camera begins deep inside a luxury interior — warm ambient light, premium finishes, furniture in focus. Camera tracks forward, passes through a full-height glazed facade, and emerges into the exterior. Interior ambiance dissolves into exterior daylight. Material continuity maintained at the threshold. Spatial sequence seamlessly linked. Architectural coherence throughout.',
+      ),
+      p(
+        'Exterior to Interior Transition',
+        'MoveRight',
+        'Camera begins with a cinematic exterior aerial view of the building. Descends. Approaches the main entrance facade. Passes through the glazing threshold. Enters a fully detailed luxury interior. Exterior cladding transitions seamlessly to interior finishes. Daylight quality follows the camera through the glass. Architectural spatial sequence revealed.',
+      ),
+      p(
+        'Day to Night Transition',
+        'Moon',
+        'The building stands in bright daylight. Sky transitions through golden hour — sun drops, shadows lengthen, sky turns deep blue. Building lights activate progressively as night falls. Final frame shows the architecture as an illuminated luxury landmark against a dark sky. Realistic atmospheric scattering. Smooth sun arc. Premium visualization throughout.',
+      ),
+      p(
+        'Rain Cleanup',
+        'CloudRain',
+        'Heavy overcast rain soaks the building — surfaces darken with moisture, water sheeting runs down facade panels, puddles form on paving and reflect the architecture. Then rain eases. Sky brightens. Surfaces glisten wet then gradually dry, revealing pristine material finishes underneath the cleaned exterior. Architecture revealed in crisp post-rain clarity.',
+      ),
+    ],
+  },
+
+  // ── Interior Camera Movements ─────────────────────────────────────────────
+  {
+    category: 'Interior Camera Movements',
+    icon: 'DoorOpen',
+    prompts: [
+      p('Smooth Walkthrough',       'MoveRight',         'Slow steady cinematic walkthrough of the interior space. Smooth tracking movement forward through the room. Natural eye level. Ambient interior lighting. Premium architectural finishes in focus. Hold on key moments.'),
+      p('Slow Push Forward',        'ArrowUpFromLine',   'Extremely slow cinematic push forward — camera advances with minimal perceptible movement, creating dramatic depth and anticipation. Furniture and materials sharpen progressively. Cinematic compression. Hold composition.'),
+      p('Pull Back Reveal',         'ArrowDownFromLine', 'Camera begins tight on a key detail or focal element, then slowly pulls back to reveal the full interior space. Wide-angle reveal of room scale, ceiling height, and spatial quality. Dramatic spatial disclosure. Premium cinematic pacing.'),
+      p('Orbit Around',             'Focus',             'Slow steady orbit of the camera around a key interior focal point — a furniture arrangement, sculpture, or architectural feature. 360° or 180° arc. Consistent radius. Soft ambient lighting. Background gently rotates. Luxury interior quality.'),
+      p('Enter Room',               'DoorOpen',          'Camera positioned at doorway threshold, then smoothly advances through the door frame and into the room. Full spatial reveal as camera enters. Lighting changes from corridor to room. Architectural proportions disclosed progressively as camera travels forward.'),
+      p('Corner Reveal',            'Aperture',          'Camera tracks slowly around a corner — what lies beyond is concealed then progressively disclosed as the camera rounds the turn. Spatial anticipation. Lighting shifts as new space is revealed. Cinematic corner reveal technique. Interior architecture quality.'),
+      p('Hallway Walk',             'Footprints',        'Natural walking pace camera movement along a corridor or hallway. Doors and openings pass on either side. End wall or turn approaches. Lighting conditions change along the path. Architectural proportions of the circulation space clearly communicated. Interior design quality.'),
+      p('Ceiling Reveal',           'ArrowUpFromLine',   'Camera tilts slowly upward from eye level to reveal an elaborate ceiling design — coffered plaster, timber beams, decorative lighting, skylight, or architectural canopy. Dramatic tilt reveal. Ceiling detail comes into crisp focus. Ambient light from above strengthens.'),
+      p('Floor Detail Close-Up',    'ArrowDownFromLine', 'Camera tilts down and tracks slowly to showcase premium flooring material — marble veining, herringbone timber, geometric tile pattern, or polished concrete. Macro-level detail. Surface reflections. Lighting rakes across the floor to reveal texture depth.'),
+      p('Material Close-Up',        'Layers',            'Extreme cinematic close-up of a premium surface material — camera holds then slowly pulls focus through the texture. Marble veining, timber grain, woven fabric, brushed metal, or terrazzo aggregate. Shallow depth of field. Lighting reveals surface micro-texture. Premium material quality.'),
+      p('Furniture Focus',          'Sofa',              'Camera slowly tracks in on a key furniture piece — sofa, dining table, or statement chair. Background interior gently blurs with shallow depth of field as camera approaches. Fabric texture, joinery, and material quality come into sharp focus. Luxury furniture photography quality.'),
+      p('Window Reveal',            'Sun',               'Camera tracks slowly toward a large window or glazed wall. Exterior view is gradually disclosed — garden, cityscape, or landscape. Interior lighting balanced against bright exterior. Curtains or blinds frame the view. Cinematic moment of spatial connection between inside and outside.'),
+      p('Lighting Showcase',        'Lightbulb',         'Camera moves slowly through the interior in low ambient conditions to showcase indirect architectural lighting — cove LEDs, pendant pools, uplighting, and accent spots. Each light source revealed in sequence. Warm color temperature. Dramatic shadow play. Luxury hotel lighting quality.'),
+      p('Natural Light Sweep',      'SunDim',            'Time-accelerated interior sequence where sunlight tracks across the space — a shaft of light moves from one wall to another as sun position changes. Shadows shift. Warm light patches travel across surfaces. Interior materials change appearance as light quality evolves. Atmospheric and calm.'),
+      p('Depth of Field',           'Aperture',          'Camera holds static while focus shifts — foreground element sharpens, background blurs, then focus pulls to the background as the foreground softens. Interior architecture and materials transition through the focus rack. Cinematic lens quality. Premium interior depth.'),
+      p('Luxury Hotel Feel',        'Crown',             'Cinematic interior movement sequence with the pacing and quality of a luxury hotel brand film — slow tracking, smooth curves, deliberate holds on premium details, warm ambient lighting, impeccable staging. No fast movement. Elevated atmosphere. Five-star interior quality throughout.'),
+      p('Interior Timelapse',       'Moon',              'Static camera positioned inside the space while time accelerates — daylight enters and sweeps across the interior over the course of a day. Morning fill, afternoon highlights, golden hour warmth, dusk transition, night ambiance. Interior materials shift appearance throughout. Architectural atmosphere over time.'),
+      p('Floating Camera',          'Wind',              'Ultra-smooth floating camera movement through the interior — no camera shake, perfectly steady, slight elevation above eye level. Gentle organic path curving through the space. Architectural features pass with cinematic deliberateness. Premium luxury feel. Gimbal-quality stability.'),
+    ],
+  },
+
+  // ── Exterior Camera Movements ─────────────────────────────────────────────
+  {
+    category: 'Exterior Camera Movements',
+    icon: 'Plane',
+    prompts: [
+      p('Drone Rise',               'ArrowUpFromLine',   'Drone begins at ground level beside the building and rises slowly and smoothly to full rooftop height. Building facade passes in frame. Sky opens above. Surrounding context revealed progressively. Final frame: building from above at golden hour. Cinematic aerial quality.'),
+      p('Drone Descend',            'ArrowDownFromLine', 'Drone begins high above, then descends slowly and precisely toward the building entrance. Sky and upper facades frame the descent. Ground level and entrance forecourt revealed. Camera settles at eye level with the main facade. Cinematic drone landing quality.'),
+      p('Drone Orbit',              'Focus',             'Smooth 360° aerial orbit around the building at a consistent radius and altitude. All four elevations revealed in sequence. Surrounding landscape and urban context visible. Constant speed. Cinematic aerial quality. Building always centered in frame throughout the orbit.'),
+      p('Hero Shot',                'Sparkles',          'Epic wide-angle architectural hero shot — low angle, slight upward tilt, building fills frame against dramatic sky. Golden hour light rakes across facade. Foreground landscape or reflective pool anchors composition. Cinematic color grade. Hold static. The definitive image of this building.'),
+      p('Front Facade Reveal',      'MoveRight',         'Camera approaches the main facade directly from the street — begins distant, moves forward at a measured cinematic pace, building grows in frame, architectural details resolve progressively, entrance composition fills the frame. Steady tracking. Premium architectural photography quality.'),
+      p('Side Elevation Walk',      'MoveRight',         'Camera tracks laterally along the side elevation — smooth parallel movement at a consistent distance. Full elevation length disclosed from one end to the other. Facade rhythm, fenestration pattern, and material changes revealed. Architectural elevation quality. Cinematic pacing.'),
+      p('Low Angle Drama',          'ArrowDownFromLine', 'Camera positioned very low — nearly at ground plane — looking up at the building against the sky. Dramatic forced perspective. Facade towers above. Architectural verticals exaggerated. Sky and clouds visible above the building. Cinematic dramatic low angle. Hold static.'),
+      p('High Angle Overview',      'ArrowUpFromLine',   'Camera positioned high above — drone or elevated — looking straight down or at a steep downward angle onto the building rooftop and site. Site plan revealed. Landscape and urban context visible. Roof geometry and terrace organization disclosed. Premium aerial overview quality.'),
+      p('Street Level Approach',    'Car',               'Camera at pedestrian eye level approaching the building from the street. Surroundings pass on either side. Building entrance becomes the destination. Street furniture, trees, and parked vehicles provide scale. Natural movement speed. Architectural context in full. Arrival sequence quality.'),
+      p('Pedestrian Arrival',       'Footprints',        'Walking pace approach from the arrival forecourt toward the main entrance — camera at human eye level, slight natural sway, entrance sequence unfolds, canopy or portal framed. Architecture reveals its scale proportionally to the approaching human. Cinematic arrival experience.'),
+      p('Fly Through Outdoor',      'Wind',              'Camera flies smoothly and continuously through the outdoor spaces — gardens, courtyards, covered walkways, pool terrace — without cutting. Continuous fluid path through exterior spaces. Architecture frames each passage. Landscape and hardscape in full. Cinematic outdoor journey quality.'),
+      p('Landscape Reveal',         'TreePine',          'Camera begins behind mature trees or planting mass. Vegetation slowly parts as camera tracks forward to reveal the building beyond. Building emerges through the landscape frame. Layered depth — foreground trees, middle ground planting, background architecture. Cinematic landscape photography quality.'),
+      p('Pool Reflection',          'Waves',             'Camera holds or slowly tracks alongside a swimming pool or reflecting pond. Building facade and sky perfectly reflected in the still water surface. Double composition — architecture above, mirrored below. Ripples break the reflection gently. Luxury resort or residential quality.'),
+      p('Zoom In',                  'Search',            'Camera holds static, then smoothly zooms in cinematically on an architectural feature or facade detail — compression increases, depth of field shallows, background blurs, foreground element fills frame. Premium lens quality. Hold the compressed composition.'),
+      p('Zoom Out',                 'Search',            'Camera holds tight on an architectural detail, then smoothly zooms out to reveal the full building in context. Local detail dissolves into architectural overview. Site, surroundings, and landscape emerge. Cinematic reverse reveal. Hold the final wide composition.'),
+      p('Sunset Reveal',            'Sunset',            'Building stands in full golden hour — warm directional light rakes across facade textures, long shadows sweep across the ground plane, sky transitions from golden to deep orange to crimson. Camera holds or slowly orbits. Atmosphere deepens. Architecture in its most cinematic light.'),
+      p('Night Reveal',             'MoonStar',          'Luxury night architectural sequence — building fully illuminated against deep dark sky. Facade accent lighting highlights architectural features. Interior warmth glows behind glazing. Landscape lighting activates. Reflective pool mirrors the lit facade. Camera orbits slowly. Premium night photography quality.'),
+      p('Rain Atmosphere',          'CloudRain',         'Building under cinematic overcast rain — wet surfaces with deep material saturation, rain streaks visible against lit areas, puddles form on paving and reflect the illuminated facade. Atmosphere is moody, dramatic, cinematic. Architecture remains powerful in wet conditions. Premium atmospheric quality.'),
+    ],
+  },
+
+];
+
 // ─── Derived helpers ──────────────────────────────────────────────────────────
 
 /** Flat list of every prompt across all groups */

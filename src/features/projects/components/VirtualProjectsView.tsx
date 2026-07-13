@@ -61,9 +61,10 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
     return Math.floor((dimensions.width - (columnsCount - 1) * gridGap - 8) / columnsCount);
   }, [dimensions.width, columnsCount]);
 
+
   const gridRowHeight = useMemo(() => {
     const imageHeight = Math.floor(itemWidth * 10 / 16); // 16:10 aspect ratio
-    const detailsHeight = 125;
+    const detailsHeight = 130;
     return imageHeight + detailsHeight;
   }, [itemWidth]);
 
@@ -96,9 +97,6 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
               <span>{project.sourceCount} sources</span>
               <span>{project.outputCount} outputs</span>
               <span>{project.refCount} refs</span>
-            </div>
-            <div className="project-path-text list-path" title={project.filePath}>
-              {project.filePath}
             </div>
           </div>
           <div className={`status-tag ${project.status}`}>{project.status}</div>
@@ -145,6 +143,7 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
         style={{
           ...style,
           display: 'flex',
+          alignItems: 'flex-start',
           gap: `${gridGap}px`,
           paddingLeft: '4px',
           paddingRight: '4px',
@@ -193,9 +192,6 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
                 <span>{project.sourceCount} sources</span>
                 <span>{project.outputCount} outputs</span>
                 <span>{project.refCount} refs</span>
-              </div>
-              <div className="project-path-text" title={project.filePath}>
-                {project.filePath}
               </div>
               <div className="project-footer">
                 <span className="updated-text">Updated {timeAgo(project.updatedAt)}</span>

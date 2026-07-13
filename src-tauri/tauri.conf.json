@@ -13,6 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "title": "Anarchy AI",
         "width": 1400,
         "height": 900,
@@ -26,7 +27,7 @@
         "decorations": false,
         "transparent": false,
         "fullscreen": false,
-        "maximized": true,
+        "maximized": false,
         "visible": true,
         "dragDropEnabled": true
       }
@@ -40,7 +41,8 @@
         "script-src": "'self' 'unsafe-eval'",
         "font-src": "'self' data:",
         "frame-src": "'self'",
-        "worker-src": "'self' blob:"
+        "worker-src": "'self' blob:",
+        "media-src": "'self' blob: data: https: http:"
       }
     }
   },

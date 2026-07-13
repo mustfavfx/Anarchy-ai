@@ -150,8 +150,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
         {/* ── Builder layout: always mounted, hidden via CSS to preserve canvas state ── */}
         <main
-          className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}`}
-          style={isBuilderPage ? undefined : { display: 'none' }}
+          className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}${!isBuilderPage ? ' app-content--hidden' : ''}`}
         >
           <MultiBuilderPage />
         </main>

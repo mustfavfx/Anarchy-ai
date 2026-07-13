@@ -284,5 +284,209 @@ export const PRESETS_TRANSLATIONS_AR: Record<string, string> = {
   'Warning: Needs a reference image but none is uploaded!': 'تحذير: يحتاج صورة مرجعية ولكن لم يتم رفع أي صورة!',
   'Requires reference image': 'يتطلب صورة مرجعية',
   'Advanced': 'متقدم',
-  'Preset Prompts': 'البرومتات الجاهزة'
+  'Preset Prompts': 'البرومتات الجاهزة',
+
+  // ─── Video Prompts — Categories ────────────────────────────────────────────
+  'Interior Camera Movements': 'حركات كاميرا داخلية',
+  'Exterior Camera Movements': 'حركات كاميرا خارجية',
+
+  // ─── Architecture Effects — Labels ─────────────────────────────────────────
+  'Sketch to Render': 'من الرسم إلى الرندرة',
+  'Blueprint to Reality': 'من المخططات إلى الواقع',
+  'Massing to Masterpiece': 'من المجسم إلى تحفة معمارية',
+  'Materialization Effect': 'تأثير المواد التدريجي',
+  'Design Evolution': 'تطور مراحل التصميم',
+  'Facade Build-Up': 'بناء الواجهة تدريجياً',
+  'Floor-by-Floor Construction': 'البناء طابق بطابق',
+  'Structural X-Ray': 'رؤية هيكل المبنى بالأشعة',
+  'Exploded Axonometric': 'مجسم أكسونومتري منفجر',
+  'Section Cut Animation': 'حركة القطع المقطعي',
+  'Furniture Auto Assembly': 'تجميع الأثاث التلقائي',
+  'Landscape Growth': 'نمو تدريجي للمناظر الطبيعية',
+  'Lights Turning On': 'إضاءة تدريجية',
+  'Glass Reflection Sweep': 'انعكاسات الزجاج المتحركة',
+  'Seasonal Transformation': 'التحول عبر الفصول',
+  'Interior to Exterior Transition': 'الانتقال من الداخل للخارج',
+  'Exterior to Interior Transition': 'الانتقال من الخارج للداخل',
+  'Day to Night Transition': 'انتقال النهار إلى الليل',
+  'Rain Cleanup': 'تنظيف المطر للمبنى',
+
+  // ─── Interior Camera — Labels ───────────────────────────────────────────────
+  'Smooth Walkthrough': 'جولة سلسة',
+  'Slow Push Forward': 'تقدم سينمائي بطيء',
+  'Pull Back Reveal': 'كشف بالتراجع',
+  'Orbit Around': 'دوران حول النقطة المحورية',
+  'Enter Room': 'دخول الغرفة',
+  'Corner Reveal': 'كشف من الزاوية',
+  'Hallway Walk': 'مشي في الممر',
+  'Ceiling Reveal': 'كشف السقف',
+  'Floor Detail Close-Up': 'لقطة مقربة للأرضية',
+  'Material Close-Up': 'لقطة مقربة للمواد',
+  'Furniture Focus': 'تركيز على الأثاث',
+  'Window Reveal': 'كشف النافذة',
+  'Lighting Showcase': 'عرض الإضاءة',
+  'Natural Light Sweep': 'انسياب الضوء الطبيعي',
+  'Depth of Field': 'عمق المجال السينمائي',
+  'Luxury Hotel Feel': 'أجواء فندق فاخر',
+  'Interior Timelapse': 'فاصل زمني داخلي',
+  'Floating Camera': 'كاميرا عائمة',
+
+  // ─── Exterior Camera — Labels ───────────────────────────────────────────────
+  'Drone Rise': 'صعود الطائرة',
+  'Drone Descend': 'هبوط الطائرة',
+  'Drone Orbit': 'مدار جوي',
+  'Hero Shot': 'لقطة بطولية معمارية',
+  'Front Facade Reveal': 'كشف الواجهة الأمامية',
+  'Side Elevation Walk': 'مشي محاذي للواجهة الجانبية',
+  'Low Angle Drama': 'زاوية منخفضة درامية',
+  'High Angle Overview': 'نظرة عامة من الأعلى',
+  'Street Level Approach': 'اقتراب بمستوى الشارع',
+  'Pedestrian Arrival': 'وصول المشاة',
+  'Fly Through Outdoor': 'التحليق عبر الفضاء الخارجي',
+  'Landscape Reveal': 'كشف المناظر الطبيعية',
+  'Pool Reflection': 'انعكاس المسبح',
+  'Zoom In': 'تكبير سينمائي',
+  'Zoom Out': 'تصغير سينمائي',
+  'Sunset Reveal': 'كشف الغروب الذهبي',
+  'Night Reveal': 'كشف الإضاءة الليلية الفاخرة',
+  'Rain Atmosphere': 'أجواء المطر السينمائية',
+
+  // ─── Video Prompts — Full Texts ────────────────────────────────────────────
+  'Time-lapse architectural construction progressing from foundation to completed luxury building, cranes, workers, structure assembly, facade installation, landscape completion, cinematic aerial view.':
+    'فاصل زمني لبناء معماري يتطور من الأساس حتى اكتمال المبنى الفاخر، رافعات، عمال، تجميع الهيكل، تركيب الواجهة، اكتمال المناظر الطبيعية، منظور جوي سينمائي.',
+
+  'Transform the white architectural massing model into a fully detailed photorealistic architectural visualization with premium materials, landscaping, reflections, lighting and cinematic atmosphere.':
+    'حوّل مجسم الكتلة المعمارية البيضاء إلى تصور معماري فوتوواقعي مفصل بالكامل مع مواد فاخرة، تنسيق حدائق، انعكاسات، إضاءة وأجواء سينمائية.',
+
+  'Transform from bright daylight into cinematic blue hour and finally luxury night lighting, preserving architecture, realistic sun movement, dynamic sky, smooth transition, premium visualization.':
+    'انتقال من ضوء النهار الساطع إلى الساعة الزرقاء السينمائية وأخيرًا إضاءة ليلية فاخرة، مع الحفاظ على المعمارية وحركة الشمس الواقعية والسماء الديناميكية والانتقال السلس.',
+
+  'Transform the architectural sketch into a fully realistic building with smooth morphing transition, preserving composition and proportions, cinematic reveal, premium materials appearing gradually, realistic lighting evolution, ultra realistic architecture.':
+    'حوّل الرسم المعماري إلى مبنى واقعي بالكامل مع انتقال تحوّل سلس، مع الحفاظ على التكوين والنسب، كشف سينمائي، مواد فاخرة تظهر تدريجياً، تطور إضاءة واقعي، عمارة فائقة الواقعية.',
+
+  'Smooth cinematic walkthrough': 'جولة مشي سينمائية سلسة',
+  'Slow cinematic push forward': 'تقدم سينمائي بطيء للأمام',
+  'Slow cinematic pull back': 'تراجع سينمائي بطيء للخلف',
+  'Slow orbit around the focal point': 'دوران بطيء حول النقطة المحورية',
+  'Reveal the space by moving smoothly around the corner': 'كشف الفضاء بالتحرك بسلاسة حول الزاوية',
+  'Walk naturally through the corridor': 'المشي بشكل طبيعي عبر الممر',
+  'Smoothly enter the room through the doorway': 'الدخول بسلاسة إلى الغرفة عبر المدخل',
+  'Tilt upward to reveal the ceiling design': 'إمالة لأعلى للكشف عن تصميم السقف',
+  'Tilt downward to showcase flooring details': 'إمالة لأسفل لعرض تفاصيل الأرضية',
+  'Macro cinematic material close-up': 'لقطة مقربة ماكرو سينمائية للمواد',
+  'Focus on furniture while keeping the background softly blurred': 'التركيز على الأثاث مع إبقاء الخلفية ضبابية بلطف',
+  'Move toward the window and reveal the outside view': 'التحرك نحو النافذة والكشف عن المشهد الخارجي',
+  'Highlight indirect lighting and ambient illumination': 'إبراز الإضاءة غير المباشرة والإنارة المحيطة',
+  'Follow the sunlight across the interior': 'متابعة أشعة الشمس عبر الفضاء الداخلي',
+  'Slow cinematic rotation around the furniture arrangement': 'دوران سينمائي بطيء حول ترتيب الأثاث',
+  'Luxury hotel cinematic interior movement': 'حركة داخلية سينمائية بأجواء فندق فاخر',
+  'Natural eye-level walking camera': 'كاميرا مشي طبيعية بمستوى العين',
+  'Floating steady cinematic camera': 'كاميرا سينمائية عائمة ثابتة',
+  'Cinematic depth of field focus transition': 'انتقال تركيز سينمائي لعمق المجال',
+  'Interior daylight transition timelapse': 'فاصل زمني لانتقال ضوء النهار في الداخل',
+  'Slow cinematic drone rise': 'صعود سينمائي بطيء للطائرة المسيّرة',
+  'Slow cinematic drone descend': 'هبوط سينمائي بطيء للطائرة المسيّرة',
+  'Smooth aerial orbit around the building': 'مدار جوي سلس حول المبنى',
+  'Cinematic fly around the building': 'تحليق سينمائي حول المبنى',
+  'Reveal the front facade with a smooth approach': 'كشف الواجهة الأمامية بنهج سلس',
+  'Reveal the side elevation with a smooth lateral movement': 'كشف الارتفاع الجانبي بحركة جانبية سلسة',
+  'Epic architectural hero shot': 'لقطة بطولية ملحمية للمعمار',
+  'Natural street-level walkthrough': 'جولة طبيعية بمستوى الشارع',
+  'Walk naturally toward the entrance': 'المشي بشكل طبيعي نحو المدخل',
+  'Low angle cinematic shot': 'لقطة سينمائية بزاوية منخفضة',
+  'High angle architectural overview': 'نظرة عامة معمارية بزاوية عالية',
+  'Smooth cinematic zoom in': 'تكبير سينمائي سلس',
+  'Smooth cinematic zoom out': 'تصغير سينمائي سلس',
+  'Fly through the outdoor space': 'التحليق عبر الفضاء الخارجي',
+  'Reveal the landscape gradually': 'كشف المناظر الطبيعية تدريجياً',
+  'Highlight the swimming pool and reflections': 'إبراز المسبح والانعكاسات',
+  'Golden hour cinematic reveal': 'كشف سينمائي في الساعة الذهبية',
+  'Luxury night lighting showcase': 'عرض إضاءة ليلية فاخرة',
+  'Cinematic rainy atmosphere': 'أجواء ممطرة سينمائية',
+
+  // ─── Architecture Effects — Category ───────────────────────────────────────
+  'Architecture Effects': 'مؤثرات معمارية',
+
+  // ─── Architecture Effects — Labels ─────────────────────────────────────────
+  'Sketch to Render': 'من الرسم إلى الرندرة',
+  'Clay Render Reveal': 'كشف مجسم الطين',
+  'White Model to Reality': 'من النموذج الأبيض إلى الواقع',
+  'Blueprint Animation': 'رسوم لوحة الكتروستات',
+  'Materialization Effect': 'تأثير المواد التدريجي',
+  'Construction Assembly': 'تجميع مراحل البناء',
+  'Facade Build-Up': 'بناء الواجهة تدريجياً',
+  'Floor-by-Floor Construction': 'البناء طابق بطابق',
+  'Structural X-Ray': 'رؤية هيكل المبنى بالأشعة',
+  'Exploded Axonometric': 'مجسم أكسونومتري منفجر',
+  'Section Cut Animation': 'حركة القطع المقطعي',
+  'Interior to Exterior Transition': 'الانتقال من الداخل للخارج',
+  'Exterior to Interior Transition': 'الانتقال من الخارج للداخل',
+  'Furniture Auto Assembly': 'تجميع الأثاث التلقائي',
+  'Landscape Growth': 'نمو تدريجي للمناظر الطبيعية',
+  'Lights Turning On': 'إضاءة تدريجية',
+  'Glass Reflection Sweep': 'انعكاسات الزجاج المتحركة',
+  'Rain Cleanup': 'تنظيف المطر للمبنى',
+  'Seasonal Transformation': 'التحول عبر الفصول',
+  'Design Evolution': 'تطور مراحل التصميم',
+
+  // ─── Architecture Effects — Full Texts ─────────────────────────────────────
+  'Cinematic morphing transition from hand-drawn architectural line sketch to fully photorealistic rendered building. Pencil strokes gradually dissolve into premium materials, textures, and realistic lighting. Smooth progressive reveal, architectural precision maintained throughout, ultra-high detail emergence.':
+    'انتقال سينمائي من رسم معماري يدوي بالخطوط إلى مبنى فوتوواقعي مكتمل. تتلاشى ضربات القلم تدريجياً لتكشف عن مواد فاخرة وملمس واقعي وإضاءة احترافية. كشف تدريجي سلس مع الحفاظ على الدقة المعمارية طوال الانتقال.',
+
+  'Smooth cinematic transition from uniform white clay massing model to fully detailed photorealistic architectural visualization. Materials, glazing, cladding, and landscaping emerge progressively over the pristine white base. Elegant material materialization effect, cinematic lighting, premium architectural quality.':
+    'انتقال سينمائي سلس من مجسم الطين الأبيض الموحد إلى تصور معماري فوتوواقعي مفصل بالكامل. تظهر المواد والزجاج والكسوة وتنسيق الحدائق تدريجياً فوق القاعدة البيضاء النقية. تأثير تجسيد المواد الأنيق مع الإضاءة السينمائية.',
+
+  'Transform a white architectural scale model into a photorealistic full-scale building. Simulate the effect of reality gradually replacing the miniature — correct scale, premium materials, natural lighting, surrounding environment, cinematic depth of field transition from model to reality.':
+    'تحويل مجسم مصغر أبيض إلى مبنى واقعي بالحجم الطبيعي. محاكاة تأثير الواقع الذي يحل تدريجياً محل المجسم — نسب صحيحة، مواد فاخرة، إضاءة طبيعية، بيئة محيطة، انتقال سينمائي بعمق المجال من المجسم إلى الواقع.',
+
+  'Cinematic animation beginning from technical architectural blueprint drawings — blue-white technical lines, dimensions, and annotations — then progressively transitioning into a fully realized photorealistic building. Technical precision evolves into architectural reality, smooth morphing, cinematic reveal.':
+    'حركة سينمائية تبدأ من لوحات التصميم الهندسي الزرقاء — خطوط تقنية وأبعاد وتعليقات — ثم تنتقل تدريجياً إلى مبنى فوتوواقعي مكتمل. الدقة التقنية تتطور إلى واقع معماري، مورفينج سلس وكشف سينمائي.',
+
+  'Building structure appears as invisible wireframe or transparent ghost form, then materials gradually materialize surface by surface — concrete, glass, steel, wood cladding, stone — each layer solidifying with cinematic timing. Luxury material reveal, realistic reflections appear progressively, architectural detail emerges.':
+    'يظهر هيكل المبنى كإطار سلكي أو شبح شفاف، ثم تتجسد المواد تدريجياً سطحاً تلو الآخر — خرسانة، زجاج، فولاذ، خشب، حجر. كل طبقة تتصلب بتوقيت سينمائي دقيق مع ظهور الانعكاسات الواقعية تدريجياً.',
+
+  'Ultra-fast cinematic timelapse of a complete building construction sequence — foundation pour, structural frame erection, floor slab casting, facade panel installation, glazing insertion, MEP rough-in, finishing, landscaping. Smooth accelerated assembly, crane movements, workers at scale, dramatic architectural reveal at completion.':
+    'فاصل زمني سينمائي سريع لمراحل بناء مكتملة — صب الأساسات، رفع الهيكل الإنشائي، صب البلاطات، تركيب ألواح الواجهة، إدخال الزجاج، أعمال الإنهاء، تنسيق الحدائق. تجميع متسارع وسلس مع حركات الرافعات والعمال وكشف معماري درامي عند الاكتمال.',
+
+  'Cinematic close-up animation of architectural facade panels assembling from left to right or bottom to top. Each cladding panel, curtain wall module, louver, or stone tile clicks precisely into position. Material quality and texture revealed progressively, realistic shadows and reflections appear with each new element, premium architectural detail.':
+    'حركة مقربة سينمائية لألواح الواجهة المعمارية تتجمع من اليسار لليمين أو من الأسفل لأعلى. كل لوح كسوة أو وحدة جدار ستائري أو شريحة حجرية تستقر في موضعها بدقة. الجودة والملمس يُكشفان تدريجياً مع ظهور الظلال والانعكاسات الواقعية.',
+
+  'Dramatic architectural animation showing building construction progressing floor by floor from ground level upward. Each storey materializes with structural columns, beams, slabs, then facade closure — stacking progressively into the completed tower. Aerial cinematic perspective, realistic scale, construction realism.':
+    'حركة معمارية درامية تُظهر تقدم البناء طابقاً بطابق من مستوى الأرض لأعلى. كل طابق يتجسد بأعمدته وعوارضه وبلاطاته ثم إغلاق الواجهة، يتراكم تدريجياً في برج مكتمل. منظور جوي سينمائي بنسب واقعية وتفاصيل بناء حقيقية.',
+
+  'Cinematic X-ray visualization revealing the structural skeleton beneath the architectural facade. Exterior cladding becomes transparent to expose the internal structural system — columns, shear walls, beams, slabs, core — highlighted with technical precision. Smooth fade between opaque exterior and transparent structural reveal, architectural engineering visualization.':
+    'تصور سينمائي بالأشعة يكشف الهيكل الإنشائي الداخلي تحت الواجهة المعمارية. تصبح الكسوة الخارجية شفافة لتكشف عن المنظومة الإنشائية — الأعمدة وجدران القص والعوارض والبلاطات والنواة. تلاشٍ سلس بين الواجهة الكاملة والكشف الإنشائي الشفاف.',
+
+  'Smooth cinematic exploded axonometric animation — building components separate and float apart layer by layer revealing internal organization: foundation, structure, services, floors, facade, roof. Each system drifts to its exploded position with precise architectural labelling, then reassembles perfectly. Premium technical visualization quality.':
+    'حركة أكسونومترية سينمائية سلسة منفجرة — مكونات المبنى تنفصل وتطفو متباعدة طبقة تلو الأخرى لتكشف التنظيم الداخلي: الأساس، الهيكل، الخدمات، الطوابق، الواجهة، السقف. ثم تعود لتجميع نفسها بدقة. جودة تصور تقني فاخرة.',
+
+  'Dramatic architectural section-cut animation — an invisible precision cutting plane slices through the building revealing interior spaces, floor plates, room arrangements, material thicknesses, and structural sections. Cut plane moves smoothly through the building, interior spaces illuminate progressively, architectural section quality rendering.':
+    'حركة قطع مقطعي معمارية درامية — مستوى قطع دقيق غير مرئي يخترق المبنى ليكشف الفراغات الداخلية والبلاطات وترتيب الغرف وسماكات المواد والمقاطع الإنشائية. مستوى القطع يتحرك بسلاسة والفراغات الداخلية تضيء تدريجياً.',
+
+  'Seamless cinematic transition beginning inside a luxury interior space — moving forward through a glazed facade or window — and smoothly transitioning to a full exterior architectural view of the building. Interior ambiance dissolves into exterior daylight, material continuity maintained, architectural coherence preserved.':
+    'انتقال سينمائي سلس يبدأ من داخل فضاء داخلي فاخر — يتحرك للأمام عبر واجهة زجاجية أو نافذة — وينتقل بسلاسة إلى منظر خارجي معماري كامل للمبنى. يتلاشى المناخ الداخلي في ضوء النهار الخارجي مع الحفاظ على استمرارية المواد.',
+
+  'Smooth cinematic journey beginning from an exterior aerial or street-level view of the building, flying or walking through the facade into a fully detailed luxury interior. Exterior cladding transitions seamlessly into interior finishes, daylight follows the camera through glazing, architectural spatial sequence revealed.':
+    'رحلة سينمائية سلسة تبدأ من منظر خارجي جوي أو بمستوى الشارع، تحلق أو تمشي عبر الواجهة إلى داخل فاخر مفصل بالكامل. الكسوة الخارجية تنتقل بسلاسة إلى التشطيبات الداخلية، ضوء النهار يتبع الكاميرا عبر الزجاج.',
+
+  'Cinematic animation of furniture pieces appearing and self-assembling within an empty architectural interior — chairs, tables, sofas, lighting fixtures, and decorative objects materialize from invisible to fully placed, scaling in from zero or floating into final position. Room transforms from empty shell to fully furnished luxury space, elegant timing.':
+    'حركة سينمائية لقطع الأثاث تظهر وتجمع نفسها تلقائياً داخل فضاء داخلي معماري فارغ — كراسي وطاولات وأرائك ومصابيح وعناصر ديكور تتجسد من الغياب إلى موضعها النهائي. الغرفة تتحول من قشرة فارغة إلى فضاء فاخر مفروش بالكامل.',
+
+  'Cinematic time-accelerated growth animation of architectural landscape — bare earth transforms progressively as trees grow from saplings to mature canopy, grass fills in, water features activate, planting beds bloom, pathways complete. Building remains constant while living landscape establishes itself around it, ultra-realistic botanical progression.':
+    'حركة نمو متسارعة سينمائياً للمناظر الطبيعية المعمارية — الأرض العارية تتحول تدريجياً بينما تنمو الأشجار من شتلات إلى ظل ناضج، والعشب يتغطى، والمسطحات المائية تنشط، وأسرة النباتات تتفتح، والمسارات تكتمل.',
+
+  'Cinematic dusk-to-night animation of an architectural building where interior and exterior lights progressively activate — room by room, floor by floor. Warm interior ambient glow appears behind glazing, architectural accent lighting illuminates facade elements, landscape uplighting activates, reflections on surfaces appear. Luxury night lighting choreography.':
+    'حركة سينمائية من الغسق إلى الليل حيث تنشط الأضواء الداخلية والخارجية تدريجياً — غرفة بغرفة وطابقاً بطابق. تظهر إضاءة الأجواء الدافئة خلف الزجاج، وتضيء إضاءة الواجهة التشكيلية عناصر الواجهة، وتنشط الإضاءة التصاعدية للحدائق.',
+
+  'Cinematic sweep of light reflections across large architectural glass surfaces — curtain walls, skylights, glazed facades. A moving light source or time-lapse sky creates dynamic reflections that sweep dramatically across the glass, revealing structural framing behind, interior spaces glimpsed through the reflections. Premium glazing material quality.':
+    'انعكاسات سينمائية تجتاح الأسطح الزجاجية المعمارية الكبيرة — الجدران الستائرية والمصابيح الضوئية والواجهات الزجاجية. مصدر ضوء متحرك أو سماء متسارعة تخلق انعكاسات ديناميكية تجتاح الزجاج بشكل درامي.',
+
+  'Cinematic architectural transformation where heavy rain gradually cleans and refreshes the building — dust washes away, surfaces gleam wet, puddles reflect the facade, materials darken with moisture then dry revealing pristine finishes. Smooth weather transition from overcast rain to clearing sky, architecture revealed in fresh clarity.':
+    'تحول معماري سينمائي حيث يُنظف المطر الغزير المبنى تدريجياً — يُزال الغبار، الأسطح تلمع رطبة، البرك تعكس الواجهة، المواد تُعتم بالرطوبة ثم تجف لتكشف عن تشطيبات نقية. انتقال جوي سلس من المطر الغائم إلى السماء الصافية.',
+
+  'Ultra-smooth cinematic timelapse of an architectural building through all four seasons — spring blossom, summer full canopy, autumn golden foliage, winter bare structure and snow. Sky, vegetation, and light quality transform while architecture remains constant. Seamless seasonal morphing, realistic environmental transitions, full year in one elegant sequence.':
+    'فاصل زمني سينمائي فائق النعومة عبر فصول السنة الأربعة — ازدهار الربيع والمظلة الصيفية الكاملة وأوراق الخريف الذهبية وهيكل الشتاء الجرداء والثلج. السماء والغطاء النباتي وجودة الضوء تتحول بينما تبقى العمارة ثابتة.',
+
+  'Cinematic morphing sequence showing the architectural design evolution — from concept massing to schematic design to design development to final photorealistic detail. Each stage transitions smoothly into the next with increasing material resolution, detail depth, and environmental richness. Design thinking process visualized cinematically, architectural progression.':
+    'تسلسل مورفينج سينمائي يُظهر تطور التصميم المعماري — من الكتلة المفاهيمية إلى التصميم التخطيطي إلى تطوير التصميم إلى التفاصيل الفوتوواقعية النهائية. كل مرحلة تنتقل بسلاسة إلى التالية مع تزايد دقة المواد وعمق التفاصيل وثراء البيئة المحيطة.'
 };

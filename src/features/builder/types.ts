@@ -23,6 +23,7 @@ export type ProcessingType =
   | 'lighting'    // Lighting adjustment
   | 'material'    // Material change
   | 'local'       // Local edit/inpainting
+  | 'video'       // Video generation
   | 'variation';  // Style variation
 
 // ============================================================================
@@ -38,6 +39,8 @@ export interface DataPacket {
     format?: string;
     timestamp: number;
     operationType: ProcessingType;
+    model?: string;
+    isVideo?: boolean;
   };
   dimensions?: {
     width: number;
@@ -243,6 +246,16 @@ export const PROCESSING_CONFIGS: Record<ProcessingType, ProcessingConfig> = {
     color: '#06b6d4',
     supportsPrompt: true,
     inputRequired: ['image'],
+    outputType: 'image'
+  },
+  video: {
+    id: 'video',
+    label: 'Video Gen',
+    description: 'Generate video from prompt',
+    icon: 'Clapperboard',
+    color: '#8b5cf6',
+    supportsPrompt: true,
+    inputRequired: ['prompt'],
     outputType: 'image'
   }
 };

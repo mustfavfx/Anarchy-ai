@@ -11,12 +11,13 @@ import {
   Search, PersonStanding, Layers,
   Clapperboard, BookImage, CircleDashed, PenLine, Paintbrush,
   SwatchBook, PanelTop, Ruler, Scissors, Box, Map,
-  Aperture, BookOpen, Coins, Languages,
+  Aperture, BookOpen, Coins, Languages, GitBranch,
   type LucideIcon
 } from 'lucide-react';
-import { PRESET_PROMPTS } from '../presetPrompts';
+import { PRESET_PROMPTS, VIDEO_PRESET_PROMPTS } from '../presetPrompts';
 import { PRESETS_TRANSLATIONS_AR } from '../presetPromptsAr';
 import { getModelCost } from '../../../services/credit/creditService';
+import { useAIConfigStore } from '../../../stores/aiConfigStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
 
 const PRESET_ICON_MAP: Record<string, LucideIcon> = {
@@ -31,7 +32,7 @@ const PRESET_ICON_MAP: Record<string, LucideIcon> = {
   Search, PersonStanding, Layers,
   Clapperboard, BookImage, CircleDashed, PenLine, Paintbrush,
   SwatchBook, PanelTop, Ruler, Scissors, Box, Map,
-  Aperture
+  Aperture, GitBranch
 };
 
 interface BuilderPromptBarProps {
@@ -75,6 +76,20 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const addNotification = useNotificationStore((s) => s.addNotification);
 
+  const VIDEO_MODEL_IDS = [
+    'bytedance/seedance-2.0',
+    'kwaivgi/kling-v3-omni-video',
+    'xai/grok-imagine-video-1.5',
+    'prunaai/p-video',
+    'google/veo-3.1-fast',
+    'pixverse/pixverse-v6',
+    'openai/sora-2-pro',
+    'wavespeedai/wan-2.1-i2v-480p',
+    'wavespeedai/wan-2.1-i2v-720p',
+  ];
+  const isVideoModel = VIDEO_MODEL_IDS.some(id => liveModel.startsWith(id) || id.startsWith(liveModel));
+  const activePrompts = isVideoModel ? VIDEO_PRESET_PROMPTS : PRESET_PROMPTS;
+
   useEffect(() => {
     if (!showPresets) return;
     const handleClick = (e: MouseEvent) => {
@@ -104,12 +119,16 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
     }
   };
 
+  const aiConfig = useAIConfigStore((s) => s.config);
   const cost = getModelCost(liveModel, {
     resolution: liveResolution,
     qualityVariant: liveQuality,
     prunaTarget: livePruna,
     upscaleFactor,
     isTrial,
+    width: aiConfig.width,
+    height: aiConfig.height,
+    videoDuration: aiConfig.videoDuration,
   });
 
   return (
@@ -149,7 +168,7 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
                   <span>{isArabicPresets ? 'EN' : 'AR'}</span>
                 </button>
               </div>
-              {PRESET_PROMPTS.map((group) => {
+              {activePrompts.map((group) => {
                 const categoryLabel = isArabicPresets ? (PRESETS_TRANSLATIONS_AR[group.category] || group.category) : group.category;
                 return (
                   <div key={group.category} className="presets-group">

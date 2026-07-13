@@ -35,7 +35,7 @@ This guide explains how to set up the Replicate webhook for async image generati
 ### 1. Deploy Edge Function
 
 ```bash
-supabase functions deploy replicate-webhook
+supabase functions deploy replicate_webhook
 ```
 
 ### 2. Set Webhook Signing Key Secret
@@ -55,7 +55,7 @@ In Replicate Dashboard:
 1. Go to https://replicate.com/account/webhooks
 2. Add webhook URL:
    ```
-   https://your-project-ref.supabase.co/functions/v1/replicate-webhook
+   https://your-project-ref.supabase.co/functions/v1/replicate_webhook
    ```
 3. Select events:
    - `prediction.started` (optional)
@@ -99,7 +99,7 @@ VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key
 
 # Webhook URL (auto-constructed if not set)
-VITE_REPLICATE_WEBHOOK_URL=https://your-project-ref.supabase.co/functions/v1/replicate-webhook
+VITE_REPLICATE_WEBHOOK_URL=https://your-project-ref.supabase.co/functions/v1/replicate_webhook
 ```
 
 ## How It Works
@@ -220,7 +220,7 @@ npx ngrok http 54321
 ### Test Signature Verification
 
 ```bash
-curl -X POST http://localhost:54321/functions/v1/replicate-webhook \
+curl -X POST http://localhost:54321/functions/v1/replicate_webhook \
   -H "Content-Type: application/json" \
   -H "Replicate-Signature: sha256=invalid" \
   -d '{"test": "data"}'

@@ -8,16 +8,18 @@ import {
   ChevronDown, Check, Wand2, ImagePlus, Maximize2, 
   Film, Zap, Sparkles,
   Banana,
-  Flame, Crown, Star
+  Flame, Crown, Star,
+  Sprout, Clapperboard, Brain, Layers, Rocket, Globe,
+  X, FolderOpen, FileVideo, FileImage, Volume2
 } from 'lucide-react';
-import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
+import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel, type ReplicateVideoModel } from '../../services/replicate';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { WatermarkPosition } from '../../stores/aiConfigStore';
 import './AIControlPanel.css';
 
 interface AIControlPanelProps {
-  selectedModel: ReplicateImageModel | ReplicateUpscaleModel;
-  onModelChange: (model: ReplicateImageModel | ReplicateUpscaleModel) => void;
+  selectedModel: ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel;
+  onModelChange: (model: ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel) => void;
   params: {
     steps: number;
     cfg: number;
@@ -30,6 +32,8 @@ interface AIControlPanelProps {
     upscaleFactor?: number;
     resolution?: string;
     aspectRatio?: string;
+    width?: number;
+    height?: number;
     // Watermark settings
     enableWatermark: boolean;
     watermarkText: string;
@@ -70,6 +74,39 @@ interface AIControlPanelProps {
     // Style settings
     styleType?: string;
     stylePreset?: string;
+    // Seedream sequential settings
+    sequentialImageGeneration?: string;
+    maxImages?: number;
+    // Video settings
+    videoDuration?: string;
+    videoQuality?: string;
+    motionStrength?: number;
+    videoFps?: number;
+    // Seedance 2.0 settings
+    seedanceLastFrameImage?: string | null;
+    seedanceGenerateAudio?: boolean;
+    // Kling v3 Omni Video settings
+    klingStartImage?: string | null;
+    klingEndImage?: string | null;
+    klingReferenceImages?: string[] | null;
+    klingReferenceVideo?: string | null;
+    klingVideoReferenceType?: string;
+    klingKeepOriginalSound?: boolean;
+    klingGenerateAudio?: boolean;
+    klingMode?: string;
+    // Pruna video settings
+    prunaLastFrameImage?: string | null;
+    prunaAudio?: string | null;
+    prunaFps?: number;
+    // Google Veo settings
+    veoLastFrame?: string | null;
+    veoGenerateAudio?: boolean;
+    // PixVerse v6 settings
+    pixverseLastFrameImage?: string | null;
+    pixverseGenerateAudioSwitch?: boolean;
+    pixverseGenerateMultiClipSwitch?: boolean;
+    // OpenAI Sora settings
+    soraInputReference?: string | null;
   };
   onParamsChange: (params: AIControlPanelProps['params']) => void;
 }
@@ -125,6 +162,247 @@ const PanelSelect: React.FC<PanelSelectProps> = ({ value, options, onChange, cla
   );
 };
 
+interface PanelFileSelectorProps {
+  label: string;
+  value: string | null | undefined;
+  accept: string;
+  hint?: string;
+  placeholder?: string;
+  onChange: (url: string | null) => void;
+}
+const PanelFileSelector: React.FC<PanelFileSelectorProps> = ({
+  label,
+  value,
+  accept,
+  hint,
+  placeholder = 'Enter a URL, paste a file, or drag a file over...',
+  onChange
+}) => {
+  const isVideo = accept.includes('video');
+  const [inputValue, setInputValue] = useState(value || '');
+
+  useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        onChange(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleInputChange = (val: string) => {
+    setInputValue(val);
+    onChange(val || null);
+  };
+
+  return (
+    <div className="control-section" style={{ marginTop: '12px' }}>
+      <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        {isVideo ? <Film size={12} /> : accept.includes('audio') ? <Volume2 size={12} /> : <ImagePlus size={12} />}
+        {label}
+      </label>
+      
+      <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => handleInputChange(e.target.value)}
+          placeholder={placeholder}
+          style={{
+            flex: 1,
+            background: '#0f172a',
+            border: '1px solid #334155',
+            borderRadius: '6px',
+            color: '#f8fafc',
+            padding: '6px 10px',
+            fontSize: '12px',
+            outline: 'none',
+            transition: 'border-color 0.2s'
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#e11d48'}
+          onBlur={(e) => e.target.style.borderColor = '#334155'}
+        />
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            background: '#1e293b',
+            border: '1px solid #334155',
+            color: '#94a3b8',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          title="Browse local file"
+        >
+          <FolderOpen size={16} />
+          <input
+            type="file"
+            accept={accept}
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+        </label>
+      </div>
+
+      {value && (
+        <div style={{ position: 'relative', marginTop: '8px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', padding: '4px' }}>
+          {isVideo ? (
+            <video
+              src={value}
+              controls
+              style={{ maxHeight: '100px', maxWidth: '100%', borderRadius: '4px' }}
+            />
+          ) : accept.includes('audio') ? (
+            <audio
+              src={value}
+              controls
+              style={{ maxWidth: '100%', borderRadius: '4px' }}
+            />
+          ) : (
+            <img
+              src={value}
+              alt={label}
+              style={{ maxHeight: '100px', objectFit: 'contain', borderRadius: '4px' }}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(244,63,94,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+            title="Remove"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
+      {hint && (
+        <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+};
+
+interface PanelMultipleFilesSelectorProps {
+  label: string;
+  value: string[] | null | undefined;
+  accept: string;
+  hint?: string;
+  onChange: (urls: string[]) => void;
+}
+const PanelMultipleFilesSelector: React.FC<PanelMultipleFilesSelectorProps> = ({
+  label,
+  value = [],
+  accept,
+  hint,
+  onChange
+}) => {
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const readPromises = files.map(file => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          resolve(ev.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(readPromises).then(newUrls => {
+      onChange([...(value || []), ...newUrls]);
+    });
+  };
+
+  const removeFile = (index: number) => {
+    const newVal = [...(value || [])];
+    newVal.splice(index, 1);
+    onChange(newVal);
+  };
+
+  return (
+    <div className="control-section" style={{ marginTop: '12px' }}>
+      <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <ImagePlus size={12} />
+        {label}
+      </label>
+
+      {/* Grid of uploaded reference images */}
+      {value && value.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '6px' }}>
+          {value.map((url, idx) => (
+            <div key={idx} style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '4px', overflow: 'hidden', border: '1px solid #334155', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src={url}
+                alt={`ref-${idx}`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              <button
+                type="button"
+                onClick={() => removeFile(idx)}
+                style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(244,63,94,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload button area */}
+      <label
+        style={{
+          display: 'block',
+          marginTop: '6px',
+          cursor: 'pointer',
+          border: '1px dashed #475569',
+          borderRadius: '6px',
+          padding: '10px',
+          textAlign: 'center',
+          backgroundColor: 'rgba(30,41,59,0.5)',
+          color: '#94a3b8',
+          fontSize: '12px',
+          transition: 'all 0.2s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.borderColor = '#e11d48'}
+        onMouseOut={(e) => e.currentTarget.style.borderColor = '#475569'}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <ImagePlus size={14} /> Add multiple files
+        </span>
+        <input
+          type="file"
+          accept={accept}
+          multiple
+          onChange={handleFilesChange}
+          style={{ display: 'none' }}
+        />
+      </label>
+
+      {hint && (
+        <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+};
+
 // Tool types matching the reference design
 type ToolType = 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator';
 
@@ -132,12 +410,12 @@ const TOOLS: { id: ToolType; name: string; icon: React.ReactNode; disabled?: boo
   { id: 'image-editor',   name: 'Image Editing',     icon: <Wand2 size={16} /> },
   { id: 'image-upscaler', name: 'Image Upscaling',   icon: <Maximize2 size={16} /> },
   { id: 'image-creator',  name: 'Image Generation',  icon: <ImagePlus size={16} />, disabled: true },
-  { id: 'video-creator',  name: 'Video Generation',  icon: <Film size={16} />,      disabled: true },
+  { id: 'video-creator',  name: 'Video Generation',  icon: <Film size={16} /> },
 ];
 
 // Engine/Models definition - supports all model types (image, upscale, video, 3D, chat)
 interface Engine {
-  id: ReplicateImageModel | ReplicateUpscaleModel;
+  id: ReplicateImageModel | ReplicateUpscaleModel | import('../../services/replicate/ReplicateService').ReplicateVideoModel;
   name: string;
   provider: 'Google' | 'BlackForest' | 'Recraft' | 'Together' | 'ByteDance' | 'OpenAI' | 'Replicate';
   color: string;
@@ -148,6 +426,67 @@ interface Engine {
 
 
 const ENGINES: Engine[] = [
+  // ── Video Generation (7 models) ──
+  {
+    id: 'bytedance/seedance-2.0',
+    name: 'Seedance 2.0',
+    provider: 'ByteDance',
+    color: '#3b82f6',
+    icon: <Sprout size={18} />,
+    tool: 'video-creator',
+    badge: 'Fast'
+  },
+  {
+    id: 'kwaivgi/kling-v3-omni-video',
+    name: 'Kling v3 Omni Video',
+    provider: 'Together',
+    color: '#ef4444',
+    icon: <Clapperboard size={18} />,
+    tool: 'video-creator',
+    badge: 'Pro'
+  },
+  {
+    id: 'xai/grok-imagine-video-1.5',
+    name: 'Grok Imagine Video 1.5',
+    provider: 'Replicate',
+    color: '#10b981',
+    icon: <Brain size={18} />,
+    tool: 'video-creator'
+  },
+  {
+    id: 'prunaai/p-video',
+    name: 'Pruna AI P-Video',
+    provider: 'Replicate',
+    color: '#8b5cf6',
+    icon: <Layers size={18} />,
+    tool: 'video-creator'
+  },
+  {
+    id: 'google/veo-3.1-fast',
+    name: 'Google Veo 3.1 Fast',
+    provider: 'Google',
+    color: '#f59e0b',
+    icon: <Rocket size={18} />,
+    tool: 'video-creator',
+    badge: '3.1 Fast'
+  },
+  {
+    id: 'pixverse/pixverse-v6',
+    name: 'PixVerse v6',
+    provider: 'Replicate',
+    color: '#ec4899',
+    icon: <Globe size={18} />,
+    tool: 'video-creator'
+  },
+  {
+    id: 'openai/sora-2-pro',
+    name: 'Sora 2 Pro',
+    provider: 'OpenAI',
+    color: '#06b6d4',
+    icon: <Crown size={18} />,
+    tool: 'video-creator',
+    badge: 'Pro'
+  },
   // ── Image Editing (7 models in requested order) ──
   {
     id: 'google/nano-banana-2',
@@ -159,12 +498,30 @@ const ENGINES: Engine[] = [
     badge: 'New'
   },
   {
+    id: 'google/nano-banana-2-lite',
+    name: 'Nano Banana 2 Lite',
+    provider: 'Google',
+    color: '#e11d48',
+    icon: <Banana size={18} />,
+    tool: 'image-editor',
+    badge: 'Lite'
+  },
+  {
     id: 'bytedance/seedream-4.5',
     name: 'Seedream 4.5',
     provider: 'ByteDance',
     color: '#e11d48',
     icon: <Zap size={18} />,
     tool: 'image-editor'
+  },
+  {
+    id: 'bytedance/seedream-5-pro',
+    name: 'Seedream 5 Pro',
+    provider: 'ByteDance',
+    color: '#e11d48',
+    icon: <Zap size={18} />,
+    tool: 'image-editor',
+    badge: 'Pro'
   },
   {
     id: 'black-forest-labs/flux-2-pro',
@@ -255,6 +612,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   const [showAspectDropdown, setShowAspectDropdown] = useState(false);
   const [showStyleTypeDropdown, setShowStyleTypeDropdown] = useState(false);
   const [showStylePresetDropdown, setShowStylePresetDropdown] = useState(false);
+  const [showSeqDropdown, setShowSeqDropdown] = useState(false);
 
   // Ref to track previous tool value
   const prevSelectedToolRef = useRef<ToolType>(selectedTool);
@@ -283,6 +641,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   const aspectDropdownRef = useRef<HTMLDivElement>(null);
   const styleTypeDropdownRef = useRef<HTMLDivElement>(null);
   const stylePresetDropdownRef = useRef<HTMLDivElement>(null);
+  const seqDropdownRef = useRef<HTMLDivElement>(null);
 
   const availableEngines = useMemo(
     () => ENGINES.filter(engine => engine.tool === selectedTool),
@@ -311,6 +670,14 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
     if (params.aspectRatio && !availableAspectRatios.includes(params.aspectRatio)) {
       updates.aspectRatio = availableAspectRatios[0] ?? '1:1';
     }
+
+    // Auto-correct video duration for Seedance 2.0
+    if (selectedModel === 'bytedance/seedance-2.0') {
+      const dur = params.videoDuration != null ? Number(String(params.videoDuration).replace('s', '')) : 5;
+      if (dur !== -1 && (dur < 4 || dur > 15)) {
+        updates.videoDuration = '5';
+      }
+    }
     
     // Apply updates if needed
     if (Object.keys(updates).length > 0) {
@@ -330,7 +697,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
     
     // Only change model if tool changed AND current model is not available in new tool
     if (toolChanged && availableEngines.length > 0 && !availableEngines.some(engine => engine.id === selectedModelRef.current)) {
-      onModelChange(availableEngines[0].id as ReplicateImageModel | ReplicateUpscaleModel);
+      onModelChange(availableEngines[0].id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
     }
   }, [selectedTool, availableEngines, onModelChange]);
 
@@ -343,6 +710,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
       setShowAspectDropdown(false);
       setShowStyleTypeDropdown(false);
       setShowStylePresetDropdown(false);
+      setShowSeqDropdown(false);
     };
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -353,7 +721,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
         (resDropdownRef.current?.contains(target)) ||
         (aspectDropdownRef.current?.contains(target)) ||
         (styleTypeDropdownRef.current?.contains(target)) ||
-        (stylePresetDropdownRef.current?.contains(target))
+        (stylePresetDropdownRef.current?.contains(target)) ||
+        (seqDropdownRef.current?.contains(target))
       );
       if (!insideAny) closeAll();
     };
@@ -453,7 +822,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                 key={engine.id}
                 className={`dropdown-item engine-item ${selectedModel === engine.id ? 'active' : ''}`}
                 onClick={() => {
-                  onModelChange(engine.id as ReplicateImageModel | ReplicateUpscaleModel);
+                  onModelChange(engine.id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
                   setShowEngineDropdown(false);
                 }}
               >
@@ -1028,7 +1397,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
           )}
         </>
       ) : (
-        <div className="control-row">
+        <>
+          <div className="control-row">
           {/* Resolution / Quality */}
           <div className="control-half" ref={resDropdownRef}>
             <label className="section-label">
@@ -1086,6 +1456,554 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               </div>
             )}
           </div>
+        </div>
+      
+        {/* Video Creator specific advanced controls */}
+        {selectedTool === 'video-creator' && (
+          <>
+            {/* Duration Selector & input_reference Selector (for Sora) */}
+            {selectedModel === 'openai/sora-2-pro' && (
+              <>
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label className="section-label">Duration</label>
+                  <div className="upscale-factor-row">
+                    {['4s', '8s', '12s'].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        className={`upscale-factor-btn ${(params.videoDuration ?? '4s') === d ? 'active' : ''}`}
+                        onClick={() => updateParam('videoDuration', d)}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* input_reference */}
+                <PanelFileSelector
+                  label="input_reference"
+                  value={params.soraInputReference}
+                  accept="image/*"
+                  hint="Optional. An image to use as the first frame of the video. The image must be the same aspect ratio as the video."
+                  onChange={(v) => updateParam('soraInputReference', v)}
+                />
+              </>
+            )}
+
+            {/* Kling Quality/Mode (for Kling v3) */}
+            {selectedModel === 'kwaivgi/kling-v3-omni-video' && (
+              <>
+                {/* Duration Slider (3-15 seconds) */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <div className="section-label-row">
+                    <label className="section-label">duration</label>
+                    <span className="param-value badge">{params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="3"
+                    max="15"
+                    step="1"
+                    value={params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5}
+                    onChange={(e) => updateParam('videoDuration', `${e.target.value}s`)}
+                    style={{ width: '100%', accentColor: '#e11d48', height: '6px', background: '#334155', borderRadius: '3px', cursor: 'pointer' }}
+                  />
+                  <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                    Video duration in seconds (3-15). Ignored for video editing (base). Default: 5
+                  </span>
+                </div>
+
+                {/* end_image */}
+                <PanelFileSelector
+                  label="end_image"
+                  value={params.klingEndImage}
+                  accept="image/*"
+                  hint="Last frame image. Requires start_image. Supports .jpg/.jpeg/.png, max 10MB, min 300px."
+                  onChange={(v) => updateParam('klingEndImage', v)}
+                />
+
+
+
+                {/* video_reference_type */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label className="section-label">video_reference_type</label>
+                  <PanelSelect
+                    value={params.klingVideoReferenceType ?? 'feature'}
+                    options={[
+                      { value: 'feature', label: 'feature' },
+                      { value: 'base', label: 'base' }
+                    ]}
+                    onChange={(v) => updateParam('klingVideoReferenceType', v)}
+                  />
+                  <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                    How to use reference video: 'feature' for style/camera reference, 'base' for video editing. Default: "feature"
+                  </span>
+                </div>
+
+                {/* Checkboxes: keep_original_sound and generate_audio */}
+                <div className="control-section" style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={params.klingKeepOriginalSound !== false}
+                      onChange={(e) => updateParam('klingKeepOriginalSound', e.target.checked)}
+                      style={{ accentColor: '#e11d48', cursor: 'pointer' }}
+                    />
+                    <span className="checkbox-label" style={{ marginLeft: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      keep_original_sound
+                    </span>
+                  </label>
+                  <span className="param-hint" style={{ display: 'block', marginTop: '-4px', fontSize: '11px', color: '#64748b' }}>
+                    Keep original sound from reference video. Default: true
+                  </span>
+
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginTop: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={params.klingGenerateAudio === true}
+                      onChange={(e) => updateParam('klingGenerateAudio', e.target.checked)}
+                      style={{ accentColor: '#e11d48', cursor: 'pointer' }}
+                    />
+                    <span className="checkbox-label" style={{ marginLeft: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      generate_audio
+                    </span>
+                  </label>
+                  <span className="param-hint" style={{ display: 'block', marginTop: '-4px', fontSize: '11px', color: '#64748b' }}>
+                    Generate native audio. Mutually exclusive with reference video. Default: false
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Grok Imagine Video settings */}
+            {selectedModel === 'xai/grok-imagine-video-1.5' && (
+              <>
+                {/* Duration Slider (1-15 seconds) */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <div className="section-label-row">
+                    <label className="section-label">duration</label>
+                    <span className="param-value badge">{params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="15"
+                    step="1"
+                    value={params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5}
+                    onChange={(e) => updateParam('videoDuration', `${e.target.value}s`)}
+                    style={{ width: '100%', accentColor: '#e11d48', height: '6px', background: '#334155', borderRadius: '3px', cursor: 'pointer' }}
+                  />
+                  <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                    Duration of the video in seconds. Default: 5
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Pruna AI Video settings */}
+            {selectedModel === 'prunaai/p-video' && (
+              <>
+                {/* Duration Slider (1-20 seconds) */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <div className="section-label-row">
+                    <label className="section-label">duration</label>
+                    <span className="param-value badge">{params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="1"
+                    value={params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5}
+                    onChange={(e) => updateParam('videoDuration', `${e.target.value}s`)}
+                    style={{ width: '100%', accentColor: '#e11d48', height: '6px', background: '#334155', borderRadius: '3px', cursor: 'pointer' }}
+                  />
+                  <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                    Duration of the video in seconds (1-20). Ignored when audio is provided. Default: 5
+                  </span>
+                </div>
+
+                {/* last_frame_image */}
+                <PanelFileSelector
+                  label="last_frame_image"
+                  value={params.prunaLastFrameImage}
+                  accept="image/*"
+                  hint="Optional. Reference image for the last frame of the video. Supports jpg, jpeg, png, webp."
+                  onChange={(v) => updateParam('prunaLastFrameImage', v)}
+                />
+
+                {/* audio */}
+                <PanelFileSelector
+                  label="audio"
+                  value={params.prunaAudio}
+                  accept="audio/*"
+                  hint="Optional. Input audio to condition video generation. Supports flac, mp3, wav."
+                  onChange={(v) => updateParam('prunaAudio', v)}
+                />
+
+                {/* fps Selector */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label className="section-label">fps</label>
+                  <PanelSelect
+                    value={params.prunaFps ?? 24}
+                    options={[
+                      { value: 24, label: '24' },
+                      { value: 48, label: '48' }
+                    ]}
+                    onChange={(v) => updateParam('prunaFps', parseInt(v, 10))}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Google Veo 3.1 Fast settings */}
+            {selectedModel === 'google/veo-3.1-fast' && (
+              <>
+                {/* Duration Selector (4s, 6s, 8s) */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label className="section-label">Duration</label>
+                  <div className="upscale-factor-row">
+                    {['4s', '6s', '8s'].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        className={`upscale-factor-btn ${(params.videoDuration ?? '8s') === d ? 'active' : ''}`}
+                        onClick={() => updateParam('videoDuration', d)}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* last_frame */}
+                <PanelFileSelector
+                  label="last_frame"
+                  value={params.veoLastFrame}
+                  accept="image/*"
+                  hint="Optional. reference/preview of last frame."
+                  onChange={(v) => updateParam('veoLastFrame', v)}
+                />
+
+                {/* generate_audio */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={params.veoGenerateAudio !== false}
+                      onChange={(e) => updateParam('veoGenerateAudio', e.target.checked)}
+                      style={{ accentColor: '#e11d48', cursor: 'pointer' }}
+                    />
+                    <span className="checkbox-label" style={{ marginLeft: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      generate_audio
+                    </span>
+                  </label>
+                  <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                    Generate audio with the video. Default: true
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* PixVerse settings */}
+            {selectedModel === 'pixverse/pixverse-v6' && (
+              <>
+                {/* Duration Selector (5s, 8s, 10s, 15s) */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label className="section-label">Duration</label>
+                  <div className="upscale-factor-row">
+                    {['5s', '8s', '10s', '15s'].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        className={`upscale-factor-btn ${(params.videoDuration ?? '15s') === d ? 'active' : ''}`}
+                        onClick={() => updateParam('videoDuration', d)}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* last_frame_image */}
+                <PanelFileSelector
+                  label="last_frame_image"
+                  value={params.pixverseLastFrameImage}
+                  accept="image/*"
+                  hint="Optional. Use to generate a video that transitions from the first image to the last image. Must be used with image."
+                  onChange={(v) => updateParam('pixverseLastFrameImage', v)}
+                />
+
+                {/* Checkboxes: generate_audio_switch and generate_multi_clip_switch */}
+                <div className="control-section" style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={params.pixverseGenerateAudioSwitch === true}
+                      onChange={(e) => updateParam('pixverseGenerateAudioSwitch', e.target.checked)}
+                      style={{ accentColor: '#e11d48', cursor: 'pointer' }}
+                    />
+                    <span className="checkbox-label" style={{ marginLeft: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      generate_audio_switch
+                    </span>
+                  </label>
+                  <span className="param-hint" style={{ display: 'block', marginTop: '-4px', fontSize: '11px', color: '#64748b' }}>
+                    Enable AI-generated audio including BGM, SFX, and character dialogues. Default: false
+                  </span>
+
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginTop: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={params.pixverseGenerateMultiClipSwitch === true}
+                      onChange={(e) => updateParam('pixverseGenerateMultiClipSwitch', e.target.checked)}
+                      style={{ accentColor: '#e11d48', cursor: 'pointer' }}
+                    />
+                    <span className="checkbox-label" style={{ marginLeft: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      generate_multi_clip_switch
+                    </span>
+                  </label>
+                  <span className="param-hint" style={{ display: 'block', marginTop: '-4px', fontSize: '11px', color: '#64748b' }}>
+                    Enable multi-shot generation for cinematic sequences with scene transitions. Default: false
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Pruna Video Quality Slider */}
+            {selectedModel === 'prunaai/p-video' && (
+              <div className="control-section" style={{ marginTop: '12px' }}>
+                <div className="section-label-row">
+                  <label className="section-label">Output Quality</label>
+                  <span className="param-value badge">{params.prunaQuality ?? 80}</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={params.prunaQuality ?? 80}
+                  onChange={(e) => updateParam('prunaQuality', Number.parseInt(e.target.value))}
+                  className="param-slider"
+                />
+                <div className="slider-hints">
+                  <span>10</span>
+                  <span>100</span>
+                </div>
+              </div>
+            )}
+            {/* Seedance 2.0 specific settings */}
+            {selectedModel === 'bytedance/seedance-2.0' && (
+              <>
+                {/* Duration Slider (-1 to 15) */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <div className="section-label-row">
+                    <label className="section-label">Duration</label>
+                    <span className="param-value badge">
+                      {params.videoDuration === '-1' || (params.videoDuration as any) === -1
+                        ? 'Intelligent (-1)'
+                        : `${params.videoDuration ?? 5}s`}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="12"
+                    step="1"
+                    value={(() => {
+                      const allowed = [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+                      const currentVal = params.videoDuration != null ? Number(params.videoDuration) : 5;
+                      const idx = allowed.indexOf(currentVal);
+                      return idx === -1 ? 2 : idx; // default to 5s (index 2)
+                    })()}
+                    onChange={(e) => {
+                      const allowed = [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+                      const idx = Number(e.target.value);
+                      const resolvedVal = allowed[idx] ?? 5;
+                      updateParam('videoDuration', String(resolvedVal));
+                    }}
+                    className="param-slider"
+                  />
+                  <div className="slider-hints">
+                    <span>Intelligent (-1)</span>
+                    <span>15s</span>
+                  </div>
+                </div>
+
+                {/* Generate Audio Toggle */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label className="checkbox-container" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={params.seedanceGenerateAudio !== false}
+                      onChange={(e) => updateParam('seedanceGenerateAudio', e.target.checked)}
+                      style={{ accentColor: '#e11d48', cursor: 'pointer' }}
+                    />
+                    <span className="checkbox-label" style={{ marginLeft: '8px', fontSize: '13px', color: '#e2e8f0' }}>
+                      Generate Audio
+                    </span>
+                  </label>
+                  <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                    Generate synchronized audio including background music and dialogue.
+                  </span>
+                </div>
+
+                {/* Last Frame Image File Input */}
+                <div className="control-section" style={{ marginTop: '12px' }}>
+                  <label className="section-label">Last Frame Image</label>
+                  {params.seedanceLastFrameImage ? (
+                    <div style={{ position: 'relative', marginTop: '6px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', padding: '4px' }}>
+                      <img
+                        src={params.seedanceLastFrameImage}
+                        alt="Last Frame"
+                        style={{ maxHeight: '100px', objectFit: 'contain', borderRadius: '4px' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateParam('seedanceLastFrameImage', null)}
+                        style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(244,63,94,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                        title="Remove image"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => {
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.accept = 'image/*';
+                        fileInput.onchange = (e: any) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              updateParam('seedanceLastFrameImage', ev.target?.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        };
+                        fileInput.click();
+                      }}
+                      style={{ marginTop: '6px', cursor: 'pointer', border: '1px dashed #475569', borderRadius: '6px', padding: '12px', textAlign: 'center', backgroundColor: 'rgba(30,41,59,0.5)', color: '#94a3b8', fontSize: '12px', transition: 'border-color 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#e11d48'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#475569'}
+                    >
+                      Click to upload last frame image
+                    </div>
+                  )}
+                  <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                    Only works if a first frame image is also provided via connected nodes.
+                  </span>
+                </div>
+              </>
+            )}
+          </>
+        )}
+        </>
+      )}
+
+      {/* Custom Width and Height sliders (only shown when resolution is custom) */}
+      {params.resolution === 'custom' && (
+        <div className="control-section" style={{ marginTop: '8px' }}>
+          <div className="control-row">
+            <div className="control-half" style={{ width: '100%' }}>
+              <div className="section-label-row">
+                <label className="section-label">Custom Width</label>
+                <span className="param-value badge">{params.width ?? 2048}px</span>
+              </div>
+              <input
+                type="range"
+                min="1024"
+                max="4096"
+                step="64"
+                value={params.width ?? 2048}
+                onChange={(e) => updateParam('width', Number.parseInt(e.target.value))}
+                className="param-slider"
+              />
+              <div className="slider-hints">
+                <span>1024</span>
+                <span>4096</span>
+              </div>
+            </div>
+          </div>
+          <div className="control-row" style={{ marginTop: '12px' }}>
+            <div className="control-half" style={{ width: '100%' }}>
+              <div className="section-label-row">
+                <label className="section-label">Custom Height</label>
+                <span className="param-value badge">{params.height ?? 2048}px</span>
+              </div>
+              <input
+                type="range"
+                min="1024"
+                max="4096"
+                step="64"
+                value={params.height ?? 2048}
+                onChange={(e) => updateParam('height', Number.parseInt(e.target.value))}
+                className="param-slider"
+              />
+              <div className="slider-hints">
+                <span>1024</span>
+                <span>4096</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Seedream Sequential Generation settings ── */}
+      {selectedEngine.id === 'bytedance/seedream-4.5' && (
+        <div className="control-section" ref={seqDropdownRef}>
+          <div className="control-row">
+            <div className="control-half" style={{ width: '100%' }}>
+              <label className="section-label">Sequential Image Generation</label>
+              <div 
+                className="dropdown-trigger"
+                onClick={() => setShowSeqDropdown(!showSeqDropdown)}
+              >
+                <span>{params.sequentialImageGeneration || 'disabled'}</span>
+                <ChevronDown size={16} />
+              </div>
+              {showSeqDropdown && (
+                <div className="dropdown-menu">
+                  {['disabled', 'auto'].map(val => (
+                    <div 
+                      key={val}
+                      className={`dropdown-item ${params.sequentialImageGeneration === val ? 'active' : ''}`}
+                      onClick={() => {
+                        updateParam('sequentialImageGeneration', val);
+                        setShowSeqDropdown(false);
+                      }}
+                    >
+                      {val}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {(params.sequentialImageGeneration === 'auto') && (
+            <div className="control-section" style={{ marginTop: '16px', padding: 0 }}>
+              <div className="section-label-row">
+                <label className="section-label">Max Images</label>
+                <span className="param-value badge">{params.maxImages ?? 1}</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="15"
+                step="1"
+                value={params.maxImages ?? 1}
+                onChange={(e) => updateParam('maxImages', Number.parseInt(e.target.value))}
+                className="param-slider"
+              />
+              <div className="slider-hints">
+                <span>1</span>
+                <span>15</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

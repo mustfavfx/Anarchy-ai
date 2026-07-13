@@ -104,11 +104,17 @@ export interface ModelCostParams {
   prunaTarget?: number;      // P Image Upscale target megapixels
   upscaleFactor?: number;    // upscale factor e.g. 2, 4, 6, 8, 12
   isTrial?: boolean;         // check if user is on trial mode
+  width?: number;            // custom width
+  height?: number;           // custom height
+  videoDuration?: string | number; // video duration in seconds or string (e.g. '5s' or 5)
 }
 
 // ── Per-model helpers (keep each helper ≤ 5 branches) ───────────────────────
 
-function resolveResPixels(resolution: string): number {
+function resolveResPixels(resolution: string, width?: number, height?: number): number {
+  if (resolution === 'custom' && width && height) {
+    return width * height;
+  }
   const [w, h] = resolution.split('x').map(Number);
   return (w && h) ? w * h : 0;
 }
@@ -147,6 +153,12 @@ function costSeedream4_5(resolution: string, px: number, isTrial: boolean): numb
     if (px >= 4096 * 4096 || resolution.includes('4K')) return 1.5;
     return 1.0;
   }
+}
+
+function costSeedream5Pro(resolution: string, px: number, _isTrial: boolean): number {
+  // 1K = 1.5 CREDIT, 2K = 2.2 CREDIT
+  if (px >= 2048 * 2048 || resolution.toLowerCase().includes('2k')) return 2.2;
+  return 1.5;
 }
 
 function costFlux2Pro(resolution: string, px: number, isTrial: boolean): number {
@@ -213,28 +225,104 @@ function costClarityUpscale(upscaleFactor: number = 2, isTrial: boolean): number
 // ── Flat cost table for simple models ────────────────────────────────────────
 const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'bytedance/seedream-4.5':                        1,
+  'bytedance/seedream-5-pro':                      1.5,
   'black-forest-labs/flux-2-pro':                  1,
   'black-forest-labs/flux-kontext-pro':            1,
   'xai/grok-imagine-image':                        1,
   'stability-ai/stable-diffusion-3.5-large':       1,
   'topazlabs/image-upscale':                       2,
   'philz1337x/clarity-upscaler':                   1,
+  'bytedance/seedance-2.0':                        20,
+  'kwaivgi/kling-v3-omni-video':                   30,
+  'xai/grok-imagine-video-1.5':                    30,
+  'prunaai/p-video':                               20,
+  'google/veo-3.1-fast':                           35,
+  'pixverse/pixverse-v6':                           25,
+  'openai/sora-2-pro':                             40,
 };
 
 const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
   'black-forest-labs/flux-kontext-pro':            1.0,
   'xai/grok-imagine-image':                        1.0,
   'stability-ai/stable-diffusion-3.5-large':       1.18, // $0.065 / 0.055
+  'bytedance/seedance-2.0':                        2.5,
+  'kwaivgi/kling-v3-omni-video':                   3.5,
+  'xai/grok-imagine-video-1.5':                    3.5,
+  'prunaai/p-video':                               2.5,
+  'google/veo-3.1-fast':                           4.0,
+  'pixverse/pixverse-v6':                           3.0,
+  'openai/sora-2-pro':                             4.5,
 };
 
 export function getModelCost(model: string, params: ModelCostParams = {}): number {
-  const { resolution = '', qualityVariant = 'auto', prunaTarget, upscaleFactor, isTrial = true } = params;
-  const px = resolveResPixels(resolution);
+  const { resolution = '', qualityVariant = 'auto', prunaTarget, upscaleFactor, isTrial = true, width, height, videoDuration } = params;
+  const px = resolveResPixels(resolution, width, height);
 
+  // Video duration-based pricing
+  if (
+    model === 'bytedance/seedance-2.0' ||
+    model === 'kwaivgi/kling-v3-omni-video' ||
+    model === 'xai/grok-imagine-video-1.5' ||
+    model === 'prunaai/p-video' ||
+    model === 'google/veo-3.1-fast' ||
+    model === 'pixverse/pixverse-v6' ||
+    model === 'openai/sora-2-pro'
+  ) {
+    let dur = 5; // default 5 seconds
+    if (videoDuration != null) {
+      const parsed = parseInt(String(videoDuration).replace('s', ''), 10);
+      if (!isNaN(parsed)) {
+        dur = parsed === -1 ? 5 : parsed; // Intelligent duration defaults credit estimation to 5s
+      }
+    }
+
+    let costPerSecond = 3.5;
+    if (model === 'kwaivgi/kling-v3-omni-video') {
+      const mode = resolution || 'pro';
+      if (mode === 'standard') costPerSecond = 3.0;
+      else if (mode === 'pro') costPerSecond = 5.0;
+      else if (mode === '4k') costPerSecond = 12.0;
+    } else if (model === 'xai/grok-imagine-video-1.5') {
+      costPerSecond = 1.2;
+    } else if (model === 'google/veo-3.1-fast') {
+      costPerSecond = 5.5;
+    } else if (model === 'openai/sora-2-pro') {
+      const res = resolution || 'standard';
+      if (res === 'high') costPerSecond = 12.0;
+      else costPerSecond = 6.0;
+    } else if (model === 'pixverse/pixverse-v6') {
+      const res = resolution || '1080p';
+      if (res === '360p') costPerSecond = 1.0;
+      else if (res === '540p') costPerSecond = 1.8;
+      else if (res === '720p') costPerSecond = 3.5;
+      else if (res === '1080p') costPerSecond = 8.0;
+      else costPerSecond = 8.0;
+    } else if (model === 'prunaai/p-video') {
+      const res = resolution || '720p';
+      if (res === '1080p') costPerSecond = 6.0;
+      else costPerSecond = 2.5;
+    } else if (model === 'bytedance/seedance-2.0') {
+      const res = resolution || '720p';
+      if (res === '480p') costPerSecond = 1.5;
+      else if (res === '720p') costPerSecond = 3.5;
+      else if (res === '1080p') costPerSecond = 8.0;
+      else if (res === '4k') costPerSecond = 18.0;
+    } else {
+      // Fallback for other video models (default to flat cost divided by 5s for estimation)
+      costPerSecond = isTrial
+        ? (TRIAL_FLAT_MODEL_COSTS[model] ?? 30) / 5
+        : (PAID_FLAT_MODEL_COSTS[model] ?? 3.5);
+    }
+
+    return dur * costPerSecond;
+  }
+
+  if (model === 'google/nano-banana-2-lite') return 0.8;
   if (model === 'google/nano-banana-2')   return costNanaBanana2(resolution, px, isTrial);
   if (model === 'google/nano-banana-pro') return costNanaBananaPro(resolution, px, isTrial);
   if (model === 'openai/gpt-image-2')     return costGptImage2(qualityVariant, isTrial);
   if (model === 'bytedance/seedream-4.5')   return costSeedream4_5(resolution, px, isTrial);
+  if (model === 'bytedance/seedream-5-pro') return costSeedream5Pro(resolution, px, isTrial);
   if (model === 'black-forest-labs/flux-2-pro') return costFlux2Pro(resolution, px, isTrial);
   if (model === 'prunaai/p-image-upscale') return costPrunaUpscale(prunaTarget, isTrial);
   if (model === 'topazlabs/image-upscale') return costTopazUpscale(upscaleFactor, isTrial);

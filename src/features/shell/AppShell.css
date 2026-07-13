@@ -31,6 +31,15 @@
   background: var(--bg-surface, #121214);
 }
 
+.app-content--hidden {
+  position: absolute !important;
+  left: -9999px !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+}
+
 /* ── Mini canvas: BuilderPage stays mounted but shrinks to thumbnail in sidebar ── */
 .app-content--mini-canvas {
   position: fixed;

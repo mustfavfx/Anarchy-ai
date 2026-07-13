@@ -383,6 +383,7 @@
    ---------------------------------------------------------------- */
 .node-image-region {
   width: 100%;
+  aspect-ratio: 1.5; /* Premium aspect ratio prevents node layout shifts and collapses */
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.3);
   position: relative;
@@ -397,7 +398,8 @@
   background: transparent;
 }
 
-.node-image-region.has-image img {
+.node-image-region.has-image img,
+.node-image-region.has-image video {
   width: 100%;
   height: 100%;
   max-height: 100%;
@@ -407,7 +409,8 @@
   display: block;
 }
 
-.node-image-region.has-image:hover img {
+.node-image-region.has-image:hover img,
+.node-image-region.has-image:hover video {
   transform: scale(1.02);
   opacity: 0.95;
 }
@@ -1659,4 +1662,44 @@
   color: #eab308;
   background: rgba(234, 179, 8, 0.06);
   border-color: rgba(234, 179, 8, 0.15);
+}
+
+/* Video controls overlay styling */
+.video-controls-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.node-image-region:hover .video-controls-overlay {
+  opacity: 1;
+}
+
+.vid-control-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.vid-control-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
 }

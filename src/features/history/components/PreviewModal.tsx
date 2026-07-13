@@ -56,6 +56,18 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   const [timelineSteps, setTimelineSteps] = useState<any[]>([]);
   const [activeImage, setActiveImage] = useState<string>('');
 
+  const isVideo = preview.model && [
+    'bytedance/seedance-2.0',
+    'kwaivgi/kling-v3-omni-video',
+    'xai/grok-imagine-video-1.5',
+    'prunaai/p-video',
+    'google/veo-3.1-fast',
+    'pixverse/pixverse-v6',
+    'openai/sora-2-pro',
+    'wavespeedai/wan-2.1-i2v-480p',
+    'wavespeedai/wan-2.1-i2v-720p'
+  ].some(m => preview.model!.startsWith(m) || m.startsWith(preview.model!));
+
   // Keep track of Blob URLs created during this modal's lifetime to revoke them and free RAM
   const createdUrlsRef = useRef<Set<string>>(new Set());
 
@@ -452,14 +464,25 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                 </>
               ) : (
                 // Single image view
-                <img 
-                  src={activeImage} 
-                  alt={preview.label} 
-                  className="modal-preview-img" 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzIyMiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2Ugbm90IGF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-                  }}
-                />
+                isVideo ? (
+                  <video 
+                    src={activeImage} 
+                    controls 
+                    autoPlay 
+                    loop 
+                    className="modal-preview-img"
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', outline: 'none' }}
+                  />
+                ) : (
+                  <img 
+                    src={activeImage} 
+                    alt={preview.label} 
+                    className="modal-preview-img" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzIyMiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2Ugbm90IGF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+                    }}
+                  />
+                )
               )}
             </div>
 

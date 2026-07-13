@@ -13,11 +13,12 @@ import { supabaseUrl, supabaseAnonKey } from '../supabase/supabaseClient';
 // ── Image Models ──────────────────────────────────────────────────────────────
 export type ReplicateImageModel =
   | 'google/nano-banana-2'              // Nano Banana 2 (Gemini 3.1 Flash)
+  | 'google/nano-banana-2-lite'         // Nano Banana 2 Lite (Gemini 3.1 Flash Lite)
   | 'bytedance/seedream-4.5'            // Seedream 4.5 - ByteDance
+  | 'bytedance/seedream-5-pro'          // Seedream 5 Pro - ByteDance
   | 'black-forest-labs/flux-2-pro'      // FLUX 2 Pro - img2img + 8 ref images
   | 'openai/gpt-image-2'                // GPT Image 2 - OpenAI
   | 'google/nano-banana-pro'            // Nano Banana Pro (Gemini 3 Pro)
-  | 'bytedance/seedance-2.0'            // Seedance 2.0 - video (used via generateVideo)
   | 'xai/grok-imagine-image'            // Grok Imagine Image - xAI
   | 'black-forest-labs/flux-kontext-pro' // FLUX Kontext Pro - character consistency
   | 'stability-ai/stable-diffusion-3.5-large'; // Stable Diffusion 3.5 Large
@@ -31,7 +32,14 @@ export type ReplicateUpscaleModel =
 // ── Video Models ──────────────────────────────────────────────────────────────
 export type ReplicateVideoModel =
   | 'wavespeedai/wan-2.1-i2v-480p'        // Wan 2.1 i2v 480p
-  | 'wavespeedai/wan-2.1-i2v-720p';       // Wan 2.1 i2v 720p
+  | 'wavespeedai/wan-2.1-i2v-720p'        // Wan 2.1 i2v 720p
+  | 'bytedance/seedance-2.0'              // Seedance 2.0 - video
+  | 'kwaivgi/kling-v3-omni-video'         // Kling v3 Omni Video
+  | 'xai/grok-imagine-video-1.5'          // Grok Imagine Video 1.5
+  | 'prunaai/p-video'                     // Pruna AI P-Video
+  | 'google/veo-3.1-fast'                 // Google Veo 3.1 Fast
+  | 'pixverse/pixverse-v6'                 // PixVerse v6
+  | 'openai/sora-2-pro';                  // OpenAI Sora 2 Pro
 
 // ── 3D Models ─────────────────────────────────────────────────────────────────
 export type Replicate3DModel =
@@ -54,7 +62,7 @@ export type ReplicateModel =
 export interface ReplicateGenerationParams {
   prompt: string;
   negativePrompt?: string;
-  model: ReplicateImageModel;
+  model: ReplicateImageModel | ReplicateVideoModel;
   aspectRatio?: string;
   width?: number;
   height?: number;
@@ -73,6 +81,32 @@ export interface ReplicateGenerationParams {
   cfg?: number; // Guidance scale for SD 3.5 (range 1-10, default 5)
   nodeId?: string;
   userId?: string;
+  sequentialImageGeneration?: string;
+  maxImages?: number;
+  videoDuration?: string;
+  videoQuality?: string;
+  motionStrength?: number;
+  videoFps?: number;
+  prunaQuality?: number;
+  seedanceLastFrameImage?: string | null;
+  seedanceGenerateAudio?: boolean;
+  klingStartImage?: string | null;
+  klingEndImage?: string | null;
+  klingReferenceImages?: string[] | null;
+  klingReferenceVideo?: string | null;
+  klingVideoReferenceType?: string;
+  klingKeepOriginalSound?: boolean;
+  klingGenerateAudio?: boolean;
+  klingMode?: string;
+  prunaLastFrameImage?: string | null;
+  prunaAudio?: string | null;
+  prunaFps?: number;
+  veoLastFrame?: string | null;
+  veoGenerateAudio?: boolean;
+  pixverseLastFrameImage?: string | null;
+  pixverseGenerateAudioSwitch?: boolean;
+  pixverseGenerateMultiClipSwitch?: boolean;
+  soraInputReference?: string | null;
 }
 
 export interface ReplicateChatMessage {
@@ -88,8 +122,9 @@ export interface ReplicateChatResult {
 export interface ReplicateGenerationResult {
   id: string;
   imageUrl: string;
+  imageUrls?: string[];
   metadata: {
-    model: ReplicateImageModel;
+    model: ReplicateImageModel | ReplicateVideoModel;
     prompt: string;
     negativePrompt?: string;
     width: number;
@@ -157,6 +192,22 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
     pricePerImage: 0.003,
   },
+  'google/nano-banana-2-lite': {
+    supportsImg2Img: true,
+    supportsMultiImage: true,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 14,
+    resolutions: ['1K'],
+    aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
+    pricePerImage: 0.001,
+  },
   // ── 2. Seedream 4.5 ─────────────────────────────────────────────────────────
   'bytedance/seedream-4.5': {
     supportsImg2Img: true,
@@ -170,9 +221,26 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     defaultSteps: 1,
     stepsRange: [1, 1],
     maxReferenceImages: 14,
-    resolutions: ['2K', '4K'],
+    resolutions: ['2K', '4K', 'custom'],
     aspectRatios: ['match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
     pricePerImage: 0.016,
+  },
+  // ── 2.1. Seedream 5 Pro ─────────────────────────────────────────────────────
+  'bytedance/seedream-5-pro': {
+    supportsImg2Img: true,
+    supportsMultiImage: true,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 14,
+    resolutions: ['1K', '2K'],
+    aspectRatios: ['match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
+    pricePerImage: 0.024,
   },
   // ── 3. FLUX 2 Pro ────────────────────────────────────────────────────────────
   'black-forest-labs/flux-2-pro': {
@@ -225,23 +293,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
     pricePerImage: 0.015,
   },
-  // ── 6. Seedance 2.0 (video) ──────────────────────────────────────────────────
-  'bytedance/seedance-2.0': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['480p', '720p', '1080p'],
-    aspectRatios: ['adaptive', '1:1', '16:9', '9:16', '4:3', '3:4'],
-    pricePerImage: 0.08,
-  },
+
   // ── 7. FLUX Kontext Pro ───────────────────────────────────────────────
   'black-forest-labs/flux-kontext-pro': {
     supportsImg2Img: true,
@@ -379,6 +431,125 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: [],
     pricePerImage: 0.08,
   },
+  // ── Seedance 2.0 (video) ──────────────────────────────────────────────────
+  'bytedance/seedance-2.0': {
+    supportsImg2Img: true,
+    supportsMultiImage: true, // supports up to 9 ref images + first/last frame
+    supportsSeed: true,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 9,
+    resolutions: ['480p', '720p', '1080p', '4k'],
+    aspectRatios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', '9:21', 'adaptive'],
+    pricePerImage: 0.08,
+  },
+  // ── Kling v3 Omni Video ──────────────────────────────────────────────────
+  'kwaivgi/kling-v3-omni-video': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 1,
+    resolutions: ['standard', 'pro', '4k'],
+    aspectRatios: ['adaptive', '16:9', '9:16', '1:1'],
+    pricePerImage: 0.12,
+  },
+  // ── Grok Imagine Video 1.5 ──────────────────────────────────────────────────
+  'xai/grok-imagine-video-1.5': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 1,
+    resolutions: ['720p', '480p'],
+    aspectRatios: ['auto', '16:9', '4:3', '1:1', '9:16', '3:4', '3:2', '2:3'],
+    pricePerImage: 0.10,
+  },
+  // ── Pruna AI P-Video ──────────────────────────────────────────────────
+  'prunaai/p-video': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: true,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 1,
+    resolutions: ['720p', '1080p'],
+    aspectRatios: ['adaptive', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '1:1'],
+    pricePerImage: 0.08,
+  },
+  // ── Google Veo 3.1 Fast ──────────────────────────────────────────────────
+  'google/veo-3.1-fast': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: true,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 1,
+    resolutions: ['720p', '1080p'],
+    aspectRatios: ['adaptive', '16:9', '9:16'],
+    pricePerImage: 0.15,
+  },
+  // ── PixVerse v6 ──────────────────────────────────────────────────
+  'pixverse/pixverse-v6': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: true,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 1,
+    resolutions: ['360p', '540p', '720p', '1080p'],
+    aspectRatios: ['adaptive', '16:9', '9:16', '1:1'],
+    pricePerImage: 0.09,
+  },
+  // ── OpenAI Sora 2 Pro ──────────────────────────────────────────────────
+  'openai/sora-2-pro': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: true,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 1,
+    resolutions: ['standard', 'high'],
+    aspectRatios: ['adaptive', 'portrait', 'landscape'],
+    pricePerImage: 0.20,
+  },
   // ── 15. Tripo3D ───────────────────────────────────────────────────────────
   'zsxkib/tripo3d': {
     supportsImg2Img: true,
@@ -450,13 +621,13 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function arToSize(ar: string, base: number): { width: number; height: number } {
   const map: Record<string, { width: number; height: number }> = {
-    '1:1':  { width: base,        height: base },
-    '16:9': { width: base,        height: Math.round(base * 9 / 16) },
+    '1:1': { width: base, height: base },
+    '16:9': { width: base, height: Math.round(base * 9 / 16) },
     '9:16': { width: Math.round(base * 9 / 16), height: base },
-    '4:3':  { width: base,        height: Math.round(base * 3 / 4) },
-    '3:4':  { width: Math.round(base * 3 / 4), height: base },
-    '3:2':  { width: base,        height: Math.round(base * 2 / 3) },
-    '2:3':  { width: Math.round(base * 2 / 3), height: base },
+    '4:3': { width: base, height: Math.round(base * 3 / 4) },
+    '3:4': { width: Math.round(base * 3 / 4), height: base },
+    '3:2': { width: base, height: Math.round(base * 2 / 3) },
+    '2:3': { width: Math.round(base * 2 / 3), height: base },
   };
   return map[ar] ?? { width: base, height: base };
 }
@@ -486,10 +657,10 @@ async function proxyPost(proxyUrl: string, replicatePath: string, body: unknown,
   const res = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
-      'Content-Type':       'application/json',
-      'apikey':             anonKey,
-      'Authorization':      `Bearer ${anonKey}`,
-      'x-replicate-path':   replicatePath,
+      'Content-Type': 'application/json',
+      'apikey': anonKey,
+      'Authorization': `Bearer ${anonKey}`,
+      'x-replicate-path': replicatePath,
       'x-replicate-method': 'POST',
     },
     body: JSON.stringify(body),
@@ -504,10 +675,10 @@ async function proxyGet(proxyUrl: string, replicatePath: string, signal?: AbortS
   const res = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
-      'Content-Type':       'application/json',
-      'apikey':             anonKey,
-      'Authorization':      `Bearer ${anonKey}`,
-      'x-replicate-path':   replicatePath,
+      'Content-Type': 'application/json',
+      'apikey': anonKey,
+      'Authorization': `Bearer ${anonKey}`,
+      'x-replicate-path': replicatePath,
       'x-replicate-method': 'GET',
     },
     signal,
@@ -527,7 +698,7 @@ class ReplicateService {
     if (supabaseUrl && !supabaseUrl.includes('placeholder')) {
       this.webhookUrl = `${supabaseUrl}/functions/v1/replicate_webhook`;
     }
-    
+
     logger.log('[ReplicateService] Webhook URL:', this.webhookUrl || '(empty - webhook disabled)');
     logger.log('[ReplicateService] Mode: Proxy-only (server-side API key)');
   }
@@ -550,27 +721,27 @@ class ReplicateService {
   getModelSettings(model: ReplicateModel) {
     const meta = this.getModelCapabilities(model);
     return {
-      resolutions:               meta.resolutions,
-      aspectRatios:              meta.aspectRatios,
-      supportsSteps:             meta.supportsSteps,
-      supportsNegativePrompt:    meta.supportsNegativePrompt,
-      supportsUpscale:           meta.supportsUpscale,
+      resolutions: meta.resolutions,
+      aspectRatios: meta.aspectRatios,
+      supportsSteps: meta.supportsSteps,
+      supportsNegativePrompt: meta.supportsNegativePrompt,
+      supportsUpscale: meta.supportsUpscale,
       supportsReferenceStrength: meta.supportsReferenceStrength,
-      supportsMultiImage:        meta.supportsMultiImage,
-      supportsSeed:              meta.supportsSeed,
-      supportsLoRA:              meta.supportsLoRA,
-      supportsStyleType:         meta.supportsStyleType,
-      supportsStylePreset:       meta.supportsStylePreset,
-      maxReferenceImages:        meta.maxReferenceImages,
-      defaultSteps:              meta.defaultSteps,
-      stepsRange:                meta.stepsRange,
-      styleTypes:                meta.styleTypes,
-      stylePresets:              meta.stylePresets,
+      supportsMultiImage: meta.supportsMultiImage,
+      supportsSeed: meta.supportsSeed,
+      supportsLoRA: meta.supportsLoRA,
+      supportsStyleType: meta.supportsStyleType,
+      supportsStylePreset: meta.supportsStylePreset,
+      maxReferenceImages: meta.maxReferenceImages,
+      defaultSteps: meta.defaultSteps,
+      stepsRange: meta.stepsRange,
+      styleTypes: meta.styleTypes,
+      stylePresets: meta.stylePresets,
     };
   }
 
-  getAvailableModels(): ReplicateImageModel[] {
-    return Object.keys(MODEL_META) as ReplicateImageModel[];
+  getAvailableModels(): (ReplicateImageModel | ReplicateVideoModel)[] {
+    return Object.keys(MODEL_META) as (ReplicateImageModel | ReplicateVideoModel)[];
   }
 
   // ── Poll a prediction until SUCCEEDED or FAILED ──────────────────────────────
@@ -580,7 +751,7 @@ class ReplicateService {
     onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
   ): Promise<ReplicatePrediction> {
     const proxy = getProxyUrl();
-    const path  = `/predictions/${predictionId}`;
+    const path = `/predictions/${predictionId}`;
     const maxAttempts = 120;
     let hasNotifiedProcessing = false;
     let consecutiveErrors = 0;
@@ -620,7 +791,7 @@ class ReplicateService {
         }
         continue; // Retry on next iteration
       }
-      
+
       // Update status when prediction transitions to processing status
       if (data.status === 'processing' && !hasNotifiedProcessing) {
         hasNotifiedProcessing = true;
@@ -667,14 +838,14 @@ class ReplicateService {
     const blob = new Blob([bytes], { type: mime });
     const formData = new FormData();
     formData.append('content', blob, `upload.${ext}`);
-    
+
     const anonKey = supabaseAnonKey;
     const res = await fetch(proxy, {
       method: 'POST',
       headers: {
-        'apikey':             anonKey,
-        'Authorization':      `Bearer ${anonKey}`,
-        'x-replicate-path':   '/files',
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
+        'x-replicate-path': '/files',
         'x-replicate-method': 'POST',
       },
       body: formData,
@@ -700,7 +871,7 @@ class ReplicateService {
     const version = ReplicateService.MODEL_VERSIONS[modelId];
     const path = version ? '/predictions' : `/models/${modelId}/predictions`;
     const body: Record<string, unknown> = version ? { version, input } : { input };
-    
+
     // Add webhook URL if configured
     if (this.webhookUrl) {
       const finalNodeId = (nodeId || input.node_id || input.nodeId || 'unknown') as string;
@@ -712,10 +883,10 @@ class ReplicateService {
       }
       body.webhook = webhookWithParams;
       body.webhook_events_filter = ['completed'];
-      
+
       logger.log('[ReplicateService] Including webhook:', webhookWithParams);
     }
-    
+
     logger.log('[ReplicateService] Submitting prediction:', {
       model: modelId,
       path,
@@ -778,7 +949,7 @@ class ReplicateService {
             ? Number.parseInt(retryMatch[1], 10) + 1
             : isHighDemand ? (attempt + 1) * 20 : (attempt + 1) * 15;
           logger.log(`[ReplicateService] Retryable error (attempt ${attempt + 1}/${maxRetries}), waiting ${waitSec}s...`, errMsg.substring(0, 120));
-          
+
           await new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(resolve, waitSec * 1000);
             if (signal) {
@@ -805,7 +976,7 @@ class ReplicateService {
     const proxy = getProxyUrl();
     const version = ReplicateService.MODEL_VERSIONS[model];
     const path = version ? '/predictions' : `/models/${model}/predictions`;
-    
+
     let webhookWithParams = this.webhookUrl;
     if (this.webhookUrl) {
       const finalNodeId = metadata.nodeId || 'unknown';
@@ -858,6 +1029,19 @@ class ReplicateService {
     throw new Error('No image URL in Replicate response');
   }
 
+  // ── Extract all image URLs from prediction output ─────────────────────────
+  public extractImageUrls(output: unknown): string[] {
+    if (Array.isArray(output)) {
+      return output.filter((item): item is string => typeof item === 'string');
+    }
+    if (typeof output === 'string') return [output];
+    if (output && typeof output === 'object' && 'url' in output) {
+      const urlVal = (output as Record<string, unknown>).url;
+      if (typeof urlVal === 'string') return [urlVal];
+    }
+    return [];
+  }
+
   // ── Build input payload for Nano Banana models (image_input field) ─────────
   private buildNanoBananaInput(
     params: ReplicateGenerationParams,
@@ -875,9 +1059,9 @@ class ReplicateService {
       '2K': '2K',
       '4K': '4K',
     };
-    
+
     logger.log('[NanoBanana] Original resolution param:', params.resolution);
-    
+
     if (params.resolution && params.resolution !== 'Auto') {
       const mappedResolution = resolutionMap[params.resolution] || params.resolution;
       input.resolution = mappedResolution;
@@ -886,9 +1070,9 @@ class ReplicateService {
       input.resolution = '1K';
       logger.log('[NanoBanana] Using default resolution: 1K');
     }
-    
+
     logger.log('[NanoBanana] Final input:', JSON.stringify(input, null, 2));
-    
+
     if (images.length === 0 && params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
@@ -919,12 +1103,12 @@ class ReplicateService {
     if (params.model === 'black-forest-labs/flux-2-pro') {
       const mpMap: Record<string, string> = {
         '0.5K': '0.5 MP',
-        '1K':   '1 MP',
-        '2K':   '2 MP',
-        '4K':   '4 MP',
+        '1K': '1 MP',
+        '2K': '2 MP',
+        '4K': '4 MP',
       };
-      input.resolution   = mpMap[params.resolution ?? '1K'] ?? '1 MP';
-      
+      input.resolution = mpMap[params.resolution ?? '1K'] ?? '1 MP';
+
       if (images.length > 0) {
         if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input') {
           input.aspect_ratio = 'match_input_image';
@@ -938,14 +1122,14 @@ class ReplicateService {
       } else {
         input.aspect_ratio = params.aspectRatio ?? '1:1';
       }
-      
+
       if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
     } else {
       const base = resolutionToPixels(params.resolution ?? 'Auto');
       const dims = arToSize(params.aspectRatio ?? '1:1', base);
-      input.width  = dims.width;
+      input.width = dims.width;
       input.height = dims.height;
-      if (meta.supportsSteps)             input.num_inference_steps = params.steps ?? meta.defaultSteps;
+      if (meta.supportsSteps) input.num_inference_steps = params.steps ?? meta.defaultSteps;
       if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
       if (meta.supportsNegativePrompt && params.negativePrompt) {
         input.negative_prompt = params.negativePrompt;
@@ -957,7 +1141,7 @@ class ReplicateService {
         }
       }
       if (meta.supportsLoRA && params.loraUrl) {
-        input.extra_lora       = params.loraUrl;
+        input.extra_lora = params.loraUrl;
         input.extra_lora_scale = params.loraScale ?? 0.8;
       }
     }
@@ -973,7 +1157,7 @@ class ReplicateService {
 
     const base = resolutionToPixels(params.resolution ?? 'Auto');
     const dims = arToSize(params.aspectRatio ?? '1:1', base);
-    input.width  = dims.width;
+    input.width = dims.width;
     input.height = dims.height;
 
     if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
@@ -993,9 +1177,12 @@ class ReplicateService {
     const input = this.buildInput(params, []);
 
     const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
-    const imageUrl   = this.extractImageUrl(prediction.output);
+    const imageUrls = this.extractImageUrls(prediction.output);
+    const imageUrl = imageUrls[0] || '';
 
-    return this.buildResult(params, imageUrl, {}, start);
+    const result = this.buildResult(params, imageUrl, {}, start);
+    result.imageUrls = imageUrls;
+    return result;
   }
 
   // ── Async Generation with Webhook (no waiting) ────────────────────────────
@@ -1008,9 +1195,9 @@ class ReplicateService {
     }
 
     const input = this.buildInput(params, []);
-    
+
     const prediction = await this.submitPredictionWithWebhook(params.model, input, metadata);
-    
+
     return {
       predictionId: prediction.id,
       status: prediction.status,
@@ -1024,19 +1211,22 @@ class ReplicateService {
     signal?: AbortSignal,
     onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
   ): Promise<ReplicateGenerationResult> {
-    const start     = Date.now();
-    const meta      = this.getModelCapabilities(params.model);
+    const start = Date.now();
+    const meta = this.getModelCapabilities(params.model);
     const imageList = Array.isArray(images) ? images : [images];
 
-    const maxImgs  = meta.maxReferenceImages > 0 ? meta.maxReferenceImages : 14;
+    const maxImgs = meta.maxReferenceImages > 0 ? meta.maxReferenceImages : 14;
     const imgSlice = imageList.slice(0, maxImgs);
 
     const input = this.buildInput(params, imgSlice);
 
     const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
-    const imageUrl   = this.extractImageUrl(prediction.output);
+    const imageUrls = this.extractImageUrls(prediction.output);
+    const imageUrl = imageUrls[0] || '';
 
-    return this.buildResult(params, imageUrl, input, start);
+    const result = this.buildResult(params, imageUrl, input, start);
+    result.imageUrls = imageUrls;
+    return result;
   }
 
   // ── Build input for Seedream 4.5 ─────────────────────────────────────────
@@ -1048,11 +1238,29 @@ class ReplicateService {
     if (images.length > 0) {
       input.image_input = images;
     }
-    input.size = params.resolution === '4K' ? '4K' : '2K';
+    if (params.model === 'bytedance/seedream-5-pro') {
+      input.size = params.resolution === '2K' ? '2K' : '1K';
+    } else {
+      if (params.resolution === 'custom') {
+        input.size = 'custom';
+        input.width = params.width ?? 2048;
+        input.height = params.height ?? 2048;
+      } else {
+        input.size = params.resolution === '4K' ? '4K' : '2K';
+      }
+    }
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     } else if (images.length > 0) {
       input.aspect_ratio = 'match_input_image';
+    }
+
+    // Support sequential generation parameters (only for seedream-4.5)
+    if (params.sequentialImageGeneration) {
+      input.sequential_image_generation = params.sequentialImageGeneration;
+    }
+    if (params.maxImages != null) {
+      input.max_images = params.maxImages;
     }
     return input;
   }
@@ -1078,19 +1286,19 @@ class ReplicateService {
     images: string[]
   ): Record<string, any> {
     const input: Record<string, any> = { prompt: params.prompt };
-    
+
     if (images.length >= 1) {
       input.input_images = images;
     }
-    
+
     if (params.resolution && params.resolution !== 'auto') {
       input.quality = params.resolution.toLowerCase();
     }
-    
+
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
-    
+
     return input;
   }
 
@@ -1100,28 +1308,211 @@ class ReplicateService {
     images: string[]
   ): Record<string, any> {
     const input: Record<string, any> = { prompt: params.prompt };
-    
+
     if (images.length > 0) {
       input.image = images[0];
       input.prompt_strength = params.strength ?? 0.45;
     } else if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
     }
-    
+
     if (params.cfg != null) {
       input.cfg = params.cfg;
     }
-    
+
     if (params.negativePrompt) {
       input.negative_prompt = params.negativePrompt;
     }
-    
+
     if (params.steps != null) {
       input.num_inference_steps = params.steps;
     }
-    
+
     if (params.seed != null) input.seed = params.seed;
-    
+
+    return input;
+  }
+
+  private buildVideoInput(
+    params: ReplicateGenerationParams,
+    images: string[]
+  ): Record<string, any> {
+    const m = params.model;
+    const input: Record<string, any> = { prompt: params.prompt };
+
+    // Default image mapping (except for models with specialized structures)
+    if (images.length > 0 && m !== 'bytedance/seedance-2.0' && m !== 'kwaivgi/kling-v3-omni-video') {
+      input.image = images[0];
+    }
+
+    if (params.seed != null) {
+      input.seed = params.seed;
+    }
+
+    if (params.aspectRatio && params.aspectRatio !== 'Auto' && m !== 'bytedance/seedance-2.0') {
+      input.aspect_ratio = params.aspectRatio;
+    }
+
+    if (m === 'kwaivgi/kling-v3-omni-video') {
+      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5;
+      if (params.cfg != null) {
+        input.cfg_scale = params.cfg;
+      }
+      
+      // Mode (standard, pro, 4k)
+      input.mode = params.resolution || 'pro';
+
+      // Separate images and videos from connected parent nodes
+      const parentImages = images.filter(url => {
+        const lower = url.toLowerCase();
+        return !(lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/'));
+      });
+      const parentVideos = images.filter(url => {
+        const lower = url.toLowerCase();
+        return lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/');
+      });
+
+      // Start image (first connected node image)
+      if (parentImages.length > 0) {
+        input.start_image = parentImages[0];
+      }
+
+      // End image (manually uploaded in the sidebar)
+      if (params.klingEndImage) {
+        input.end_image = params.klingEndImage;
+      }
+
+      // Reference images (all subsequent connected node images)
+      if (parentImages.length > 1) {
+        input.reference_images = parentImages.slice(1);
+      }
+
+      // Reference video (manually uploaded in sidebar or first connected video node)
+      if (params.klingReferenceVideo) {
+        input.reference_video = params.klingReferenceVideo;
+      } else if (parentVideos.length > 0) {
+        input.reference_video = parentVideos[0];
+      }
+
+      // Video reference type
+      if (params.klingVideoReferenceType) {
+        input.video_reference_type = params.klingVideoReferenceType;
+      }
+
+      // Keep original sound
+      input.keep_original_sound = params.klingKeepOriginalSound !== false;
+
+      // Generate audio
+      input.generate_audio = params.klingGenerateAudio === true;
+    } else if (m === 'google/veo-3.1-fast') {
+      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 8;
+      if (params.veoLastFrame) {
+        input.last_frame = params.veoLastFrame;
+      }
+      input.generate_audio = params.veoGenerateAudio !== false;
+      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
+        input.aspect_ratio = params.aspectRatio;
+      }
+      if (params.resolution && params.resolution !== 'Auto') {
+        input.resolution = params.resolution;
+      }
+    } else if (m === 'openai/sora-2-pro') {
+      if (params.soraInputReference) {
+        input.input_reference = params.soraInputReference;
+      }
+      input.seconds = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 4;
+      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
+        input.aspect_ratio = params.aspectRatio;
+      }
+      if (params.resolution && params.resolution !== 'Auto') {
+        input.resolution = params.resolution;
+      }
+    } else if (m === 'xai/grok-imagine-video-1.5') {
+      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5;
+      if (params.resolution && params.resolution !== 'Auto') {
+        input.resolution = params.resolution;
+      }
+    } else if (m === 'pixverse/pixverse-v6') {
+      if (params.pixverseLastFrameImage) {
+        input.last_frame_image = params.pixverseLastFrameImage;
+      }
+      if (params.resolution && params.resolution !== 'Auto') {
+        input.quality = params.resolution;
+      }
+      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
+        input.aspect_ratio = params.aspectRatio;
+      }
+      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 15;
+      input.generate_audio_switch = params.pixverseGenerateAudioSwitch === true;
+      input.generate_multi_clip_switch = params.pixverseGenerateMultiClipSwitch === true;
+    } else if (m === 'prunaai/p-video') {
+      if (params.prunaQuality != null) {
+        input.quality = params.prunaQuality;
+      }
+      if (params.prunaLastFrameImage) {
+        input.last_frame_image = params.prunaLastFrameImage;
+      }
+      if (params.prunaAudio) {
+        input.audio = params.prunaAudio;
+      }
+      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5;
+      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
+        input.aspect_ratio = params.aspectRatio;
+      }
+      if (params.resolution && params.resolution !== 'Auto') {
+        input.resolution = params.resolution;
+      }
+      input.fps = params.prunaFps ?? 24;
+    } else if (m === 'bytedance/seedance-2.0') {
+      const parentImages = images.filter(url => {
+        const lower = url.toLowerCase();
+        return !(lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/'));
+      });
+      const parentVideos = images.filter(url => {
+        const lower = url.toLowerCase();
+        return lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/');
+      });
+
+      // 1. First image goes to image (first frame)
+      if (parentImages.length > 0) {
+        input.image = parentImages[0];
+      }
+
+      // 2. Second image goes to last_frame_image
+      if (parentImages.length > 1) {
+        input.last_frame_image = parentImages[1];
+      } else if (params.seedanceLastFrameImage) {
+        input.last_frame_image = params.seedanceLastFrameImage;
+      }
+
+      // 3. Any additional parent images go to reference_images
+      if (parentImages.length > 2) {
+        input.reference_images = parentImages.slice(2);
+      }
+
+      // 4. Any connected videos go to reference_videos
+      if (parentVideos.length > 0) {
+        input.reference_videos = parentVideos;
+      }
+
+      // 5. duration (integer, min -1, max 15, default 5)
+      if (params.videoDuration) {
+        const parsedDur = parseInt(params.videoDuration.replace('s', ''), 10);
+        input.duration = isNaN(parsedDur) ? 5 : parsedDur;
+      } else {
+        input.duration = 5;
+      }
+
+      // 6. resolution (string, choices: "720p", "1080p", "2K", "4K")
+      input.resolution = params.resolution && params.resolution !== 'Auto' ? params.resolution : '720p';
+
+      // 7. aspect_ratio (string, choices: adaptive, 16:9, etc.)
+      input.aspect_ratio = params.aspectRatio && params.aspectRatio !== 'Auto' ? params.aspectRatio : 'adaptive';
+
+      // 8. generate_audio (boolean, default true)
+      input.generate_audio = params.seedanceGenerateAudio !== false;
+    }
+
     return input;
   }
 
@@ -1131,13 +1522,27 @@ class ReplicateService {
     images: string[]
   ): Record<string, any> {
     const m = params.model;
-    if (m.startsWith('google/nano-banana'))    return this.buildNanoBananaInput(params, images);
+    if (m.startsWith('google/nano-banana')) return this.buildNanoBananaInput(params, images);
     if (m.startsWith('black-forest-labs/flux')) return this.buildFluxInput(params, images);
-    if (m === 'bytedance/seedream-4.5')         return this.buildSeedreamInput(params, images);
-    if (m === 'openai/gpt-image-2')             return this.buildGptImageInput(params, images);
-    if (m === 'bytedance/seedance-2.0')         return this.buildSeedreamInput(params, images); // same structure
-    if (m === 'xai/grok-imagine-image')          return this.buildGrokInput(params, images);
+    if (m === 'bytedance/seedream-4.5' || m === 'bytedance/seedream-5-pro') return this.buildSeedreamInput(params, images);
+    if (m === 'openai/gpt-image-2') return this.buildGptImageInput(params, images);
+    if (m === 'xai/grok-imagine-image') return this.buildGrokInput(params, images);
     if (m === 'stability-ai/stable-diffusion-3.5-large') return this.buildStableDiffusionInput(params, images);
+
+    // Video models routing
+    if (
+      m === 'bytedance/seedance-2.0' ||
+      m === 'kwaivgi/kling-v3-omni-video' ||
+      m === 'xai/grok-imagine-video-1.5' ||
+      m === 'prunaai/p-video' ||
+      m === 'google/veo-3.1-fast' ||
+      m === 'pixverse/pixverse-v6' ||
+      m === 'openai/sora-2-pro' ||
+      m.startsWith('wavespeedai/wan')
+    ) {
+      return this.buildVideoInput(params, images);
+    }
+
     return this.buildGeneralInput(params);
   }
 
@@ -1152,18 +1557,18 @@ class ReplicateService {
     const base = resolutionToPixels(params.resolution ?? 'Auto');
     const dims = arToSize(params.aspectRatio ?? '1:1', base);
     return {
-      id:       `replicate-${Date.now()}`,
+      id: `replicate-${Date.now()}`,
       imageUrl,
       metadata: {
-        model:          params.model,
-        prompt:         params.prompt,
+        model: params.model,
+        prompt: params.prompt,
         negativePrompt: params.negativePrompt,
-        width:          params.width  ?? dims.width,
-        height:         params.height ?? dims.height,
-        seed:           body.seed     ?? -1,
-        steps:          body.num_inference_steps ?? meta.defaultSteps,
+        width: params.width ?? dims.width,
+        height: params.height ?? dims.height,
+        seed: body.seed ?? -1,
+        steps: body.num_inference_steps ?? meta.defaultSteps,
         generationTime: Date.now() - start,
-        timestamp:      Date.now(),
+        timestamp: Date.now(),
       },
     };
   }
@@ -1177,12 +1582,12 @@ class ReplicateService {
     signal?: AbortSignal
   ): Promise<string> {
     const prediction = await this.runPrediction(model, {
-      image:  imageUrl,
+      image: imageUrl,
       prompt,
     }, undefined, undefined, signal);
     const output = prediction.output;
     if (typeof output === 'string') return output;
-    if (Array.isArray(output))      return output[0];
+    if (Array.isArray(output)) return output[0];
     throw new Error('No video URL in response');
   }
 
@@ -1210,11 +1615,11 @@ class ReplicateService {
     signal?: AbortSignal
   ): Promise<ReplicateChatResult> {
     const systemMsg = messages.find(m => m.role === 'system')?.content ?? '';
-    const userMsg   = messages.filter(m => m.role !== 'system').map(m => `${m.role}: ${m.content}`).join('\n');
+    const userMsg = messages.filter(m => m.role !== 'system').map(m => `${m.role}: ${m.content}`).join('\n');
 
     const prediction = await this.runPrediction(model, {
       system_prompt: systemMsg,
-      prompt:        userMsg,
+      prompt: userMsg,
     }, undefined, undefined, signal);
 
     const output = prediction.output;
@@ -1230,10 +1635,10 @@ class ReplicateService {
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type':       'application/json',
-          'apikey':             anonKey,
-          'Authorization':      `Bearer ${anonKey}`,
-          'x-replicate-path':   '/ping',
+          'Content-Type': 'application/json',
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'x-replicate-path': '/ping',
           'x-replicate-method': 'GET',
         },
         body: JSON.stringify({ ping: true }),

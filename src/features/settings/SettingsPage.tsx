@@ -4,7 +4,8 @@ import {
   Check,
   Save, RefreshCw, Trash2, Info,
   Zap, History, Bell, FileText,
-  Download, Upload, Activity
+  Download, Upload, Activity,
+  Mail, Camera, MessageCircle, Globe
 } from 'lucide-react';
 import { DataMigrationService } from '../../services/migration';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
@@ -17,6 +18,8 @@ import { SettingsService, type AppSettings } from '../../services/settings';
 import { PrivacyPolicyModal, ChangelogModal } from './SettingsModals';
 import { supabase, isSupabaseConfigured, supabaseUrl } from '../../services/supabase/supabaseClient';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
+import { invoke } from '@tauri-apps/api/core';
+import { SupportModal } from '../dashboard/SupportModal';
 
 export const SettingsPage: React.FC = () => {
   const aiConfig = useAIConfigStore((s) => s.config);
@@ -26,6 +29,7 @@ export const SettingsPage: React.FC = () => {
   const [saved, setSaved] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
   const [diskUsage, setDiskUsage] = useState({ projects: 0, history: 0, total: 0 });
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'up-to-date' | 'error'>('idle');
   const [confirmReset, setConfirmReset] = useState(false);
@@ -509,6 +513,72 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Support & Community Card */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <Mail size={18} className="card-icon" />
+                  <h3>Support & Community</h3>
+                </div>
+
+                <div className="setting-item" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                  <div className="setting-item-content full-width">
+                    <span className="setting-desc" style={{ marginBottom: 16 }}>
+                      Get in touch with support, check our website, or join our official community channels.
+                    </span>
+                    
+                    <div className="support-links-grid-horizontal">
+                      <button
+                        className="support-link-card-btn"
+                        onClick={() => setShowSupportModal(true)}
+                      >
+                        <div className="support-icon-circle email">
+                          <Mail size={16} />
+                        </div>
+                        <div className="support-card-text">
+                          <strong>Email Support</strong>
+                        </div>
+                      </button>
+
+                      <button
+                        className="support-link-card-btn"
+                        onClick={() => invoke('open_url', { url: APP_INFO.links.website }).catch(() => {})}
+                      >
+                        <div className="support-icon-circle website">
+                          <Globe size={16} />
+                        </div>
+                        <div className="support-card-text">
+                          <strong>Official Website</strong>
+                        </div>
+                      </button>
+
+                      <button
+                        className="support-link-card-btn"
+                        onClick={() => invoke('open_url', { url: APP_INFO.links.instagram }).catch(() => {})}
+                      >
+                        <div className="support-icon-circle instagram">
+                          <Camera size={16} />
+                        </div>
+                        <div className="support-card-text">
+                          <strong>Instagram</strong>
+                        </div>
+                      </button>
+
+                      <button
+                        className="support-link-card-btn"
+                        onClick={() => invoke('open_url', { url: APP_INFO.links.telegram }).catch(() => {})}
+                      >
+                        <div className="support-icon-circle telegram">
+                          <MessageCircle size={16} />
+                        </div>
+                        <div className="support-card-text">
+                          <strong>Telegram Channel</strong>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
@@ -800,6 +870,11 @@ export const SettingsPage: React.FC = () => {
 
       {/* Changelog Modal */}
       {showChangelogModal && <ChangelogModal onClose={() => setShowChangelogModal(false)} />}
+
+      {/* Support Form Modal */}
+      {showSupportModal && (
+        <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} />
+      )}
 
       {confirmReset && (
         <ConfirmModal

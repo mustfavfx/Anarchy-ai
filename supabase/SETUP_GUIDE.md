@@ -64,7 +64,16 @@ supabase functions deploy create-checkout-session
 # 2. stripe-webhook
 supabase functions deploy stripe-webhook
 
-# 3. التحقق من النشر
+# 3. replicate-proxy (مهم جداً لتوليد الصور والفيديوهات)
+supabase functions deploy replicate-proxy
+
+# 4. replicate_webhook
+supabase functions deploy replicate_webhook
+
+# 5. send-support-email
+supabase functions deploy send-support-email
+
+# 6. التحقق من النشر
 supabase functions list
 ```
 

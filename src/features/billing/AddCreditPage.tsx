@@ -91,7 +91,7 @@ export const AddCreditPage: React.FC = () => {
       if (!isSupabaseConfigured) {
         // Mock Stripe Checkout URL redirection
         await new Promise((resolve) => setTimeout(resolve, 500));
-        await invoke('open_url', { url: 'https://checkout.stripe.com/mock-session' });
+        await invoke('open_checkout_window', { url: 'https://checkout.stripe.com/mock-session' });
         return;
       }
 
@@ -119,8 +119,8 @@ export const AddCreditPage: React.FC = () => {
         throw new Error(data.error ?? 'Failed to create checkout session');
       }
 
-      // Open Stripe Checkout in the system browser (Tauri)
-      await invoke('open_url', { url: data.url });
+      // Open Stripe Checkout inside a webview window
+      await invoke('open_checkout_window', { url: data.url });
 
     } catch (err) {
       setPurchaseError(err instanceof Error ? err.message : 'Payment failed');

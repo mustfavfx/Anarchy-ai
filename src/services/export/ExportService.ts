@@ -5,7 +5,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
+import { save, open } from '@tauri-apps/plugin-dialog';
 import type { Node, Edge } from '@xyflow/react';
 import jsPDF from 'jspdf';
 
@@ -194,15 +194,55 @@ export async function exportImagesBatchWithDialog(
   let failed = 0;
   const paths: string[] = [];
   
+  // Show open directory dialog (once!)
+  const selectedDir = await open({
+    directory: true,
+    multiple: false,
+    title: 'Select Export Directory'
+  });
+  
+  if (!selectedDir || typeof selectedDir !== 'string') {
+    return { succeeded, failed, paths }; // User cancelled or invalid
+  }
+  
+  const format = options.format ?? 'jpg';
+  const quality = options.quality ?? 0.92;
+  const separator = selectedDir.includes('\\') ? '\\' : '/';
+  
   for (const item of items) {
     try {
-      const path = await exportImageWithDialog(item.url, item.name, options);
-      if (path) {
-        succeeded++;
-        paths.push(path);
+      // Convert to data URI
+      const dataUri = await urlToDataUri(item.url, format, quality);
+      
+      // Determine file extension
+      let ext = format === 'jpg' ? 'jpg' : format;
+      if (dataUri.startsWith('data:video/')) {
+        const mime = dataUri.split(';')[0].split(':')[1];
+        if (mime === 'video/mp4') ext = 'mp4';
+        else if (mime === 'video/webm') ext = 'webm';
+        else if (mime === 'video/quicktime' || mime === 'video/mov') ext = 'mov';
+        else ext = 'mp4';
       }
+      
+      const fileName = `${sanitize(item.name)}_${timestamp()}.${ext}`;
+      const filePath = `${selectedDir}${separator}${fileName}`;
+      
+      // Extract base64 data
+      const base64Data = dataUri.split(',')[1];
+      if (!base64Data) throw new Error('Invalid data URI');
+      
+      // Save via Tauri
+      await invoke('save_file', { 
+        path: filePath, 
+        contents: base64Data,
+        binary: true 
+      });
+      
+      succeeded++;
+      paths.push(filePath);
+      
       // Small delay between saves
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 50));
     } catch (err) {
       console.error('[Export] Failed:', item.name, err);
       failed++;

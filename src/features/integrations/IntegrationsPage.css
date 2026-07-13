@@ -170,7 +170,7 @@
 .int-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  gap: 24px 20px;
 }
 
 /* ── Card ── */
@@ -995,3 +995,13 @@
   letter-spacing: 0;
   margin-left: 2px;
 }
+
+/* Image Logo overrides to render clean transparent PNGs */
+.logo-img-container {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+

@@ -123,7 +123,7 @@ export function useMultiBuilderTabs() {
           setTabs(prev => {
             const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(path));
             if (existing) {
-              setTimeout(() => setActiveTabId(existing.id), 0);
+              setActiveTabId(existing.id);
               return prev;
             }
             const newTab: Tab = {
@@ -133,7 +133,7 @@ export function useMultiBuilderTabs() {
               isDirty: false,
               everEdited: false,
             };
-            setTimeout(() => setActiveTabId(newTab.id), 0);
+            setActiveTabId(newTab.id);
             return [...prev, newTab];
           });
         }
@@ -170,7 +170,7 @@ export function useMultiBuilderTabs() {
             setTabs(prev => {
               const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(path));
               if (existing) {
-                setTimeout(() => setActiveTabId(existing.id), 0);
+                setActiveTabId(existing.id);
                 return prev;
               }
               const newTab: Tab = {
@@ -180,7 +180,7 @@ export function useMultiBuilderTabs() {
                 isDirty: false,
                 everEdited: false,
               };
-              setTimeout(() => setActiveTabId(newTab.id), 0);
+              setActiveTabId(newTab.id);
               return [...prev, newTab];
             });
           }
@@ -221,7 +221,7 @@ export function useMultiBuilderTabs() {
         initialWorkflow: wf,
       };
       setTabs(prev => [...prev, newTab]);
-      setTimeout(() => setActiveTabId(newTab.id), 0);
+      setActiveTabId(newTab.id);
     };
 
     window.addEventListener('anarchy:load-workflow', handleLoadWorkflow);
@@ -246,7 +246,7 @@ export function useMultiBuilderTabs() {
       setTabs(prev => {
         const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(projectPath));
         if (existing) {
-          setTimeout(() => setActiveTabId(existing.id), 0);
+          setActiveTabId(existing.id);
           return prev;
         }
         const newTab: Tab = {
@@ -256,7 +256,7 @@ export function useMultiBuilderTabs() {
           isDirty: false,
           everEdited: false,
         };
-        setTimeout(() => setActiveTabId(newTab.id), 0);
+        setActiveTabId(newTab.id);
         return [...prev, newTab];
       });
     } else if (loadedWorkflow) {
@@ -272,7 +272,7 @@ export function useMultiBuilderTabs() {
           initialWorkflow: wf,
         };
         setTabs(prev => [...prev, newTab]);
-        setTimeout(() => setActiveTabId(newTab.id), 0);
+        setActiveTabId(newTab.id);
       } catch (err) {
         console.error('Failed to parse loaded workflow:', err);
       }
@@ -294,7 +294,7 @@ export function useMultiBuilderTabs() {
           initialImage: img || undefined,
         };
         setTabs(prev => [...prev, newTab]);
-        setTimeout(() => setActiveTabId(newTab.id), 0);
+        setActiveTabId(newTab.id);
       } catch (err) {
         console.error('Failed to parse preset workflow:', err);
       }
@@ -309,7 +309,7 @@ export function useMultiBuilderTabs() {
         initialImage: presetImage,
       };
       setTabs(prev => [...prev, newTab]);
-      setTimeout(() => setActiveTabId(newTab.id), 0);
+      setActiveTabId(newTab.id);
     } else if (tabs.length === 0) {
       const newTab: Tab = {
         id: generateTabId(),

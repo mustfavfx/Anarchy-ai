@@ -5,15 +5,17 @@ import { ExportModal } from '../../shared/components/ExportModal';
 import { AIControlPanel } from '../builder/AIControlPanel';
 import { MaskCanvas } from './MaskCanvas';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
-import type { ReplicateImageModel, ReplicateUpscaleModel } from '../../services/replicate';
+import type { ReplicateImageModel, ReplicateUpscaleModel, ReplicateVideoModel } from '../../services/replicate';
 import { replicateService } from '../../services/replicate';
 import { useResolvedImage } from '../../hooks';
+import { isVideoUrl } from '../builder/utils/builderHelpers';
 import './RightSidebar.css';
 
 interface PreviewZoomStageProps {
   image?: string;
   resolvedImage?: string;
   imageType?: string | null;
+  isVideo?: boolean;
   zoom: number;
   panX: number;
   panY: number;
@@ -30,7 +32,7 @@ interface PreviewZoomStageProps {
 }
 
 const PreviewZoomStage: React.FC<PreviewZoomStageProps> = ({
-  image, resolvedImage, imageType, zoom, panX, panY, isPanning,
+  image, resolvedImage, imageType, isVideo, zoom, panX, panY, isPanning,
   stageRef, onWheel, onPanStart, onPanMove, onPanEnd,
   onFit, onZoomIn, onZoomOut, onExpand,
 }) => (
@@ -59,22 +61,43 @@ const PreviewZoomStage: React.FC<PreviewZoomStageProps> = ({
       }}
     >
       {image ? (
-        <img
-          key={image}
-          src={
-            resolvedImage && !resolvedImage.startsWith('idb://')
-              ? resolvedImage
-              : image && !image.startsWith('idb://')
-              ? image
-              : undefined
-          }
-          alt={imageType || 'Node'}
-          className="preview-zoom-img"
-          style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
-          onError={e => { e.currentTarget.style.display = 'none'; }}
-          onLoad={e => { e.currentTarget.style.display = ''; }}
-          draggable={false}
-        />
+        (isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage)) ? (
+          <video
+            key={image}
+            src={
+              resolvedImage && !resolvedImage.startsWith('idb://')
+                ? resolvedImage
+                : image && !image.startsWith('idb://')
+                ? image
+                : undefined
+            }
+            controls
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="preview-zoom-img"
+            style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})`, pointerEvents: isPanning ? 'none' : 'auto' }}
+            draggable={false}
+          />
+        ) : (
+          <img
+            key={image}
+            src={
+              resolvedImage && !resolvedImage.startsWith('idb://')
+                ? resolvedImage
+                : image && !image.startsWith('idb://')
+                ? image
+                : undefined
+            }
+            alt={imageType || 'Node'}
+            className="preview-zoom-img"
+            style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
+            onError={e => { e.currentTarget.style.display = 'none'; }}
+            onLoad={e => { e.currentTarget.style.display = ''; }}
+            draggable={false}
+          />
+        )
       ) : (
         <div className="preview-stage-content">
           <ImageIcon size={26} />
@@ -117,12 +140,26 @@ interface CompareSectionProps {
 const CompareSection: React.FC<CompareSectionProps> = ({
   compareImages, resolvedImages, compareSplit, onSplitChange, onSwap, onClear, onSetSlot, onClearSlot,
 }) => {
+  const isVideoA = isVideoUrl(resolvedImages.A || compareImages.A);
+  const isVideoB = isVideoUrl(resolvedImages.B || compareImages.B);
+
   if (compareImages.A && compareImages.B) {
+    const srcA = resolvedImages.A ?? compareImages.A ?? '';
+    const srcB = resolvedImages.B ?? compareImages.B ?? '';
+
     return (
       <div className="compare-container">
-        <img src={resolvedImages.B ?? compareImages.B ?? ''} className="compare-base" alt="B" />
+        {isVideoB ? (
+          <video src={srcB} className="compare-base" autoPlay loop muted playsInline />
+        ) : (
+          <img src={srcB} className="compare-base" alt="B" />
+        )}
         <div className="compare-clip" style={{ clipPath: `inset(0 ${100 - compareSplit}% 0 0)` }}>
-          <img src={resolvedImages.A ?? compareImages.A ?? ''} alt="A" />
+          {isVideoA ? (
+            <video src={srcA} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <img src={srcA} alt="A" />
+          )}
         </div>
         <div className="compare-handle" style={{ left: `${compareSplit}%` }}>
           <div className="compare-handle-line" />
@@ -143,31 +180,39 @@ const CompareSection: React.FC<CompareSectionProps> = ({
   return (
     <div className="compare-container">
       <div className="compare-empty">
-        {(['A', 'B'] as const).map(slot => (
-          <button
-            key={slot}
-            type="button"
-            className={`compare-slot ${compareImages[slot] ? 'filled' : ''}`}
-            onClick={() => onSetSlot(slot)}
-          >
-            {compareImages[slot] ? (
-              <>
-                <img src={resolvedImages[slot] ?? compareImages[slot] ?? ''} alt={slot} />
-                <button className="compare-slot-clear"
-                  onClick={e => { e.stopPropagation(); onClearSlot(slot); }}>
-                  <X size={12} />
-                </button>
-                <span className="compare-slot-label">{slot}</span>
-              </>
-            ) : (
-              <>
-                <Plus size={20} />
-                <span>Select Image {slot}</span>
-                <small>Click or right-click node</small>
-              </>
-            )}
-          </button>
-        ))}
+        {(['A', 'B'] as const).map(slot => {
+          const imgUrl = resolvedImages[slot] ?? compareImages[slot] ?? '';
+          const isSlotVideo = isVideoUrl(imgUrl);
+          return (
+            <button
+              key={slot}
+              type="button"
+              className={`compare-slot ${compareImages[slot] ? 'filled' : ''}`}
+              onClick={() => onSetSlot(slot)}
+            >
+              {compareImages[slot] ? (
+                <>
+                  {isSlotVideo ? (
+                    <video src={imgUrl} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <img src={imgUrl} alt={slot} />
+                  )}
+                  <button className="compare-slot-clear"
+                    onClick={e => { e.stopPropagation(); onClearSlot(slot); }}>
+                    <X size={12} />
+                  </button>
+                  <span className="compare-slot-label">{slot}</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={20} />
+                  <span>Select Image {slot}</span>
+                  <small>Click or right-click node</small>
+                </>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -206,6 +251,14 @@ export const RightSidebar: React.FC = () => {
 
   // Reset zoom/pan when image changes
   useEffect(() => { setZoom(1); setPanX(0); setPanY(0); }, [selectedNode?.image]);
+
+  // Reset previewMode to preview if selected node is a video
+  useEffect(() => {
+    const isVid = selectedNode?.isVideo || isVideoUrl(selectedNode?.image) || isVideoUrl(resolvedSelectedImage);
+    if (isVid && previewMode === 'draw') {
+      setPreviewMode('preview');
+    }
+  }, [selectedNode, resolvedSelectedImage, previewMode]);
 
   // Handle escape key to close fullscreen preview modal
   useEffect(() => {
@@ -249,55 +302,11 @@ export const RightSidebar: React.FC = () => {
   const [maskResult, setMaskResult] = useState<string | null>(null);
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
 
-  const handleModelChange = useCallback((model: ReplicateImageModel | ReplicateUpscaleModel) => {
+  const handleModelChange = useCallback((model: ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel) => {
     setConfig(prev => ({ ...prev, model }));
   }, [setConfig]);
 
-  const handleParamsChange = useCallback((params: {
-    steps: number;
-    cfg: number;
-    seed: number | null;
-    strength: number;
-    referenceStrength: number;
-    results: number;
-    negativePrompt: string;
-    disableSafetyChecker: boolean;
-    upscaleFactor?: number;
-    resolution?: string;
-    aspectRatio?: string;
-    // Topaz Labs settings
-    enhanceModel?: string;
-    topazUpscaleFactor?: string;
-    topazSubjectDetection?: string;
-    faceEnhancement?: boolean;
-    faceEnhancementCreativity?: number;
-    faceEnhancementStrength?: number;
-    // Clarity Upscaler settings
-    clarityScale?: number;
-    clarityDynamic?: number;
-    clarityCreativity?: number;
-    clarityTilingWidth?: number;
-    clarityTilingHeight?: number;
-    claritySdModel?: string;
-    clarityScheduler?: string;
-    claritySteps?: number;
-    claritySeed?: number | null;
-    clarityDownscaling?: boolean;
-    clarityDownscalingRes?: number;
-    claritySharpen?: number;
-    clarityHandfix?: string;
-    clarityPattern?: string;
-    clarityResemblance?: number;
-    clarityOutputFormat?: string;
-    // Pruna AI settings
-    prunaMode?: 'target' | 'factor';
-    prunaTarget?: number;
-    prunaFactor?: number;
-    prunaEnhanceDetails?: boolean;
-    prunaEnhanceRealism?: boolean;
-    prunaQuality?: number;
-    prunaOutputFormat?: string;
-  }) => {
+  const handleParamsChange = useCallback((params: any) => {
     setConfig(prev => ({
       ...prev,
       ...params,
@@ -421,7 +430,9 @@ export const RightSidebar: React.FC = () => {
               <div className="sidebar-preview-tabs" role="tablist">
                 <button type="button" className={`sidebar-tab ${previewMode === 'preview' ? 'active' : ''}`} onClick={() => setPreviewMode('preview')}>Preview</button>
                 <button type="button" className={`sidebar-tab ${previewMode === 'compare' ? 'active' : ''}`} onClick={() => setPreviewMode('compare')}>Compare</button>
-                <button type="button" className={`sidebar-tab ${previewMode === 'draw' ? 'active' : ''}`} onClick={() => setPreviewMode('draw')}>Mask</button>
+                {!(selectedNode?.isVideo || isVideoUrl(selectedNode?.image) || isVideoUrl(resolvedSelectedImage)) && (
+                  <button type="button" className={`sidebar-tab ${previewMode === 'draw' ? 'active' : ''}`} onClick={() => setPreviewMode('draw')}>Mask</button>
+                )}
               </div>
               <div className="sidebar-preview-actions">
                 {selectedNode?.image && selectedNode?.originalImage && selectedNode.image !== selectedNode.originalImage && (
@@ -465,6 +476,7 @@ export const RightSidebar: React.FC = () => {
                   image={selectedNode?.image}
                   resolvedImage={resolvedSelectedImage}
                   imageType={selectedNode?.type}
+                  isVideo={selectedNode?.isVideo}
                   zoom={zoom}
                   panX={panX}
                   panY={panY}
@@ -592,6 +604,42 @@ export const RightSidebar: React.FC = () => {
             prunaEnhanceRealism: config.prunaEnhanceRealism,
             prunaQuality: config.prunaQuality,
             prunaOutputFormat: config.prunaOutputFormat,
+            // Seedream sequential settings
+            sequentialImageGeneration: config.sequentialImageGeneration,
+            maxImages: config.maxImages,
+            // Custom size settings
+            width: config.width,
+            height: config.height,
+            // Video settings
+            videoDuration: config.videoDuration,
+            videoQuality: config.videoQuality,
+            motionStrength: config.motionStrength,
+            videoFps: config.videoFps,
+            // Seedance 2.0 settings
+            seedanceLastFrameImage: config.seedanceLastFrameImage,
+            seedanceGenerateAudio: config.seedanceGenerateAudio,
+            // Kling settings
+            klingStartImage: config.klingStartImage,
+            klingEndImage: config.klingEndImage,
+            klingReferenceImages: config.klingReferenceImages,
+            klingReferenceVideo: config.klingReferenceVideo,
+            klingVideoReferenceType: config.klingVideoReferenceType,
+            klingKeepOriginalSound: config.klingKeepOriginalSound,
+            klingGenerateAudio: config.klingGenerateAudio,
+            klingMode: config.klingMode,
+            // Pruna video settings
+            prunaLastFrameImage: config.prunaLastFrameImage,
+            prunaAudio: config.prunaAudio,
+            prunaFps: config.prunaFps,
+            // Google Veo settings
+            veoLastFrame: config.veoLastFrame,
+            veoGenerateAudio: config.veoGenerateAudio,
+            // PixVerse v6 settings
+            pixverseLastFrameImage: config.pixverseLastFrameImage,
+            pixverseGenerateAudioSwitch: config.pixverseGenerateAudioSwitch,
+            pixverseGenerateMultiClipSwitch: config.pixverseGenerateMultiClipSwitch,
+            // OpenAI Sora settings
+            soraInputReference: config.soraInputReference,
           }}
           onParamsChange={handleParamsChange}
         />

@@ -7,6 +7,10 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { ANARCHY_3DSMAX_SCRIPT } from './threeDsMaxPlugin';
 import './IntegrationsPage.css';
+import logo3dsmax from '../../assets/3dsmax.png';
+import logoRevit from '../../assets/revit.png';
+import logoSketchup from '../../assets/sketchup.png';
+import logoArchicad from '../../assets/archicad.png';
 
 interface Plugin {
   id: string;
@@ -89,41 +93,15 @@ const SUPPORTED_VERSIONS: Record<string, string[]> = {
 };
 
 const SoftwareLogo: React.FC<{ id: Plugin['icon'] }> = ({ id }) => {
-  if (id === '3dsmax') {
-    return (
-      <div className="software-logo autodesk-logo logo-3dsmax">
-        <i className="autodesk-side" />
-        <i className="autodesk-shadow" />
-        <span>3</span>
-      </div>
-    );
-  }
-
-  if (id === 'revit') {
-    return (
-      <div className="software-logo autodesk-logo logo-revit">
-        <i className="autodesk-side" />
-        <i className="autodesk-shadow" />
-        <span>R</span>
-      </div>
-    );
-  }
-
-  if (id === 'sketchup') {
-    return (
-      <div className="software-logo autodesk-logo logo-sketchup">
-        <i className="autodesk-side" />
-        <i className="autodesk-shadow" />
-        <span>S</span>
-      </div>
-    );
-  }
+  let logoSrc = '';
+  if (id === '3dsmax') logoSrc = logo3dsmax;
+  else if (id === 'revit') logoSrc = logoRevit;
+  else if (id === 'sketchup') logoSrc = logoSketchup;
+  else if (id === 'archicad') logoSrc = logoArchicad;
 
   return (
-    <div className="software-logo autodesk-logo logo-archicad">
-      <i className="autodesk-side" />
-      <i className="autodesk-shadow" />
-      <span>C</span>
+    <div className="software-logo logo-img-container">
+      <img src={logoSrc} alt={id} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
     </div>
   );
 };

@@ -142,13 +142,22 @@ async fn url_to_base64(url: String) -> Result<String, String> {
     // Convert to base64
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
 
-    // Determine mime type
+    // Determine mime type (support images and videos)
     let mime = if content_type.contains("png") {
         "image/png"
     } else if content_type.contains("webp") {
         "image/webp"
     } else if content_type.contains("gif") {
         "image/gif"
+    } else if content_type.contains("mp4") || content_type.contains("video/mp4") {
+        "video/mp4"
+    } else if content_type.contains("webm") || content_type.contains("video/webm") {
+        "video/webm"
+    } else if content_type.contains("quicktime") || content_type.contains("video/mov") {
+        "video/mp4"
+    } else if content_type.contains("video/") {
+        // Generic video fallback
+        "video/mp4"
     } else {
         "image/jpeg"
     };
@@ -1715,6 +1724,30 @@ async fn open_url(url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn open_checkout_window(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("Access denied. Only http:// and https:// URLs are allowed.".to_string());
+    }
+    let parsed_url = url.parse::<tauri::Url>().map_err(|e| format!("Invalid URL: {}", e))?;
+    
+    // Create checkout window
+    let _window = tauri::webview::WebviewWindowBuilder::new(
+        &app,
+        "stripe-checkout",
+        tauri::WebviewUrl::External(parsed_url),
+    )
+    .title("Secure Checkout - Anarchy AI")
+    .inner_size(1000.0, 750.0)
+    .center()
+    .resizable(true)
+    .focused(true)
+    .build()
+    .map_err(|e| format!("Failed to create window: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     use tauri_plugin_updater::UpdaterExt;
     let updater = app.updater().map_err(|e| e.to_string())?;
@@ -1789,15 +1822,14 @@ fn fix_ana_file_association() {
         None => return,
     };
 
-    // Expected icon path relative to the executable
-    let icon_path = install_dir.join("resources").join("icons").join("ana-file.ico");
+    // Expected icon path relative to the executable (handling both production and dev paths)
+    let mut icon_path = install_dir.join("resources").join("icons").join("ana-file.ico");
     if !icon_path.exists() {
-        return; // Icon not present – nothing to register
+        icon_path = install_dir.join("icons").join("ana-file.ico");
     }
-    let icon_str = match icon_path.to_str() {
-        Some(s) => s.to_string(),
-        None => return,
-    };
+    let icon_str = icon_path.to_str().map(|s| s.to_string());
+    let icon_exists = icon_path.exists() && icon_str.is_some();
+
     let exe_str = match exe_path.to_str() {
         Some(s) => s.to_string(),
         None => return,
@@ -1817,8 +1849,12 @@ fn fix_ana_file_association() {
     // 2. Set the human-readable type name
     set_reg_value("HKCU\\Software\\Classes\\AnarchyAI.ana", "Anarchy AI Project File");
 
-    // 3. Set the correct icon path
-    set_reg_value("HKCU\\Software\\Classes\\AnarchyAI.ana\\DefaultIcon", &icon_str);
+    // 3. Set the correct icon path if it exists
+    if icon_exists {
+        if let Some(ref icon) = icon_str {
+            set_reg_value("HKCU\\Software\\Classes\\AnarchyAI.ana\\DefaultIcon", icon);
+        }
+    }
 
     // 4. Set the open command
     let open_cmd = format!("\"{}\" \"%1\"", exe_str);
@@ -1826,7 +1862,11 @@ fn fix_ana_file_association() {
 
     // 5. Windows 10/11 SystemFileAssociations (modern icon engine)
     set_reg_value("HKCU\\Software\\Classes\\SystemFileAssociations\\.ana", "Anarchy AI Project File");
-    set_reg_value("HKCU\\Software\\Classes\\SystemFileAssociations\\.ana\\DefaultIcon", &icon_str);
+    if icon_exists {
+        if let Some(ref icon) = icon_str {
+            set_reg_value("HKCU\\Software\\Classes\\SystemFileAssociations\\.ana\\DefaultIcon", icon);
+        }
+    }
     set_reg_value("HKCU\\Software\\Classes\\SystemFileAssociations\\.ana\\shell\\open\\command", &open_cmd);
 
     // 6. Notify the Windows Shell to refresh icon cache immediately
@@ -1838,6 +1878,14 @@ fn fix_ana_file_association() {
     unsafe {
         SHChangeNotify(0x08000000i32, 0u32, std::ptr::null_mut(), std::ptr::null_mut());
     }
+
+    // 7. Register anarchy-ai:// URI Scheme Protocol Handler
+    set_reg_value("HKCU\\Software\\Classes\\anarchy-ai", "URL:anarchy-ai Protocol");
+    let _ = std::process::Command::new("reg")
+        .args(["add", "HKCU\\Software\\Classes\\anarchy-ai", "/v", "URL Protocol", "/d", "", "/f"])
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output();
+    set_reg_value("HKCU\\Software\\Classes\\anarchy-ai\\shell\\open\\command", &open_cmd);
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -1952,7 +2000,7 @@ fn main() {
             remove_old_autodesk_plugins, get_app_data_dir, is_plugin_installed,
             save_image_to_documents, save_image_to_path, read_local_image, read_clipboard_image,
             check_update, install_update, restart_app,
-            open_url, get_startup_file, get_deep_link, exit_app, analyze_floor_plan, open_images_folder, show_in_explorer,
+            open_url, open_checkout_window, get_startup_file, get_deep_link, exit_app, analyze_floor_plan, open_images_folder, show_in_explorer,
             save_secure_key, load_secure_key, delete_secure_key, get_tauri_panic
         ])
         .run(tauri::generate_context!())

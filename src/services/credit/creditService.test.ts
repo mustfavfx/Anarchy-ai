@@ -40,6 +40,8 @@ describe('Credit Service', () => {
       
       it('should return correct cost for other models', () => {
         expect(getModelCost('bytedance/seedream-4.5')).toBe(1);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '1024x1024' })).toBe(1.5);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '2048x2048' })).toBe(2.2);
         expect(getModelCost('xai/grok-imagine-image')).toBe(1);
       });
       
@@ -54,6 +56,10 @@ describe('Credit Service', () => {
         expect(getModelCost('google/nano-banana-2', { resolution: '1024x1024' })).toBe(2);
         expect(getModelCost('google/nano-banana-2', { resolution: '2048x2048' })).toBe(2);
         expect(getModelCost('google/nano-banana-2', { resolution: '4096x4096' })).toBe(3);
+      });
+
+      it('should return correct cost for Nano Banana Lite', () => {
+        expect(getModelCost('google/nano-banana-2-lite')).toBe(0.8);
       });
       
       it('should return correct cost for Nano Banana Pro', () => {
@@ -83,6 +89,11 @@ describe('Credit Service', () => {
       it('should return correct cost for other models', () => {
         expect(getModelCost('bytedance/seedream-4.5', { resolution: '2048x2048', isTrial: false })).toBe(1.0);
         expect(getModelCost('bytedance/seedream-4.5', { resolution: '4096x4096', isTrial: false })).toBe(1.5);
+        expect(getModelCost('bytedance/seedream-4.5', { resolution: 'custom', width: 2048, height: 2048, isTrial: false })).toBe(1.0);
+        expect(getModelCost('bytedance/seedream-4.5', { resolution: 'custom', width: 4096, height: 4096, isTrial: false })).toBe(1.5);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '1024x1024', isTrial: false })).toBe(1.5);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '2048x2048', isTrial: false })).toBe(2.2);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '4096x4096', isTrial: false })).toBe(2.2);
         expect(getModelCost('xai/grok-imagine-image', { isTrial: false })).toBe(1.0);
       });
       
@@ -97,6 +108,10 @@ describe('Credit Service', () => {
         expect(getModelCost('google/nano-banana-2', { resolution: '1024x1024', isTrial: false })).toBe(1.4);
         expect(getModelCost('google/nano-banana-2', { resolution: '2048x2048', isTrial: false })).toBe(1.5);
         expect(getModelCost('google/nano-banana-2', { resolution: '4096x4096', isTrial: false })).toBe(2.5);
+      });
+
+      it('should return correct cost for Nano Banana Lite', () => {
+        expect(getModelCost('google/nano-banana-2-lite', { isTrial: false })).toBe(0.8);
       });
       
       it('should return correct cost for Nano Banana Pro', () => {
@@ -124,6 +139,34 @@ describe('Credit Service', () => {
         expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 24, isTrial: false })).toBe(0.8);
         expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 48, isTrial: false })).toBe(1.25);
         expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 96, isTrial: false })).toBe(2.5);
+
+        // Kling v3 Omni Video (standard=3.0, pro=5.0, 4k=12.0)
+        expect(getModelCost('kwaivgi/kling-v3-omni-video', { resolution: 'standard', videoDuration: '5s' })).toBe(15.0);
+        expect(getModelCost('kwaivgi/kling-v3-omni-video', { resolution: 'pro', videoDuration: '5s' })).toBe(25.0);
+        expect(getModelCost('kwaivgi/kling-v3-omni-video', { resolution: '4k', videoDuration: '5s' })).toBe(60.0);
+        expect(getModelCost('kwaivgi/kling-v3-omni-video', { resolution: 'pro', videoDuration: '10s' })).toBe(50.0);
+
+        // Grok Imagine Video 1.5 (1.2 credits per second)
+        expect(getModelCost('xai/grok-imagine-video-1.5', { videoDuration: '5s' })).toBe(6.0);
+        expect(getModelCost('xai/grok-imagine-video-1.5', { videoDuration: '10s' })).toBe(12.0);
+
+        // Google Veo 3.1 Fast (5.5 credits per second)
+        expect(getModelCost('google/veo-3.1-fast', { videoDuration: '4s' })).toBe(22.0);
+        expect(getModelCost('google/veo-3.1-fast', { videoDuration: '8s' })).toBe(44.0);
+
+        // Pruna AI Video (720p = 2.5, 1080p = 6.0 credits per second)
+        expect(getModelCost('prunaai/p-video', { resolution: '720p', videoDuration: '5s' })).toBe(12.5);
+        expect(getModelCost('prunaai/p-video', { resolution: '1080p', videoDuration: '5s' })).toBe(30.0);
+
+        // PixVerse v6 (360p=1.0, 540p=1.8, 720p=3.5, 1080p=8.0 credits per second)
+        expect(getModelCost('pixverse/pixverse-v6', { resolution: '360p', videoDuration: '5s' })).toBe(5.0);
+        expect(getModelCost('pixverse/pixverse-v6', { resolution: '540p', videoDuration: '5s' })).toBe(9.0);
+        expect(getModelCost('pixverse/pixverse-v6', { resolution: '720p', videoDuration: '5s' })).toBe(17.5);
+        expect(getModelCost('pixverse/pixverse-v6', { resolution: '1080p', videoDuration: '5s' })).toBe(40.0);
+
+        // OpenAI Sora 2 Pro (standard=6.0, high=12.0 credits per second)
+        expect(getModelCost('openai/sora-2-pro', { resolution: 'standard', videoDuration: '4s' })).toBe(24.0);
+        expect(getModelCost('openai/sora-2-pro', { resolution: 'high', videoDuration: '4s' })).toBe(48.0);
       });
     });
   });

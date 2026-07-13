@@ -3,7 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { 
   FileInput, Wand2, X, Sun, Moon, Users, 
   Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright,
-  Eye, Maximize2, Copy
+  Eye, Copy, Volume2, VolumeX, Play, Pause, Clapperboard
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
 import { ExportModal } from '../../shared/components/ExportModal';
@@ -11,6 +11,7 @@ import { getLocalImageAsObjectURL, revokeObjectUrl } from '../../services/histor
 import { NodeLightbox } from './components/NodeLightbox';
 import { NodeUploadPlaceholder } from './components/NodeUploadPlaceholder';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { isVideoNode } from './utils/builderHelpers';
 import './BaseNode.css';
 import './BaseNode.glass.css';
 import type { ProcessingType, BuilderNodeData } from './types';
@@ -30,6 +31,7 @@ const PROCESSING_CONFIG: Record<ProcessingType, { icon: React.ReactNode; color: 
   lighting: { icon: <Sun size={12} />, color: '#e11d48', desc: 'Lighting adjust' },
   material: { icon: <Palette size={12} />, color: '#e11d48', desc: 'Material change' },
   local: { icon: <Scissors size={12} />, color: '#e11d48', desc: 'Local edit' },
+  video: { icon: <Clapperboard size={12} />, color: '#e11d48', desc: 'Video generation' },
   variation: { icon: <RefreshCw size={12} />, color: '#e11d48', desc: 'Style variation' }
 };
 
@@ -42,6 +44,10 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const displayImageRaw = nodeData.image || nodeData.outputData?.image;
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | undefined>(undefined);
   const [copied, setCopied] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const [uploadedIsVideo, setUploadedIsVideo] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const addNotification = useNotificationStore((s) => s.addNotification);
 
   const handleCopyPrompt = (e: React.MouseEvent) => {
@@ -59,7 +65,22 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
     }
   };
 
+  const handleTogglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (video) {
+      if (video.paused) {
+        video.play().catch(() => {});
+        setIsPaused(false);
+      } else {
+        video.pause();
+        setIsPaused(true);
+      }
+    }
+  };
+
   React.useEffect(() => {
+    setImgDims(null);
     let active = true;
     let currentBlobUrl: string | undefined = undefined;
 
@@ -70,7 +91,13 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
 
     const resolveImage = async () => {
       if (displayImageRaw.startsWith('idb://')) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[BaseNode] resolving idb key:', displayImageRaw, 'isVideo:', isVideoNode(nodeData));
+        }
         const cachedUrl = await getLocalImageAsObjectURL(displayImageRaw);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[BaseNode] resolved URL prefix:', cachedUrl?.substring(0, 60));
+        }
         if (!active) {
           if (cachedUrl && cachedUrl.startsWith('blob:')) {
             URL.revokeObjectURL(cachedUrl);
@@ -154,6 +181,19 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const processFiles = async (files: File[]) => {
     if (!files.length) return;
 
+    // Handle video files — read as data URL so it works with CSP + isVideoUrl
+    const videos = files.filter(f => f.type.startsWith('video/'));
+    if (videos.length > 0) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string; // data:video/mp4;base64,...
+        setUploadedIsVideo(true);
+        nodeData.onImageUpload?.(dataUrl);
+      };
+      reader.readAsDataURL(videos[0]);
+      return;
+    }
+
     // Separate PDFs from images
     const pdfs = files.filter(f => f.type === 'application/pdf');
     const images = files.filter(f => f.type.startsWith('image/'));
@@ -212,7 +252,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
     e.stopPropagation();
     setIsDragOver(false);
     const files = Array.from(e.dataTransfer.files).filter(
-      f => f.type.startsWith('image/') || f.type === 'application/pdf'
+      f => f.type.startsWith('image/') || f.type.startsWith('video/') || f.type === 'application/pdf'
     );
     processFiles(files);
   };
@@ -248,7 +288,6 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
       role="button"
       tabIndex={0}
       onClick={handleNodeClick}
-      onKeyDown={(e) => { if (e.key === 'Enter') handleNodeClick(); }}
     >
       <div className="node-selection-ring" />
       <div className="node-accent-strip" style={{ background: `linear-gradient(180deg, transparent, ${config.color}, transparent)` }} />
@@ -320,20 +359,41 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              style={imgDims ? { aspectRatio: `${imgDims.w} / ${imgDims.h}` } : undefined}
             >
               {displayImage ? (
                 <>
-                  <img
-                    src={displayImage}
-                    alt={nodeData.label}
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    onLoad={(e) => {
-                      const img = e.currentTarget;
-                      setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
-                    }}
-                  />
+                  {(isVideoNode(nodeData) || uploadedIsVideo) ? (
+                    <video
+                      ref={videoRef}
+                      src={displayImage}
+                      autoPlay
+                      loop
+                      muted={isMuted}
+                      playsInline
+                      className="nodrag"
+                      onClick={handleTogglePlay}
+                      onPlay={() => setIsPaused(false)}
+                      onPause={() => setIsPaused(true)}
+                      onLoadedMetadata={(e) => {
+                        const vid = e.currentTarget;
+                        setImgDims({ w: vid.videoWidth, h: vid.videoHeight });
+                      }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
+                    />
+                  ) : (
+                    <img
+                      src={displayImage}
+                      alt={nodeData.label}
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                      onLoad={(e) => {
+                        const img = e.currentTarget;
+                        setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
+                      }}
+                    />
+                  )}
                   {imgDims && (
                     <div className="image-res-badge">{imgDims.w}×{imgDims.h}</div>
                   )}
@@ -349,18 +409,30 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                         type="button"
                         className="image-action-btn preview"
                         title="Preview"
-                        onClick={(e) => { e.stopPropagation(); setLightbox('preview'); }}
+                        onClick={(e) => { e.stopPropagation(); setLightbox('expand'); }}
                       >
                         <Eye size={14} />
                       </button>
-                      <button
-                        type="button"
-                        className="image-action-btn expand"
-                        title="Full Screen"
-                        onClick={(e) => { e.stopPropagation(); setLightbox('expand'); }}
-                      >
-                        <Maximize2 size={14} />
-                      </button>
+                      {(isVideoNode(nodeData) || uploadedIsVideo) && (
+                        <button
+                          type="button"
+                          className="image-action-btn play-pause"
+                          title={isPaused ? "Play" : "Pause"}
+                          onClick={handleTogglePlay}
+                        >
+                          {isPaused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
+                        </button>
+                      )}
+                      {(isVideoNode(nodeData) || uploadedIsVideo) && (
+                        <button
+                          type="button"
+                          className="image-action-btn volume"
+                          title={isMuted ? "Unmute" : "Mute"}
+                          onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                        >
+                          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                        </button>
+                      )}
                       {isSource && (
                         <button 
                           type="button"
@@ -384,7 +456,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*,video/*,application/pdf"
                   multiple
                   onChange={handleImageUpload}
                   style={{ display: 'none' }}

@@ -173,9 +173,6 @@
 /* Smooth node transitions */
 .react-flow__node {
   transition: box-shadow 0.15s ease-out;
-  will-change: transform;
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 .react-flow__node.react-flow__node-dragging,
@@ -187,9 +184,6 @@
 /* Smooth pan and zoom */
 .react-flow__viewport {
   transition: none !important;
-  will-change: transform;
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 /* Optimize edge animations */
@@ -222,12 +216,6 @@
 /* Optimize background dots performance */
 .react-flow__background {
   pointer-events: none;
-}
-
-/* Enable hardware acceleration for smooth movement */
-.react-flow__nodes {
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 /* ================================================================

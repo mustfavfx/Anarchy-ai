@@ -3,6 +3,7 @@ import { X, Download, Maximize2, Minimize2, Brush, Eraser, Scissors, Trash2, Rot
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { downloadImage } from '../../utils/imageExport';
 import { useResolvedImage } from '../../hooks';
+import { isVideoUrl } from '../builder/utils/builderHelpers';
 import './EnlargedPreview.css';
 import './MaskCanvas.css';
 
@@ -67,6 +68,14 @@ export const EnlargedPreview: React.FC = () => {
 
   // Reset zoom/pan when image changes
   useEffect(() => { setZoom(1); setPanX(0); setPanY(0); setImgMeta(null); }, [image]);
+
+  // Reset tab to preview if video node is selected while on draw tab
+  useEffect(() => {
+    const isVid = selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage);
+    if (isVid && tab === 'draw') {
+      setTab('preview');
+    }
+  }, [selectedNode, image, resolvedImage, tab]);
 
   // Initialize default crop rect when crop tool is selected
   useEffect(() => {
@@ -486,15 +495,19 @@ export const EnlargedPreview: React.FC = () => {
       {/* ── Top bar ── */}
       <div className="ep-topbar">
         <div className="ep-tabs">
-          {(['preview', 'compare', 'draw'] as const).map(t => (
-            <button
-              key={t}
-              className={`ep-tab ${tab === t ? 'active' : ''}`}
-              onClick={() => setTab(t)}
-            >
-              {t === 'draw' ? 'Mask' : t === 'compare' ? 'Compare' : 'Preview'}
-            </button>
-          ))}
+          {(['preview', 'compare', 'draw'] as const).map(t => {
+            const isVid = selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage);
+            if (t === 'draw' && isVid) return null;
+            return (
+              <button
+                key={t}
+                className={`ep-tab ${tab === t ? 'active' : ''}`}
+                onClick={() => setTab(t)}
+              >
+                {t === 'draw' ? 'Mask' : t === 'compare' ? 'Compare' : 'Preview'}
+              </button>
+            );
+          })}
         </div>
 
         <div className="ep-topbar-center">
@@ -558,7 +571,11 @@ export const EnlargedPreview: React.FC = () => {
       {/* Fullscreen overlay */}
       {isFullscreen && image && (
         <div className="ep-fullscreen-overlay" onClick={() => setIsFullscreen(false)}>
-          <img src={getSafeSrc(resolvedImage, image)} alt="Fullscreen" className="ep-fullscreen-img" onClick={e => e.stopPropagation()} />
+          {(selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage)) ? (
+            <video src={getSafeSrc(resolvedImage, image)} controls autoPlay loop muted playsInline className="ep-fullscreen-img" onClick={e => e.stopPropagation()} />
+          ) : (
+            <img src={getSafeSrc(resolvedImage, image)} alt="Fullscreen" className="ep-fullscreen-img" onClick={e => e.stopPropagation()} />
+          )}
           <button className="ep-fullscreen-close" onClick={() => setIsFullscreen(false)} title="Close (Esc)">
             <X size={16} />
           </button>
@@ -572,7 +589,29 @@ export const EnlargedPreview: React.FC = () => {
         {tab === 'preview' && (
           <div className={`ep-zoom-stage ${isPanning ? 'panning' : ''}`} onWheel={handleWheel} onMouseDown={onPanStart} onMouseMove={onPanMove} onMouseUp={onPanEnd} onMouseLeave={onPanEnd}>
             {image ? (
-              <img src={getSafeSrc(resolvedImage, image)} alt="Preview" className="ep-zoom-img" draggable={false} style={{ transform: `translate(${panX}px,${panY}px) scale(${zoom})` }} onLoad={e => setImgMeta({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
+              (selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage)) ? (
+                <video
+                  src={getSafeSrc(resolvedImage, image)}
+                  controls
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="ep-zoom-img"
+                  draggable={false}
+                  style={{ transform: `translate(${panX}px,${panY}px) scale(${zoom})`, pointerEvents: isPanning ? 'none' : 'auto' }}
+                  onLoadedMetadata={e => setImgMeta({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
+                />
+              ) : (
+                <img
+                  src={getSafeSrc(resolvedImage, image)}
+                  alt="Preview"
+                  className="ep-zoom-img"
+                  draggable={false}
+                  style={{ transform: `translate(${panX}px,${panY}px) scale(${zoom})` }}
+                  onLoad={e => setImgMeta({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                />
+              )
             ) : (
               <div className="ep-empty"><span>No image selected</span><small>Click a node on the canvas</small></div>
             )}
@@ -584,8 +623,18 @@ export const EnlargedPreview: React.FC = () => {
           <div className="ep-compare">
             {compareImages.A && compareImages.B ? (
               <div className="ep-compare-active">
-                <img src={getSafeSrc(resolvedCompareB, compareImages.B)} className="ep-compare-base" alt="B" />
-                <div className="ep-compare-clip" style={{ clipPath: `inset(0 ${100 - compareSplit}% 0 0)` }}><img src={getSafeSrc(resolvedCompareA, compareImages.A)} alt="A" /></div>
+                {(isVideoUrl(compareImages.B) || isVideoUrl(resolvedCompareB)) ? (
+                  <video src={getSafeSrc(resolvedCompareB, compareImages.B)} className="ep-compare-base" autoPlay loop muted playsInline />
+                ) : (
+                  <img src={getSafeSrc(resolvedCompareB, compareImages.B)} className="ep-compare-base" alt="B" />
+                )}
+                <div className="ep-compare-clip" style={{ clipPath: `inset(0 ${100 - compareSplit}% 0 0)` }}>
+                  {(isVideoUrl(compareImages.A) || isVideoUrl(resolvedCompareA)) ? (
+                    <video src={getSafeSrc(resolvedCompareA, compareImages.A)} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <img src={getSafeSrc(resolvedCompareA, compareImages.A)} alt="A" />
+                  )}
+                </div>
                 <div className="ep-compare-handle" style={{ left: `${compareSplit}%` }}><div className="ep-compare-line" /><div className="ep-compare-knob">⇄</div></div>
                 <input type="range" min={0} max={100} value={compareSplit} onChange={e => setCompareSplit(Number(e.target.value))} className="ep-compare-slider" />
                 <span className="ep-compare-label ep-label-a">A</span>
@@ -597,11 +646,31 @@ export const EnlargedPreview: React.FC = () => {
               </div>
             ) : (
               <div className="ep-compare-slots">
-                {(['A', 'B'] as const).map(slot => (
-                  <div key={slot} className={`ep-compare-slot ${compareImages[slot] ? 'filled' : ''}`} onClick={() => { if (!compareImages[slot] && image) setCompareSlot(slot, image); }}>
-                    {compareImages[slot] ? (<><img src={getSafeSrc(resolvedCompareImages[slot], compareImages[slot]) || ''} alt={slot} /><button className="ep-slot-clear" onClick={e => { e.stopPropagation(); setCompareImages(p => ({ ...p, [slot]: null })); }}><X size={12} /></button><span className="ep-slot-label">{slot}</span></>) : (<><span className="ep-slot-plus">+</span><span>Set as {slot}</span><small>{image ? 'Click to use selected node' : 'Select a node first'}</small></>)}
-                  </div>
-                ))}
+                {(['A', 'B'] as const).map(slot => {
+                  const imgUrl = getSafeSrc(resolvedCompareImages[slot], compareImages[slot]) || '';
+                  const isSlotVideo = isVideoUrl(compareImages[slot]) || isVideoUrl(resolvedCompareImages[slot]);
+                  return (
+                    <div key={slot} className={`ep-compare-slot ${compareImages[slot] ? 'filled' : ''}`} onClick={() => { if (!compareImages[slot] && image) setCompareSlot(slot, image); }}>
+                      {compareImages[slot] ? (
+                        <>
+                          {isSlotVideo ? (
+                            <video src={imgUrl} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <img src={imgUrl} alt={slot} />
+                          )}
+                          <button className="ep-slot-clear" onClick={e => { e.stopPropagation(); setCompareImages(p => ({ ...p, [slot]: null })); }}><X size={12} /></button>
+                          <span className="ep-slot-label">{slot}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="ep-slot-plus">+</span>
+                          <span>Set as {slot}</span>
+                          <small>{image ? 'Click to use selected node' : 'Select a node first'}</small>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

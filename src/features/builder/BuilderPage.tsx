@@ -45,6 +45,7 @@ const getAutosaveKey = (tabId?: string) => {
   return tabId ? `${base}_${tabId}` : base;
 };
 
+
 // Helpers
 import {
   resolveSourceLabel,
@@ -60,6 +61,7 @@ import {
   nodeTypes,
   edgeTypes,
   CustomConnectionLine,
+  isVideoNode,
 } from './utils/builderHelpers.tsx';
 
 import './BuilderPage.css';
@@ -67,9 +69,9 @@ import './BuilderPage.css';
 // Check if running in a Tauri desktop environment
 export const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 
-type ContextAction = 
-  | 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node' 
-  | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-dxf' | 'analyze-plan' 
+type ContextAction =
+  | 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node'
+  | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-dxf' | 'analyze-plan'
   | 'export-all' | 'export-pdf' | 'save-project' | 'load-project'
   | 'open-images-folder' | 'export-node-pdf';
 
@@ -86,7 +88,7 @@ interface BuilderContentProps {
 }
 
 // Inner component that uses React Flow hooks (must be inside ReactFlowProvider)
-export const BuilderContent: React.FC<BuilderContentProps> = ({ 
+export const BuilderContent: React.FC<BuilderContentProps> = ({
   tabId,
   projectPath: initialProjectPath,
   initialWorkflow,
@@ -99,8 +101,25 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const { user: authUser } = useAuth();
   const addNotification = useNotificationStore((state) => state.addNotification);
   const isZoomedOut = useStore((s) => s.transform[2] < 0.6);
-  
+
   const hasFittedInitially = useRef(false);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // Force a real GPU composite repaint by toggling display on the .tab-pane ancestor.
+  // Targeting .tab-pane (not canvas-container child) is critical — this is the exact
+  // element whose display:none/flex controls the GPU layer, same as manual tab switching.
+  const forceCanvasRepaint = useCallback(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+    const target = (el.closest('.tab-pane') as HTMLElement | null) || el;
+    requestAnimationFrame(() => {
+      target.style.setProperty('display', 'none', 'important');
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      void target.offsetHeight; // sync reflow — forces GPU layer rebuild
+      target.style.removeProperty('display'); // let .active class take over
+      window.dispatchEvent(new Event('resize'));
+    });
+  }, []);
 
   // Memoize custom node/edge renderer objects to prevent react-flow re-creation warning
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
@@ -162,7 +181,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const handleNodesChange = useCallback((changes: any[]) => {
     const sanitizedChanges = changes.filter(change => {
       if (change.type === 'position' && change.position) {
-        const hasValidPosition = 
+        const hasValidPosition =
           typeof change.position.x === 'number' && !Number.isNaN(change.position.x) &&
           typeof change.position.y === 'number' && !Number.isNaN(change.position.y);
         if (!hasValidPosition) {
@@ -178,10 +197,10 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [onNodesChange]);
 
   const getConfig = useAIConfigStore((state) => state.getConfig);
-  const liveModel      = useAIConfigStore((state) => state.config.model);
+  const liveModel = useAIConfigStore((state) => state.config.model);
   const liveResolution = useAIConfigStore((state) => state.config.resolution);
-  const liveQuality    = useAIConfigStore((state) => (state.config as any).qualityVariant ?? 'auto');
-  const livePruna      = useAIConfigStore((state) => state.config.prunaTarget);
+  const liveQuality = useAIConfigStore((state) => (state.config as any).qualityVariant ?? 'auto');
+  const livePruna = useAIConfigStore((state) => state.config.prunaTarget);
   const liveUpscaleFactor = useAIConfigStore((state) => {
     const model = state.config.model;
     if (model === 'topazlabs/image-upscale') {
@@ -208,6 +227,13 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const applyWatermarkToSource = useCallback(async (url: string): Promise<string> => {
     if (!url) return url;
+    const isVid = url.startsWith('data:video/') || 
+                  url.toLowerCase().includes('.mp4') || 
+                  url.toLowerCase().includes('.webm') || 
+                  url.toLowerCase().includes('.mov') || 
+                  url.toLowerCase().includes('.avi');
+    if (isVid) return url;
+
     const aiConfig = useAIConfigStore.getState().config;
     const wmText = (aiConfig.watermarkText || '').trim();
     const wmEnabled = aiConfig.enableWatermark &&
@@ -321,11 +347,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     nodeId?: string;
   } | null>(null);
 
+  const isActiveRef = useRef(isActive);
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
+
   const { fitView: rawFitView, getViewport, fitBounds, getNode: getRFNode, screenToFlowPosition, setViewport } = useReactFlow();
   const fitView = useCallback((options?: any) => {
-    if (!isActive) return;
-    rawFitView(options);
-  }, [rawFitView, isActive]);
+    return rawFitView(options);
+  }, [rawFitView]);
 
   // Register node image update callback so RightSidebar crop/edit updates node data in canvas
   useEffect(() => {
@@ -374,7 +404,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      
+
       ctx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
       return thumbCanvas.toDataURL('image/jpeg', 0.92);
     } catch (err) {
@@ -413,6 +443,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setSelectedNodeId,
     setSelectedNode,
     hasFittedInitiallyRef: hasFittedInitially,
+    forceCanvasRepaint,
   });
 
   const location = useLocation();
@@ -450,7 +481,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }
   }, [location.pathname, setPrompt]);
 
-  // Auto-load project if provided via props (once)
+  // Auto-load project if provided via props (starts on mount, doesn't wait for active state)
   useEffect(() => {
     if (hasLoadedRef.current) return;
 
@@ -462,7 +493,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           const data = JSON.parse(saved);
           return !!(data.nodes && data.nodes.length > 0);
         }
-      } catch {}
+      } catch { }
       return false;
     })();
 
@@ -478,7 +509,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             onProjectPathChange?.(result.filePath);
             applyWorkflow(result, result.name);
           }
-        } catch (err) {
+        } catch (err: any) {
           logger.error('[Builder] Auto-load failed:', err);
           addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
         }
@@ -504,7 +535,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             restorePresetImage(wf, initialImage);
           }
         }
-      } catch (err) { logger.error('[Builder] initialWorkflow load failed:', err); }
+      } catch (err: any) { logger.error('[Builder] initialWorkflow load failed:', err); }
     } else if (initialImage) {
       hasLoadedRef.current = true;
       applyWatermarkToSource(initialImage).then(watermarked => {
@@ -513,10 +544,11 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: setCurrentFilePathState is a stable setter, adding it causes circular dep
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: setCurrentFilePathState is a stable setter, adding it causes circular dep
   }, [
     initialProjectPath,
     tabId,
+    isActive,
     onProjectPathChange,
     initialWorkflow,
     initialImage,
@@ -539,21 +571,50 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }, 500);
     return () => clearTimeout(snapshotTimerRef.current);
   }, [nodes, edges, setWorkflowSnapshot]);
-
-  // Re-measure container and fit view when tab becomes active
+  // Keep a ref of nodes to use in active tab effect without triggering re-runs
+  const nodesRefForActive = useRef(nodes);
   useEffect(() => {
-    if (isActive && !hasFittedInitially.current) {
-      setTimeout(() => {
+    nodesRefForActive.current = nodes;
+  }, [nodes]);
+
+  // Dispatch window resize after tab becomes active — polls until canvas is on-screen
+  useEffect(() => {
+    if (!isActive) return;
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const container = canvasContainerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+
+      // Check if container is on-screen (x >= 0) and has a valid size
+      if (rect.width > 50 && rect.height > 50 && rect.left >= 0) {
+        // Dispatch resize to let ReactFlow measure itself
         window.dispatchEvent(new Event('resize'));
+
+        // Wait another tick for ReactFlow to update internal dimensions, then fit view
         setTimeout(() => {
-          if (!hasFittedInitially.current) {
-            fitView({ padding: 0.3, minZoom: 0.6, duration: 400 });
+          if (nodesRefForActive.current && nodesRefForActive.current.length > 0 && !hasFittedInitially.current) {
+            fitView({ padding: 0.3, duration: 400 });
             hasFittedInitially.current = true;
           }
-        }, 150);
-      }, 100);
-    }
-  }, [isActive, fitView]);
+        }, 50);
+
+        clearInterval(interval);
+      }
+
+      // Stop polling after 30 attempts (3 seconds)
+      if (attempts >= 30) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isActive, fitView, nodes.length]);
 
   const handleExternalImage = useCallback((image: string, rawSource: string) => {
     const nodeLabel = resolveSourceLabel(rawSource);
@@ -572,7 +633,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const handleGlobalEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ image: string; source: string }>;
       const activeTabId = localStorage.getItem('anarchy_builder_active_tab');
-      
+
       console.log('EVENT RECEIVED');
       console.log('tabId=', tabId);
       console.log('activeTabId=', activeTabId);
@@ -613,6 +674,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           originalImage: data?.originalImage,
           prompt: data?.prompt,
           state: data?.state,
+          isVideo: isVideoNode(data),
         });
       }
     } else {
@@ -630,19 +692,20 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           originalImage: data?.originalImage,
           prompt: data?.prompt,
           state: data?.state,
+          isVideo: isVideoNode(data),
         });
       } else {
-        setSelectedNode({ id: null, type: null, image: undefined, originalImage: undefined, prompt: undefined, state: undefined });
+        setSelectedNode({ id: null, type: null, image: undefined, originalImage: undefined, prompt: undefined, state: undefined, isVideo: false });
       }
     }
-  // nodes intentionally omitted — use nodesRef to avoid re-render on every drag frame
+    // nodes intentionally omitted — use nodesRef to avoid re-render on every drag frame
   }, [selectedNodeId, setSelectedNode]);
 
   // Restore viewport from localStorage if available, preventing fitView jump on mount
   const hasRestoredViewport = useRef(false);
   useEffect(() => {
     if (!isRestored || hasRestoredViewport.current) return;
-    
+
     try {
       const key = getAutosaveKey(tabId);
       const saved = localStorage.getItem(key);
@@ -662,18 +725,38 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     hasRestoredViewport.current = true;
   }, [isRestored, setViewport, tabId]);
 
-
-
-
-
   const makeImageUploadHandler = useCallback((nodeId: string) => (url: string) => {
     if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, state: 'idle', outputData: undefined }); return; }
+    const isVid = url.startsWith('data:video/') || 
+                  url.toLowerCase().includes('.mp4') || 
+                  url.toLowerCase().includes('.webm') || 
+                  url.toLowerCase().includes('.mov') || 
+                  url.toLowerCase().includes('.avi');
     applyWatermarkToSource(url).then(async (watermarked) => {
       const imageKey = `idb://${crypto.randomUUID()}`;
       await cacheLocalImage(imageKey, watermarked);
-      updateNodeData(nodeId, { image: imageKey, originalImage: imageKey, state: 'ready', outputData: makeSourceOutput(imageKey) });
+      updateNodeData(nodeId, { 
+        image: imageKey, 
+        originalImage: imageKey, 
+        state: 'ready', 
+        isVideo: isVid,
+        outputData: makeSourceOutput(imageKey, isVid) 
+      });
+
+      const currentSelected = useAIConfigStore.getState().selectedNode;
+      if (currentSelected?.id === nodeId) {
+        setSelectedNode({
+          id: nodeId,
+          type: 'source',
+          image: imageKey,
+          originalImage: imageKey,
+          prompt: undefined,
+          state: 'ready',
+          isVideo: isVid
+        });
+      }
     });
-  }, [updateNodeData, applyWatermarkToSource]);
+  }, [updateNodeData, applyWatermarkToSource, setSelectedNode]);
 
   const spawnExtraSources = useCallback((node: BuilderNode, watermarkedUrls: string[]) => {
     watermarkedUrls.slice(1).forEach((wUrl, index) => {
@@ -689,11 +772,30 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     Promise.allSettled(urls.map(u => applyWatermarkToSource(u))).then(async (results) => {
       const watermarkedUrls = results.map((r, idx) => r.status === 'fulfilled' ? r.value : urls[idx]);
       const watermarked = watermarkedUrls[0];
+      const isVid = watermarked.startsWith('data:video/') || 
+                    watermarked.toLowerCase().includes('.mp4') || 
+                    watermarked.toLowerCase().includes('.webm') || 
+                    watermarked.toLowerCase().includes('.mov') || 
+                    watermarked.toLowerCase().includes('.avi');
       const imageKey = `idb://${crypto.randomUUID()}`;
       await cacheLocalImage(imageKey, watermarked);
-      updateNodeData(node.id, { image: imageKey, originalImage: imageKey, state: 'ready', outputData: makeSourceOutput(imageKey) });
+      updateNodeData(node.id, { 
+        image: imageKey, 
+        originalImage: imageKey, 
+        state: 'ready', 
+        isVideo: isVid,
+        outputData: makeSourceOutput(imageKey, isVid) 
+      });
       spawnExtraSources(node, watermarkedUrls);
-      setSelectedNode({ id: node.id, type: 'source', image: imageKey, originalImage: imageKey, prompt: undefined, state: 'ready' });
+      setSelectedNode({ 
+        id: node.id, 
+        type: 'source', 
+        image: imageKey, 
+        originalImage: imageKey, 
+        prompt: undefined, 
+        state: 'ready',
+        isVideo: isVid
+      });
     });
   }, [updateNodeData, applyWatermarkToSource, spawnExtraSources, setSelectedNode]);
 
@@ -727,7 +829,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     },
     onExecute: (id: string, promptText: string) => {
       const cfg = buildGenConfig(getConfig());
-      executeWithNotifications(id, promptText, cfg).catch(() => {});
+      executeWithNotifications(id, promptText, cfg).catch(() => { });
     },
     onCancel: (id: string) => {
       cancelExecution(id);
@@ -744,17 +846,17 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         // Retrieve or build stable data object to prevent custom nodes from re-rendering during dragging
         const cachedEntry = nodeDataCache.current.get(node.id);
         let mappedData = cachedEntry?.mappedData;
-        
+
         if (!cachedEntry || cachedEntry.rawData !== node.data || cachedEntry.enableWatermark !== enableWatermark) {
           mappedData = {
             ...node.data,
-            onAddChild:      (type: ProcessingType) => stableHandlers.onAddChild(node.id, type),
-            onImageUpload:   node.data.type === 'source' ? (url: string) => stableHandlers.onImageUpload(node.id, url) : undefined,
-            onImagesUpload:  node.data.type === 'source' ? (urls: string[]) => stableHandlers.onImagesUpload(node.id, urls) : undefined,
-            onDelete:        node.data.type === 'source' ? undefined : () => stableHandlers.onDelete(node.id),
-            onRetry:         node.data.type === 'ghost' && (node.data.state === 'error' || node.data.state === 'failed') ? () => stableHandlers.onRetry(node.id) : undefined,
-            onExecute:       node.data.type === 'ghost' ? (promptText: string) => stableHandlers.onExecute(node.id, promptText) : undefined,
-            onCancel:        (node.data.type === 'ghost' || node.data.type === 'result') ? () => stableHandlers.onCancel(node.id) : undefined,
+            onAddChild: (type: ProcessingType) => stableHandlers.onAddChild(node.id, type),
+            onImageUpload: node.data.type === 'source' ? (url: string) => stableHandlers.onImageUpload(node.id, url) : undefined,
+            onImagesUpload: node.data.type === 'source' ? (urls: string[]) => stableHandlers.onImagesUpload(node.id, urls) : undefined,
+            onDelete: node.data.type === 'source' ? undefined : () => stableHandlers.onDelete(node.id),
+            onRetry: node.data.type === 'ghost' && (node.data.state === 'error' || node.data.state === 'failed') ? () => stableHandlers.onRetry(node.id) : undefined,
+            onExecute: node.data.type === 'ghost' ? (promptText: string) => stableHandlers.onExecute(node.id, promptText) : undefined,
+            onCancel: (node.data.type === 'ghost' || node.data.type === 'result') ? () => stableHandlers.onCancel(node.id) : undefined,
             enableWatermark, // injected once — avoids per-node Zustand subscription
           };
           nodeDataCache.current.set(node.id, {
@@ -769,7 +871,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           nextCache.set(node.id, cached);
           return cached;
         }
-        
+
         const mappedNode: BuilderNode = {
           ...node,
           data: mappedData
@@ -780,22 +882,44 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       });
     mappedNodesCache.current = nextCache;
     return result;
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- enableWatermark intentionally omitted per nodesRef pattern above
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- enableWatermark intentionally omitted per nodesRef pattern above
   }, [nodes, stableHandlers, enableWatermark]);
 
   // Fit view when nodes are measured to center them perfectly on initial load
   useEffect(() => {
-    if (isActive && nodesWithCallbacks.length > 0 && !hasFittedInitially.current) {
+    if (nodesWithCallbacks.length > 0 && !hasFittedInitially.current) {
       const allMeasured = nodesWithCallbacks.every(n => n.measured && typeof n.measured.width === 'number' && n.measured.width > 0);
       if (allMeasured) {
-        const timer = setTimeout(() => {
-          fitView({ padding: 0.3, duration: 0 });
-          hasFittedInitially.current = true;
-        }, 50);
-        return () => clearTimeout(timer);
+        let retryCount = 0;
+        let timerId: any = null;
+
+        const attemptFit = () => {
+          if (hasFittedInitially.current) return;
+          const res = fitView({ padding: 0.3, duration: 0 });
+
+          Promise.resolve(res).then((resolvedSuccess) => {
+            if (resolvedSuccess) {
+              hasFittedInitially.current = true;
+              forceCanvasRepaint();
+            } else if (retryCount < 15) {
+              retryCount++;
+              timerId = setTimeout(attemptFit, 150);
+            }
+          }).catch(() => {
+            if (retryCount < 15) {
+              retryCount++;
+              timerId = setTimeout(attemptFit, 150);
+            }
+          });
+        };
+
+        timerId = setTimeout(attemptFit, 50);
+        return () => {
+          if (timerId) clearTimeout(timerId);
+        };
       }
     }
-  }, [isActive, nodesWithCallbacks, fitView]);
+  }, [nodesWithCallbacks, fitView]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: BuilderNode) => {
     if (event.button !== 0) return;
@@ -833,9 +957,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const queueStore = useBuilderQueueStore.getState();
     nodes.forEach(node => {
       const job = queueStore.jobs[node.id];
-      const isQueuedOrExecuting = queueStore.activeQueue.includes(node.id) || 
-                                  (job && job.state !== 'idle') || 
-                                  node.data.state !== 'idle';
+      const isQueuedOrExecuting = queueStore.activeQueue.includes(node.id) ||
+        (job && job.state !== 'idle') ||
+        node.data.state !== 'idle';
       if (
         node.data.type === 'ghost' &&
         !isQueuedOrExecuting &&
@@ -908,7 +1032,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   // FIX 5: Add/remove a CSS class while panning so all node transitions are
   // suppressed during movement, eliminating per-frame style recalculation.
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const handleMoveStart = useCallback(() => {
     canvasContainerRef.current?.classList.add('canvas-panning');
   }, []);
@@ -957,7 +1080,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     return new Promise((resolve, reject) => {
       if (!file.type.startsWith('image/')) { reject(new Error('Not an image')); return; }
       const reader = new FileReader();
-      reader.onload  = () => resolve(reader.result as string);
+      reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
@@ -967,7 +1090,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     logger.log('[Spawn From Image] Creating source node with image');
     const watermarked = await applyWatermarkToSource(dataUrl);
     const nodeId = createSourceNode(watermarked, undefined, position);
-    
+
     setTimeout(() => setNodes(patchSpawnedNode(nodeId)), 50);
     setSelectedNodeId(nodeId);
     setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
@@ -1155,8 +1278,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const data = n.data as any;
     return data?.type === 'source' && !!data?.image;
   });
-  
-  
+
+
   // Enable generate if:
   // - For upscaler: has upscale factor selected AND there's a ghost node AND source has image
   // - For other tools: always enabled (prompt check is separate)
@@ -1199,92 +1322,90 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           </defs>
         </svg>
 
-        {/* ReactFlow canvas — always rendered, AppShell controls size in enlarged mode */}
-        {(
-          <ReactFlow
-            proOptions={{ hideAttribution: true }}
-            nodes={nodesWithCallbacks}
-            edges={edges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            onSelectionChange={onSelectionChange}
-            onPaneClick={onPaneClick}
-            onPaneContextMenu={onPaneContextMenu}
-            onNodeContextMenu={onNodeContextMenu}
-            onMoveStart={handleMoveStart}
-            onMoveEnd={handleMoveEnd}
-            onNodeDragStart={handleNodeDragStart}
-            onNodeDragStop={handleNodeDragStop}
-            nodeTypes={memoizedNodeTypes}
-            edgeTypes={memoizedEdgeTypes}
-            fitViewOptions={{ padding: 0.2, minZoom: 0.6, maxZoom: 2, duration: 300 }}
-            colorMode="dark"
-            minZoom={0.01}
-            maxZoom={2}
-            // Note: ConnectionLineType.Bezier removed - causes errors in @xyflow/react v12
-            // Custom connection line to avoid getBezierPath errors
-            connectionLineComponent={CustomConnectionLine}
-            defaultEdgeOptions={{
-              type: 'default',
-              animated: false,
-              label: null, // Prevent any labels on edges
-              style: { 
-                strokeWidth: 2.5,
-                stroke: '#e11d48',
-                strokeDasharray: '6 4',
-                strokeLinecap: 'round',
-              }
-            }}
-            // Smoothness & Performance optimizations
-            onlyRenderVisibleElements={true}
-            panOnScroll={false}
-            zoomOnScroll={true}
-            zoomOnPinch={true}
-            zoomOnDoubleClick={false}
-            panOnDrag={isSpacePressed ? true : [1, 2]}
-            selectionOnDrag={!isSpacePressed}
-            selectionMode={SelectionMode.Partial}
-            multiSelectionKeyCode={['Shift', 'Control']}
-            deleteKeyCode={['Delete', 'Backspace']}
-            elevateNodesOnSelect={true}
-            nodesDraggable={true}
-            nodesConnectable={true}
-            elementsSelectable={true}
-            selectNodesOnDrag={true}
-            zoomActivationKeyCode={null}
-            preventScrolling={true}
-          >
-            <Background 
-              variant={BackgroundVariant.Dots} 
-              gap={20} 
-              size={1} 
-              color="rgba(255, 255, 255, 0.05)" 
+        {/* ReactFlow canvas — stays mounted to preserve canvas state and avoid blank flash */}
+        <ReactFlow
+          proOptions={{ hideAttribution: true }}
+          nodes={nodesWithCallbacks}
+          edges={edges}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onSelectionChange={onSelectionChange}
+          onPaneClick={onPaneClick}
+          onPaneContextMenu={onPaneContextMenu}
+          onNodeContextMenu={onNodeContextMenu}
+          onMoveStart={handleMoveStart}
+          onMoveEnd={handleMoveEnd}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDragStop={handleNodeDragStop}
+          nodeTypes={memoizedNodeTypes}
+          edgeTypes={memoizedEdgeTypes}
+          fitViewOptions={{ padding: 0.2, minZoom: 0.6, maxZoom: 2, duration: 300 }}
+          colorMode="dark"
+          minZoom={0.01}
+          maxZoom={2}
+          // Note: ConnectionLineType.Bezier removed - causes errors in @xyflow/react v12
+          // Custom connection line to avoid getBezierPath errors
+          connectionLineComponent={CustomConnectionLine}
+          defaultEdgeOptions={{
+            type: 'default',
+            animated: false,
+            label: null, // Prevent any labels on edges
+            style: {
+              strokeWidth: 2.5,
+              stroke: '#e11d48',
+              strokeDasharray: '6 4',
+              strokeLinecap: 'round',
+            }
+          }}
+          // Smoothness & Performance optimizations
+          onlyRenderVisibleElements={true}
+          panOnScroll={false}
+          zoomOnScroll={true}
+          zoomOnPinch={true}
+          zoomOnDoubleClick={false}
+          panOnDrag={isSpacePressed ? true : [1, 2]}
+          selectionOnDrag={!isSpacePressed}
+          selectionMode={SelectionMode.Partial}
+          multiSelectionKeyCode={['Shift', 'Control']}
+          deleteKeyCode={['Delete', 'Backspace']}
+          elevateNodesOnSelect={true}
+          nodesDraggable={true}
+          nodesConnectable={true}
+          elementsSelectable={true}
+          selectNodesOnDrag={true}
+          zoomActivationKeyCode={null}
+          preventScrolling={true}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="rgba(255, 255, 255, 0.05)"
+          />
+          {/* FIX 4: Hide MiniMap above 50 nodes — it re-renders on every node
+               position change and becomes very expensive at scale. */}
+          {nodesWithCallbacks.length > 0 && nodesWithCallbacks.length <= 50 && (
+            <MiniMap
+              position="bottom-right"
+              nodeColor={() => 'rgba(225, 29, 72, 0.8)'}
+              nodeStrokeColor={() => 'rgba(225, 29, 72, 1)'}
+              nodeBorderRadius={2}
+              maskColor="rgba(0, 0, 0, 0.6)"
+              style={{
+                background: 'rgba(10, 10, 12, 0.85)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '10px',
+                width: 120,
+                height: 80,
+                marginBottom: 80,
+              }}
+              zoomable
+              pannable
             />
-            {/* FIX 4: Hide MiniMap above 50 nodes — it re-renders on every node
-                 position change and becomes very expensive at scale. */}
-            {nodesWithCallbacks.length > 0 && nodesWithCallbacks.length <= 50 && (
-              <MiniMap
-                position="bottom-right"
-                nodeColor={() => 'rgba(225, 29, 72, 0.8)'}
-                nodeStrokeColor={() => 'rgba(225, 29, 72, 1)'}
-                nodeBorderRadius={2}
-                maskColor="rgba(0, 0, 0, 0.6)"
-                style={{
-                  background: 'rgba(10, 10, 12, 0.85)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '10px',
-                  width: 120,
-                  height: 80,
-                  marginBottom: 80,
-                }}
-                zoomable
-                pannable
-              />
-            )}
-          </ReactFlow>
-        )}
+          )}
+        </ReactFlow>
 
         <BuilderContextMenu
           contextMenu={contextMenu}

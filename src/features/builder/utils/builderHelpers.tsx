@@ -62,6 +62,36 @@ export const buildGenConfig = (aiConfig: any) => ({
   prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
   prunaQuality: aiConfig.prunaQuality,
   prunaOutputFormat: aiConfig.prunaOutputFormat,
+  // Video settings
+  videoDuration: aiConfig.videoDuration,
+  videoQuality: aiConfig.videoQuality,
+  motionStrength: aiConfig.motionStrength,
+  videoFps: aiConfig.videoFps,
+  // Seedance settings
+  seedanceLastFrameImage: aiConfig.seedanceLastFrameImage,
+  seedanceGenerateAudio: aiConfig.seedanceGenerateAudio,
+  // Kling settings
+  klingStartImage: aiConfig.klingStartImage,
+  klingEndImage: aiConfig.klingEndImage,
+  klingReferenceImages: aiConfig.klingReferenceImages,
+  klingReferenceVideo: aiConfig.klingReferenceVideo,
+  klingVideoReferenceType: aiConfig.klingVideoReferenceType,
+  klingKeepOriginalSound: aiConfig.klingKeepOriginalSound,
+  klingGenerateAudio: aiConfig.klingGenerateAudio,
+  klingMode: aiConfig.klingMode,
+  // Pruna AI video settings
+  prunaLastFrameImage: aiConfig.prunaLastFrameImage,
+  prunaAudio: aiConfig.prunaAudio,
+  prunaFps: aiConfig.prunaFps,
+  // Google Veo settings
+  veoLastFrame: aiConfig.veoLastFrame,
+  veoGenerateAudio: aiConfig.veoGenerateAudio,
+  // PixVerse v6 settings
+  pixverseLastFrameImage: aiConfig.pixverseLastFrameImage,
+  pixverseGenerateAudioSwitch: aiConfig.pixverseGenerateAudioSwitch,
+  pixverseGenerateMultiClipSwitch: aiConfig.pixverseGenerateMultiClipSwitch,
+  // OpenAI Sora settings
+  soraInputReference: aiConfig.soraInputReference,
 });
 
 export function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges: any[] } {
@@ -141,7 +171,7 @@ export function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges:
         lineage,
         outputData: outputPacket,
         inputData: undefined,
-        config: {},
+        config: n.config || {},
         historyEntryId: n.historyEntryId,
       }
     };
@@ -235,9 +265,17 @@ export function htmlToCanvas(element: HTMLElement): Promise<HTMLCanvasElement | 
   });
 }
 
-export function makeSourceOutput(url: string) {
+export function makeSourceOutput(url: string, isVideo?: boolean) {
   if (!url) return undefined;
-  return { image: url, prompt: undefined, metadata: { timestamp: Date.now(), operationType: 'source' as const } };
+  return { 
+    image: url, 
+    prompt: undefined, 
+    metadata: { 
+      timestamp: Date.now(), 
+      operationType: 'source' as const,
+      isVideo: isVideo ?? false
+    } 
+  };
 }
 
 export function isValidPosition(node: Node): boolean {
@@ -294,6 +332,44 @@ export async function resolveImageUrl(imageUrl: string): Promise<string> {
     resolved = await urlToDataUri(resolved);
   }
   return resolved;
+}
+
+export function isVideoUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('.mp4') ||
+    lower.includes('.webm') ||
+    lower.includes('.ogg') ||
+    lower.includes('.mov') ||
+    lower.includes('.avi') ||
+    lower.includes('data:video/')
+  );
+}
+
+export function isVideoNode(nodeData: any): boolean {
+  if (!nodeData) return false;
+  if (nodeData.outputData?.metadata?.isVideo || nodeData.config?.isVideo || nodeData.isVideo) {
+    return true;
+  }
+  const model = nodeData.config?.model || nodeData.outputData?.metadata?.model;
+  if (model) {
+    const VIDEO_MODELS = [
+      'bytedance/seedance-2.0',
+      'kwaivgi/kling-v3-omni-video',
+      'xai/grok-imagine-video-1.5',
+      'prunaai/p-video',
+      'google/veo-3.1-fast',
+      'pixverse/pixverse-v6',
+      'openai/sora-2-pro',
+      'wavespeedai/wan-2.1-i2v-480p',
+      'wavespeedai/wan-2.1-i2v-720p',
+    ];
+    const isVidModel = VIDEO_MODELS.some(m => model.startsWith(m) || m.startsWith(model));
+    if (isVidModel) return true;
+  }
+  const imageUrl = nodeData.image || nodeData.outputData?.image;
+  return isVideoUrl(imageUrl);
 }
 
 export const nodeTypes = {

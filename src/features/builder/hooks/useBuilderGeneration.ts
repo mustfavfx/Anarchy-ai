@@ -140,6 +140,9 @@ export function useBuilderGeneration({
       prunaTarget: aiConfig.prunaTarget,
       upscaleFactor: resolvedUpscaleFactor,
       isTrial,
+      width: (aiConfig as any).width,
+      height: (aiConfig as any).height,
+      videoDuration: aiConfig.videoDuration,
     });
 
     const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
@@ -162,7 +165,19 @@ export function useBuilderGeneration({
         nodes.find(n => (n.data.type === 'source' || n.data.type === 'result') && !!n.data.image) ??
         nodes.find(n => n.data.type === 'source');
       const parentId = existingParent ? existingParent.id : createSourceNode();
-      const ghostId = spawnGhostNode(parentId, 'render');
+      const isVideo = [
+        'bytedance/seedance-2.0',
+        'kwaivgi/kling-v3-omni-video',
+        'xai/grok-imagine-video-1.5',
+        'prunaai/p-video',
+        'google/veo-3.1-fast',
+        'pixverse/pixverse-v6',
+        'openai/sora-2-pro',
+        'wavespeedai/wan-2.1-i2v-480p',
+        'wavespeedai/wan-2.1-i2v-720p',
+      ].some(m => aiConfig.model?.startsWith(m) || m.startsWith(aiConfig.model));
+      const processingType = isVideo ? 'video' : 'render';
+      const ghostId = spawnGhostNode(parentId, processingType);
       if (ghostId) {
         targetNodeIds = [ghostId];
         useBuilderQueueStore.getState().addJob(ghostId, { state: 'connecting' });

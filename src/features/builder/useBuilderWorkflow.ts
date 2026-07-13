@@ -24,7 +24,7 @@ import { UpscalerFactory } from '../../services/upscalers/UpscalerFactory';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { watermarkService } from '../../services/watermark/WatermarkService';
-import { addHistoryEntry, cacheLocalImage, getLocalImage, deleteLocalImage, revokeObjectUrl } from '../../services/history/HistoryService';
+import { addHistoryEntry, cacheLocalImage, getLocalImage, deleteLocalImage, revokeObjectUrl, dataURLtoBlob } from '../../services/history/HistoryService';
 import type { NodeTreeData } from '../../types/history';
 import { invoke } from '@tauri-apps/api/core';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
@@ -179,6 +179,9 @@ export interface GenerationConfig {
   claritySharpen?: number;
   clarityHandfix?: string;
   clarityOutputFormat?: string;
+  // Seedream sequential settings
+  sequentialImageGeneration?: string;
+  maxImages?: number;
   // Pruna AI settings
   prunaMode?: 'target' | 'factor';
   prunaTarget?: number;
@@ -213,6 +216,27 @@ const TYPE_LABELS: Record<ProcessingType, string> = {
   variation: 'Variation'
 };
 
+const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  'google/nano-banana-2':             'Nano Banana 2',
+  'google/nano-banana-2-lite':        'Nano Banana 2 Lite',
+  'google/nano-banana-pro':           'Nano Banana Pro',
+  'bytedance/seedream-4.5':           'Seedream 4.5',
+  'bytedance/seedream-5-pro':         'Seedream 5 Pro',
+  'black-forest-labs/flux-2-pro':     'FLUX 2 Pro',
+  'openai/gpt-image-2':               'GPT Image 2',
+  'bytedance/seedance-2.0':           'Seedance 2',
+  'black-forest-labs/flux-kontext-pro':'FLUX Kontext Pro',
+  'xai/grok-imagine-image':           'Grok Imagine',
+  'stability-ai/stable-diffusion-3.5-large': 'Stable Diffusion 3.5',
+  'philz1337x/clarity-upscaler':      'Clarity Upscaler',
+  'kwaivgi/kling-v3-omni-video':      'Kling v3 Omni Video',
+  'xai/grok-imagine-video-1.5':       'Grok Imagine Video 1.5',
+  'prunaai/p-video':                  'Pruna AI P-Video',
+  'google/veo-3.1-fast':              'Google Veo 3.1 Fast',
+  'pixverse/pixverse-v6':              'PixVerse v6',
+  'openai/sora-2-pro':                'Sora 2 Pro',
+};
+
 // ============================================================================
 // DATA PACKET UTILITIES
 // ============================================================================
@@ -221,7 +245,9 @@ const createDataPacket = (
   image: string | undefined,
   prompt: string | undefined,
   operationType: ProcessingType,
-  dimensions?: { width: number; height: number }
+  dimensions?: { width: number; height: number },
+  model?: string,
+  isVideo?: boolean
 ): DataPacket => ({
   image,
   prompt,
@@ -230,7 +256,9 @@ const createDataPacket = (
     operationType,
     format: 'png',
     width: dimensions?.width,
-    height: dimensions?.height
+    height: dimensions?.height,
+    model,
+    isVideo
   },
   dimensions
 });
@@ -947,8 +975,22 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         ));
       };
 
-      const sourceDims = nodeData.inputData?.dimensions;
-      let result: { imageUrl: string; metadata: { width: number; height: number; model: string; prompt: string } };
+      // Resolve source dimensions from the first connected parent node (ghost-target-0)
+      let sourceDims: { width: number; height: number } | undefined = undefined;
+      const primaryEdge = incomingEdges[0];
+      if (primaryEdge) {
+        const primaryParentNode = nodesRef.current.find(n => n.id === primaryEdge.source);
+        if (primaryParentNode) {
+          const parentData = primaryParentNode.data as BuilderNodeData;
+          const d = (parentData.outputData?.dimensions ?? parentData.dimensions) as { width: number; height: number } | undefined;
+          sourceDims = d;
+        }
+      }
+      if (!sourceDims) {
+        sourceDims = nodeData.inputData?.dimensions;
+      }
+      
+      let result: { imageUrl: string; imageUrls?: string[]; metadata: { width: number; height: number; model: string; prompt: string } };
 
       // For upscale models, use upscaleImage API
       if (isUpscaleModel) {
@@ -1011,6 +1053,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           sourceHeight: sourceDims?.height,
           nodeId,
           userId: user?.id || 'anonymous',
+          sequentialImageGeneration: config?.sequentialImageGeneration,
+          maxImages: config?.maxImages,
         };
 
         // Choose generation mode based on model capabilities and available images
@@ -1023,35 +1067,66 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           : await replicateService.generate(baseParams, controller.signal, onStatusChange);
       }
 
-      const resultImage = await persistImageLocally(result.imageUrl);
-      
-      // Apply watermark if enabled
-      let finalImage = resultImage;
+      let finalImage: any = result.imageUrl;
+      const isVideo = model && [
+        'bytedance/seedance-2.0',
+        'kwaivgi/kling-v3-omni-video',
+        'xai/grok-imagine-video-1.5',
+        'prunaai/p-video',
+        'google/veo-3.1-fast',
+        'pixverse/pixverse-v6',
+        'openai/sora-2-pro',
+        'wavespeedai/wan-2.1-i2v-480p',
+        'wavespeedai/wan-2.1-i2v-720p',
+      ].some(m => (model as string).startsWith(m) || m.startsWith(model as string));
+
       const aiConfig = useAIConfigStore.getState().config;
       const wmText = (aiConfig.watermarkText || '').trim();
       const wmEnabled = aiConfig.enableWatermark &&
         (aiConfig.watermarkType === 'image' ? !!aiConfig.watermarkImage : wmText.length > 0);
-      if (wmEnabled) {
+
+      if (isVideo) {
         try {
-          // Canvas requires a data URI — convert http:// URLs via Tauri first
-          let imageForWm = finalImage;
-          if (imageForWm.startsWith('http')) {
-            imageForWm = await invoke<string>('url_to_base64', { url: imageForWm });
+          // Bypasses CORS by downloading via Tauri Rust backend proxy
+          logger.log('[BuilderWorkflow] Fetching video blob via Rust proxy...', { url: result.imageUrl });
+          const base64Data = await invoke<string>('url_to_base64', { url: result.imageUrl });
+          logger.log('[BuilderWorkflow] url_to_base64 returned, starts with:', base64Data?.substring(0, 40));
+          if (base64Data && base64Data.startsWith('data:')) {
+            finalImage = dataURLtoBlob(base64Data);
+            logger.log('[BuilderWorkflow] Video blob created, size:', (finalImage as Blob).size, 'type:', (finalImage as Blob).type);
+          } else {
+            logger.warn('[BuilderWorkflow] Rust proxy returned invalid base64, using URL fallback', { prefix: base64Data?.substring(0, 50) });
           }
-          finalImage = await watermarkService.applyWatermark(imageForWm, {
-            type: aiConfig.watermarkType || 'text',
-            text: wmText || 'Anarchy AI',
-            watermarkImage: aiConfig.watermarkImage,
-            watermarkImageSize: aiConfig.watermarkImageSize ?? 80,
-            position: aiConfig.watermarkPosition ?? 'bottom-right',
-            opacity: aiConfig.watermarkOpacity ?? 0.5,
-            fontSize: aiConfig.watermarkFontSize ?? 24,
-          });
-        } catch (wmErr) {
-          logger.warn('[Watermark] Failed to apply:', wmErr);
+        } catch (err) {
+          logger.error('[BuilderWorkflow] Failed to fetch video blob via Rust proxy, using URL fallback:', err);
+        }
+      } else {
+        const resultImage = await persistImageLocally(result.imageUrl);
+        finalImage = resultImage;
+
+        // Apply watermark if enabled
+        if (wmEnabled) {
+          try {
+            // Canvas requires a data URI — convert http:// URLs via Tauri first
+            let imageForWm = finalImage;
+            if (imageForWm.startsWith('http')) {
+              imageForWm = await invoke<string>('url_to_base64', { url: imageForWm });
+            }
+            finalImage = await watermarkService.applyWatermark(imageForWm, {
+              type: aiConfig.watermarkType || 'text',
+              text: wmText || 'Anarchy AI',
+              watermarkImage: aiConfig.watermarkImage,
+              watermarkImageSize: aiConfig.watermarkImageSize ?? 80,
+              position: aiConfig.watermarkPosition ?? 'bottom-right',
+              opacity: aiConfig.watermarkOpacity ?? 0.5,
+              fontSize: aiConfig.watermarkFontSize ?? 24,
+            });
+          } catch (wmErr) {
+            logger.warn('[Watermark] Failed to apply:', wmErr);
+          }
         }
       }
-      
+
       const imageKey = `idb://${crypto.randomUUID()}`;
       await cacheLocalImage(imageKey, finalImage);
 
@@ -1059,8 +1134,13 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         imageKey,
         prompt,
         nodeData.processingType,
-        { width: result.metadata.width, height: result.metadata.height }
+        { width: result.metadata.width, height: result.metadata.height },
+        model,
+        isVideo
       );
+
+      let modelLabel = '';
+      let parentId: string | undefined = undefined;
 
       try {
         const parent = getParent(nodeId);
@@ -1093,7 +1173,6 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           nodeData.processingType === 'render' ? 'variation' :
           'edit';
 
-        // Build node tree from current state
         const nodeTree: NodeTreeData = {
           nodes: nodesRef.current.map(n => {
             const data = n.data as BuilderNodeData;
@@ -1113,6 +1192,9 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           activeNodeId: nodeId,
           createdAt: Date.now(),
         };
+
+        modelLabel = MODEL_DISPLAY_NAMES[model] || model.split('/').pop() || model;
+        parentId = parent?.id;
         
         const savedEntry = await addHistoryEntry({
           type: (nodeData.processingType as any) === 'upscale' ? 'upscale' : 'render',
@@ -1130,12 +1212,162 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           nodeType,
         });
 
-        // Link the canvas node to the newly created history entry
-        setNodes(nds => nds.map(n => 
-          n.id === nodeId 
-            ? { ...n, data: { ...n.data, historyEntryId: savedEntry.id } }
-            : n
-        ));
+        // Link the canvas node to the newly created history entry and spawn extra sibling nodes if any
+        const extraNodes: BuilderNode[] = [];
+        const extraEdges: Edge[] = [];
+
+        if (result.imageUrls && result.imageUrls.length > 1) {
+          const extraUrls = result.imageUrls.slice(1);
+          const siblings = parentId ? getChildren(parentId) : [];
+          let extraCount = siblings.length + 1; // plus 1 for the current nodeId which is already a child
+
+          for (let i = 0; i < extraUrls.length; i++) {
+            const url = extraUrls[i];
+            const localUrl = await persistImageLocally(url);
+            
+            let finalExtraImage = localUrl;
+            if (wmEnabled) {
+              try {
+                let imageForWm = finalExtraImage;
+                if (imageForWm.startsWith('http')) {
+                  imageForWm = await invoke<string>('url_to_base64', { url: imageForWm });
+                }
+                finalExtraImage = await watermarkService.applyWatermark(imageForWm, {
+                  type: aiConfig.watermarkType || 'text',
+                  text: wmText || 'Anarchy AI',
+                  watermarkImage: aiConfig.watermarkImage,
+                  watermarkImageSize: aiConfig.watermarkImageSize ?? 80,
+                  position: aiConfig.watermarkPosition ?? 'bottom-right',
+                  opacity: aiConfig.watermarkOpacity ?? 0.5,
+                  fontSize: aiConfig.watermarkFontSize ?? 24,
+                });
+              } catch (wmErr) {
+                logger.warn('[Watermark] Failed to apply to extra image:', wmErr);
+              }
+            }
+
+            const key = `idb://${crypto.randomUUID()}`;
+            await cacheLocalImage(key, finalExtraImage);
+
+            const childPacket = createDataPacket(
+              key,
+              prompt,
+              nodeData.processingType,
+              { width: result.metadata.width, height: result.metadata.height },
+              model,
+              isVideo
+            );
+
+            // Save extra history entry
+            let extraHistoryId: string | undefined = undefined;
+            try {
+              const savedEntryExtra = await addHistoryEntry({
+                type: (nodeData.processingType as any) === 'upscale' ? 'upscale' : 'render',
+                label: prompt && prompt.length > 50 ? prompt.slice(0, 50) + '...' : (prompt || 'Generation'),
+                prompt,
+                model: modelId,
+                inputImage: parentImage,
+                outputImage: finalExtraImage,
+                duration: Date.now() - _execStartTime,
+                nodeTree, // We can reuse the same initial node tree
+                rootSourceId,
+                rootSourceImage,
+                parentId: finalParentId,
+                rootId: finalRootId,
+                nodeType,
+              });
+              extraHistoryId = savedEntryExtra.id;
+            } catch (historyErr) {
+              logger.error('[History] Failed to save extra history entry:', historyErr);
+            }
+
+            // Calculate position
+            let newPosition: XYPosition;
+            if (parentId && parent) {
+              const direction = extraCount % 2 === 0 ? 1 : -1;
+              const offsetMultiplier = Math.ceil(extraCount / 2);
+              const yOffset = direction * offsetMultiplier * VERTICAL_SPACING;
+              newPosition = {
+                x: parent.position.x + HORIZONTAL_SPACING,
+                y: parent.position.y + yOffset
+              };
+              extraCount++;
+            } else {
+              newPosition = {
+                x: node.position.x,
+                y: node.position.y + (i + 1) * VERTICAL_SPACING
+              };
+            }
+
+            const parentData = parent?.data as BuilderNodeData | undefined;
+            const parentLineage = parentData?.lineage;
+            const newId = `node-${crypto.randomUUID()}`;
+            const extraNode: BuilderNode = {
+              id: newId,
+              type: 'baseNode',
+              position: newPosition,
+              width: 260,
+              data: {
+                label: modelLabel,
+                type: 'result',
+                processingType: nodeData.processingType,
+                state: 'ready',
+                image: key,
+                originalImage: key,
+                prompt,
+                modelUsed: model,
+                createdAt: Date.now(),
+                processedAt: Date.now(),
+                lineage: {
+                  parentId: parentId || null,
+                  rootSourceId: rootSourceId || '',
+                  generation: parentLineage ? parentLineage.generation + 1 : 1,
+                  branchIndex: i + 1,
+                  processingType: nodeData.processingType,
+                  ancestry: parentLineage && parent ? [...parentLineage.ancestry, parent.id] : [],
+                },
+                inputData: nodeData.inputData,
+                outputData: childPacket,
+                dimensions: { width: result.metadata.width, height: result.metadata.height },
+                historyEntryId: extraHistoryId
+              }
+            };
+
+            extraNodes.push(extraNode);
+
+            // Create edges from all parents of original node to newId
+            incomingEdges.forEach((edge, handleIndex) => {
+              const ed = createEdge(edge.source, newId, {
+                animated: false,
+                isDataFlow: true,
+                packet: edge.data?.packet as DataPacket | undefined,
+                targetHandleIndex: handleIndex
+              });
+              ed.targetHandle = 'target';
+              extraEdges.push(ed);
+            });
+          }
+        }
+
+        setNodes(nds => {
+          const updated = nds.map(n => 
+            n.id === nodeId 
+              ? { ...n, data: { ...n.data, historyEntryId: savedEntry.id } }
+              : n
+          );
+          return [...updated, ...extraNodes];
+        });
+
+        if (extraEdges.length > 0) {
+          setEdges(eds => [...eds, ...extraEdges]);
+        }
+
+        // Propagate updates for extra nodes
+        setTimeout(() => {
+          extraNodes.forEach(extraNode => {
+            propagateNodeUpdate(extraNode.id);
+          });
+        }, 100);
 
         const isUpscale = (nodeData.processingType as any) === 'upscale';
         track({
@@ -1158,20 +1390,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         await invoke('save_image_to_documents', { dataUri: finalImage, fileName });
       } catch { /* Non-critical — silently ignore */ }
 
-      // Map model IDs to human-readable display names for the result title
-      const MODEL_DISPLAY_NAMES: Record<string, string> = {
-        'google/nano-banana-2':             'Nano Banana 2',
-        'google/nano-banana-pro':           'Nano Banana Pro',
-        'bytedance/seedream-4.5':           'Seedream 4.5',
-        'black-forest-labs/flux-2-pro':     'FLUX 2 Pro',
-        'openai/gpt-image-2':               'GPT Image 2',
-        'bytedance/seedance-2.0':           'Seedance 2',
-        'black-forest-labs/flux-kontext-pro':'FLUX Kontext Pro',
-        'xai/grok-imagine-image':           'Grok Imagine',
-        'stability-ai/stable-diffusion-3.5-large': 'Stable Diffusion 3.5',
-        'philz1337x/clarity-upscaler':      'Clarity Upscaler',
-      };
-      const modelLabel = MODEL_DISPLAY_NAMES[model] || model.split('/').pop() || model;
+
 
       setNodes(nds => nds.map(n => {
         if (n.id !== nodeId) return n;
@@ -1182,6 +1401,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           data: {
             ...n.data,
             type: 'result', // TRANSFORM: Ghost becomes Result
+            processingType: isVideo ? 'video' : nodeData.processingType,
             state: 'ready',
             label: modelLabel,
             modelUsed: model,
@@ -1194,6 +1414,20 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           }
         };
       }));
+
+      // Update selected node state in Zustand if it is the currently selected node
+      const currentSelected = useAIConfigStore.getState().selectedNode;
+      if (currentSelected?.id === nodeId) {
+        useAIConfigStore.getState().setSelectedNode({
+          id: nodeId,
+          type: 'result',
+          image: imageKey,
+          originalImage: imageKey,
+          prompt,
+          state: 'ready',
+          isVideo: isVideo
+        });
+      }
 
       pushHistory(nodesRef.current, edgesRef.current); // snapshot before result lands
 
@@ -1227,6 +1461,15 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
             }
           : n
       ));
+      // Update selected node state in Zustand if it is the currently selected node
+      const currentSelected = useAIConfigStore.getState().selectedNode;
+      if (currentSelected?.id === nodeId) {
+        useAIConfigStore.getState().setSelectedNode({
+          ...currentSelected,
+          state: 'error',
+          errorMessage: error instanceof Error ? error.message : 'Generation failed'
+        });
+      }
       throw error;
     } finally {
       abortControllers.current.delete(nodeId);
@@ -1258,6 +1501,16 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           }
         : n
     ));
+
+    // Update selected node state in Zustand if it is the currently selected node
+    const currentSelected = useAIConfigStore.getState().selectedNode;
+    if (currentSelected?.id === nodeId) {
+      useAIConfigStore.getState().setSelectedNode({
+        ...currentSelected,
+        state: 'cancelled',
+        errorMessage: 'Execution cancelled by user'
+      });
+    }
 
     // Clear execution queue if this node was part of the running queue
     const queueStore = useBuilderQueueStore.getState();
@@ -1425,6 +1678,27 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     if (targetData.type !== 'ghost') {
       logger.error('Can only connect to ghost nodes');
       return false;
+    }
+
+    // Check connection count for single input models (Grok video & upscalers)
+    const selectedModel = useAIConfigStore.getState().config.model;
+    const isSingleInputModel =
+      selectedModel === 'xai/grok-imagine-video-1.5' ||
+      selectedModel === 'prunaai/p-video' ||
+      selectedModel === 'google/veo-3.1-fast' ||
+      selectedModel === 'pixverse/pixverse-v6' ||
+      selectedModel === 'openai/sora-2-pro' ||
+      selectedModel === 'topazlabs/image-upscale' ||
+      selectedModel === 'philz1337x/clarity-upscaler' ||
+      selectedModel === 'prunaai/p-image-upscale';
+
+    if (isSingleInputModel) {
+      const activeNodeIds = new Set(nodesRef.current.map(n => n.id));
+      const existingCount = edgesRef.current.filter(e => e.target === connection.target && activeNodeIds.has(e.source)).length;
+      if (existingCount >= 1) {
+        logger.error(`This engine (${selectedModel}) only supports 1 input connection.`);
+        return false;
+      }
     }
 
     return true;

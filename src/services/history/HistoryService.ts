@@ -642,15 +642,18 @@ export async function getLocalImageAsObjectURL(key: string): Promise<string | nu
     if (result instanceof Blob) {
       return registerObjectUrl(URL.createObjectURL(result));
     }
-    if (typeof result === 'string' && result.startsWith('data:')) {
-      try {
-        const blob = dataURLtoBlob(result);
-        // Save back as Blob to migrate it
-        await cacheLocalImage(key, blob);
-        return registerObjectUrl(URL.createObjectURL(blob));
-      } catch {
-        return result;
+    if (typeof result === 'string') {
+      if (result.startsWith('data:')) {
+        try {
+          const blob = dataURLtoBlob(result);
+          // Save back as Blob to migrate it
+          await cacheLocalImage(key, blob);
+          return registerObjectUrl(URL.createObjectURL(blob));
+        } catch {
+          return result;
+        }
       }
+      return result;
     }
     return null;
   } catch {

@@ -29,7 +29,7 @@ export const CreditErrorModal: React.FC<CreditErrorModalProps> = ({
             className="btn-add-credit"
             onClick={() => {
               onClose();
-              globalThis.location.href = '/add-credit';
+              globalThis.location.href = '/account?action=add-credit';
             }}
           >
             Add credit

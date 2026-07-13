@@ -41,6 +41,58 @@ export function useHistorySelection() {
     }
   };
 
+  const handleBulkExportFolder = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const { loadFullImage, loadEntries } = await import('@/services/history/HistoryService');
+      const { exportImagesBatchWithDialog } = await import('@/services/export/ExportService');
+      const { useNotificationStore } = await import('@/stores/notificationStore');
+      
+      const entries = loadEntries();
+      const selectedEntries = entries.filter(e => selectedIds.has(e.id));
+      
+      const items: Array<{ url: string; name: string }> = [];
+      for (const entry of selectedEntries) {
+        const url = await loadFullImage(entry.id, 'output') || await loadFullImage(entry.id, 'input');
+        if (url) {
+          items.push({
+            url,
+            name: entry.label || entry.id
+          });
+        }
+      }
+      
+      if (items.length === 0) {
+        useNotificationStore.getState().addNotification({
+          type: 'info',
+          title: 'No Images',
+          message: 'No images found in selected history entries.'
+        });
+        return;
+      }
+      
+      const { succeeded, failed } = await exportImagesBatchWithDialog(items);
+      
+      if (succeeded > 0) {
+        useNotificationStore.getState().addNotification({
+          type: 'success',
+          title: 'Export Succeeded',
+          message: `Successfully exported ${succeeded} items to folder.`
+        });
+      }
+      if (failed > 0) {
+        useNotificationStore.getState().addNotification({
+          type: 'error',
+          title: 'Export Failed',
+          message: `Failed to export ${failed} items.`
+        });
+      }
+      setSelectMode(false);
+    } catch (err) {
+      logger.error('[HistorySelection] Bulk Folder export failed:', err);
+    }
+  };
+
   return {
     selectMode,
     selectedIds,
@@ -50,6 +102,7 @@ export function useHistorySelection() {
     toggleSelectAll,
     handleBulkDelete: deleteSelectedEntries,
     handleBulkExportZip,
-    handleBulkExportPDF
+    handleBulkExportPDF,
+    handleBulkExportFolder
   };
 }

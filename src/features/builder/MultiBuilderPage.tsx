@@ -75,8 +75,7 @@ export const MultiBuilderPage: React.FC = () => {
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className="tab-pane"
-            style={{ display: activeTabId === tab.id ? 'flex' : 'none' }}
+            className={`tab-pane ${activeTabId === tab.id ? 'active' : ''}`}
           >
             <ReactFlowProvider>
               <BuilderContent

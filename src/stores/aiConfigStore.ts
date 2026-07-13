@@ -5,14 +5,14 @@
 
 import { create } from 'zustand';
 import type { Node, Edge } from '@xyflow/react';
-import type { ReplicateImageModel, ReplicateUpscaleModel } from '../services/replicate/ReplicateService';
+import type { ReplicateImageModel, ReplicateUpscaleModel, ReplicateVideoModel } from '../services/replicate/ReplicateService';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type WatermarkPosition = 'top-left' | 'top-center' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right';
 
 export interface AIConfig {
-  model: ReplicateImageModel | ReplicateUpscaleModel;
+  model: ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel;
   steps: number;
   cfg: number;
   seed: number | null;
@@ -69,6 +69,42 @@ export interface AIConfig {
   // Style settings
   styleType?: string;
   stylePreset?: string;
+  // Seedream sequential settings
+  sequentialImageGeneration?: string;
+  maxImages?: number;
+  // Custom size settings
+  width?: number;
+  height?: number;
+  // Video settings
+  videoDuration?: string;
+  videoQuality?: string;
+  motionStrength?: number;
+  videoFps?: number;
+  // Seedance 2.0 settings
+  seedanceLastFrameImage?: string | null;
+  seedanceGenerateAudio?: boolean;
+  // Kling v3 Omni Video settings
+  klingStartImage?: string | null;
+  klingEndImage?: string | null;
+  klingReferenceImages?: string[] | null;
+  klingReferenceVideo?: string | null;
+  klingVideoReferenceType?: string;
+  klingKeepOriginalSound?: boolean;
+  klingGenerateAudio?: boolean;
+  klingMode?: string;
+  // Pruna AI video settings
+  prunaLastFrameImage?: string | null;
+  prunaAudio?: string | null;
+  prunaFps?: number;
+  // Google Veo settings
+  veoLastFrame?: string | null;
+  veoGenerateAudio?: boolean;
+  // PixVerse v6 settings
+  pixverseLastFrameImage?: string | null;
+  pixverseGenerateAudioSwitch?: boolean;
+  pixverseGenerateMultiClipSwitch?: boolean;
+  // OpenAI Sora settings
+  soraInputReference?: string | null;
 }
 
 export interface SelectedNodeInfo {
@@ -78,6 +114,7 @@ export interface SelectedNodeInfo {
   originalImage?: string | undefined;
   prompt: string | undefined;
   state: string | undefined;
+  isVideo?: boolean;
 }
 
 export interface CompareImages {
@@ -142,9 +179,42 @@ const DEFAULT_CONFIG: AIConfig = {
   prunaEnhanceRealism: true,
   prunaQuality: 80,
   prunaOutputFormat: 'png',
+  // Video defaults
+  videoDuration: '5s',
+  videoQuality: 'standard',
+  motionStrength: 5,
+  videoFps: 30,
   // Style defaults
   styleType: 'None',
   stylePreset: 'None',
+  // Seedream sequential defaults
+  sequentialImageGeneration: 'disabled',
+  maxImages: 1,
+  // Seedance 2.0 defaults
+  seedanceLastFrameImage: null,
+  seedanceGenerateAudio: true,
+  // Kling v3 Omni Video defaults
+  klingStartImage: null,
+  klingEndImage: null,
+  klingReferenceImages: [],
+  klingReferenceVideo: null,
+  klingVideoReferenceType: 'feature',
+  klingKeepOriginalSound: true,
+  klingGenerateAudio: false,
+  klingMode: 'pro',
+  // Pruna AI video defaults
+  prunaLastFrameImage: null,
+  prunaAudio: null,
+  prunaFps: 24,
+  // Google Veo defaults
+  veoLastFrame: null,
+  veoGenerateAudio: true,
+  // PixVerse v6 defaults
+  pixverseLastFrameImage: null,
+  pixverseGenerateAudioSwitch: false,
+  pixverseGenerateMultiClipSwitch: false,
+  // OpenAI Sora defaults
+  soraInputReference: null,
 };
 
 // ── Store State ──────────────────────────────────────────────────────────────

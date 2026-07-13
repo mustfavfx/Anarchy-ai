@@ -523,3 +523,131 @@
   font-size: 13px;
   margin-top: 8px;
 }
+
+/* Premium Billing Redesign Overrides */
+
+.back-btn {
+  margin-bottom: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: #9ca3af !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  transition: all 0.15s ease !important;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.current-balance-card {
+  background: radial-gradient(circle at 100% 0%, rgba(225, 29, 72, 0.04) 0%, rgba(18, 18, 22, 0.5) 80%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-radius: 12px !important;
+  padding: 18px 24px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.add-credit-page .balance-icon {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.15) 0%, rgba(225, 29, 72, 0.03) 100%) !important;
+  border: 1px solid rgba(225, 29, 72, 0.25) !important;
+  color: #e11d48 !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+}
+
+.balance-amount {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-weight: 700 !important;
+  font-size: 20px !important;
+  color: #ffffff !important;
+}
+
+.package-card {
+  background: rgba(18, 18, 22, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-radius: 10px !important;
+  padding: 20px 12px 16px !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+}
+
+.package-card:hover {
+  border-color: rgba(225, 29, 72, 0.25) !important;
+  background: rgba(18, 18, 22, 0.7) !important;
+  transform: translateY(-2px) !important;
+}
+
+.package-card.selected {
+  border: 2px solid #e11d48 !important;
+  background: rgba(225, 29, 72, 0.08) !important;
+  box-shadow: 0 0 15px rgba(225, 29, 72, 0.15) !important;
+}
+
+.custom-input-wrapper {
+  background: rgba(10, 10, 12, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  transition: all 0.2s ease !important;
+}
+
+.custom-input-wrapper:focus-within {
+  border-color: #e11d48 !important;
+  background: rgba(10, 10, 12, 0.75) !important;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12) !important;
+}
+
+/* Sleek Checkout Summary Panel */
+.cost-info {
+  background: rgba(18, 18, 22, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  margin-top: 28px !important;
+  margin-bottom: 28px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+}
+
+.cost-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 12px 0 !important;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.06) !important;
+  font-size: 13px !important;
+  color: var(--text-secondary) !important;
+}
+
+.cost-row span:last-child {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+}
+
+.cost-row.highlight {
+  border-bottom: none !important;
+  padding-top: 16px !important;
+  padding-bottom: 4px !important;
+}
+
+.cost-row.highlight span:first-child {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.cost-row.highlight span:last-child {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  color: #e11d48 !important;
+}

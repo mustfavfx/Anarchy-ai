@@ -44,7 +44,8 @@ const BulkActionBar: React.FC<{
   onDeleteClick: () => void;
   onExportZipClick: () => void;
   onExportPdfClick: () => void;
-}> = ({ onDeleteClick, onExportZipClick, onExportPdfClick }) => {
+  onExportFolderClick: () => void;
+}> = ({ onDeleteClick, onExportZipClick, onExportPdfClick, onExportFolderClick }) => {
   const { selectMode, selectedIds, entries } = useHistoryStore();
   const toggleSelectAll = useHistoryStore(s => s.toggleSelectAll);
   
@@ -64,6 +65,7 @@ const BulkActionBar: React.FC<{
       </button>
       <span className="bulk-count">{selectedCount} selected</span>
       <div className="bulk-actions">
+        <button className="bulk-btn" onClick={onExportFolderClick} disabled={selectedCount === 0}><Download size={14} /> Save to Folder</button>
         <button className="bulk-btn" onClick={onExportZipClick} disabled={selectedCount === 0}><Download size={14} /> ZIP</button>
         <button className="bulk-btn" onClick={onExportPdfClick} disabled={selectedCount === 0}><Download size={14} /> PDF</button>
         <button className="bulk-btn danger" onClick={onDeleteClick} disabled={selectedCount === 0}><Trash2 size={14} /> Delete ({selectedCount})</button>
@@ -169,7 +171,8 @@ export const HistoryPage: React.FC = () => {
     selectedIds,
     handleBulkDelete,
     handleBulkExportZip,
-    handleBulkExportPDF
+    handleBulkExportPDF,
+    handleBulkExportFolder
   } = useHistorySelection();
 
   const [showPinboard, setShowPinboard] = useState(false);
@@ -432,6 +435,7 @@ export const HistoryPage: React.FC = () => {
         onDeleteClick={() => setConfirmBulkDelete(true)}
         onExportZipClick={handleBulkExportZip}
         onExportPdfClick={handleBulkExportPDF}
+        onExportFolderClick={handleBulkExportFolder}
       />
 
       {/* Dynamic Channels Filter Bar */}

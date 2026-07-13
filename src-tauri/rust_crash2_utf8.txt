@@ -1,0 +1,17 @@
+﻿cargo : warning: patch `time v0.3.48 (E:\New folder (5)\Anarchy Ai 0.07\src-tauri\patched_crates\time)` was not used 
+in the crate graph
+At line:1 char:1
++ cargo run --no-default-features > rust_crash2.log 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: patch ...the crate graph:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+help: Check that the patched package version and available features are compatible
+      with the dependency requirements. If the patch has a different version from
+      what is locked in the Cargo.lock file, run `cargo update` to use the new
+      version. This may also occur with an optional dependency that is not enabled.
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.43s
+     Running `target\debug\anarchy-ai.exe`
+Anarchy viewport server failed to bind: Only one usage of each socket address (protocol/network address/port) is 
+normally permitted. (os error 10048)
+error: process didn't exit successfully: `target\debug\anarchy-ai.exe` (exit code: 1)
