@@ -1,4 +1,4 @@
-name: 'Publish Release'
+﻿name: 'Publish Release'
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (e.g., 0.7.1)'
+        description: 'Version (e.g., 0.5.66)'
         required: true
         type: string
 
@@ -21,12 +21,12 @@ jobs:
       contents: write
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 20
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,39 +47,22 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: mustfavfx/Anarchy-ai
-          tag_name: v${{ steps.get_version.outputs.version }}
-          name: 'Anarchy AI v${{ steps.get_version.outputs.version }}'
-          draft: false
-          prerelease: false
-          target_commitish: main
-          body: |
-            ## What's New
-            
-            🚀 New features and improvements in this release.
-            
-            ### Installation
-            - Download the installer for your platform
-            - Run the installer
-            - The app will auto-update in future releases
-            
-            ### Notes
-            - Windows: Download `Anarchy_AI_Setup.exe`
-
-      - name: Build Tauri App
+      - name: Build and Publish Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          owner: mustfavfx
-          repo: Anarchy-ai
           tagName: v${{ steps.get_version.outputs.version }}
-          releaseId: ${{ steps.create_release.outputs.id }}
+          releaseName: 'Anarchy AI v${{ steps.get_version.outputs.version }}'
+          releaseBody: |
+            ## Anarchy AI v${{ steps.get_version.outputs.version }}
+            
+            🚀 New features, direct MP4 video export, single desktop shortcut cleanup, and performance enhancements.
+            
+            ### Installation
+            - Download the installer for Windows (`Anarchy_AI_Setup.exe` or `.msi`).
+            - Run the installer. Future releases will update automatically.
+          releaseDraft: false
+          prerelease: false
