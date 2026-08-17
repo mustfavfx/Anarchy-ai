@@ -1,40 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { logger } from '../../../utils/logger';
+import { extractPngMetadata, type WorkflowMetadata } from '../../../services/image/ImageMetadataService';
 
 // Check if running in a Tauri desktop environment
 const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff'];
-
-async function processDroppedFiles(
-  paths: string[],
-  spawnFromImage: (url: string) => Promise<void>
-): Promise<void> {
-  for (const filePath of paths.slice(0, 5)) {
-    const lower = filePath.toLowerCase();
-    if (!IMAGE_EXTS.some(ext => lower.endsWith(ext))) continue;
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const dataUrl = await invoke<string>('read_local_image', { path: filePath });
-      await spawnFromImage(dataUrl);
-    } catch (err) {
-      logger.error('[Tauri Drop] Failed to read file:', filePath, err);
-    }
-  }
-}
-
-async function processWebDropFiles(
-  files: File[],
-  imageFileToDataUrl: (f: File) => Promise<string>,
-  spawnFromImage: (url: string) => Promise<void>
-): Promise<void> {
-  for (const file of files.slice(0, 5)) {
-    try {
-      const dataUrl = await imageFileToDataUrl(file);
-      await spawnFromImage(dataUrl);
-    } catch { /* skip */ }
-  }
-}
 
 interface UseBuilderDropProps {
   spawnFromImage: (url: string) => Promise<void>;
@@ -44,6 +15,7 @@ interface UseBuilderDropProps {
   setSelectedNodeId: (id: string | null) => void;
   setSelectedNode: (node: any) => void;
   addNotification: (notification: any) => void;
+  onFileWorkflowDetected?: (dataUrl: string, metadata: WorkflowMetadata) => void;
 }
 
 export function useBuilderDrop({
@@ -54,16 +26,32 @@ export function useBuilderDrop({
   setSelectedNodeId,
   setSelectedNode,
   addNotification,
+  onFileWorkflowDetected,
 }: UseBuilderDropProps) {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const dropHandledRef = useRef(false);
+
+  const handleFileProcess = useCallback(async (file: File) => {
+    try {
+      const dataUrl = await imageFileToDataUrl(file);
+      const arrayBuffer = await file.arrayBuffer();
+      const metadata = extractPngMetadata(new Uint8Array(arrayBuffer));
+
+      if (metadata && (metadata.nodeTree || metadata.rootId || metadata.entryId) && onFileWorkflowDetected) {
+        onFileWorkflowDetected(dataUrl, metadata);
+      } else {
+        await spawnFromImage(dataUrl);
+      }
+    } catch (err) {
+      logger.error('[Drag & Drop] Failed file processing:', err);
+    }
+  }, [imageFileToDataUrl, onFileWorkflowDetected, spawnFromImage]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('Files')) {
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'copy';
-      // Only set overlay state in non-Tauri (web) mode
       if (!isTauri()) setIsDraggingFile(true);
     }
   }, []);
@@ -78,23 +66,14 @@ export function useBuilderDrop({
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingFile(false);
-    // Skip if already handled by Tauri native handler
     if (dropHandledRef.current) return;
-    // Also skip in Tauri env to let native handler work
     if (isTauri()) return;
     
-    // Handle dropped files
     const imageFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     for (const file of imageFiles.slice(0, 5)) {
-      try {
-        const dataUrl = await imageFileToDataUrl(file);
-        await spawnFromImage(dataUrl);
-      } catch (error) {
-        logger.error('[Drag & Drop] Error processing file:', error);
-      }
+      await handleFileProcess(file);
     }
     
-    // Handle dropped URLs from browser (images dragged from websites)
     const urlData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
     if (urlData && !imageFiles.length) {
       const imageUrl = urlData.trim();
@@ -110,71 +89,67 @@ export function useBuilderDrop({
         }
       }
     }
-  }, [imageFileToDataUrl, spawnFromImage, createSourceNode, setSelectedNodeId, setSelectedNode, addNotification, applyWatermarkToSource]);
-
-  const handleTauriDragDrop = useCallback(async (event: any) => {
-    const type = event.payload.type;
-    if (type === 'over' || type === 'enter') {
-      setIsDraggingFile(true);
-    } else if (type === 'leave') {
-      setIsDraggingFile(false);
-    } else if (type === 'drop') {
-      if (dropHandledRef.current) return;
-      dropHandledRef.current = true;
-      setIsDraggingFile(false);
-      const paths: string[] = (event.payload as any).paths ?? [];
-      await processDroppedFiles(paths, spawnFromImage);
-      setTimeout(() => { dropHandledRef.current = false; }, 500);
-    }
-  }, [spawnFromImage]);
+  }, [handleFileProcess, createSourceNode, setSelectedNodeId, setSelectedNode, addNotification, applyWatermarkToSource]);
 
   const handleWindowDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
     setIsDraggingFile(false);
     if (!e.dataTransfer) return;
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    await processWebDropFiles(files, imageFileToDataUrl, spawnFromImage);
-  }, [imageFileToDataUrl, spawnFromImage]);
+    for (const file of files.slice(0, 5)) {
+      await handleFileProcess(file);
+    }
+  }, [handleFileProcess]);
 
   useEffect(() => {
     let active = true;
-    let disposeFn: (() => void) | undefined;
+    if (isTauri()) {
+      import('@tauri-apps/api/event').then(({ listen }) => {
+        if (!active) return;
+        listen('tauri://drag-drop', async (event: any) => {
+          const type = event.payload.type;
+          if (type === 'over' || type === 'enter') {
+            setIsDraggingFile(true);
+          } else if (type === 'leave') {
+            setIsDraggingFile(false);
+          } else if (type === 'drop') {
+            if (dropHandledRef.current) return;
+            dropHandledRef.current = true;
+            setIsDraggingFile(false);
+            const paths: string[] = (event.payload as any).paths ?? [];
+            for (const filePath of paths.slice(0, 5)) {
+              const lower = filePath.toLowerCase();
+              if (!IMAGE_EXTS.some(ext => lower.endsWith(ext))) continue;
+              try {
+                const { invoke } = await import('@tauri-apps/api/core');
+                const dataUrl = await invoke<string>('read_local_image', { path: filePath });
+                await spawnFromImage(dataUrl);
+              } catch (err) {
+                logger.error('[Tauri Drop] Failed to read file:', filePath, err);
+              }
+            }
+            setTimeout(() => { dropHandledRef.current = false; }, 500);
+          }
+        });
+      });
+    }
 
-    const setupTauriDrop = async () => {
-      try {
-        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-        const appWindow = getCurrentWebviewWindow();
-        const dispose = await appWindow.onDragDropEvent(handleTauriDragDrop);
-        if (!active) {
-          dispose();
-        } else {
-          disposeFn = dispose;
-        }
-      } catch {
-        // Fallback: Tauri API not available (dev mode web), use HTML5 events
-        const handleWindowDragOver = (e: DragEvent) => { e.preventDefault(); };
-        globalThis.addEventListener('dragover', handleWindowDragOver);
-        globalThis.addEventListener('drop', handleWindowDrop);
-        const dispose = () => {
-          globalThis.removeEventListener('dragover', handleWindowDragOver);
-          globalThis.removeEventListener('drop', handleWindowDrop);
-        };
-        if (!active) {
-          dispose();
-        } else {
-          disposeFn = dispose;
-        }
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        e.preventDefault();
+        setIsDraggingFile(true);
       }
     };
 
-    setupTauriDrop();
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', handleWindowDrop);
+
     return () => {
       active = false;
-      if (disposeFn) {
-        disposeFn();
-      }
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', handleWindowDrop);
     };
-  }, [handleTauriDragDrop, handleWindowDrop]);
+  }, [handleWindowDrop, spawnFromImage]);
 
   return {
     isDraggingFile,

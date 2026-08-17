@@ -110,8 +110,8 @@ export function useBuilderPersistence({
 
     addNotification({ type: 'success', title: 'Project Loaded', message: name });
     // Force a real GPU repaint after nodes settle — fixes WebView2 black canvas bug.
-    // Uses display:none toggle which triggers a synchronous reflow, same as tab switching.
-    setTimeout(() => forceCanvasRepaint?.(), 150);
+    // Wait 300ms so React has time to commit the new nodes to the DOM before repaint.
+    setTimeout(() => forceCanvasRepaint?.(), 300);
   }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef, forceCanvasRepaint]);
 
   const handleSave = useCallback(async (): Promise<string | null> => {
@@ -181,7 +181,7 @@ export function useBuilderPersistence({
         onDirtyChange?.(false);
         addNotification({ type: 'success', title: 'Project Loaded', message: result.name });
         // Force a real GPU repaint after nodes settle — fixes WebView2 black canvas bug.
-        setTimeout(() => forceCanvasRepaint?.(), 150);
+        setTimeout(() => forceCanvasRepaint?.(), 300);
       }
     } catch (err) {
       logger.error('[Load] failed:', err);

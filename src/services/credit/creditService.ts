@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Credit-Based Pay-as-you-go System
  * Users buy credit upfront, consume per generation
  */
@@ -201,15 +201,6 @@ function costPrunaUpscale(prunaTarget: number = 4, isTrial: boolean): number {
   }
 }
 
-function costTopazUpscale(upscaleFactor: number = 2, isTrial: boolean): number {
-  if (isTrial) {
-    return 2.0;
-  } else {
-    // 2x & 4x = 1.45, 6x = 1.8
-    if (upscaleFactor >= 6) return 1.8;
-    return 1.45;
-  }
-}
 
 function costClarityUpscale(upscaleFactor: number = 2, isTrial: boolean): number {
   if (isTrial) {
@@ -222,6 +213,49 @@ function costClarityUpscale(upscaleFactor: number = 2, isTrial: boolean): number
   }
 }
 
+export function costTopazUpscale(upscaleFactor?: string | number, isTrial: boolean = true, px: number = 1048576): number {
+  let factor = 2;
+  if (typeof upscaleFactor === 'number') {
+    factor = upscaleFactor;
+  } else if (typeof upscaleFactor === 'string') {
+    if (upscaleFactor === 'None' || upscaleFactor === '1x') factor = 1;
+    else if (upscaleFactor === '2x') factor = 2;
+    else if (upscaleFactor === '4x') factor = 4;
+    else if (upscaleFactor === '6x') factor = 6;
+    else {
+      const parsed = parseFloat(upscaleFactor);
+      if (!isNaN(parsed) && parsed > 0) factor = parsed;
+    }
+  }
+
+  // Calculate estimated output Megapixels (MP)
+  const outputPixels = px * (factor * factor);
+  const outputMP = outputPixels / 1000000;
+
+  // Replicate Official Pricing Table for Topaz Labs (topazlabs/image-upscale):
+  // MP <= 24  => $0.05 (0.5 Credits)
+  // MP <= 48  => $0.10 (1.0 Credit)
+  // MP <= 60  => $0.15 (1.5 Credits)
+  // MP <= 96  => $0.20 (2.0 Credits)
+  // MP <= 132 => $0.24 (2.4 Credits)
+  // MP <= 168 => $0.29 (2.9 Credits)
+  // MP <= 336 => $0.53 (5.3 Credits)
+  // MP <= 512 => $0.82 (8.2 Credits)
+  let costUSD = 0.05;
+  if (outputMP <= 24) costUSD = 0.05;
+  else if (outputMP <= 48) costUSD = 0.10;
+  else if (outputMP <= 60) costUSD = 0.15;
+  else if (outputMP <= 96) costUSD = 0.20;
+  else if (outputMP <= 132) costUSD = 0.24;
+  else if (outputMP <= 168) costUSD = 0.29;
+  else if (outputMP <= 336) costUSD = 0.53;
+  else costUSD = 0.82;
+
+  // 1 Credit = $0.10 USD
+  const creditCost = costUSD * 10;
+  return Math.round(creditCost * 10) / 10;
+}
+
 // ── Flat cost table for simple models ────────────────────────────────────────
 const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'bytedance/seedream-4.5':                        1,
@@ -229,7 +263,15 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'black-forest-labs/flux-2-pro':                  1,
   'black-forest-labs/flux-kontext-pro':            1,
   'xai/grok-imagine-image':                        1,
+  'prunaai/p-image':                                0.8,
+  'krea/krea-2-large':                             1.2,
   'stability-ai/stable-diffusion-3.5-large':       1,
+  'reve/edit-fast':                                0.4,
+  'reve/create':                                   3,
+  'reve/extract-layout':                           1.6,
+  'reve/create-layout':                            1.6,
+  'reve/render-layout':                            1.6,
+  'reve/reconcile-layouts':                        1.6,
   'topazlabs/image-upscale':                       2,
   'philz1337x/clarity-upscaler':                   1,
   'bytedance/seedance-2.0':                        20,
@@ -244,7 +286,15 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
 const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
   'black-forest-labs/flux-kontext-pro':            1.0,
   'xai/grok-imagine-image':                        1.0,
+  'prunaai/p-image':                                0.7,
+  'krea/krea-2-large':                             1.2,
   'stability-ai/stable-diffusion-3.5-large':       1.18, // $0.065 / 0.055
+  'reve/edit-fast':                                0.4,
+  'reve/create':                                   3,
+  'reve/extract-layout':                           1.6,
+  'reve/create-layout':                            1.6,
+  'reve/render-layout':                            1.6,
+  'reve/reconcile-layouts':                        1.6,
   'bytedance/seedance-2.0':                        2.5,
   'kwaivgi/kling-v3-omni-video':                   3.5,
   'xai/grok-imagine-video-1.5':                    3.5,
@@ -317,6 +367,12 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
     return dur * costPerSecond;
   }
 
+  if (model === 'reve/create')            return 3;
+  if (model === 'reve/extract-layout')    return 1.6;
+  if (model === 'reve/create-layout')     return 1.6;
+  if (model === 'reve/render-layout')     return 1.6;
+  if (model === 'reve/reconcile-layouts') return 1.6;
+  if (model === 'reve/edit-fast')         return 0.4;
   if (model === 'google/nano-banana-2-lite') return 0.8;
   if (model === 'google/nano-banana-2')   return costNanaBanana2(resolution, px, isTrial);
   if (model === 'google/nano-banana-pro') return costNanaBananaPro(resolution, px, isTrial);
@@ -325,7 +381,7 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
   if (model === 'bytedance/seedream-5-pro') return costSeedream5Pro(resolution, px, isTrial);
   if (model === 'black-forest-labs/flux-2-pro') return costFlux2Pro(resolution, px, isTrial);
   if (model === 'prunaai/p-image-upscale') return costPrunaUpscale(prunaTarget, isTrial);
-  if (model === 'topazlabs/image-upscale') return costTopazUpscale(upscaleFactor, isTrial);
+  if (model === 'topazlabs/image-upscale') return costTopazUpscale(upscaleFactor, isTrial, px);
   if (model === 'philz1337x/clarity-upscaler') return costClarityUpscale(upscaleFactor, isTrial);
   
   if (isTrial) {

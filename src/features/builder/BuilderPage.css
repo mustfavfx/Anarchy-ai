@@ -1,4 +1,4 @@
-.builder-page {
+﻿.builder-page {
   display: flex;
   flex: 1;
   width: 100%;
@@ -1338,8 +1338,111 @@
   box-shadow: 0 0 5px rgba(225, 29, 72, 0.4);
 }
 
+/* Context Submenu Styles */
+.context-submenu {
+  position: fixed;
+  min-width: 180px;
+  max-height: min(400px, calc(100vh - 24px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: linear-gradient(180deg, rgba(20, 20, 26, 0.98) 0%, rgba(14, 14, 18, 0.96) 100%);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  border-radius: 10px;
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.58),
+    0 0 0 1px rgba(225, 29, 72, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 24px rgba(225, 29, 72, 0.15);
+  z-index: 10000;
+  animation: submenuFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-/* ============================================
+@keyframes submenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-submenu .context-item {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.context-submenu .context-item:hover:not(:disabled) {
+  background: rgba(225, 29, 72, 0.12);
+  border-color: rgba(225, 29, 72, 0.25);
+  transform: translateX(2px);
+}
+
+.context-submenu .context-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Hover indicator for station item in context menu */
+.builder-context-menu .context-item.hovered {
+  background: rgba(225, 29, 72, 0.12);
+  border-color: rgba(225, 29, 72, 0.25);
+  transform: translateX(2px);
+}
+
+.builder-context-menu .context-item.hovered .context-icon {
+  color: #fb7185;
+  transform: scale(1.1);
+}
+
+/* Chevron indicator */
+.context-submenu-indicator {
+  margin-left: auto;
+  opacity: 0.5;
+  color: #e11d48;
+  transition: all 0.15s ease;
+}
+
+.builder-context-menu .context-item:hover:not(:disabled) .context-submenu-indicator,
+.builder-context-menu .context-item.hovered .context-submenu-indicator {
+  opacity: 1;
+  transform: translateX(2px);
+  color: #fb7185;
+}
+
+.context-submenu .context-badge {
+  margin-left: auto;
+  font-size: 8px;
+  font-weight: 700;
+  background: #e11d48;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 5px rgba(225, 29, 72, 0.4);
+}
+
+
+/* ============================================================
    EXPANDED IMAGE VIEW - When swapped with canvas
    ============================================ */
 
@@ -1757,4 +1860,272 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DXF Scale Calibration Modal Styles
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.dxf-calib-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+.dxf-calib-modal {
+  background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  border-radius: 20px;
+  width: 92%;
+  max-width: 640px;
+  padding: 28px 32px;
+  animation: slideUp 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.dxf-calib-modal h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #ffffff;
+}
+
+.dxf-calib-subtitle {
+  margin: 0 0 18px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dxf-calib-image-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dxf-calib-image {
+  max-width: 100%;
+  max-height: 55vh;
+  width: auto;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.dxf-calib-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+}
+
+.dxf-calib-line-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.dxf-calib-line {
+  stroke: #e11d48;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.dxf-calib-point {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: #e11d48;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.3), 0 2px 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.dxf-calib-controls {
+  margin-top: 16px;
+}
+
+.dxf-calib-step {
+  display: block;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
+}
+
+.dxf-calib-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.dxf-calib-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 14px;
+}
+
+.dxf-calib-input:disabled {
+  opacity: 0.4;
+}
+
+.dxf-calib-unit {
+  width: 72px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 14px;
+}
+
+.dxf-calib-reset {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dxf-calib-reset:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.dxf-calib-reset:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.dxf-calib-preview {
+  margin: 12px 0 0 0;
+  font-size: 12.5px;
+  color: #22c55e;
+  font-family: monospace;
+}
+
+.dxf-calib-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.dxf-calib-actions button {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.dxf-calib-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dxf-calib-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.dxf-calib-skip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dxf-calib-skip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.dxf-calib-confirm {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  color: #fff;
+}
+
+.dxf-calib-confirm:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(225, 29, 72, 0.35);
+}
+
+.dxf-calib-confirm:disabled {
+  opacity: 0.35;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Floating Quick Toolbar Button - Compact Glass Design */
+.builder-canvas-quick-panel {
+  margin-top: 14px;
+  margin-left: 14px;
+  z-index: 100 !important;
+}
+
+.builder-canvas-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: rgba(18, 18, 24, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.builder-canvas-quick-btn:hover {
+  background: rgba(225, 29, 72, 0.9);
+  border-color: rgba(244, 63, 94, 0.8);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.4);
+  transform: translateY(-1px);
+}
+
+.builder-canvas-quick-btn:active {
+  transform: translateY(0);
 }

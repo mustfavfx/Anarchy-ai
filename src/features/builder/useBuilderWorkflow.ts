@@ -20,6 +20,7 @@ import {
   sanitizeEdges
 } from './types';
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
+import { anarchyService } from '../../services/anarchy/AnarchyService';
 import { UpscalerFactory } from '../../services/upscalers/UpscalerFactory';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
@@ -199,8 +200,8 @@ export type { ProcessingType, BuilderNodeData, DataPacket, NodeLineage, NodeType
 // CONSTANTS
 // ============================================================================
 
-const HORIZONTAL_SPACING = 380;
-const VERTICAL_SPACING = 480;
+const HORIZONTAL_SPACING = 300;
+const VERTICAL_SPACING = 210;
 
 // Type labels for UI
 const TYPE_LABELS: Record<ProcessingType, string> = {
@@ -229,6 +230,12 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'black-forest-labs/flux-kontext-pro':'FLUX Kontext Pro',
   'xai/grok-imagine-image':           'Grok Imagine',
   'stability-ai/stable-diffusion-3.5-large': 'Stable Diffusion 3.5',
+  'reve/edit-fast':                   'Anarchy Edit Fast',
+  'reve/create':                      'Anarchy Create (v2)',
+  'reve/extract-layout':              'Anarchy Analysis (v2)',
+  'reve/render-layout':               'Anarchy Render Layout (v2)',
+  'reve/create-layout':               'Anarchy Create Layout (v2)',
+  'reve/reconcile-layouts':           'Anarchy Reconcile Layouts (v2)',
   'philz1337x/clarity-upscaler':      'Clarity Upscaler',
   'kwaivgi/kling-v3-omni-video':      'Kling v3 Omni Video',
   'xai/grok-imagine-video-1.5':       'Grok Imagine Video 1.5',
@@ -556,6 +563,10 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     return nodesRef.current.find(n => n.id === nodeId);
   }, []);
 
+  const getNodes = useCallback((): BuilderNode[] => {
+    return nodesRef.current;
+  }, []);
+
   const getNodeData = useCallback((nodeId: string): BuilderNodeData | undefined => {
     const node = getNode(nodeId);
     return node?.data;
@@ -606,49 +617,55 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
   // DATA FLOW PROPAGATION - Reactive updates
   // ========================================================================
 
-  const propagateNodeUpdate = useCallback((nodeId: string): void => {
-    const node = getNode(nodeId);
-    if (!node) return;
-
-    const nodeData = node.data as BuilderNodeData;
+  const propagateNodeUpdate = useCallback((nodeId: string, explicitPacket?: DataPacket): void => {
     const children = getChildren(nodeId);
-
-    // Create output packet from this node
-    const outputPacket = createDataPacket(
-      nodeData.image,
-      nodeData.prompt,
-      nodeData.processingType
-    );
-
-    // Update this node's output data
-    setNodes(nds => nds.map(n => 
-      n.id === nodeId 
-        ? { ...n, data: { ...n.data, outputData: outputPacket } }
-        : n
-    ));
-
-    // Propagate to all children — single batch update for nodes and edges
     const childIds = new Set(children.map(c => c.id));
     const edgeTimestamp = Date.now();
 
-    setNodes(nds => nds.map(n => {
-      if (!childIds.has(n.id)) return n;
-      const childData = n.data as BuilderNodeData;
-      return {
-        ...n,
-        data: {
-          ...childData,
-          inputData: outputPacket,
-          image: childData.type === 'ghost' ? outputPacket.image : childData.image,
-        }
-      };
-    }));
+    setNodes(nds => {
+      const targetNode = nds.find(n => n?.id === nodeId);
+      if (!targetNode) return nds;
 
-    setEdges(eds => eds.map(e => {
-      if (!childIds.has(e.target) || e.source !== nodeId) return e;
-      return { ...e, data: { ...e.data, packet: outputPacket, isActive: true, lastUpdate: edgeTimestamp } };
-    }));
-  }, [getNode, getChildren, setNodes, setEdges]);
+      const targetData = (targetNode.data || {}) as BuilderNodeData;
+      const img = explicitPacket?.image || targetData.image || targetData.outputData?.image;
+      const pmt = explicitPacket?.prompt || targetData.prompt || targetData.outputData?.prompt;
+      const procType = (explicitPacket as any)?.processingType || targetData.processingType || 'source';
+
+      const outputPacket = explicitPacket || createDataPacket(img, pmt, procType);
+
+      return nds.map(n => {
+        if (!n) return n;
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            data: {
+              ...(n.data || {}),
+              outputData: outputPacket,
+            }
+          };
+        }
+        if (childIds.has(n.id)) {
+          const childData = (n.data || {}) as BuilderNodeData;
+          return {
+            ...n,
+            data: {
+              ...childData,
+              inputData: outputPacket,
+              image: childData.type === 'ghost' ? (outputPacket?.image || '') : (childData?.image || ''),
+            }
+          };
+        }
+        return n;
+      });
+    });
+
+    if (childIds.size > 0) {
+      setEdges(eds => eds.map(e => {
+        if (!childIds.has(e.target) || e.source !== nodeId) return e;
+        return { ...e, data: { ...e.data, isActive: true, lastUpdate: edgeTimestamp } };
+      }));
+    }
+  }, [getChildren, setNodes, setEdges]);
 
   const findDownstreamNodes = useCallback((nodeId: string): string[] => {
     const downstream: string[] = [];
@@ -673,7 +690,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
   // NODE LIFECYCLE - Source → Ghost → Result
   // ========================================================================
 
-  const createSourceNode = useCallback((imageUrl?: string, label?: string, position?: { x: number; y: number }): string => {
+  const createSourceNode = useCallback((imageUrl?: string, label?: string, position?: { x: number; y: number }, prompt?: string): string => {
     const id = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     
     let finalImageRef = imageUrl;
@@ -708,11 +725,12 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         state: finalImageRef ? 'ready' : 'idle',
         image: finalImageRef,
         originalImage: finalImageRef,
+        prompt: prompt || '',
         createdAt: Date.now(),
         lineage,
         inputData: undefined,
         outputData: packet,
-        config: {}
+        config: { prompt: prompt || '' }
       } as BuilderNodeData
     };
 
@@ -855,18 +873,54 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     return id;
   }, [getNode, getChildren, calculateChildPosition, setNodes, setEdges]);
 
+  const createStandaloneGhostNode = useCallback((position?: { x: number; y: number }): string => {
+    const id = `ghost-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const lastNode = nodesRef.current[nodesRef.current.length - 1];
+    const defaultPos = position ?? (lastNode ? { x: lastNode.position.x + 360, y: lastNode.position.y } : { x: 250, y: 150 });
+
+    const lineage: NodeLineage = {
+      parentId: null,
+      rootSourceId: id,
+      generation: 0,
+      branchIndex: 0,
+      processingType: 'render',
+      ancestry: []
+    };
+
+    const newNode: BuilderNode = {
+      id,
+      type: 'ghostNode',
+      position: defaultPos,
+      width: 260,
+      data: {
+        label: 'Generator',
+        type: 'ghost',
+        processingType: 'render',
+        state: 'idle',
+        createdAt: Date.now(),
+        lineage,
+        config: {},
+        pendingPlacement: false
+      } as BuilderNodeData
+    };
+
+    nodesRef.current = [...nodesRef.current, newNode];
+    setNodes(nds => [...nds, newNode]);
+    return id;
+  }, [setNodes]);
+
   const executeNodeSingle = useCallback(async (
     nodeId: string,
     prompt: string,
     config?: GenerationConfig
   ): Promise<{ image: string }> => {
-    const node = getNode(nodeId);
+    const node = getNode(nodeId) || nodesRef.current.find(n => n.id === nodeId);
     if (!node) throw new Error(`Node ${nodeId} not found`);
 
     const nodeData = node.data as BuilderNodeData;
     
-    // Validate: only ghost nodes can be executed
-    if (nodeData.type !== 'ghost') {
+    // Validate: only ghost, source, or result nodes can be executed
+    if (nodeData.type !== 'ghost' && nodeData.type !== 'source' && nodeData.type !== 'result') {
       throw new Error(`Cannot execute ${nodeData.type} node`);
     }
 
@@ -878,13 +932,13 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     const _execStartTime = Date.now();
     const model = config?.model || 'google/nano-banana-2';
     
-    // Get source image(s) ONLY from directly connected parent nodes
-    // Sorted by their target handle index (so ghost-target-0 is first)
+    // Get source image(s) from connected parent nodes
+    // Include edges both with and without explicit targetHandle
     const incomingEdges = edgesRef.current
-      .filter(e => e.target === nodeId && e.targetHandle)
+      .filter(e => e.target === nodeId)
       .sort((a, b) => {
-        const matchA = a.targetHandle!.match(/ghost-target-(\d+)/);
-        const matchB = b.targetHandle!.match(/ghost-target-(\d+)/);
+        const matchA = a.targetHandle ? a.targetHandle.match(/ghost-target-(\d+)/) : null;
+        const matchB = b.targetHandle ? b.targetHandle.match(/ghost-target-(\d+)/) : null;
         const idxA = matchA ? parseInt(matchA[1], 10) : 0;
         const idxB = matchB ? parseInt(matchB[1], 10) : 0;
         return idxA - idxB;
@@ -895,14 +949,24 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       const parentNode = nodesRef.current.find(n => n.id === edge.source);
       if (parentNode) {
         const parentData = parentNode.data as BuilderNodeData;
-        const img = parentData.outputData?.image || parentData.image;
+        const img = parentData.outputData?.image || parentData.image || parentData.previewUrl || parentData.inputData?.image;
         if (img && !allParentImages.includes(img)) {
           allParentImages.push(img);
         }
       }
     });
 
-    // Fallback if no images found via edges but inputData has one
+    // Fallback 1: check lineage parentId if no image found via edges
+    if (allParentImages.length === 0 && (nodeData as BuilderNodeData)?.lineage?.parentId) {
+      const lineageParent = nodesRef.current.find(n => n.id === (nodeData as BuilderNodeData).lineage?.parentId);
+      if (lineageParent) {
+        const pData = lineageParent.data as BuilderNodeData;
+        const img = pData.outputData?.image || pData.image || pData.previewUrl || pData.inputData?.image;
+        if (img) allParentImages.push(img);
+      }
+    }
+
+    // Fallback 2: check node's own inputData
     if (allParentImages.length === 0 && nodeData.inputData?.image) {
       allParentImages.push(nodeData.inputData.image);
     }
@@ -942,12 +1006,17 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       n.id === nodeId 
         ? { 
             ...n, 
+            type: 'ghostNode',
             data: { 
               ...n.data, 
               state: 'connecting',
               promptDraft: prompt,
               config: { ...config },
-              pendingPlacement: false
+              pendingPlacement: false,
+              onCancel: () => {
+                const ctrl = abortControllers.current.get(nodeId);
+                if (ctrl) ctrl.abort();
+              }
             } 
           }
         : n
@@ -966,6 +1035,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           n.id === nodeId 
             ? { 
                 ...n, 
+                type: 'ghostNode',
                 data: { 
                   ...n.data, 
                   state: status,
@@ -1039,6 +1109,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       } else {
         // For regular image models, use generate or generateImg2Img
         const baseParams = {
+          ...config,
           prompt,
           model: model as import('../../services/replicate').ReplicateImageModel,
           negativePrompt: config?.negativePrompt,
@@ -1058,14 +1129,36 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           maxImages: config?.maxImages,
         };
 
-        // Choose generation mode based on model capabilities and available images
-        const modelCaps = replicateService.getModelCapabilities(
-          model as import('../../services/replicate').ReplicateImageModel
-        );
-        const useImg2Img = sourceImage && modelCaps.supportsImg2Img;
-        result = useImg2Img
-          ? await replicateService.generateImg2Img(baseParams, uploadedImages, controller.signal, onStatusChange)
-          : await replicateService.generate(baseParams, controller.signal, onStatusChange);
+        if (
+          model === 'reve/edit-fast' ||
+          model === 'reve/create' ||
+          model === 'reve/extract-layout' ||
+          model === 'reve/render-layout' ||
+          model === 'reve/create-layout' ||
+          model === 'reve/reconcile-layouts'
+        ) {
+          result = await anarchyService.generate(
+            {
+              ...baseParams,
+              model,
+              anarchyRemoveBackground: (config as any)?.anarchyRemoveBackground,
+              anarchyUpscaleFactor: (config as any)?.anarchyUpscaleFactor,
+              anarchyEffect: (config as any)?.anarchyEffect,
+            },
+            uploadedImages,
+            controller.signal,
+            onStatusChange
+          );
+        } else {
+          // Choose generation mode based on model capabilities and available images
+          const modelCaps = replicateService.getModelCapabilities(
+            model as import('../../services/replicate').ReplicateImageModel
+          );
+          const useImg2Img = sourceImage && modelCaps.supportsImg2Img;
+          result = useImg2Img
+            ? await replicateService.generateImg2Img(baseParams, uploadedImages, controller.signal, onStatusChange)
+            : await replicateService.generate(baseParams, controller.signal, onStatusChange);
+        }
       }
 
       let finalImage: any = result.imageUrl;
@@ -1145,20 +1238,20 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
 
       try {
         const parent = getParent(nodeId);
-        const rawParentImage = parent ? (parent.data as BuilderNodeData).image : undefined;
+        const rawParentImage = parent ? (parent.data as BuilderNodeData)?.image : undefined;
         // Resolve raw parent image first if it's cached
         const resolvedRawParentImage = await resolveImageIfCached(rawParentImage);
         // Persist parent image locally so history doesn't rely on expiring URLs
         const parentImage = resolvedRawParentImage ? await persistImageLocally(resolvedRawParentImage) : undefined;
         const modelId = model as string;
         
-        const rootSourceNode = nodesRef.current.find(n => (n.data as BuilderNodeData).type === 'source');
-        const rawRootImage = rootSourceNode ? (rootSourceNode.data as BuilderNodeData).image : undefined;
+        const rootSourceNode = nodesRef.current.find(n => (n.data as BuilderNodeData)?.type === 'source');
+        const rawRootImage = rootSourceNode ? (rootSourceNode.data as BuilderNodeData)?.image : undefined;
         const rootSourceImage = rawRootImage ? await resolveImageIfCached(rawRootImage) : undefined;
         const rootSourceId = rootSourceNode?.id;
 
-        const parentHistoryEntryId = parent ? (parent.data as BuilderNodeData).historyEntryId : undefined;
-        const rootHistoryEntryId = rootSourceNode ? (rootSourceNode.data as BuilderNodeData).historyEntryId : undefined;
+        const parentHistoryEntryId = parent ? (parent.data as BuilderNodeData)?.historyEntryId : undefined;
+        const rootHistoryEntryId = rootSourceNode ? (rootSourceNode.data as BuilderNodeData)?.historyEntryId : undefined;
 
         // Fallback to session values if the node is at the root level of the graph
         const sessionParentId = sessionStorage.getItem('presetParentId') || undefined;
@@ -1176,13 +1269,13 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
 
         const nodeTree: NodeTreeData = {
           nodes: nodesRef.current.map(n => {
-            const data = n.data as BuilderNodeData;
+            const data = (n.data || {}) as BuilderNodeData;
             return {
               id: n.id,
-              type: data.type,
+              type: data?.type || 'source',
               position: n.position,
-              image: data.image,
-              prompt: data.prompt,
+              image: data?.image,
+              prompt: data?.prompt,
               processingType: data.processingType,
               state: data.state,
               parentId: data.lineage?.parentId || undefined,
@@ -1363,12 +1456,20 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           setEdges(eds => [...eds, ...extraEdges]);
         }
 
-        // Propagate updates for extra nodes
-        setTimeout(() => {
-          extraNodes.forEach(extraNode => {
-            propagateNodeUpdate(extraNode.id);
-          });
-        }, 100);
+        // Propagate updates for extra nodes safely
+        if (extraNodes.length > 0) {
+          setTimeout(() => {
+            extraNodes.forEach(extraNode => {
+              if (extraNode?.id) {
+                try {
+                  propagateNodeUpdate(extraNode.id);
+                } catch (e) {
+                  logger.warn('[BuilderWorkflow] propagateNodeUpdate error for extraNode:', e);
+                }
+              }
+            });
+          }, 200);
+        }
 
         const isUpscale = (nodeData.processingType as any) === 'upscale';
         track({
@@ -1401,7 +1502,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           type: 'baseNode', // Switch React Flow renderer so image is displayed
           data: {
             ...n.data,
-            type: 'result', // TRANSFORM: Ghost becomes Result
+            type: 'result',
             processingType: isVideo ? 'video' : nodeData.processingType,
             state: 'ready',
             label: modelLabel,
@@ -1440,7 +1541,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       ));
 
       // Propagate update to children
-      propagateNodeUpdate(nodeId);
+      propagateNodeUpdate(nodeId, outputPacket);
 
       return { image: imageKey };
 
@@ -1527,14 +1628,12 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
   ): Promise<{ image: string }> => {
     const queueStore = useBuilderQueueStore.getState();
     const order = queueStore.resolveAndQueue(nodeId, nodesRef.current, edgesRef.current);
-    if (order.length === 0) return { image: '' };
 
-    if (order.length === 1 && order[0] === nodeId && !queueStore.isExecuting) {
-      // Execute directly if no pending dependencies and queue is not running
+    // If target has no upstream unexecuted dependencies, run directly with zero delay
+    if (order.length <= 1) {
       return executeNodeSingle(nodeId, prompt, config);
     }
 
-    // Define single node executor
     const executeSingle = async (id: string) => {
       const node = nodesRef.current.find(n => n.id === id);
       const nodePrompt = id === nodeId ? prompt : ((node?.data?.prompt || node?.data?.promptDraft || 'AI generation') as string);
@@ -1542,31 +1641,13 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       return executeNodeSingle(id, nodePrompt, nodeConfig);
     };
 
-    // If queue is already running, wait for this specific node's state to complete or fail
-    if (queueStore.isExecuting) {
-      return new Promise<{ image: string }>((resolve, reject) => {
-        const check = setInterval(() => {
-          const node = nodesRef.current.find(n => n.id === nodeId);
-          const job = useBuilderQueueStore.getState().jobs[nodeId];
-          const state = (job?.state || node?.data?.state) as NodeState;
-          
-          if (state === 'completed' || state === 'ready') {
-            clearInterval(check);
-            resolve({ image: node?.data?.image || '' });
-          } else if (state === 'failed' || state === 'error' || state === 'cancelled') {
-            clearInterval(check);
-            reject(new Error(job?.errorMessage || node?.data?.errorMessage || 'Dependency execution failed'));
-          }
-        }, 500);
-      });
-    }
-
     try {
+      queueStore.setIsExecuting(true);
       await queueStore.runQueue(executeSingle);
       const node = nodesRef.current.find(n => n.id === nodeId);
       return { image: node?.data?.image || '' };
-    } catch (err) {
-      throw err;
+    } finally {
+      queueStore.setIsExecuting(false);
     }
   }, [executeNodeSingle]);
 
@@ -1603,20 +1684,29 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     ));
   }, [setNodes]);
 
-  const updateNodeImageAndPropagate = useCallback((nodeId: string, imageUrl: string) => {
-    const outputPacket = createDataPacket(imageUrl, undefined, 'source');
+  const updateNodeImageAndPropagate = useCallback((nodeId: string, imageUrl?: string, layoutData?: any) => {
+    const outputPacket = imageUrl ? createDataPacket(imageUrl, undefined, 'source') : undefined;
 
     // 1. Update target node
     setNodes(nds => nds.map(n => {
       if (n.id !== nodeId) return n;
+      const currentData: any = n.data || {};
+      const updatedData: any = { ...currentData };
+
+      if (imageUrl) {
+        updatedData.image = imageUrl;
+        updatedData.state = 'ready';
+        updatedData.outputData = outputPacket;
+      }
+
+      if (layoutData) {
+        updatedData.layout = layoutData;
+        updatedData.extractedLayout = layoutData;
+      }
+
       return {
         ...n,
-        data: {
-          ...n.data,
-          image: imageUrl,
-          state: 'ready',
-          outputData: outputPacket
-        }
+        data: updatedData
       };
     }));
 
@@ -1626,21 +1716,21 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     const edgeTimestamp = Date.now();
 
     setNodes(nds => nds.map(n => {
-      if (!childIds.has(n.id)) return n;
-      const childData = n.data as BuilderNodeData;
+      if (!n || !n.data || !childIds.has(n.id)) return n;
+      const childData = (n.data || {}) as BuilderNodeData;
       return {
         ...n,
         data: {
           ...childData,
-          inputData: outputPacket,
-          image: childData.type === 'ghost' ? outputPacket.image : childData.image,
+          inputData: outputPacket || childData.inputData,
+          image: childData.type === 'ghost' ? (outputPacket?.image || childData.image) : childData.image,
         }
       };
     }));
 
     setEdges(eds => eds.map(e => {
       if (!childIds.has(e.target) || e.source !== nodeId) return e;
-      return { ...e, data: { ...e.data, packet: outputPacket, isActive: true, lastUpdate: edgeTimestamp } };
+      return { ...e, data: { ...e.data, packet: outputPacket || e.data?.packet, isActive: true, lastUpdate: edgeTimestamp } };
     }));
   }, [getChildren, setNodes, setEdges]);
 
@@ -1777,8 +1867,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     // Clean up cached images from IndexedDB and revoke Object URLs to prevent RAM leaks
     const node = getNode(nodeId);
     if (node) {
-      const data = node.data as BuilderNodeData;
-      if (data.image) {
+      const data = (node.data || {}) as BuilderNodeData;
+      if (data?.image) {
         if (data.image.startsWith('idb://')) {
           deleteLocalImage(data.image).catch(() => {});
         } else if (data.image.startsWith('blob:')) {
@@ -1810,58 +1900,124 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
   // ========================================================================
 
   const rearrangeNodes = useCallback((): void => {
-    if (nodes.length === 0) return;
+    const currentNodes = nodesRef.current;
+    const currentEdges = edgesRef.current;
+    if (currentNodes.length === 0) return;
 
-    const rootNodes = nodes.filter(n => {
-      const lineage = (n.data as BuilderNodeData).lineage;
-      return !lineage?.parentId;
+    pushHistory(currentNodes, currentEdges);
+
+    // 1. Build Parent-Child map & Child-Parent map
+    const childrenMap: Record<string, string[]> = {};
+    const hasParent = new Set<string>();
+
+    currentNodes.forEach((n) => {
+      childrenMap[n.id] = [];
     });
 
-    if (rootNodes.length === 0) return;
+    currentEdges.forEach((e) => {
+      if (e.source && e.target) {
+        if (!childrenMap[e.source]) childrenMap[e.source] = [];
+        if (!childrenMap[e.source].includes(e.target)) {
+          childrenMap[e.source].push(e.target);
+        }
+        hasParent.add(e.target);
+      }
+    });
 
-    const layoutedNodes: BuilderNode[] = [];
-    const MARGIN_Y = 100;
+    // Also check lineage.parentId for unlinked nodes
+    currentNodes.forEach((n) => {
+      const parentId = (n.data as BuilderNodeData)?.lineage?.parentId;
+      if (parentId && parentId !== n.id && childrenMap[parentId]) {
+        if (!childrenMap[parentId].includes(n.id)) {
+          childrenMap[parentId].push(n.id);
+        }
+        hasParent.add(n.id);
+      }
+    });
 
-    const getSubtreeHeight = (nodeId: string): number => {
-      const children = getChildren(nodeId);
-      if (children.length === 0) return VERTICAL_SPACING;
-      
-      return children.reduce((total, child) => 
-        total + getSubtreeHeight(child.id), 0
-      );
+    // 2. Identify Root Nodes (nodes with no parent)
+    let rootNodes = currentNodes.filter((n) => !hasParent.has(n.id));
+    if (rootNodes.length === 0) {
+      rootNodes = [currentNodes[0]];
+    }
+
+    // 3. Calculate Subtree Heights for Tree Hierarchy
+    const LEAF_HEIGHT = 230; // height + gap per leaf
+    const HORIZONTAL_STEP = 360; // spacing between tree generations
+    const targetPositions: Record<string, { x: number; y: number }> = {};
+    const placedNodes = new Set<string>();
+
+    const calcSubtreeHeight = (nodeId: string, visited = new Set<string>()): number => {
+      if (visited.has(nodeId)) return LEAF_HEIGHT;
+      visited.add(nodeId);
+
+      const kids = (childrenMap[nodeId] || []).filter((k) => !visited.has(k));
+      if (kids.length === 0) return LEAF_HEIGHT;
+
+      const kidsHeight = kids.reduce((sum, kidId) => sum + calcSubtreeHeight(kidId, new Set(visited)), 0);
+      return Math.max(LEAF_HEIGHT, kidsHeight);
     };
 
-    const layoutSubtree = (nodeId: string, x: number, startY: number): number => {
-      const node = getNode(nodeId);
-      if (!node) return startY;
+    const layoutSubtree = (nodeId: string, x: number, startY: number, visited = new Set<string>()): number => {
+      if (placedNodes.has(nodeId) || visited.has(nodeId)) return startY;
+      visited.add(nodeId);
+      placedNodes.add(nodeId);
 
-      const children = getChildren(nodeId);
-      const subtreeHeight = getSubtreeHeight(nodeId);
-      const centerY = startY + subtreeHeight / 2 - VERTICAL_SPACING / 2;
+      const kids = (childrenMap[nodeId] || []).filter((k) => !placedNodes.has(k));
+      const subHeight = calcSubtreeHeight(nodeId);
 
-      layoutedNodes.push({
-        ...node,
-        position: { x, y: centerY }
-      });
+      // Center parent node vertically relative to its subtree
+      const parentY = startY + subHeight / 2 - LEAF_HEIGHT / 2;
+      targetPositions[nodeId] = {
+        x: Math.round(x),
+        y: Math.round(parentY),
+      };
+
+      if (kids.length === 0) {
+        return startY + LEAF_HEIGHT;
+      }
 
       let currentChildY = startY;
-      children.forEach(child => {
-        const childHeight = getSubtreeHeight(child.id);
-        layoutSubtree(child.id, x + HORIZONTAL_SPACING, currentChildY);
-        currentChildY += childHeight;
+      kids.forEach((kidId) => {
+        const kidHeight = calcSubtreeHeight(kidId);
+        layoutSubtree(kidId, x + HORIZONTAL_STEP, currentChildY, new Set(visited));
+        currentChildY += kidHeight;
       });
 
-      return startY + subtreeHeight;
+      return startY + subHeight;
     };
 
-    let currentY = MARGIN_Y;
-    rootNodes.forEach(root => {
+    // 4. Layout roots and unplaced orphan nodes
+    let currentY = 100;
+    rootNodes.forEach((root) => {
+      const height = calcSubtreeHeight(root.id);
       layoutSubtree(root.id, 80, currentY);
-      currentY += getSubtreeHeight(root.id) + MARGIN_Y;
+      currentY += height + 80; // gap between separate root trees
     });
 
-    setNodes(layoutedNodes);
-  }, [nodes, getChildren, getNode, setNodes]);
+    // Handle any orphan nodes not connected to root trees
+    currentNodes.forEach((n) => {
+      if (!placedNodes.has(n.id)) {
+        targetPositions[n.id] = {
+          x: 80,
+          y: Math.round(currentY),
+        };
+        currentY += LEAF_HEIGHT;
+      }
+    });
+
+    // 5. Apply tree positions to ReactFlow state immediately
+    setNodes((nds) =>
+      nds.map((n) => {
+        const target = targetPositions[n.id];
+        if (!target) return n;
+        return {
+          ...n,
+          position: { x: target.x, y: target.y },
+        };
+      })
+    );
+  }, [setNodes, pushHistory]);
 
   // ========================================================================
   // ACTIVE TARGET - For prompt bar
@@ -2115,6 +2271,399 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
   }, [setNodes, setEdges, pushHistory]);
 
   // ========================================================================
+  // DUMMY NODE & GROUP NODE WORKFLOW FUNCTIONS
+  // ========================================================================
+
+  const spawnDummyNode = useCallback((
+    parentId?: string,
+    processingType: ProcessingType = 'local',
+    prompt: string = 'توليد ماسك...'
+  ): string => {
+    const parent = parentId ? getNode(parentId) : undefined;
+    const parentData = parent?.data as BuilderNodeData | undefined;
+
+    const id = `dummy-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const position = parentId ? calculateChildPosition(parentId) : { x: 350, y: 250 };
+
+    const lineage: NodeLineage = parentData ? {
+      parentId: parentId ?? null,
+      rootSourceId: parentData.lineage.rootSourceId,
+      generation: parentData.lineage.generation + 1,
+      branchIndex: 0,
+      processingType,
+      ancestry: [...parentData.lineage.ancestry, parentId].filter((x): x is string => Boolean(x))
+    } : {
+      parentId: null,
+      rootSourceId: id,
+      generation: 0,
+      branchIndex: 0,
+      processingType,
+      ancestry: [id]
+    };
+
+    const newNode: BuilderNode = {
+      id,
+      type: 'dummyNode',
+      position,
+      width: 280,
+      data: {
+        label: 'نود التوليد المؤقتة',
+        type: 'dummy',
+        processingType,
+        state: 'processing',
+        createdAt: Date.now(),
+        lineage,
+        prompt,
+        isDummy: true,
+        progressPercentage: 15,
+        statusMessage: 'جارِ المعالجة بالذكاء الاصطناعي...',
+        inputData: parentData?.outputData
+      }
+    };
+
+    setNodes(nds => [...nds, newNode]);
+    if (parentId) {
+      setEdges(eds => [...eds, createEdge(parentId, id, { isDataFlow: true })]);
+    }
+
+    return id;
+  }, [getNode, calculateChildPosition, setNodes, setEdges]);
+
+  const convertDummyToResultNode = useCallback(async (
+    dummyNodeId: string,
+    resultImage: string,
+    prompt: string,
+    dimensions?: { width: number; height: number }
+  ) => {
+    const cachedUrl = resultImage;
+    try {
+      await cacheLocalImage(`result_${Date.now()}.png`, resultImage);
+    } catch {
+      // Keep original image string on fallback
+    }
+
+    setNodes(nds => nds.map(n => {
+      if (n.id !== dummyNodeId) return n;
+      const data = n.data as BuilderNodeData;
+      const outputData: DataPacket = {
+        image: cachedUrl,
+        prompt,
+        metadata: {
+          timestamp: Date.now(),
+          operationType: data.processingType,
+        },
+        dimensions
+      };
+      return {
+        ...n,
+        type: 'baseNode',
+        data: {
+          ...data,
+          type: 'result',
+          state: 'completed',
+          image: cachedUrl,
+          processedAt: Date.now(),
+          outputData,
+          isDummy: false,
+          progressPercentage: 100,
+          statusMessage: 'مكتمل'
+        }
+      };
+    }));
+  }, [setNodes]);
+
+  const arrangeNodesInsideGroup = useCallback((groupNodeId: string) => {
+    const groupNode = getNode(groupNodeId);
+    if (!groupNode) return;
+    const groupData = groupNode.data as BuilderNodeData;
+    const childrenIds = groupData.groupChildren || [];
+    if (childrenIds.length === 0) return;
+
+    const cols = Math.ceil(Math.sqrt(childrenIds.length));
+    const spacingX = 300;
+    const spacingY = 250;
+    const startX = groupNode.position.x + 30;
+    const startY = groupNode.position.y + 60;
+
+    setNodes(nds => nds.map(n => {
+      const idx = childrenIds.indexOf(n.id);
+      if (idx === -1) return n;
+      const row = Math.floor(idx / cols);
+      const col = idx % cols;
+      return {
+        ...n,
+        position: {
+          x: startX + col * spacingX,
+          y: startY + row * spacingY
+        }
+      };
+    }));
+  }, [getNode, setNodes]);
+
+  const onPainterRenderedImageAsNodeHandler = useCallback(async (payload: {
+    compositeImage: string;
+    maskDataUrl?: string;
+    prompt: string;
+    refImages?: string[];
+    sourceNodeId?: string;
+  }) => {
+    const parentId = payload.sourceNodeId || selectedNodeId || nodesRef.current[0]?.id;
+    if (!parentId) {
+      logger.warn('[BuilderWorkflow] No parent node ID for mask generation');
+      return;
+    }
+
+    const parentNode = nodesRef.current.find(n => n.id === parentId);
+    const parentData = parentNode?.data as BuilderNodeData | undefined;
+    const cleanParentImage = parentData?.outputData?.image || parentData?.image;
+
+    const dummyId = spawnGhostNode(parentId, 'local');
+    if (!dummyId) return;
+
+    try {
+      const currentConfig = useAIConfigStore.getState().config;
+      const model = currentConfig.model || 'google/nano-banana-2';
+
+      const updateState = (status: string, pct: number, msg: string) => {
+        setNodes(nds => nds.map(n => n.id === dummyId ? {
+          ...n,
+          type: 'ghostNode',
+          data: {
+            ...n.data,
+            state: status as any,
+            progressPercentage: pct,
+            statusMessage: msg,
+            promptDraft: payload.prompt,
+            config: { ...currentConfig }
+          }
+        } : n));
+      };
+
+      updateState('connecting', 20, 'Preparing engine and image inputs...');
+
+      // 1. Resolve and upload source images
+      let sourceImgUrl = cleanParentImage || payload.compositeImage;
+      if (sourceImgUrl && sourceImgUrl.startsWith('idb://')) {
+        sourceImgUrl = (await resolveImageIfCached(sourceImgUrl)) || sourceImgUrl;
+      }
+      const uploadedSourceImg = await uploadImageIfLocal(sourceImgUrl, model as string);
+
+      let uploadedCompositeImg: string | undefined = undefined;
+      if (payload.compositeImage && payload.compositeImage !== cleanParentImage) {
+        let cImg = payload.compositeImage;
+        if (cImg.startsWith('idb://')) {
+          cImg = (await resolveImageIfCached(cImg)) || cImg;
+        }
+        uploadedCompositeImg = await uploadImageIfLocal(cImg, model as string);
+      }
+
+      let uploadedMaskImg: string | undefined = undefined;
+      if (payload.maskDataUrl) {
+        let mImg = payload.maskDataUrl;
+        if (mImg.startsWith('idb://')) {
+          mImg = (await resolveImageIfCached(mImg)) || mImg;
+        }
+        uploadedMaskImg = await uploadImageIfLocal(mImg, model as string);
+      }
+
+      // Upload reference images from Mask Note cards if present
+      let uploadedRefImgs: string[] = [];
+      if (payload.refImages && payload.refImages.length > 0) {
+        uploadedRefImgs = (await Promise.all(
+          payload.refImages.map(async (img) => {
+            let rImg = img;
+            if (rImg.startsWith('idb://')) {
+              rImg = (await resolveImageIfCached(rImg)) || rImg;
+            }
+            return await uploadImageIfLocal(rImg, model as string);
+          })
+        )).filter(Boolean);
+      }
+
+      updateState('processing', 50, 'Sending request to AI engine...');
+
+      const userId = getCurrentUserId() || 'anonymous';
+      let generatedImageUrl = '';
+
+      // 2. Dispatch to AI Engine based on model family
+      const cleanUserPrompt = payload.prompt ? payload.prompt.replace(/^\d+[-–\s]*/, '').trim() : '';
+      const promptToUse = cleanUserPrompt || payload.prompt || 'AI Mask Generation';
+
+      if ((model as string).startsWith('google/nano-banana')) {
+        // Nano Banana models use natural spatial reasoning for masked/indicated edits.
+        // Primary input MUST BE the composite image containing the red highlight so the model sees WHERE to edit!
+        const spatialPrompt = (payload.maskDataUrl || uploadedCompositeImg)
+          ? `In the red highlighted region of the image, replace or generate: "${promptToUse}". Keep all unhighlighted areas, surrounding room, wall textures, floor, lighting, and furniture 100% identical and unchanged.`
+          : promptToUse;
+
+        const baseParams = {
+          ...currentConfig,
+          prompt: spatialPrompt,
+          model: model as any,
+          resolution: currentConfig.resolution || '1K',
+          aspectRatio: currentConfig.aspectRatio || 'Auto',
+          nodeId: dummyId,
+          userId,
+        };
+
+        const primaryInput = uploadedCompositeImg || uploadedSourceImg;
+        const secondaryInput = uploadedSourceImg && uploadedSourceImg !== primaryInput ? uploadedSourceImg : undefined;
+        const imageInputs = [
+          primaryInput,
+          ...(secondaryInput ? [secondaryInput] : []),
+          ...uploadedRefImgs
+        ];
+
+        const genResult = await replicateService.generateImg2Img(
+          baseParams,
+          imageInputs,
+          undefined,
+          (status) => updateState(status, 75, 'Processing AI generation...')
+        );
+
+        generatedImageUrl = genResult.imageUrl;
+      } else if (uploadedMaskImg && (
+        model === 'reve/edit-fast' ||
+        (model as string).includes('inpaint') ||
+        (model as string).includes('flux')
+      )) {
+        // Direct mask payload for inpaint-capable engines
+        const prediction = await replicateService.runPrediction(
+          model as string,
+          {
+            image: uploadedSourceImg,
+            mask: uploadedMaskImg,
+            prompt: promptToUse,
+            resolution: currentConfig.resolution || '1K',
+            aspect_ratio: currentConfig.aspectRatio || '1:1',
+          },
+          dummyId,
+          userId
+        );
+
+        const rawOutput = prediction.output;
+        if (typeof rawOutput === 'string') {
+          generatedImageUrl = rawOutput;
+        } else if (Array.isArray(rawOutput) && typeof rawOutput[0] === 'string') {
+          generatedImageUrl = rawOutput[0];
+        } else if (rawOutput && typeof rawOutput === 'object') {
+          const obj = rawOutput as any;
+          generatedImageUrl = obj.url || obj.image || (Array.isArray(obj.images) ? obj.images[0] : '');
+        }
+      } else {
+        // General fallback using img2img
+        const baseParams = {
+          ...currentConfig,
+          prompt: promptToUse,
+          model: model as any,
+          resolution: currentConfig.resolution || 'Auto',
+          aspectRatio: currentConfig.aspectRatio || 'Auto',
+          nodeId: dummyId,
+          userId,
+        };
+
+        const primaryInput = uploadedCompositeImg || uploadedSourceImg;
+        const secondaryInput = uploadedSourceImg && uploadedSourceImg !== primaryInput ? uploadedSourceImg : undefined;
+        const imageInputs = [
+          primaryInput,
+          ...(secondaryInput ? [secondaryInput] : []),
+          ...uploadedRefImgs
+        ];
+
+        const genResult = await replicateService.generateImg2Img(
+          baseParams,
+          imageInputs,
+          undefined,
+          (status) => updateState(status, 75, 'Processing AI generation...')
+        );
+
+        generatedImageUrl = genResult.imageUrl;
+      }
+
+      if (!generatedImageUrl) {
+        throw new Error('No image URL received from AI engine');
+      }
+
+      updateState('completed', 100, 'Generation completed successfully!');
+
+      // Persist generated image locally as a Blob so it never expires
+      let localBlobOrData: Blob | string = generatedImageUrl;
+      try {
+        const resolvedBlob = await resolveUrlToBlob(generatedImageUrl);
+        if (resolvedBlob) {
+          localBlobOrData = resolvedBlob;
+        }
+      } catch (blobErr) {
+        logger.warn('[BuilderWorkflow] Could not pre-resolve generated image blob:', blobErr);
+      }
+
+      const imageKey = `idb://${crypto.randomUUID()}`;
+      await cacheLocalImage(imageKey, localBlobOrData);
+
+      const outputPacket = createDataPacket(
+        imageKey,
+        payload.prompt,
+        'local',
+        { width: 1024, height: 1024 },
+        model,
+        false
+      );
+
+      const displayLabel = payload.prompt
+        ? (payload.prompt.length > 30 ? payload.prompt.slice(0, 30) + '...' : payload.prompt)
+        : 'Mask Inpaint Edit';
+
+      setNodes(nds => nds.map(n => 
+        n.id === dummyId 
+          ? { 
+              ...n, 
+              type: 'baseNode', 
+              data: { 
+                ...n.data, 
+                label: displayLabel,
+                type: 'result',
+                state: 'ready',
+                image: imageKey,
+                originalImage: imageKey,
+                prompt: payload.prompt,
+                outputData: outputPacket,
+                updatedAt: Date.now()
+              } 
+            } 
+          : n
+      ));
+
+      useBuilderQueueStore.getState().updateJob(dummyId, { state: 'ready' });
+
+      // Notify MaskCanvas of the completed in-place edit
+      window.dispatchEvent(new CustomEvent('anarchy:mask-generated-in-place', {
+        detail: {
+          imageUrl: imageKey,
+          sourceNodeId: parentId,
+        }
+      }));
+    } catch (err: any) {
+      logger.error('[BuilderWorkflow] Mask generation error:', err);
+      setNodes(nds => nds.map(n => n.id === dummyId ? {
+        ...n,
+        data: { ...n.data, state: 'error', errorMessage: err?.message || 'فشل التوليد بالذكاء الاصطناعي' }
+      } : n));
+    }
+  }, [selectedNodeId, spawnGhostNode, setNodes]);
+
+  // Listen for mask generation trigger from MaskCanvas / EnlargedPreview
+  useEffect(() => {
+    const handleMaskGenerateEvent = (e: Event) => {
+      const customEv = e as CustomEvent;
+      if (customEv.detail) {
+        onPainterRenderedImageAsNodeHandler(customEv.detail);
+      }
+    };
+    window.addEventListener('anarchy:mask-generate', handleMaskGenerateEvent);
+    return () => window.removeEventListener('anarchy:mask-generate', handleMaskGenerateEvent);
+  }, [onPainterRenderedImageAsNodeHandler]);
+
+  // ========================================================================
   // RETURN
   // ========================================================================
 
@@ -2133,6 +2682,11 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     // Node lifecycle (New API)
     createSourceNode,
     spawnGhostNode,
+    createStandaloneGhostNode,
+    spawnDummyNode,
+    convertDummyToResultNode,
+    arrangeNodesInsideGroup,
+    onPainterRenderedImageAsNodeHandler,
     executeNode,
     cancelExecution,
     
@@ -2149,6 +2703,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     
     // Queries
     getNode,
+    getNodes,
     getNodeData,
     getChildren,
     getParent,

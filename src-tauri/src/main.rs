@@ -37,11 +37,27 @@ async fn http_post(
     body: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
-    let mut req = client.post(&url).json(&body);
+    let mut header_map = reqwest::header::HeaderMap::new();
+    header_map.insert(
+        reqwest::header::CONTENT_TYPE,
+        reqwest::header::HeaderValue::from_static("application/json"),
+    );
     for (k, v) in &headers {
-        req = req.header(k.as_str(), v.as_str());
+        if let (Ok(name), Ok(val)) = (
+            reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+            reqwest::header::HeaderValue::from_str(v),
+        ) {
+            header_map.insert(name, val);
+        }
     }
-    let resp = req.send().await.map_err(|e| e.to_string())?;
+    let body_bytes = serde_json::to_vec(&body).map_err(|e| e.to_string())?;
+    let resp = client
+        .post(&url)
+        .headers(header_map)
+        .body(body_bytes)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let status = resp.status();
     let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
     if !status.is_success() {
@@ -790,6 +806,42 @@ fn find_wpf_assembly(name: &str) -> Option<std::path::PathBuf> {
     None
 }
 
+fn format_dotnet_build_error(version: &str, stdout: &str, stderr: &str) -> String {
+    let combined = format!("{}\n{}", stdout, stderr);
+
+    if combined.contains("CS1705") || combined.contains("NETSDK1045") || combined.contains("Version=10.0.0.0") {
+        let req_ver = if version == "2027" { ".NET 10 SDK" } else { ".NET 8 SDK" };
+        let dl_ver = if version == "2027" { "10.0" } else { "8.0" };
+        return format!(
+            "{} required for Revit {}.\nRevit {} targets a higher .NET runtime version and requires {} to build the plugin.\nDownload from: https://dotnet.microsoft.com/download/dotnet/{}",
+            req_ver, version, version, req_ver, dl_ver
+        );
+    }
+
+    let error_lines: Vec<&str> = combined
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| line.contains("error ") || line.contains("CS") && line.contains(":") || line.contains("NETSDK"))
+        .collect();
+
+    if !error_lines.is_empty() {
+        return format!("Revit {} build failed:\n{}", version, error_lines.join("\n"));
+    }
+
+    let lines: Vec<&str> = combined.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+    let tail = if lines.len() > 10 {
+        lines[lines.len() - 10..].join("\n")
+    } else {
+        lines.join("\n")
+    };
+
+    format!("Revit {} build failed:\n{}", version, tail)
+}
+
+fn is_revit_net8(version: &str) -> bool {
+    matches!(version, "2025" | "2026" | "2027")
+}
+
 #[tauri::command]
 async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<String>, String> {
     let detected = detect_revit_installs();
@@ -799,19 +851,15 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
         return Err("No Revit versions selected for installation.".to_string());
     }
 
-    // Build map of version -> program path from detected installs
     let detected_map: std::collections::HashMap<String, std::path::PathBuf> =
         detected.into_iter().map(|i| (i.version, std::path::PathBuf::from(i.path))).collect();
 
     let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
     let autodesk_root = std::path::Path::new(&program_files).join("Autodesk");
 
-    let csc = find_csc_exe()
-        .ok_or_else(|| "csc.exe (.NET Framework 4.x compiler) not found. Please install .NET Framework 4.x.".to_string())?;
-
-    // Embedded C# source code for Revit plugin
     const CS_SOURCE: &str = include_str!("../resources/revit-plugin/AnarchyRevit.cs");
     const ADDIN_TEMPLATE: &str = include_str!("../resources/revit-plugin/Anarchy.addin.template");
+    const CSPROJ_TEMPLATE: &str = include_str!("../resources/revit-plugin/AnarchyRevit2025.csproj.template");
     const ICON_32: &[u8] = include_bytes!("../resources/revit-plugin/AnarchyLogo_32.png");
     const ICON_16: &[u8] = include_bytes!("../resources/revit-plugin/AnarchyLogo_16.png");
 
@@ -819,16 +867,15 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
         .map_err(|_| "APPDATA env var not found".to_string())?;
 
     let mut installed = Vec::new();
+    let mut errors = Vec::new();
 
     for version in &selected {
-        // Find the Revit installation directory
         let revit_dir = if let Some(p) = detected_map.get(version) {
             p.clone()
         } else {
-            // Try standard installation path
             let p = autodesk_root.join(format!("Revit {}", version));
             if !p.exists() {
-                // Log skip but don't fail — user may have non-standard install
+                errors.push(format!("Revit {} installation folder not found under {}\\Autodesk\\Revit {}.", version, program_files, version));
                 continue;
             }
             p
@@ -837,26 +884,20 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
         let api_dll = revit_dir.join("RevitAPI.dll");
         let api_ui_dll = revit_dir.join("RevitAPIUI.dll");
         if !api_dll.exists() || !api_ui_dll.exists() {
-            // RevitAPI.dll not found in this path — skip
+            errors.push(format!("RevitAPI.dll / RevitAPIUI.dll not found in {}.", revit_dir.display()));
             continue;
         }
 
         let addins_dir = std::path::PathBuf::from(&app_data)
             .join("Autodesk").join("Revit").join("Addins").join(version);
         if let Err(e) = std::fs::create_dir_all(&addins_dir) {
-            eprintln!("Warning: Failed to create addins folder: {}", e);
+            errors.push(format!("Failed to create addins folder for Revit {}: {}", version, e));
             continue;
         }
 
         let plugin_dir = addins_dir.join("AnarchyRevit");
         if let Err(e) = std::fs::create_dir_all(&plugin_dir) {
-            eprintln!("Warning: Failed to create plugin folder: {}", e);
-            continue;
-        }
-
-        let cs_path = plugin_dir.join("AnarchyRevit.cs");
-        if let Err(e) = std::fs::write(&cs_path, CS_SOURCE) {
-            eprintln!("Warning: Failed to write C# source: {}", e);
+            errors.push(format!("Failed to create plugin folder for Revit {}: {}", version, e));
             continue;
         }
 
@@ -866,60 +907,167 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
         let _ = std::fs::write(&icon16_path, ICON_16);
 
         let dll_path = plugin_dir.join("AnarchyRevit.dll");
-        if dll_path.exists() {
-            let _ = std::fs::remove_file(&dll_path);
-        }
 
-        let presentation_core = match find_wpf_assembly("PresentationCore.dll") {
-            Some(p) => p,
-            None => {
-                eprintln!("Warning: PresentationCore.dll not found on system");
-                continue;
-            }
-        };
-        let windows_base = match find_wpf_assembly("WindowsBase.dll") {
-            Some(p) => p,
-            None => {
-                eprintln!("Warning: WindowsBase.dll not found on system");
-                continue;
-            }
-        };
-        let system_xaml = match find_wpf_assembly("System.Xaml.dll") {
-            Some(p) => p,
-            None => {
-                eprintln!("Warning: System.Xaml.dll not found on system");
-                continue;
-            }
-        };
-
-        let output = match std::process::Command::new(&csc)
-            .arg("/target:library")
-            .arg("/nologo")
-            .arg("/platform:x64")
-            .arg(format!("/out:{}", dll_path.display()))
-            .arg(format!("/reference:{}", api_dll.display()))
-            .arg(format!("/reference:{}", api_ui_dll.display()))
-            .arg(format!("/reference:{}", presentation_core.display()))
-            .arg(format!("/reference:{}", windows_base.display()))
-            .arg(format!("/reference:{}", system_xaml.display()))
-            .arg("/reference:System.dll")
-            .arg("/reference:System.Core.dll")
-            .arg("/reference:System.Drawing.dll")
-            .arg(&cs_path)
-            .output() {
-                Ok(out) => out,
-                Err(e) => {
-                    eprintln!("Warning: Failed to invoke csc.exe: {}", e);
+        if is_revit_net8(version) {
+            let dotnet = match find_dotnet_sdk() {
+                Some(d) => d,
+                None => {
+                    let req_sdks = if version == "2027" { ".NET 10 SDK" } else { ".NET 8 SDK" };
+                    let dl_ver = if version == "2027" { "10.0" } else { "8.0" };
+                    errors.push(format!("{} not found. Revit {} requires the {} to build the plugin.\nDownload from: https://dotnet.microsoft.com/download/dotnet/{}", req_sdks, version, req_sdks, dl_ver));
                     continue;
                 }
             };
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let combined = format!("{}\n{}", stdout, stderr);
-            eprintln!("Warning: Compilation failed for Revit {}:\n{}", version, combined);
-            continue;
+            let build_dir = std::env::temp_dir().join(format!("AnarchyRevit{}Build", version));
+            let _ = std::fs::remove_dir_all(&build_dir);
+            if let Err(e) = std::fs::create_dir_all(&build_dir) {
+                errors.push(format!("Failed to create build dir: {}", e));
+                continue;
+            }
+
+            if let Err(e) = std::fs::write(build_dir.join("AnarchyRevit.cs"), CS_SOURCE) {
+                errors.push(format!("Failed to write C# source: {}", e));
+                let _ = std::fs::remove_dir_all(&build_dir);
+                continue;
+            }
+
+            let target_framework = match version.as_str() {
+                "2027" => "net10.0-windows",
+                _ => "net8.0-windows",
+            };
+
+            let csproj = CSPROJ_TEMPLATE
+                .replace("{{REVIT_DIR}}", &revit_dir.to_string_lossy())
+                .replace("{{TARGET_FRAMEWORK}}", target_framework);
+
+            if let Err(e) = std::fs::write(build_dir.join("AnarchyRevit.csproj"), csproj) {
+                errors.push(format!("Failed to write csproj: {}", e));
+                let _ = std::fs::remove_dir_all(&build_dir);
+                continue;
+            }
+
+            let build_out_dir = std::env::temp_dir().join(format!("AnarchyRevit{}Out", version));
+            let _ = std::fs::remove_dir_all(&build_out_dir);
+            if let Err(e) = std::fs::create_dir_all(&build_out_dir) {
+                errors.push(format!("Failed to create build output dir: {}", e));
+                let _ = std::fs::remove_dir_all(&build_dir);
+                continue;
+            }
+
+            let output = match std::process::Command::new(&dotnet)
+                .args(["publish", "--nologo", "-c", "Release", "-r", "win-x64", "--self-contained", "false", "-o"])
+                .arg(&build_out_dir)
+                .current_dir(&build_dir)
+                .output()
+            {
+                Ok(out) => out,
+                Err(e) => {
+                    let _ = std::fs::remove_dir_all(&build_dir);
+                    let _ = std::fs::remove_dir_all(&build_out_dir);
+                    errors.push(format!("Failed to invoke dotnet publish for Revit {}: {}", version, e));
+                    continue;
+                }
+            };
+
+            let _ = std::fs::remove_dir_all(&build_dir);
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let _ = std::fs::remove_dir_all(&build_out_dir);
+                errors.push(format_dotnet_build_error(version, &stdout, &stderr));
+                continue;
+            }
+
+            let built_dll = build_out_dir.join("AnarchyRevit.dll");
+            if built_dll.exists() {
+                if dll_path.exists() {
+                    let _ = std::fs::remove_file(&dll_path);
+                }
+                if let Err(e) = std::fs::copy(&built_dll, &dll_path) {
+                    let _ = std::fs::remove_dir_all(&build_out_dir);
+                    if e.to_string().contains("being used by another process") {
+                        errors.push(format!("Revit {} is currently running. Please close Revit completely and try again.", version));
+                    } else {
+                        errors.push(format!("Failed to copy plugin DLL for Revit {}: {}", version, e));
+                    }
+                    continue;
+                }
+            }
+            let _ = std::fs::remove_dir_all(&build_out_dir);
+        } else {
+            // Revit 2020-2024: compile with csc.exe (.NET Framework 4.x)
+            let csc = match find_csc_exe() {
+                Some(c) => c,
+                None => {
+                    errors.push("csc.exe (.NET Framework 4.x compiler) not found. Please install .NET Framework 4.x.".to_string());
+                    break;
+                }
+            };
+
+            let cs_path = plugin_dir.join("AnarchyRevit.cs");
+            if let Err(e) = std::fs::write(&cs_path, CS_SOURCE) {
+                errors.push(format!("Failed to write C# source: {}", e));
+                continue;
+            }
+
+            if dll_path.exists() {
+                let _ = std::fs::remove_file(&dll_path);
+            }
+
+            let presentation_core = match find_wpf_assembly("PresentationCore.dll") {
+                Some(p) => p,
+                None => {
+                    errors.push(format!("PresentationCore.dll not found for Revit {}", version));
+                    continue;
+                }
+            };
+            let windows_base = match find_wpf_assembly("WindowsBase.dll") {
+                Some(p) => p,
+                None => {
+                    errors.push(format!("WindowsBase.dll not found for Revit {}", version));
+                    continue;
+                }
+            };
+            let system_xaml = match find_wpf_assembly("System.Xaml.dll") {
+                Some(p) => p,
+                None => {
+                    errors.push(format!("System.Xaml.dll not found for Revit {}", version));
+                    continue;
+                }
+            };
+
+            let output = match std::process::Command::new(&csc)
+                .arg("/target:library")
+                .arg("/nologo")
+                .arg("/platform:x64")
+                .arg(format!("/out:{}", dll_path.display()))
+                .arg(format!("/reference:{}", api_dll.display()))
+                .arg(format!("/reference:{}", api_ui_dll.display()))
+                .arg(format!("/reference:{}", presentation_core.display()))
+                .arg(format!("/reference:{}", windows_base.display()))
+                .arg(format!("/reference:{}", system_xaml.display()))
+                .arg("/reference:System.dll")
+                .arg("/reference:System.Core.dll")
+                .arg("/reference:System.Drawing.dll")
+                .arg(&cs_path)
+                .output()
+            {
+                Ok(out) => out,
+                Err(e) => {
+                    errors.push(format!("Failed to invoke csc.exe for Revit {}: {}", version, e));
+                    continue;
+                }
+            };
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let combined = format!("{}\n{}", stdout, stderr);
+                errors.push(format!("Compilation failed for Revit {}:\n{}", version, combined));
+                continue;
+            }
         }
 
         let addin_content = ADDIN_TEMPLATE.replace(
@@ -928,7 +1076,7 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
         );
         let addin_path = addins_dir.join("Anarchy.addin");
         if let Err(e) = std::fs::write(&addin_path, addin_content) {
-            eprintln!("Warning: Failed to write .addin manifest: {}", e);
+            errors.push(format!("Failed to write .addin manifest for Revit {}: {}", version, e));
             continue;
         }
 
@@ -937,6 +1085,9 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
     }
 
     if installed.is_empty() {
+        if !errors.is_empty() {
+            return Err(errors.join("\n\n"));
+        }
         return Err(format!(
             "No selected Revit versions could be found under {}\\Autodesk\\Revit <version>. Ensure Revit is installed and try again.",
             program_files

@@ -14,12 +14,10 @@ export interface TimelineStep {
  * If a NodeTree workflow is present, it traces from the active node back to the root source.
  * If no NodeTree is present, it returns a 2-step Before -> After timeline using input/output images.
  */
-export async function buildWorkflowTimeline(
+export function buildWorkflowTimeline(
   entry: HistoryEntry,
-  nodeTree: NodeTreeData | null,
-  _fullInputUrl: string | null,
-  _fullOutputUrl: string | null
-): Promise<TimelineStep[]> {
+  nodeTree: NodeTreeData | null
+): TimelineStep[] {
   const steps: TimelineStep[] = [];
 
   if (nodeTree && nodeTree.nodes && nodeTree.nodes.length > 0) {

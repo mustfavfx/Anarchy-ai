@@ -760,6 +760,40 @@ export const VIDEO_PRESET_PROMPTS: PresetGroup[] = [
 
 ];
 
+// ─── Text-to-Image Generation Prompts Library ────────────────────────────────
+export const GENERATE_PRESET_PROMPTS: PresetGroup[] = [
+  {
+    category: 'Architectural Concepts',
+    icon: 'Building2',
+    prompts: [
+      p('Futuristic Eco Tower', 'Building2', 'A futuristic sustainable skyscraper with integrated vertical gardens, parametric glass facade, solar tracking louvers, dramatic dusk lighting, photorealistic archviz 8k.'),
+      p('Modernist Cliffside Villa', 'Home', 'Ultra-luxury modernist cliffside villa over ocean, cantilevered concrete slabs, floor-to-ceiling glass, infinity pool, golden hour atmospheric lighting.'),
+      p('Parametric Cultural Museum', 'Sparkles', 'Iconic parametric cultural museum with sculptural fluid white concrete shell, reflections in a surrounding water mirror pool, architectural photography.'),
+      p('Scandinavian Minimal Residence', 'Home', 'Scandinavian minimalist residence with burnt wood Shou Sugi Ban cladding, warm interior glow, soft overcast natural morning light, serene natural landscape.'),
+      p('Brutalist Desert Oasis', 'HardHat', 'Monumental brutalist villa in a desert landscape, board-marked raw concrete, dramatic shadows, sunken courtyard with palm trees.'),
+    ],
+  },
+  {
+    category: 'Interior Design Concepts',
+    icon: 'Sofa',
+    prompts: [
+      p('Luxury Japandi Living Room', 'Sofa', 'Spacious Japandi living room with low wooden furniture, neutral linen upholstery, Wabi-Sabi plaster walls, large window with bamboo view, soft diffused morning sunlight.'),
+      p('Executive Penthouse Office', 'Crown', 'High-end penthouse executive office, dark walnut wood panelling, Italian leather armchairs, panoramic city skyline view at night.'),
+      p('Minimalist Marble Kitchen', 'Gem', 'Monolithic kitchen island in dark Nero Marquina marble, concealed minimalist cabinetry, pendant brass lighting, warm architectural atmosphere.'),
+      p('Biophilic Urban Loft', 'Leaf', 'Industrial urban loft with exposed brick, double-height ceiling, hanging indoor plants, floor-to-ceiling windows with soft daylight.'),
+    ],
+  },
+  {
+    category: 'Landscape & Masterplan',
+    icon: 'TreePine',
+    prompts: [
+      p('Biophilic Urban Masterplan', 'TreePine', 'Aerial masterplan render of a eco-friendly smart city district with pedestrian green corridors, rooftop gardens, natural streams, volumetric daylight.'),
+      p('Desert Luxury Resort', 'Sun', 'Luxury desert wellness resort with rammed earth walls, palm trees, sunken seating pits, ambient candlelight lighting at twilight.'),
+      p('Waterfront Promenade', 'Waves', 'Modern waterfront urban promenade with timber decking, parametric shaded pergolas, pedestrian activity, serene water reflection.'),
+    ],
+  },
+];
+
 // ─── Derived helpers ──────────────────────────────────────────────────────────
 
 /** Flat list of every prompt across all groups */
@@ -776,3 +810,4 @@ export const REFERENCE_PROMPTS: PresetPrompt[] =
 
 /** Total prompt count — useful for analytics / onboarding copy */
 export const PROMPT_COUNT = ALL_PROMPTS.length;
+

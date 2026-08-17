@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -49,3 +49,21 @@ eslint-report.json
 
 # Signatures
 *.sig
+# Added by code-review-graph
+.code-review-graph/
+
+# AI IDE temporary folders
+.gemini/
+.agents/
+.cursor/
+.windsurf/
+.kiro/
+.qoder/
+.codebuddy/
+.claude/
+setup_dist/
+anarchy_audit/
+playwright-report/
+test-results/
+*.txt.sig
+tauri-dev-utf8.txt

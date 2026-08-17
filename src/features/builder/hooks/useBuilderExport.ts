@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { logger } from '../../../utils/logger';
 import {
@@ -9,6 +9,7 @@ import {
   saveDXFFromServer,
   exportImagesToPDFWithDialog,
 } from '../../../services/export';
+import type { DxfCalibration } from '../../../services/export';
 import { resolveImageUrl } from '../utils/builderHelpers.tsx';
 import type { BuilderNode } from '../types';
 import { IMAGE2CAD_BASE_URL } from '../../../config/image2cad';
@@ -27,6 +28,11 @@ export function useBuilderExport({
   setConfig,
 }: UseBuilderExportArgs) {
   const isAnalyzingRef = useRef(false);
+  const [dxfCalibrationTarget, setDxfCalibrationTarget] = useState<{
+    imageUrl: string;
+    displayUrl: string;
+    baseName: string;
+  } | null>(null);
 
   const handleContextCompare = (contextNode: BuilderNode | undefined, slot: 'A' | 'B') => {
     const data = contextNode?.data;
@@ -48,16 +54,39 @@ export function useBuilderExport({
       .catch(err => { logger.error('[Save Image] failed:', err); addNotification({ type: 'error', title: 'Save Failed', message: err?.message || 'Failed to save image' }); });
   };
 
-  const handleContextExportDXF = (contextNode: BuilderNode | undefined) => {
+  const handleContextExportDXF = async (contextNode: BuilderNode | undefined) => {
     if (!contextNode) return;
     const data = contextNode.data;
     const imageUrl = data?.image ?? data?.outputData?.image;
     if (!imageUrl) return;
     const baseName = `${data?.type || 'node'}_${contextNode.id}`;
-    exportImageToDXFWithDialog(imageUrl, baseName)
-      .then(filePath => filePath && addNotification({ type: 'success', title: 'CAD File Saved', message: `Saved to: ${filePath.split(/[\\/]/).pop()}` }))
+
+    try {
+      // resolveImageUrl turns idb:// references (or any non-data URL) into a
+      // data: URI so the calibration modal can actually render it in an <img>
+      const displayUrl = await resolveImageUrl(imageUrl);
+      setDxfCalibrationTarget({ imageUrl, displayUrl, baseName });
+    } catch (err: any) {
+      logger.error('[Export CAD] failed to prepare image:', err);
+      addNotification({ type: 'error', title: 'Export Failed', message: err?.message || 'Failed to load image for export' });
+    }
+  };
+
+  const confirmDxfExport = (calibration: DxfCalibration | undefined) => {
+    const target = dxfCalibrationTarget;
+    setDxfCalibrationTarget(null);
+    if (!target) return;
+
+    exportImageToDXFWithDialog(target.imageUrl, target.baseName, calibration)
+      .then(filePath => filePath && addNotification({
+        type: 'success',
+        title: 'CAD File Saved',
+        message: `Saved to: ${filePath.split(/[\\/]/).pop()}${calibration ? ' (true-to-scale)' : ''}`,
+      }))
       .catch(err => { logger.error('[Export CAD] failed:', err); addNotification({ type: 'error', title: 'Export Failed', message: err?.message || 'Failed to export CAD file' }); });
   };
+
+  const cancelDxfCalibration = () => setDxfCalibrationTarget(null);
 
   const handleContextAnalyzePlan = async (contextNode: BuilderNode | undefined) => {
     if (!contextNode) return;
@@ -217,5 +246,8 @@ export function useBuilderExport({
     handleContextOpenImagesFolder,
     handleContextExportNodePDF,
     isAnalyzing: isAnalyzingRef,
+    dxfCalibrationTarget,
+    confirmDxfExport,
+    cancelDxfCalibration,
   };
 }

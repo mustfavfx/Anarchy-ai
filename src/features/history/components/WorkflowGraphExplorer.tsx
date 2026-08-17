@@ -204,7 +204,7 @@ function WorkflowGraphExplorerInner({
       rootId = curr.id;
     }
 
-    let rootEntry = allEntries.find(e => e.id === rootId) || preview;
+    const rootEntry = allEntries.find(e => e.id === rootId) || preview;
 
     // Filter all entries belonging to this lineage
     const lineage = allEntries.filter(e => 

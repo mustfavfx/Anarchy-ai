@@ -1,0 +1,236 @@
+/* VizMaker Target Pin on Canvas Image */
+.vizmaker-target-pin {
+  position: absolute;
+  z-index: 45;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  transition: transform 0.15s ease;
+}
+
+.vizmaker-target-pin:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.vizmaker-target-pin-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e11d48;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px #e11d48, 0 0 20px rgba(225, 29, 72, 0.6);
+}
+
+.vizmaker-target-pin-pulse {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(225, 29, 72, 0.4);
+  animation: vizmaker-pulse 1.8s infinite ease-out;
+}
+
+@keyframes vizmaker-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Wrapper & Card */
+.vizmaker-arrow-card-wrapper {
+  position: absolute;
+  z-index: 50;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+.vizmaker-arrow-svg {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 10;
+}
+
+.vizmaker-arrow-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(14, 16, 24, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(225, 29, 72, 0.15);
+  min-width: 220px;
+  max-width: 260px;
+  transition: all 0.25s ease;
+  z-index: 20;
+}
+
+.vizmaker-arrow-card:hover {
+  border-color: rgba(225, 29, 72, 0.45);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 28px rgba(225, 29, 72, 0.28);
+}
+
+/* Header */
+.vizmaker-arrow-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vizmaker-arrow-card-header.draggable {
+  cursor: grab;
+  user-select: none;
+}
+
+.vizmaker-arrow-card-header.draggable:active {
+  cursor: grabbing;
+}
+
+.vizmaker-grip-icon {
+  color: rgba(255, 255, 255, 0.35);
+  margin-right: 2px;
+}
+
+.vizmaker-arrow-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+}
+
+.vizmaker-header-icon {
+  color: #e11d48;
+  filter: drop-shadow(0 0 6px rgba(225, 29, 72, 0.6));
+}
+
+.vizmaker-arrow-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.vizmaker-arrow-close:hover {
+  background: rgba(225, 29, 72, 0.25);
+  color: #ffffff;
+  border-color: rgba(225, 29, 72, 0.5);
+}
+
+/* Upload & Reference Image */
+.vizmaker-ref-container {
+  position: relative;
+  width: 100%;
+  height: 96px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.vizmaker-ref-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vizmaker-ref-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(9, 10, 15, 0.85);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: all 0.2s ease;
+}
+
+.vizmaker-ref-remove:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.vizmaker-ref-upload-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 82px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.vizmaker-ref-upload-btn:hover {
+  background: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.45);
+  color: #fb7185;
+}
+
+/* Input */
+.vizmaker-input-wrapper {
+  width: 100%;
+}
+
+.vizmaker-arrow-text-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 8px 12px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.vizmaker-arrow-text-input:focus {
+  border-color: #e11d48;
+  background: rgba(0, 0, 0, 0.65);
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.3);
+}
+
+.vizmaker-arrow-text-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+}
+
+

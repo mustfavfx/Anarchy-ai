@@ -4,7 +4,7 @@ import {
   RotateCcw, RotateCw, Plus, LayoutGrid, Maximize2,
   Save, FolderOpen, FolderDown, Download,
   Trash2, SplitSquareHorizontal,
-  FileText
+  FileText, Wand2, Film, ChevronRight, Paintbrush, Sparkles
 } from 'lucide-react';
 import { logger } from '../../../utils/logger';
 
@@ -24,7 +24,8 @@ export type ContextAction =
   | 'save-project' 
   | 'load-project'
   | 'open-images-folder'
-  | 'export-node-pdf';
+  | 'export-node-pdf'
+  | 'draw-mask';
 
 interface BuilderContextMenuProps {
   contextMenu: {
@@ -49,7 +50,76 @@ interface BuilderContextMenuProps {
   fitView: (options?: any) => void;
   imageFileToDataUrl: (file: File) => Promise<string>;
   spawnFromImage: (dataUrl: string, position?: { x: number; y: number }) => Promise<void>;
+  onSpawnWithModel: (tool: 'image-editor' | 'image-upscaler' | 'video-creator' | 'anarchy-creator', model: string) => void;
 }
+
+interface MenuEngine {
+  id: string;
+  name: string;
+  badge?: string;
+}
+
+interface MenuStation {
+  id: 'image-editor' | 'image-upscaler' | 'video-creator' | 'anarchy-creator';
+  name: string;
+  icon: React.ReactNode;
+  engines: MenuEngine[];
+}
+
+const STATIONS: MenuStation[] = [
+  {
+    id: 'anarchy-creator' as const,
+    name: 'Anarchy Generation',
+    icon: <Sparkles size={14} className="context-icon" />,
+    engines: [
+      { id: 'reve/create', name: 'Anarchy Create (v2)', badge: 'v2' },
+      { id: 'reve/edit-fast', name: 'Anarchy Edit Fast', badge: 'Fast' },
+      { id: 'reve/extract-layout', name: 'Anarchy Analysis (v2)', badge: 'Layout' },
+      { id: 'reve/render-layout', name: 'Anarchy Render Layout', badge: 'Layout' },
+      { id: 'reve/create-layout', name: 'Anarchy Create Layout', badge: 'Layout' },
+      { id: 'reve/reconcile-layouts', name: 'Anarchy Reconcile Layouts', badge: 'Layout' }
+    ]
+  },
+  {
+    id: 'image-editor' as const,
+    name: 'Image Editing',
+    icon: <Wand2 size={14} className="context-icon" />,
+    engines: [
+      { id: 'google/nano-banana-2', name: 'Nano Banana 2', badge: 'New' },
+      { id: 'google/nano-banana-2-lite', name: 'Nano Banana 2 Lite', badge: 'Lite' },
+      { id: 'bytedance/seedream-5-pro', name: 'Seedream 5 Pro', badge: 'Pro' },
+      { id: 'black-forest-labs/flux-2-pro', name: 'FLUX 2 Pro', badge: '8 Refs' },
+      { id: 'openai/gpt-image-2', name: 'GPT Image 2' },
+      { id: 'google/nano-banana-pro', name: 'Nano Banana Pro', badge: 'Pro' },
+      { id: 'prunaai/p-image', name: 'Pruna P-Image', badge: 'Fast' },
+      { id: 'krea/krea-2-large', name: 'Krea 2 Large', badge: 'Pro' }
+    ]
+  },
+  {
+    id: 'image-upscaler' as const,
+    name: 'Image Upscaling',
+    icon: <Maximize2 size={14} className="context-icon" />,
+    engines: [
+      { id: 'topazlabs/image-upscale', name: 'Topaz Labs Upscale' },
+      { id: 'philz1337x/clarity-upscaler', name: 'Clarity Upscaler' },
+      { id: 'prunaai/p-image-upscale', name: 'Pruna AI Upscale' }
+    ]
+  },
+  {
+    id: 'video-creator' as const,
+    name: 'Video Studio',
+    icon: <Film size={14} className="context-icon" />,
+    engines: [
+      { id: 'bytedance/seedance-2.0', name: 'Seedance 2.0', badge: 'Fast' },
+      { id: 'kwaivgi/kling-v3-omni-video', name: 'Kling v3 Omni Video', badge: 'Pro' },
+      { id: 'xai/grok-imagine-video-1.5', name: 'Grok Imagine Video 1.5' },
+      { id: 'prunaai/p-video', name: 'Pruna AI P-Video' },
+      { id: 'google/veo-3.1-fast', name: 'Google Veo 3.1 Fast', badge: '3.1 Fast' },
+      { id: 'pixverse/pixverse-v6', name: 'PixVerse v6' },
+      { id: 'openai/sora-2-pro', name: 'Sora 2 Pro', badge: 'Pro' }
+    ]
+  }
+];
 
 export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
   contextMenu,
@@ -67,9 +137,45 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
   fitView,
   imageFileToDataUrl,
   spawnFromImage,
+  onSpawnWithModel,
 }) => {
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+
+  const [activeStation, setActiveStation] = useState<'image-editor' | 'image-upscaler' | 'video-creator' | 'anarchy-creator' | null>(null);
+  const [hoveredItemRect, setHoveredItemRect] = useState<DOMRect | null>(null);
+  const timeoutRef = useRef<any>(null);
+
+  const handleStationMouseEnter = (
+    e: React.MouseEvent,
+    stationId: 'image-editor' | 'image-upscaler' | 'video-creator' | 'anarchy-creator'
+  ) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setActiveStation(stationId);
+    setHoveredItemRect(e.currentTarget.getBoundingClientRect());
+  };
+
+  const handleStationMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setActiveStation(null);
+    }, 120);
+  };
+
+  const handleSubmenuMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  };
+
+  const handleSubmenuMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setActiveStation(null);
+    }, 120);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (!contextMenu) {
@@ -139,17 +245,18 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
   });
 
   return (
-    <div
-      ref={contextMenuRef}
-      className="builder-context-menu"
-      style={menuStyle}
-      role="menu"
-      aria-label="Context menu"
-      tabIndex={-1}
-      onClick={(e) => e.stopPropagation()}
-      onContextMenu={(e) => e.preventDefault()}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
-    >
+    <>
+      <div
+        ref={contextMenuRef}
+        className="builder-context-menu"
+        style={menuStyle}
+        role="menu"
+        aria-label="Context menu"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => e.preventDefault()}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      >
       <div className="context-menu-title">
         {contextMenu.type === 'canvas' && 'Canvas Menu'}
         {contextMenu.type === 'node' && 'Node Menu'}
@@ -237,7 +344,7 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
             <span className="context-main">Paste Image</span>
           </button>
 
-          <button type="button" className="context-item" onClick={(e) => { e.stopPropagation(); onAction('rearrange'); }}>
+          <button type="button" className="context-item" onClick={() => { onAction('rearrange'); onClose(); }}>
             <LayoutGrid size={14} className="context-icon" />
             <span className="context-main">Rearrange Graph</span>
           </button>
@@ -328,6 +435,17 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
 
           <button
             type="button"
+            className="context-item context-item--highlight"
+            onClick={() => { onAction('draw-mask'); }}
+            disabled={!contextNodeHasImage}
+          >
+            <Paintbrush size={14} className="context-icon" />
+            <span className="context-main">Draw Mask / Inpaint</span>
+            <span className="context-badge">AI</span>
+          </button>
+
+          <button
+            type="button"
             className="context-item"
             onClick={() => { onAction('save-node-image'); }}
             disabled={!contextNodeHasImage}
@@ -387,6 +505,22 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
             <Trash2 size={14} className="context-icon" />
             <span className="context-main">Delete Node</span>
           </button>
+
+          <div className="context-section-label">Stations</div>
+          {STATIONS.map((station) => (
+            <button
+              key={station.id}
+              type="button"
+              className={`context-item ${activeStation === station.id ? 'hovered' : ''}`}
+              onMouseEnter={(e) => handleStationMouseEnter(e, station.id)}
+              onMouseLeave={handleStationMouseLeave}
+              disabled={!contextNodeHasImage}
+            >
+              {station.icon}
+              <span className="context-main">{station.name}</span>
+              <ChevronRight size={12} className="context-submenu-indicator" />
+            </button>
+          ))}
           
           <div className="context-section-label">Compare</div>
           
@@ -411,6 +545,38 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
           </button>
         </>
       )}
-    </div>
+      </div>
+
+      {activeStation && hoveredItemRect && (
+        <div
+          className="context-submenu"
+          style={{
+            position: 'fixed',
+            left: hoveredItemRect.right + 4 + 180 > window.innerWidth
+              ? Math.max(4, hoveredItemRect.left - 180 - 4)
+              : hoveredItemRect.right + 4,
+            top: hoveredItemRect.top,
+            zIndex: 99999,
+          }}
+          onMouseEnter={handleSubmenuMouseEnter}
+          onMouseLeave={handleSubmenuMouseLeave}
+        >
+          {STATIONS.find(s => s.id === activeStation)?.engines.map((engine) => (
+            <button
+              key={engine.id}
+              type="button"
+              className="context-item"
+              onClick={() => {
+                onSpawnWithModel(activeStation, engine.id);
+                onClose();
+              }}
+            >
+              <span className="context-main">{engine.name}</span>
+              {engine.badge && <span className="context-badge">{engine.badge}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   );
 };

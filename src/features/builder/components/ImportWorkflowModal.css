@@ -1,0 +1,222 @@
+/* ImportWorkflowModal.css - Modern Cyber Glassmorphism Import Modal */
+
+.import-workflow-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(3, 5, 10, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeInImportOverlay 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInImportOverlay {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.import-workflow-modal {
+  background: radial-gradient(130% 100% at 50% 0%, #151926 0%, #0c0e16 100%);
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 
+    0 30px 80px rgba(0, 0, 0, 0.8), 
+    0 0 45px rgba(225, 29, 72, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+  color: #f1f5f9;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.import-workflow-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(22, 26, 38, 0.85);
+}
+
+.import-workflow-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-workflow-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.25) 0%, rgba(190, 18, 60, 0.4) 100%);
+  border: 1px solid rgba(225, 29, 72, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fb7185;
+}
+
+.import-sparkle-icon {
+  animation: pulseSparkle 2s ease-in-out infinite alternate;
+}
+
+.import-workflow-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.import-main-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.import-sub-title {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.import-close-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease-in-out;
+}
+
+.import-close-btn:hover {
+  background: rgba(225, 29, 72, 0.2);
+  color: #fff;
+}
+
+.import-workflow-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.import-preview-box {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #000;
+}
+
+.import-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.9);
+}
+
+.import-preview-overlay-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(15, 18, 28, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  color: #fb7185;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.import-options-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.import-option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #131722;
+}
+
+.import-option-card.primary {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.12) 0%, rgba(190, 18, 60, 0.2) 100%);
+  border-color: rgba(225, 29, 72, 0.35);
+}
+
+.import-option-card.primary:hover {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.22) 0%, rgba(190, 18, 60, 0.35) 100%);
+  border-color: #e11d48;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.25);
+}
+
+.import-option-card.secondary:hover {
+  background: #191e2c;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.import-card-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.import-card-icon-badge.primary {
+  background: rgba(225, 29, 72, 0.2);
+  border: 1px solid rgba(225, 29, 72, 0.4);
+  color: #fb7185;
+}
+
+.import-card-icon-badge.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.import-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.import-card-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.import-card-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+}

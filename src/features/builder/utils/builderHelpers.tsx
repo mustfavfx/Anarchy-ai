@@ -6,6 +6,9 @@ import { getLocalImage } from '../../../services/history/HistoryService';
 import VizGhostAttachEdge from '../VizGhostAttachEdge';
 import { BaseNode } from '../BaseNode';
 import { GhostNode } from '../GhostNode';
+import { DummyNode } from '../DummyNode';
+import { GroupNode } from '../GroupNode';
+import { getHistoryNodeLabel } from '../../../utils/nodeLabel';
 
 export const SOURCE_LABELS: Record<string, string> = {
   autocad: 'AutoCAD', revit: 'Revit',
@@ -155,23 +158,31 @@ export function convertNodeTreeToWorkflow(nodeTree: any): { nodes: any[]; edges:
       }
     } : undefined;
 
+    const cleanModel = getHistoryNodeLabel({ model: n.model || n.config?.model || n.params?.model || n.label || '' });
+    const headerLabel = cleanModel || TYPE_LABELS[n.processingType || ''] || n.processingType || 'Node';
+    const promptText = n.prompt || n.config?.prompt || n.params?.prompt || '';
+    const layoutData = n.layout || n.extractedLayout || n.analysisResult || n.params?.layout || n.params?.analysisResult;
+
     return {
       id: n.id,
       type: rfType,
       position: n.position || { x: 200, y: 200 },
       width: 260,
       data: {
-        label: n.label || TYPE_LABELS[n.processingType || ''] || n.processingType || 'Node',
+        label: headerLabel,
         type: n.type,
         processingType: n.processingType || 'source',
         state: n.state || 'ready',
         image: n.image,
-        prompt: n.prompt,
+        prompt: promptText,
+        layout: layoutData,
+        extractedLayout: layoutData,
+        isAnalyzed: !!layoutData,
         createdAt: nodeTree.createdAt || Date.now(),
         lineage,
         outputData: outputPacket,
         inputData: undefined,
-        config: n.config || {},
+        config: { ...(n.config || {}), prompt: promptText, model: cleanModel },
         historyEntryId: n.historyEntryId,
       }
     };
@@ -375,6 +386,8 @@ export function isVideoNode(nodeData: any): boolean {
 export const nodeTypes = {
   baseNode: BaseNode,
   ghostNode: GhostNode,
+  dummyNode: DummyNode,
+  groupNode: GroupNode,
 };
 
 export const edgeTypes = {

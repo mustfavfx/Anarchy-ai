@@ -21,9 +21,7 @@ export class CollectionService {
   static save(cols: Collection[]): void {
     try {
       localStorage.setItem(COL_KEY, JSON.stringify(cols));
-      const event = new CustomEvent('anarchy:collections:updated');
-      window.dispatchEvent(event);
-      globalThis.dispatchEvent(event);
+      window.dispatchEvent(new CustomEvent('anarchy:collections:updated'));
     } catch (err) {
       console.error('[CollectionService] Failed to save collections:', err);
     }

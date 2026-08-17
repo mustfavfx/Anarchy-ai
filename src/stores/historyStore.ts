@@ -164,6 +164,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   deleteEntry: async (id) => {
     await deleteHistoryEntry(id);
+    // Sync with HistoryEngine v3.1 (removes from Trie search index too)
+    try {
+      const { HistoryEngine } = await import('../engine/history');
+      await HistoryEngine.getInstance().removeEntry(id);
+    } catch {}
     get().invalidateCache();
     get().refreshHistory();
     get().refreshCollections();
@@ -197,6 +202,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   clearAllHistory: async () => {
     await apiClearHistory();
+    // Sync with HistoryEngine v3.1 (clears Trie + IndexedDB + Checkpoints)
+    try {
+      const { historyEngine } = await import('../services/history/engine');
+      await historyEngine.clear();
+    } catch {}
     set({ selectedIds: new Set<string>(), selectMode: false, previewEntry: null, activeGroup: null });
     get().invalidateCache();
     get().refreshHistory();

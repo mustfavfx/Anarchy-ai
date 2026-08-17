@@ -18,7 +18,6 @@ export const HistoryFilters: React.FC = () => {
       if (e.type) counts[e.type] = (counts[e.type] || 0) + 1;
       if (e.starred) counts.starred = (counts.starred || 0) + 1;
     });
-    // Sum of manual collections sizes
     counts.pinboard = collections.reduce((sum, c) => sum + c.entryIds.length, 0);
     return counts;
   }, [entries, collections]);
@@ -36,7 +35,6 @@ export const HistoryFilters: React.FC = () => {
 
   const handleFilterClick = (key: FilterType) => {
     setSelectedFilter(key);
-    // Reset smart collection focus if shifting filters
     if (key !== 'pinboard') {
       setActiveSmartCollectionId(null);
     }
@@ -47,7 +45,6 @@ export const HistoryFilters: React.FC = () => {
       {FILTERS.map(({ key, label }) => {
         const count = filterCounts[key] || 0;
         
-        // Hide types if they have no entries (e.g. if we don't have upscales yet)
         if (key !== 'all' && key !== 'starred' && key !== 'pinboard' && count === 0) {
           return null;
         }

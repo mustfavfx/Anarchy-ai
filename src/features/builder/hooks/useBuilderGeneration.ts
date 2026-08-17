@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits, getUserCredit } from '../../../services/credit/creditService';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
@@ -9,18 +9,26 @@ import type { BuilderNode, ProcessingType } from '../types';
 import { useBuilderQueueStore } from '../../../stores/builderQueueStore';
 
 interface UseBuilderGenerationProps {
+  selectedNodeId?: string | null;
   nodes: BuilderNode[];
+  getNodes?: () => BuilderNode[];
+  setNodes?: (update: BuilderNode[] | ((curr: BuilderNode[]) => BuilderNode[])) => void;
   executeNode: (nodeId: string, promptText: string, config?: any) => Promise<any>;
   createSourceNode: (imageUrl?: string, label?: string, position?: { x: number; y: number }) => string;
+  createStandaloneGhostNode?: (position?: { x: number; y: number }) => string;
   spawnGhostNode: (parentId: string, type: ProcessingType) => string | null;
   setUserCredits: (credits: number) => void;
   setCreditError: (error: { balance: number; needed: number } | null) => void;
 }
 
 export function useBuilderGeneration({
+  selectedNodeId,
   nodes,
+  getNodes,
+  setNodes,
   executeNode,
   createSourceNode,
+  createStandaloneGhostNode,
   spawnGhostNode,
   setUserCredits,
   setCreditError,
@@ -28,8 +36,8 @@ export function useBuilderGeneration({
   const { user: authUser } = useAuth();
   const addNotification = useNotificationStore((state) => state.addNotification);
   const getConfig = useAIConfigStore((state) => state.getConfig);
-
-  const [prompt, setPrompt] = useState('');
+  const prompt = useAIConfigStore((state) => state.workspacePrompt);
+  const setPrompt = useAIConfigStore((state) => state.setWorkspacePrompt);
   const promptRef = useRef(prompt);
   useEffect(() => {
     promptRef.current = prompt;
@@ -107,21 +115,18 @@ export function useBuilderGeneration({
     };
   }, [handleRetryExecution]);
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = useCallback(() => {
     const aiConfig = getConfig();
-    
-    // Fetch user credit to determine isTrial status
-    let isTrial = true;
-    if (authUser?.id && !DEV_MODE) {
-      try {
-        const credit = await getUserCredit(authUser.id);
-        if (credit) {
-          isTrial = credit.totalPurchased === 0;
-        }
-      } catch (err) {
-        logger.error('[BuilderCredits] Error loading user credit for cost calculation:', err);
-      }
+    const previewMode = useAIConfigStore.getState().previewMode;
+
+    // If currently in Mask mode, trigger mask generation (combining mask notes, mask canvas drawing & prompt)
+    if (previewMode === 'draw') {
+      window.dispatchEvent(new CustomEvent('anarchy:trigger-mask-generate'));
+      return;
     }
+
+    const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
+    const promptText = prompt.trim();
 
     let resolvedUpscaleFactor: number | undefined = undefined;
     if (aiConfig.model === 'topazlabs/image-upscale') {
@@ -134,36 +139,61 @@ export function useBuilderGeneration({
       resolvedUpscaleFactor = (aiConfig as any).clarityScale ?? 2;
     }
 
-    const cost = getModelCost(aiConfig.model, {
-      resolution: aiConfig.resolution,
-      qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
-      prunaTarget: aiConfig.prunaTarget,
-      upscaleFactor: resolvedUpscaleFactor,
-      isTrial,
-      width: (aiConfig as any).width,
-      height: (aiConfig as any).height,
-      videoDuration: aiConfig.videoDuration,
-    });
-
-    const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
-    const promptText = prompt.trim();
     if (!promptText && !(isUpscaler && resolvedUpscaleFactor && resolvedUpscaleFactor > 1)) return;
 
     const genConfig = buildGenConfig(aiConfig);
-    const idleGhosts = nodes.filter(n => n.data.type === 'ghost' && n.data.state === 'idle');
-    const totalCost = cost * (idleGhosts.length > 0 ? idleGhosts.length : 1);
+    const currentNodes = getNodes ? getNodes() : nodes;
+    const idleGhosts = currentNodes.filter(n => n.data.type === 'ghost' && n.data.state === 'idle');
 
-    // 1. Optimistically identify or spawn ghost nodes and transition them to 'connecting' state
+    // 1. Optimistically identify or spawn nodes and transition them to 'connecting' state SYNCHRONOUSLY
     let targetNodeIds: string[] = [];
-    if (idleGhosts.length > 0) {
+    if (aiConfig.studioMode === 'generate') {
+      // Find an existing idle Ghost Node or create a new Standalone Ghost Node in empty canvas space!
+      const targetNode = currentNodes.find(n => n.data.type === 'ghost' && n.data.state === 'idle');
+
+      let targetId = targetNode?.id;
+      if (!targetId) {
+        const lastNode = currentNodes[currentNodes.length - 1];
+        const newPos = lastNode 
+          ? { x: lastNode.position.x + 360, y: lastNode.position.y }
+          : { x: 250, y: 150 };
+
+        targetId = createStandaloneGhostNode 
+          ? createStandaloneGhostNode(newPos)
+          : createSourceNode(undefined, promptText.slice(0, 24) || 'Generated Image', newPos);
+      }
+
+      if (targetId) {
+        targetNodeIds = [targetId];
+        useAIConfigStore.getState().setSelectedNode({ id: targetId, type: 'ghost', state: 'connecting' } as any);
+        useBuilderQueueStore.getState().addJob(targetId, { state: 'connecting' });
+        if (setNodes) {
+          setNodes(nds => nds.map(n => 
+            n.id === targetId 
+              ? { 
+                  ...n, 
+                  type: 'ghostNode',
+                  data: { 
+                    ...n.data, 
+                    type: 'ghost',
+                    state: 'connecting',
+                    promptDraft: promptText,
+                    updatedAt: Date.now()
+                  } 
+                } 
+              : n
+          ));
+        }
+      }
+    } else if (idleGhosts.length > 0) {
       targetNodeIds = idleGhosts.map(g => g.id);
       idleGhosts.forEach(g => {
         useBuilderQueueStore.getState().addJob(g.id, { state: 'connecting' });
       });
     } else {
       const existingParent =
-        nodes.find(n => (n.data.type === 'source' || n.data.type === 'result') && !!n.data.image) ??
-        nodes.find(n => n.data.type === 'source');
+        nodes.find(n => (n.data?.type === 'source' || n.data?.type === 'result') && !!n.data?.image) ??
+        nodes.find(n => n.data?.type === 'source');
       const parentId = existingParent ? existingParent.id : createSourceNode();
       const isVideo = [
         'bytedance/seedance-2.0',
@@ -189,8 +219,33 @@ export function useBuilderGeneration({
     // Clear prompt instantly for responsive UX
     setPrompt('');
 
-    // 2. Perform credit validation, deduction, and replicate submission in the background
+    // 2. Perform credit validation, deduction, and replicate submission asynchronously in the background
     (async () => {
+      let isTrial = true;
+      if (authUser?.id && !DEV_MODE) {
+        try {
+          const credit = await getUserCredit(authUser.id);
+          if (credit) {
+            isTrial = credit.totalPurchased === 0;
+          }
+        } catch (err) {
+          logger.error('[BuilderCredits] Error loading user credit for cost calculation:', err);
+        }
+      }
+
+      const cost = getModelCost(aiConfig.model, {
+        resolution: aiConfig.resolution,
+        qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
+        prunaTarget: aiConfig.prunaTarget,
+        upscaleFactor: resolvedUpscaleFactor,
+        isTrial,
+        width: (aiConfig as any).width,
+        height: (aiConfig as any).height,
+        videoDuration: aiConfig.videoDuration,
+      });
+
+      const totalCost = cost * (idleGhosts.length > 0 ? idleGhosts.length : 1);
+
       try {
         if (authUser?.id && !DEV_MODE) {
           const creditCheck = await checkCreditBalance(authUser.id, totalCost);
@@ -237,6 +292,8 @@ export function useBuilderGeneration({
     createSourceNode,
     spawnGhostNode,
     setPrompt,
+    selectedNodeId,
+    getNodes,
   ]);
 
   return {

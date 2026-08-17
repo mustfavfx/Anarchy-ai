@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "uvx",
+      "args": [
+        "code-review-graph",
+        "serve"
+      ],
+      "cwd": "E:\\New folder (5)\\Anarchy Ai 0.07",
+      "type": "stdio"
+    }
+  }
+}

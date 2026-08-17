@@ -15,4 +15,5 @@ export type {
   ExportImageItem,
   ExportOptions,
   PDFExportOptions,
+  DxfCalibration,
 } from './ExportService';

@@ -1,6 +1,6 @@
-; Inno Setup Script for Anarchy AI
+﻿; Inno Setup Script for Anarchy AI
 #define AppName "Anarchy AI"
-#define AppVersion "0.3.54"
+#define AppVersion "0.3.60"
 #define AppPublisher "Anarchy AI Team"
 #define AppExeName "Anarchy AI.exe"
 
@@ -45,6 +45,16 @@ Source: "src-tauri\resources\maxicons\AnarchyLogo_16i.bmp"; DestDir: "{app}\reso
 Source: "src-tauri\resources\maxicons\AnarchyLogo_16a.bmp"; DestDir: "{app}\resources\maxicons"; Flags: ignoreversion
 ; 3ds Max script plugin
 Source: "src-tauri\resources\AnarchyConnector.ms"; DestDir: "{app}\resources"; Flags: ignoreversion
+
+[InstallDelete]
+Type: files; Name: "{userdesktop}\Anarchy AI.lnk"
+Type: files; Name: "{userdesktop}\anarchy-ai.lnk"
+Type: files; Name: "{userdesktop}\Anarchy AI Desktop.lnk"
+Type: files; Name: "{userdesktop}\Anarchy AI Desktop Launcher.lnk"
+Type: files; Name: "{commondesktop}\Anarchy AI.lnk"
+Type: files; Name: "{commondesktop}\anarchy-ai.lnk"
+Type: files; Name: "{commondesktop}\Anarchy AI Desktop.lnk"
+Type: files; Name: "{commondesktop}\Anarchy AI Desktop Launcher.lnk"
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"

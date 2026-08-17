@@ -24,7 +24,8 @@ export interface AIConfig {
   upscaleFactor: number;
   resolution: string;
   aspectRatio: string;
-  selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator';
+  studioMode: 'edit' | 'generate';
+  selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator' | 'anarchy-creator';
   // Watermark settings
   enableWatermark: boolean;
   watermarkType: 'text' | 'image';
@@ -66,6 +67,8 @@ export interface AIConfig {
   prunaEnhanceRealism?: boolean;
   prunaQuality?: number;
   prunaOutputFormat?: string;
+  // Krea AI settings
+  kreaCreativity?: 'raw' | 'low' | 'medium' | 'high';
   // Style settings
   styleType?: string;
   stylePreset?: string;
@@ -105,17 +108,23 @@ export interface AIConfig {
   pixverseGenerateMultiClipSwitch?: boolean;
   // OpenAI Sora settings
   soraInputReference?: string | null;
+  // Anarchy / Reve postprocessing settings
+  anarchyRemoveBackground?: boolean;
+  anarchyUpscaleFactor?: 'Off' | '2x' | '3x' | '4x';
+  anarchyEffect?: string;
 }
 
 export interface SelectedNodeInfo {
   id: string | null;
-  type: 'source' | 'ghost' | 'result' | null;
+  type: 'source' | 'ghost' | 'result' | 'dummy' | 'group' | null;
   image: string | undefined;
   originalImage?: string | undefined;
   prompt: string | undefined;
   state: string | undefined;
   isVideo?: boolean;
   errorMessage?: string;
+  extractedLayout?: any;
+  layout?: any;
 }
 
 export interface CompareImages {
@@ -138,6 +147,7 @@ const DEFAULT_CONFIG: AIConfig = {
   upscaleFactor: 2,
   resolution: 'Auto',
   aspectRatio: '1:1',
+  studioMode: 'edit',
   selectedTool: 'image-editor',
   // Watermark settings
   enableWatermark: true,
@@ -180,6 +190,8 @@ const DEFAULT_CONFIG: AIConfig = {
   prunaEnhanceRealism: true,
   prunaQuality: 80,
   prunaOutputFormat: 'png',
+  // Krea AI defaults
+  kreaCreativity: 'medium',
   // Video defaults
   videoDuration: '5s',
   videoQuality: 'standard',
@@ -216,6 +228,10 @@ const DEFAULT_CONFIG: AIConfig = {
   pixverseGenerateMultiClipSwitch: false,
   // OpenAI Sora defaults
   soraInputReference: null,
+  // Anarchy / Reve defaults
+  anarchyRemoveBackground: false,
+  anarchyUpscaleFactor: 'Off',
+  anarchyEffect: 'None',
 };
 
 // ── Store State ──────────────────────────────────────────────────────────────
@@ -231,6 +247,8 @@ interface AIConfigState {
   selectedNode: SelectedNodeInfo;
   setSelectedNode: (node: SelectedNodeInfo) => void;
   clearSelectedNode: () => void;
+  lastSelectedNodeId: string | null;
+  setLastSelectedNodeId: (id: string | null) => void;
   
   // Compare Images
   compareImages: CompareImages;
@@ -247,8 +265,14 @@ interface AIConfigState {
   setIsEnlargedView: (enlarged: boolean) => void;
   toggleEnlargedView: () => void;
 
+  isRightSidebarCollapsed: boolean;
+  setIsRightSidebarCollapsed: (collapsed: boolean) => void;
+
   isSwappedView: boolean;
   setIsSwappedView: (swapped: boolean) => void;
+
+  previewMode: 'preview' | 'compare' | 'draw' | 'layout';
+  setPreviewMode: (mode: 'preview' | 'compare' | 'draw' | 'layout') => void;
   
   // Workflow Snapshot
   workflowSnapshot: { nodes: Node[]; edges: Edge[] };
@@ -258,9 +282,17 @@ interface AIConfigState {
   focusNodeFn: ((nodeId: string) => void) | null;
   setFocusNodeFn: (fn: ((nodeId: string) => void) | null) => void;
 
-  // Node image update callback — registered by BuilderPage, called when crop/edit changes image
-  nodeImageUpdateFn: ((nodeId: string, image: string) => void) | null;
-  setNodeImageUpdateFn: (fn: ((nodeId: string, image: string) => void) | null) => void;
+  // Node image & layout update callback — registered by BuilderPage, called when crop/edit/layout changes node
+  nodeImageUpdateFn: ((nodeId: string, image?: string, layout?: any) => void) | null;
+  setNodeImageUpdateFn: (fn: ((nodeId: string, image?: string, layout?: any) => void) | null) => void;
+
+  // Workspace shared prompt
+  workspacePrompt: string;
+  setWorkspacePrompt: (prompt: string) => void;
+
+  // User credits — synced from useBuilderCredits so any panel can read it
+  userCredits: number;
+  setUserCreditsInStore: (credits: number) => void;
 }
 
 // ── Watermark Persistence Key ───────────────────────────────────────────────
@@ -328,7 +360,12 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
     prompt: undefined,
     state: undefined,
   },
-  setSelectedNode: (node) => set({ selectedNode: node }),
+  lastSelectedNodeId: null,
+  setSelectedNode: (node) => set((state) => ({
+    selectedNode: node,
+    lastSelectedNodeId: node.id ? node.id : state.lastSelectedNodeId,
+  })),
+  setLastSelectedNodeId: (id) => set({ lastSelectedNodeId: id }),
   clearSelectedNode: () => set({
     selectedNode: { id: null, type: null, image: undefined, prompt: undefined, state: undefined }
   }),
@@ -354,8 +391,14 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   setIsEnlargedView: (enlarged) => set({ isEnlargedView: enlarged }),
   toggleEnlargedView: () => set((state) => ({ isEnlargedView: !state.isEnlargedView })),
 
+  isRightSidebarCollapsed: false,
+  setIsRightSidebarCollapsed: (collapsed) => set({ isRightSidebarCollapsed: collapsed }),
+
   isSwappedView: false,
   setIsSwappedView: (swapped) => set({ isSwappedView: swapped }),
+
+  previewMode: 'preview',
+  setPreviewMode: (mode) => set({ previewMode: mode }),
   
   // Workflow Snapshot
   workflowSnapshot: { nodes: [], edges: [] },
@@ -368,6 +411,14 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   // Node image update callback
   nodeImageUpdateFn: null,
   setNodeImageUpdateFn: (fn) => set({ nodeImageUpdateFn: fn }),
+
+  // Workspace shared prompt
+  workspacePrompt: '',
+  setWorkspacePrompt: (prompt) => set({ workspacePrompt: prompt }),
+
+  // User credits — synced from useBuilderCredits
+  userCredits: 0,
+  setUserCreditsInStore: (credits) => set({ userCredits: credits }),
 }));
 
 // ── Selectors (for performance) ───────────────────────────────────────────────

@@ -1,15 +1,23 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Brush, Eraser, Scissors, Trash2, RotateCcw, RotateCw, Download, Crop, Check, X, Loader2 } from 'lucide-react';
+import {
+  MousePointer2, LassoSelect, Paintbrush2, Eraser, Trash2, Wand2, Crop,
+  RotateCcw, RotateCw, FileDown, Layers, CornerDownRight, Sparkles,
+  SquareDashed, Square, Circle, FolderPlus, PenTool, Shapes, Plus, Minus,
+} from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
+import { useAIConfigStore } from '../../stores/aiConfigStore';
+import { VizMakerArrowCard, type ArrowNodeItem } from './components/VizMakerArrowCard';
+import { LayersPanel, type LayerId, type LayerVisibility } from './components/LayersPanel';
+import { CropOverlay } from './components/CropOverlay';
+import { useMaskHistory } from './hooks/useMaskHistory';
+import { useMagicWand } from './hooks/useMagicWand';
+import { useCropTool } from './hooks/useCropTool';
 import './MaskCanvas.css';
-
-interface CropRect { x: number; y: number; w: number; h: number; }
-type CropHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'move' | 'new' | 'new-drag' | null;
 
 export interface MaskCanvasProps {
   image: string | null;
   onMaskChange?: (maskDataUrl: string | null) => void;
-  onGenerate?: (maskDataUrl: string, prompt: string) => void;
+  onGenerate?: (compositeDataUrl: string, maskDataUrl: string, prompt: string, refImages?: string[]) => void;
   onCrop?: (croppedDataUrl: string) => void;
   showGenerateButton?: boolean;
   className?: string;
@@ -21,571 +29,614 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   onMaskChange,
   onGenerate,
   onCrop,
-  showGenerateButton = false,
+  showGenerateButton = true,
   className = '',
-  isGenerating = false
+  isGenerating = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  
-  const resolvedImage = useResolvedImage(image);
-  
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [maskTool, setMaskTool] = useState<'brush' | 'eraser' | 'lasso' | 'crop'>('brush');
 
-  // ── Crop state ─────────────────────────────────────────────────────────────
-  const [cropRect, setCropRect] = useState<CropRect | null>(null);
-  const cropDragRef = useRef<{ handle: CropHandle; startX: number; startY: number; origRect: CropRect } | null>(null);
-  const [brushSize, setBrushSize] = useState(30);
-  const [maskOpacity, setMaskOpacity] = useState(0.55);
+  const [currentCanvasImage, setCurrentCanvasImage] = useState<string | null>(image);
+
+  useEffect(() => {
+    if (image) {
+      setCurrentCanvasImage(image);
+    }
+  }, [image]);
+
+  const activeImageSrc = currentCanvasImage || image;
+  const resolvedImage = useResolvedImage(activeImageSrc);
+
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [maskTool, setMaskTool] = useState<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow'>('brush');
+  const [shapeSubTool, setShapeSubTool] = useState<'polygon' | 'rectangle' | 'circle'>('rectangle');
+  const [drawSubTool, setDrawSubTool] = useState<'brush' | 'arrow' | 'line' | 'rect' | 'circle'>('brush');
+  const [openDropdown, setOpenDropdown] = useState<'lasso' | 'pen' | null>(null);
+  const [arrowNodes, setArrowNodes] = useState<ArrowNodeItem[]>([]);
+
+  const [brushSize, setBrushSize] = useState(34);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
   const [showBrushCursor, setShowBrushCursor] = useState(false);
-  const [maskPrompt, setMaskPrompt] = useState('');
+  const [brushColor, setBrushColor] = useState('#e11d48');
+  const maskOpacity = 0.55;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.mask-dropdown-container')) {
+        setOpenDropdown(null);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const [zoomScale, setZoomScale] = useState(1);
+
+  const [showLayerStack, setShowLayerStack] = useState(false);
+  const [selectedLayerId, setSelectedLayerId] = useState<LayerId>('image');
+  const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
+    image: true,
+    arrows: true,
+    selection: true,
+  });
+  const [hasSelectionContent, setHasSelectionContent] = useState(false);
+  const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
+
+  const { canUndo, canRedo, pushHistory, undo, redo, resetHistory, initHistory } = useMaskHistory(
+    canvasRef,
+    onMaskChange
+  );
+  const { floodFill } = useMagicWand(resolvedImage);
+
+  const hexToRgba = useCallback((hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }, []);
+
+  const aiConfig = useAIConfigStore((state) => state.config);
+  const globalPrompt = useAIConfigStore((state) => state.workspacePrompt);
+  const setGlobalPrompt = useAIConfigStore((state) => state.setWorkspacePrompt);
+  const [maskPrompt, setMaskPrompt] = useState(globalPrompt);
+
+  useEffect(() => {
+    setMaskPrompt(globalPrompt);
+  }, [globalPrompt]);
+
   const [imgMeta, setImgMeta] = useState<{ w: number; h: number } | null>(null);
-  
-  const historyRef = useRef<ImageData[]>([]);
-  const historyIndexRef = useRef<number>(-1);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const lassoPointsRef = useRef<{ x: number; y: number }[]>([]);
+  const [shapeStart, setShapeStart] = useState<{ x: number; y: number } | null>(null);
+  const [shapeCurrent, setShapeCurrent] = useState<{ x: number; y: number } | null>(null);
 
-  // Sync canvas size to wrapper
+  const updateMaskPreview = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      setMaskPreviewUrl(null);
+      return;
+    }
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = 120;
+    maskCanvas.height = Math.round((canvas.height / (canvas.width || 1)) * 120) || 120;
+    const mCtx = maskCanvas.getContext('2d');
+    if (!mCtx) return;
+
+    mCtx.fillStyle = '#000000';
+    mCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    mCtx.drawImage(canvas, 0, 0, maskCanvas.width, maskCanvas.height);
+
+    const imgData = mCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    const data = imgData.data;
+    let hasWhite = false;
+
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 5) {
+        data[i] = 255;
+        data[i + 1] = 255;
+        data[i + 2] = 255;
+        data[i + 3] = 255;
+        hasWhite = true;
+      } else {
+        data[i] = 0;
+        data[i + 1] = 0;
+        data[i + 2] = 0;
+        data[i + 3] = 255;
+      }
+    }
+    mCtx.putImageData(imgData, 0, 0);
+
+    setHasSelectionContent(hasWhite);
+    setMaskPreviewUrl(hasWhite ? maskCanvas.toDataURL('image/png') : null);
+  }, []);
+
+  useEffect(() => {
+    const handleInPlaceGen = (e: Event) => {
+      const customEv = e as CustomEvent<{ imageUrl: string; sourceNodeId?: string }>;
+      if (customEv.detail?.imageUrl) {
+        setCurrentCanvasImage(customEv.detail.imageUrl);
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (canvas && ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        setHasSelectionContent(false);
+        setMaskPreviewUrl(null);
+      }
+    };
+    window.addEventListener('anarchy:mask-generated-in-place', handleInPlaceGen);
+    return () => window.removeEventListener('anarchy:mask-generated-in-place', handleInPlaceGen);
+  }, []);
+
   const syncCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
     const wrapper = wrapperRef.current;
     if (!canvas || !wrapper || !imgMeta) return;
-    
+
     const { w, h } = imgMeta;
     const ww = wrapper.clientWidth;
     const wh = wrapper.clientHeight;
-    const scale = Math.min(ww / w, wh / h);
+    const scale = Math.min((ww * 0.95) / w, (wh * 0.95) / h);
     const cw = Math.round(w * scale);
     const ch = Math.round(h * scale);
-    
+
     if (canvas.width !== cw || canvas.height !== ch) {
+      let snapshot: HTMLCanvasElement | null = null;
+      if (canvas.width > 0 && canvas.height > 0) {
+        snapshot = document.createElement('canvas');
+        snapshot.width = canvas.width;
+        snapshot.height = canvas.height;
+        snapshot.getContext('2d')?.drawImage(canvas, 0, 0);
+      }
+
       canvas.width = cw;
       canvas.height = ch;
       canvas.style.width = `${cw}px`;
       canvas.style.height = `${ch}px`;
+
+      if (snapshot) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(snapshot, 0, 0, snapshot.width, snapshot.height, 0, 0, cw, ch);
+        }
+      }
+
+      initHistory();
+      updateMaskPreview();
     }
-    
-    // Center canvas within wrapper
-    canvas.style.left = `${(wrapper.clientWidth - cw) / 2}px`;
-    canvas.style.top = `${(wrapper.clientHeight - ch) / 2}px`;
-  }, [imgMeta]);
+
+    const stageLeft = Math.round((ww - cw) / 2);
+    const stageTop = Math.round((wh - ch) / 2);
+    canvas.style.left = '0px';
+    canvas.style.top = '0px';
+
+    const stage = wrapper.querySelector('.mask-canvas-stage') as HTMLElement;
+    if (stage) {
+      stage.style.left = `${stageLeft}px`;
+      stage.style.top = `${stageTop}px`;
+      stage.style.width = `${cw}px`;
+      stage.style.height = `${ch}px`;
+    }
+  }, [imgMeta, initHistory, updateMaskPreview]);
 
   useEffect(() => {
-    if (!image) return;
     syncCanvasSize();
-    const obs = new ResizeObserver(syncCanvasSize);
-    if (wrapperRef.current) obs.observe(wrapperRef.current);
-    return () => obs.disconnect();
-  }, [syncCanvasSize, image]);
+    window.addEventListener('resize', syncCanvasSize);
+    return () => window.removeEventListener('resize', syncCanvasSize);
+  }, [syncCanvasSize]);
 
-  // Initialize default crop rect when crop tool is selected
+  const crop = useCropTool({
+    canvasRef,
+    wrapperRef,
+    resolvedImage,
+    onCrop,
+    onApplied: () => setMaskTool('brush'),
+  });
+
   useEffect(() => {
-    if (maskTool === 'crop' && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const w = canvas.width;
-      const h = canvas.height;
-      setCropRect({
-        x: Math.round(w * 0.05),
-        y: Math.round(h * 0.05),
-        w: Math.round(w * 0.9),
-        h: Math.round(h * 0.9)
-      });
+    if (maskTool === 'crop') {
+      crop.initCropRect();
     } else {
-      setCropRect(null);
+      crop.clearCropRect();
     }
   }, [maskTool]);
-
-  // History management
-  const updateHistoryButtons = useCallback(() => {
-    setCanUndo(historyIndexRef.current > 0);
-    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, []);
-
-  const pushHistory = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
-    }
-    historyRef.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    historyIndexRef.current = historyRef.current.length - 1;
-    updateHistoryButtons();
-    
-    // Notify parent of mask change
-    if (onMaskChange) {
-      const maskData = canvas.toDataURL('image/png');
-      onMaskChange(maskData);
-    }
-  }, [onMaskChange, updateHistoryButtons]);
-
-  const undo = useCallback(() => {
-    if (historyIndexRef.current <= 0) return;
-    historyIndexRef.current--;
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    const state = historyRef.current[historyIndexRef.current];
-    if (state) ctx.putImageData(state, 0, 0);
-    updateHistoryButtons();
-  }, [updateHistoryButtons]);
-
-  const redo = useCallback(() => {
-    if (historyIndexRef.current >= historyRef.current.length - 1) return;
-    historyIndexRef.current++;
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    const state = historyRef.current[historyIndexRef.current];
-    if (state) ctx.putImageData(state, 0, 0);
-    updateHistoryButtons();
-  }, [updateHistoryButtons]);
 
   const clearMask = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSelectionContent(false);
+    setMaskPreviewUrl(null);
     pushHistory();
   }, [pushHistory]);
 
   const exportMask = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     const link = document.createElement('a');
     link.download = `mask_${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   }, []);
 
-  // ── Crop helpers ────────────────────────────────────────────────────────────
-  const getCropCssRect = useCallback((): CropRect | null => {
-    const canvas = canvasRef.current;
-    if (!canvas || !cropRect) return null;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = rect.width / canvas.width;
-    const scaleY = rect.height / canvas.height;
-    return {
-      x: canvas.offsetLeft + cropRect.x * scaleX,
-      y: canvas.offsetTop  + cropRect.y * scaleY,
-      w: cropRect.w * scaleX,
-      h: cropRect.h * scaleY,
-    };
-  }, [cropRect]);
-
-  const hitHandle = useCallback((cssX: number, cssY: number): CropHandle => {
-    const cr = getCropCssRect();
-    if (!cr) return null;
-    const R = 15; // hover target tolerance radius
-    
-    // Corners
-    const corners: Array<[CropHandle, number, number]> = [
-      ['tl', cr.x,        cr.y],
-      ['tr', cr.x + cr.w, cr.y],
-      ['bl', cr.x,        cr.y + cr.h],
-      ['br', cr.x + cr.w, cr.y + cr.h],
-    ];
-    for (const [h, hx, hy] of corners) {
-      if (Math.abs(cssX - hx) <= R && Math.abs(cssY - hy) <= R) return h;
-    }
-
-    // Edges
-    const edges: Array<[CropHandle, number, number]> = [
-      ['t', cr.x + cr.w / 2, cr.y],
-      ['b', cr.x + cr.w / 2, cr.y + cr.h],
-      ['l', cr.x,            cr.y + cr.h / 2],
-      ['r', cr.x + cr.w,     cr.y + cr.h / 2],
-    ];
-    for (const [h, hx, hy] of edges) {
-      if (Math.abs(cssX - hx) <= R && Math.abs(cssY - hy) <= R) return h;
-    }
-
-    // Move
-    if (cssX >= cr.x && cssX <= cr.x + cr.w && cssY >= cr.y && cssY <= cr.y + cr.h) return 'move';
-    return null;
-  }, [getCropCssRect]);
-
-  const applyCrop = useCallback(() => {
-    if (!cropRect || !resolvedImage) return;
-    const img = new Image();
-    img.onload = () => {
-      const { x, y, w, h } = cropRect;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      // Scale crop rect from canvas display coords → natural image coords
-      const scaleX = img.naturalWidth  / canvas.width;
-      const scaleY = img.naturalHeight / canvas.height;
-      const offscreen = document.createElement('canvas');
-      offscreen.width  = Math.round(w * scaleX);
-      offscreen.height = Math.round(h * scaleY);
-      const ctx = offscreen.getContext('2d')!;
-      ctx.drawImage(img, Math.round(x * scaleX), Math.round(y * scaleY),
-        offscreen.width, offscreen.height, 0, 0, offscreen.width, offscreen.height);
-      const dataUrl = offscreen.toDataURL('image/png');
-      onCrop?.(dataUrl);
-      setCropRect(null);
-      setMaskTool('brush');
-    };
-    img.src = resolvedImage;
-  }, [cropRect, resolvedImage, onCrop]);
-
-  const cancelCrop = useCallback(() => {
-    setCropRect(null);
-    setMaskTool('brush');
-  }, []);
-
-  // ── Crop mouse handlers on wrapper ─────────────────────────────────────────
-  const onCropWrapperDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (maskTool !== 'crop') return;
-    const wrapper = wrapperRef.current;
-    const canvas  = canvasRef.current;
-    if (!wrapper || !canvas) return;
-    const wr = wrapper.getBoundingClientRect();
-    const cssX = e.clientX - wr.left;
-    const cssY = e.clientY - wr.top;
-
-    if (cropRect) {
-      const handle = hitHandle(cssX, cssY);
-      if (handle) {
-        cropDragRef.current = { handle, startX: cssX, startY: cssY, origRect: { ...cropRect } };
-        return;
-      }
-    }
-
-    // Safe click-drag start to prevent immediate box destruction on simple clicks
-    const cr = canvas.getBoundingClientRect();
-    const scaleX = canvas.width  / cr.width;
-    const scaleY = canvas.height / cr.height;
-    const cx = (e.clientX - cr.left) * scaleX;
-    const cy = (e.clientY - cr.top)  * scaleY;
-    cropDragRef.current = { handle: 'new', startX: cssX, startY: cssY, origRect: { x: cx, y: cy, w: 0, h: 0 } };
-  }, [maskTool, cropRect, hitHandle]);
-
-  const onCropWrapperMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (maskTool !== 'crop' || !cropDragRef.current) return;
-    const wrapper = wrapperRef.current;
-    const canvas  = canvasRef.current;
-    if (!wrapper || !canvas) return;
-    const wr = wrapper.getBoundingClientRect();
-    const cr = canvas.getBoundingClientRect();
-    const scaleX = canvas.width  / cr.width;
-    const scaleY = canvas.height / cr.height;
-    const cssX = e.clientX - wr.left;
-    const cssY = e.clientY - wr.top;
-    const dx = (cssX - cropDragRef.current.startX) * scaleX;
-    const dy = (cssY - cropDragRef.current.startY) * scaleY;
-    const orig = cropDragRef.current.origRect;
-    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-
-    setCropRect(prev => {
-      if (!prev) return prev;
-      const cw = canvas.width;
-      const ch = canvas.height;
-      const MIN_SIZE = 20;
-
-      if (cropDragRef.current?.handle === 'new') {
-        const startX = cropDragRef.current.startX;
-        const startY = cropDragRef.current.startY;
-        if (Math.abs(cssX - startX) > 10 || Math.abs(cssY - startY) > 10) {
-          const canvasRect = canvas.getBoundingClientRect();
-          const scaleX = canvas.width / canvasRect.width;
-          const scaleY = canvas.height / canvasRect.height;
-          
-          const startCanvasX = (startX - canvasRect.left) * scaleX;
-          const startCanvasY = (startY - canvasRect.top) * scaleY;
-          const currentCanvasX = (cssX - canvasRect.left) * scaleX;
-          const currentCanvasY = (cssY - canvasRect.top) * scaleY;
-          
-          const x = Math.min(startCanvasX, currentCanvasX);
-          const y = Math.min(startCanvasY, currentCanvasY);
-          const w = Math.abs(currentCanvasX - startCanvasX);
-          const h = Math.abs(currentCanvasY - startCanvasY);
-
-          cropDragRef.current = {
-            handle: 'new-drag',
-            startX,
-            startY,
-            origRect: { x, y, w, h }
-          };
-          return { x, y, w, h };
-        }
-        return prev;
-      }
-      
-      if (cropDragRef.current?.handle === 'new-drag') {
-        const startX = cropDragRef.current.startX;
-        const startY = cropDragRef.current.startY;
-        const canvasRect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / canvasRect.width;
-        const scaleY = canvas.height / canvasRect.height;
-        
-        const startCanvasX = (startX - canvasRect.left) * scaleX;
-        const startCanvasY = (startY - canvasRect.top) * scaleY;
-        const currentCanvasX = (cssX - canvasRect.left) * scaleX;
-        const currentCanvasY = (cssY - canvasRect.top) * scaleY;
-        
-        const x = clamp(Math.min(startCanvasX, currentCanvasX), 0, canvas.width);
-        const y = clamp(Math.min(startCanvasY, currentCanvasY), 0, canvas.height);
-        const w = clamp(Math.abs(currentCanvasX - startCanvasX), MIN_SIZE, canvas.width - x);
-        const h = clamp(Math.abs(currentCanvasY - startCanvasY), MIN_SIZE, canvas.height - y);
-        
-        return { x, y, w, h };
-      }
-
-      switch (cropDragRef.current?.handle) {
-        case 'move':
-          return {
-            ...orig,
-            x: clamp(orig.x + dx, 0, cw - orig.w),
-            y: clamp(orig.y + dy, 0, ch - orig.h)
-          };
-        case 'br': {
-          const newW = dx;
-          const newH = dy;
-          const newX = newW < 0 ? orig.x + newW : orig.x;
-          const newY = newH < 0 ? orig.y + newH : orig.y;
-          return {
-            x: clamp(newX, 0, cw),
-            y: clamp(newY, 0, ch),
-            w: clamp(Math.abs(newW), MIN_SIZE, cw - newX),
-            h: clamp(Math.abs(newH), MIN_SIZE, ch - newY)
-          };
-        }
-        case 'tl': {
-          const nx = clamp(orig.x + dx, 0, orig.x + orig.w - MIN_SIZE);
-          const ny = clamp(orig.y + dy, 0, orig.y + orig.h - MIN_SIZE);
-          return { x: nx, y: ny, w: orig.w - (nx - orig.x), h: orig.h - (ny - orig.y) };
-        }
-        case 'tr': {
-          const ny = clamp(orig.y + dy, 0, orig.y + orig.h - MIN_SIZE);
-          const nw = clamp(orig.w + dx, MIN_SIZE, cw - orig.x);
-          return { x: orig.x, y: ny, w: nw, h: orig.h - (ny - orig.y) };
-        }
-        case 'bl': {
-          const nx = clamp(orig.x + dx, 0, orig.x + orig.w - MIN_SIZE);
-          const nh = clamp(orig.h + dy, MIN_SIZE, ch - orig.y);
-          return { x: nx, y: orig.y, w: orig.w - (nx - orig.x), h: nh };
-        }
-        case 't': {
-          const ny = clamp(orig.y + dy, 0, orig.y + orig.h - MIN_SIZE);
-          return { ...orig, y: ny, h: orig.h - (ny - orig.y) };
-        }
-        case 'b': {
-          const nh = clamp(orig.h + dy, MIN_SIZE, ch - orig.y);
-          return { ...orig, h: nh };
-        }
-        case 'l': {
-          const nx = clamp(orig.x + dx, 0, orig.x + orig.w - MIN_SIZE);
-          return { ...orig, x: nx, w: orig.w - (nx - orig.x) };
-        }
-        case 'r': {
-          const nw = clamp(orig.w + dx, MIN_SIZE, cw - orig.x);
-          return { ...orig, w: nw };
-        }
-        default: return prev;
-      }
-    });
-  }, [maskTool]);
-
-  const onCropWrapperUp = useCallback(() => {
-    cropDragRef.current = null;
-  }, []);
-
-  // Drawing helpers - clamp to canvas bounds
-  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const rawX = (e.clientX - rect.left) * scaleX;
-    const rawY = (e.clientY - rect.top) * scaleY;
-    // Clamp to canvas bounds [0, width/height]
+
+    let clientX = 0;
+    let clientY = 0;
+
+    if ('touches' in e) {
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        return null;
+      }
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const rawX = (clientX - rect.left) * scaleX;
+    const rawY = (clientY - rect.top) * scaleY;
     return {
       x: Math.max(0, Math.min(canvas.width, rawX)),
       y: Math.max(0, Math.min(canvas.height, rawY)),
     };
   };
 
-  const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (e.button !== 0) return;
-    const pt = getCanvasCoords(e);
-    if (!pt) return;
-
-    if (maskTool === 'lasso') {
-      lassoPointsRef.current = [pt];
-      setIsDrawing(true);
-      return;
-    }
-
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, brushSize / 2, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(225,29,72,${maskOpacity})`;
-    ctx.fill();
-    lastPointRef.current = pt;
-    setIsDrawing(true);
-  }, [brushSize, maskTool, maskOpacity]);
-
-  const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pt = getCanvasCoords(e);
-    if (!pt) return;
-    
-    // Update cursor position (in canvas coordinates, not CSS pixels)
-    setCursorPos({ x: pt.x, y: pt.y });
-
-    if (!isDrawing) return;
-
-    if (maskTool === 'lasso') {
-      lassoPointsRef.current.push(pt);
-      const ctx = canvasRef.current?.getContext('2d');
-      if (ctx) {
-        const pts = lassoPointsRef.current;
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-        ctx.strokeStyle = `rgba(225,29,72,${maskOpacity})`;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.stroke();
-        ctx.restore();
+  const handleWandClick = useCallback(
+    async (canvasX: number, canvasY: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const filled = await floodFill(canvas, canvasX, canvasY, brushColor, maskOpacity);
+      if (filled) {
+        setHasSelectionContent(true);
+        pushHistory();
+        updateMaskPreview();
       }
-      return;
-    }
+    },
+    [floodFill, brushColor, maskOpacity, pushHistory, updateMaskPreview]
+  );
 
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
-    ctx.lineWidth = brushSize;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = `rgba(225,29,72,${maskOpacity})`;
+  const startDrawing = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (('button' in e && e.button !== 0) || maskTool === 'select' || maskTool === 'crop') return;
+      const pt = getCanvasCoords(e);
+      if (!pt) return;
 
-    if (lastPointRef.current) {
+      if (maskTool === 'wand') {
+        void handleWandClick(pt.x, pt.y);
+        return;
+      }
+
+      if (maskTool === 'lasso') {
+        if (shapeSubTool === 'polygon') {
+          lassoPointsRef.current = [pt];
+        } else {
+          setShapeStart(pt);
+          setShapeCurrent(pt);
+        }
+        setIsDrawing(true);
+        return;
+      }
+
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
+      ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
       ctx.beginPath();
-      ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+      ctx.arc(pt.x, pt.y, brushSize / 2, 0, Math.PI * 2);
+      ctx.fillStyle = hexToRgba(brushColor, maskOpacity);
+      ctx.fill();
+      lastPointRef.current = pt;
+      setIsDrawing(true);
+      setHasSelectionContent(true);
+    },
+    [maskTool, shapeSubTool, brushSize, brushColor, maskOpacity, hexToRgba, handleWandClick]
+  );
+
+  const draw = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      const pt = getCanvasCoords(e);
+      if (pt) setCursorPos(pt);
+
+      if (!isDrawing || !pt || maskTool === 'select' || maskTool === 'crop') return;
+
+      if (maskTool === 'lasso') {
+        if (shapeSubTool === 'polygon') {
+          lassoPointsRef.current.push(pt);
+        } else {
+          setShapeCurrent(pt);
+        }
+        return;
+      }
+
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
+      ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = hexToRgba(brushColor, maskOpacity);
+
+      ctx.beginPath();
+      if (lastPointRef.current) {
+        ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+      } else {
+        ctx.moveTo(pt.x, pt.y);
+      }
       ctx.lineTo(pt.x, pt.y);
       ctx.stroke();
-    }
-    lastPointRef.current = pt;
-  }, [isDrawing, maskTool, brushSize, maskOpacity]);
+      lastPointRef.current = pt;
+      setHasSelectionContent(true);
+    },
+    [isDrawing, maskTool, shapeSubTool, brushSize, brushColor, maskOpacity, hexToRgba]
+  );
 
   const stopDrawing = useCallback(() => {
-    if (isDrawing && maskTool === 'lasso') {
-      const ctx = canvasRef.current?.getContext('2d');
-      const pts = lassoPointsRef.current;
-      if (ctx && pts.length > 2) {
-        ctx.save();
-        ctx.beginPath();
+    if (!isDrawing) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+
+    if (canvas && ctx && maskTool === 'lasso') {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = hexToRgba(brushColor, maskOpacity);
+      ctx.beginPath();
+
+      if (shapeSubTool === 'polygon' && lassoPointsRef.current.length > 2) {
+        const pts = lassoPointsRef.current;
         ctx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        for (let i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x, pts[i].y);
+        }
         ctx.closePath();
-        ctx.fillStyle = `rgba(225,29,72,${maskOpacity})`;
         ctx.fill();
-        ctx.restore();
+        pushHistory();
+        setHasSelectionContent(true);
+      } else if (shapeSubTool === 'rectangle' && shapeStart && shapeCurrent) {
+        const x = Math.min(shapeStart.x, shapeCurrent.x);
+        const y = Math.min(shapeStart.y, shapeCurrent.y);
+        const w = Math.abs(shapeCurrent.x - shapeStart.x);
+        const h = Math.abs(shapeCurrent.y - shapeStart.y);
+        if (w > 2 && h > 2) {
+          ctx.fillRect(x, y, w, h);
+          pushHistory();
+          setHasSelectionContent(true);
+        }
+      } else if (shapeSubTool === 'circle' && shapeStart && shapeCurrent) {
+        const cx = (shapeStart.x + shapeCurrent.x) / 2;
+        const cy = (shapeStart.y + shapeCurrent.y) / 2;
+        const rx = Math.abs(shapeCurrent.x - shapeStart.x) / 2;
+        const ry = Math.abs(shapeCurrent.y - shapeStart.y) / 2;
+        if (rx > 2 && ry > 2) {
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          pushHistory();
+          setHasSelectionContent(true);
+        }
       }
       lassoPointsRef.current = [];
-      pushHistory();
-    } else if (isDrawing) {
+      setShapeStart(null);
+      setShapeCurrent(null);
+    } else if (canvas && isDrawing && (maskTool === 'brush' || maskTool === 'eraser')) {
       pushHistory();
     }
     lastPointRef.current = null;
     setIsDrawing(false);
-  }, [isDrawing, maskTool, maskOpacity, pushHistory]);
+    updateMaskPreview();
+  }, [isDrawing, maskTool, shapeSubTool, shapeStart, shapeCurrent, maskOpacity, brushColor, hexToRgba, pushHistory, updateMaskPreview]);
 
-  // Keyboard shortcuts
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+      if (e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        setBrushColor((prev) => (prev === '#e11d48' ? '#000000' : '#e11d48'));
+        return;
+      }
       if (e.key === 'b' || e.key === 'B') setMaskTool('brush');
       if (e.key === 'e' || e.key === 'E') setMaskTool('eraser');
       if (e.key === 'l' || e.key === 'L') setMaskTool('lasso');
       if (e.key === 'c' || e.key === 'C') setMaskTool('crop');
-      if (e.key === 'Escape') { setCropRect(null); if (maskTool === 'crop') setMaskTool('brush'); }
-      if (e.key === 'Enter' && maskTool === 'crop' && cropRect) applyCrop();
-      if (e.key.toLowerCase() === 's' && e.ctrlKey) {
-        if (maskTool === 'crop' && cropRect) {
-          e.preventDefault();
-          e.stopPropagation();
-          applyCrop();
+      if (e.key === 'v' || e.key === 'V') setMaskTool('select');
+      if (e.key === 'Escape') {
+        crop.clearCropRect();
+        if (maskTool === 'crop') setMaskTool('brush');
+      }
+      if (e.key === 'Enter' && maskTool === 'crop' && crop.cropRect) crop.applyCrop();
+      if ((e.key === 'z' || e.key === 'Z') && e.ctrlKey) {
+        if (e.shiftKey) {
+          redo();
+          updateMaskPreview();
+        } else {
+          undo();
+          updateMaskPreview();
         }
       }
-      if ((e.key === 'z' || e.key === 'Z') && e.ctrlKey) {
-        if (e.shiftKey) { redo(); } else { undo(); }
-      }
     };
-    globalThis.addEventListener('keydown', onKey);
-    return () => globalThis.removeEventListener('keydown', onKey);
-  }, [undo, redo, maskTool, cropRect, applyCrop]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, maskTool, crop, updateMaskPreview]);
 
-  // Initialize history
+  const getCompositeAndMask = (): Promise<{ composite: string; mask: string } | null> => {
+    const canvas = canvasRef.current;
+    const baseImgSrc = resolvedImage || image;
+    if (!canvas || !baseImgSrc) return Promise.resolve(null);
+
+    const targetW = imgMeta?.w ?? canvas.width;
+    const targetH = imgMeta?.h ?? canvas.height;
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const compositeCanvas = document.createElement('canvas');
+        compositeCanvas.width = targetW;
+        compositeCanvas.height = targetH;
+        const compositeCtx = compositeCanvas.getContext('2d');
+        if (!compositeCtx) {
+          resolve(null);
+          return;
+        }
+
+        compositeCtx.imageSmoothingEnabled = true;
+        compositeCtx.imageSmoothingQuality = 'high';
+
+        if (layerVisibility.image !== false) {
+          compositeCtx.drawImage(img, 0, 0, targetW, targetH);
+        }
+
+        if (layerVisibility.selection !== false) {
+          compositeCtx.drawImage(canvas, 0, 0, targetW, targetH);
+        }
+
+        if (layerVisibility.arrows !== false && arrowNodes.length > 0) {
+          const radius = Math.max(16, Math.min(targetW, targetH) * 0.02);
+          const fontPx = Math.max(12, Math.round(radius * 0.9));
+          compositeCtx.fillStyle = '#E63030';
+          compositeCtx.strokeStyle = '#ffffff';
+          compositeCtx.lineWidth = Math.max(2, Math.round(radius * 0.15));
+          arrowNodes.forEach((a, index) => {
+            const px = (a.targetPos.x / 100) * targetW;
+            const py = (a.targetPos.y / 100) * targetH;
+
+            compositeCtx.beginPath();
+            compositeCtx.arc(px, py, radius, 0, Math.PI * 2);
+            compositeCtx.fill();
+            compositeCtx.stroke();
+
+            compositeCtx.fillStyle = '#ffffff';
+            compositeCtx.font = `bold ${fontPx}px sans-serif`;
+            compositeCtx.textAlign = 'center';
+            compositeCtx.textBaseline = 'middle';
+            compositeCtx.fillText(`${index + 1}`, px, py);
+          });
+        }
+        const compositeDataUrl = compositeCanvas.toDataURL('image/png');
+
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = targetW;
+        maskCanvas.height = targetH;
+        const maskCtx = maskCanvas.getContext('2d');
+        if (!maskCtx) {
+          resolve(null);
+          return;
+        }
+
+        maskCtx.clearRect(0, 0, targetW, targetH);
+
+        if (layerVisibility.selection !== false) {
+          maskCtx.drawImage(canvas, 0, 0, targetW, targetH);
+        }
+
+        if (layerVisibility.arrows !== false && arrowNodes.length > 0) {
+          maskCtx.fillStyle = '#ffffff';
+          arrowNodes.forEach((a) => {
+            const px = (a.targetPos.x / 100) * targetW;
+            const py = (a.targetPos.y / 100) * targetH;
+            const radius = Math.max(30, Math.min(targetW, targetH) * 0.06);
+            maskCtx.beginPath();
+            maskCtx.arc(px, py, radius, 0, Math.PI * 2);
+            maskCtx.fill();
+          });
+        }
+
+        const imgData = maskCtx.getImageData(0, 0, targetW, targetH);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const alpha = data[i + 3];
+          if (alpha > 5) {
+            data[i] = 255;
+            data[i + 1] = 255;
+            data[i + 2] = 255;
+            data[i + 3] = 255;
+          } else {
+            data[i] = 0;
+            data[i + 1] = 0;
+            data[i + 2] = 0;
+            data[i + 3] = 255;
+          }
+        }
+        maskCtx.putImageData(imgData, 0, 0);
+
+        const featheredCanvas = document.createElement('canvas');
+        featheredCanvas.width = targetW;
+        featheredCanvas.height = targetH;
+        const fCtx = featheredCanvas.getContext('2d');
+        if (fCtx) {
+          fCtx.filter = 'blur(4px)';
+          fCtx.drawImage(maskCanvas, 0, 0);
+          fCtx.filter = 'none';
+        }
+
+        const maskDataUrl = (fCtx ? featheredCanvas : maskCanvas).toDataURL('image/png');
+
+        resolve({ composite: compositeDataUrl, mask: maskDataUrl });
+      };
+      img.onerror = () => resolve(null);
+      img.src = baseImgSrc;
+    });
+  };
+
+  const handleGenerate = useCallback(async () => {
+    const finalPrompt = maskPrompt.trim();
+    const refImages: string[] = [];
+
+    const winPrompt = (window as any).__anarchyCurrentPrompt?.trim() || useAIConfigStore.getState().workspacePrompt?.trim() || '';
+
+    const promptParts: string[] = [];
+    if (winPrompt) promptParts.push(winPrompt);
+    if (finalPrompt) promptParts.push(finalPrompt);
+
+    if (arrowNodes.length > 0) {
+      const arrowPrompts = arrowNodes.map((a) => a.text.trim()).filter(Boolean).join(', ');
+      if (arrowPrompts) promptParts.push(arrowPrompts);
+      arrowNodes.forEach((a) => {
+        if (a.refImage) refImages.push(a.refImage);
+      });
+    }
+
+    const combinedPrompt = promptParts.filter(Boolean).join(', ');
+    const payloadPrompt = combinedPrompt || 'AI Mask Generation';
+
+    const result = await getCompositeAndMask();
+    if (!result) return;
+
+    if (onGenerate) {
+      onGenerate(result.composite, result.mask, payloadPrompt, refImages);
+    } else {
+      window.dispatchEvent(
+        new CustomEvent('anarchy:mask-generate', {
+          detail: {
+            compositeImage: result.composite,
+            maskDataUrl: result.mask,
+            prompt: payloadPrompt,
+            refImages,
+          },
+        })
+      );
+    }
+  }, [maskPrompt, arrowNodes, onGenerate, resolvedImage, image]);
+
   useEffect(() => {
-    if (image && historyRef.current.length === 0 && canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      if (ctx) {
-        historyRef.current = [ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height)];
-        historyIndexRef.current = 0;
-      }
-    }
-  }, [image]);
-
-  const getBlackAndWhiteMask = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) return null;
-    
-    tempCtx.fillStyle = '#000000';
-    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    
-    const origCtx = canvas.getContext('2d');
-    if (!origCtx) return null;
-    
-    const imgData = origCtx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imgData.data;
-    
-    const maskImgData = tempCtx.createImageData(canvas.width, canvas.height);
-    const maskData = maskImgData.data;
-    
-    for (let i = 0; i < data.length; i += 4) {
-      const alpha = data[i + 3];
-      if (alpha > 5) {
-        maskData[i] = 255;
-        maskData[i + 1] = 255;
-        maskData[i + 2] = 255;
-        maskData[i + 3] = 255;
-      } else {
-        maskData[i] = 0;
-        maskData[i + 1] = 0;
-        maskData[i + 2] = 0;
-        maskData[i + 3] = 255;
-      }
-    }
-    
-    tempCtx.putImageData(maskImgData, 0, 0);
-    return tempCanvas.toDataURL('image/png');
-  };
-
-  const handleGenerate = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !maskPrompt.trim() || !onGenerate) return;
-    const maskData = getBlackAndWhiteMask();
-    if (maskData) {
-      onGenerate(maskData, maskPrompt);
-    }
-  };
+    const handleTrigger = () => {
+      void handleGenerate();
+    };
+    window.addEventListener('anarchy:trigger-mask-generate', handleTrigger);
+    return () => window.removeEventListener('anarchy:trigger-mask-generate', handleTrigger);
+  }, [handleGenerate]);
 
   if (!image) {
     return (
@@ -596,228 +647,530 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     );
   }
 
+  const cropCssRect = maskTool === 'crop' && crop.cropRect ? crop.getCropCssRect() : null;
+  const activeModelName = aiConfig.model || 'Nano Banana 2';
+  const activeResolution = aiConfig.resolution || '1K';
+
   return (
     <div className={`mask-canvas-container ${className}`}>
-      {/* Toolbar */}
-      <div className="mask-canvas-toolbar">
-        <div className="mask-canvas-tools">
+      <div className="mask-canvas-top-bar">
+        <div className="mask-canvas-tools-toolbar">
+          {/* 1. Precision Pointer */}
           <button
-            className={`mask-canvas-tool ${maskTool === 'brush' ? 'active' : ''}`}
-            onClick={() => setMaskTool('brush')}
-            title="Brush (B)"
+            type="button"
+            className={`mask-toolbar-btn ${maskTool === 'select' ? 'active' : ''}`}
+            onClick={() => setMaskTool('select')}
+            title="Select / Move Pointer (V)"
           >
-            <Brush size={16} />
+            <MousePointer2 size={17} style={{ color: maskTool === 'select' ? '#06b6d4' : undefined }} />
           </button>
+
+          <div className="mask-canvas-divider-vertical" />
+
+          {/* 2. Selection Region Dropdown (Lasso / Marquee) */}
+          <div className="mask-dropdown-container">
+            <button
+              type="button"
+              className={`mask-toolbar-btn ${maskTool === 'lasso' ? 'active' : ''}`}
+              onClick={() => {
+                setMaskTool('lasso');
+                setOpenDropdown((prev) => (prev === 'lasso' ? null : 'lasso'));
+              }}
+              title="Region Selection Tools (L)"
+            >
+              {shapeSubTool === 'rectangle' ? (
+                <SquareDashed size={17} style={{ color: maskTool === 'lasso' ? '#10b981' : undefined }} />
+              ) : (
+                <LassoSelect size={17} style={{ color: maskTool === 'lasso' ? '#10b981' : undefined }} />
+              )}
+              <span className="mask-dropdown-caret">
+                <svg width="5" height="5" viewBox="0 0 6 6" fill="currentColor">
+                  <path d="M6 6L6 0L0 6Z" />
+                </svg>
+              </span>
+            </button>
+
+            {openDropdown === 'lasso' && (
+              <div className="mask-vertical-dropdown">
+                <button
+                  type="button"
+                  className={`mask-dropdown-item ${shapeSubTool === 'rectangle' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMaskTool('lasso');
+                    setShapeSubTool('rectangle');
+                    setOpenDropdown(null);
+                  }}
+                  title="Marquee Box Selection"
+                >
+                  <SquareDashed size={16} />
+                  <span className="mask-dropdown-label">Marquee</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`mask-dropdown-item ${shapeSubTool === 'polygon' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMaskTool('lasso');
+                    setShapeSubTool('polygon');
+                    setOpenDropdown(null);
+                  }}
+                  title="Polygon Lasso Region"
+                >
+                  <LassoSelect size={16} />
+                  <span className="mask-dropdown-label">Polygon</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mask-canvas-divider-vertical" />
+
+          {/* 3. Inpaint Painter & Shapes Dropdown */}
+          <div className="mask-dropdown-container">
+            <button
+              type="button"
+              className={`mask-toolbar-btn ${maskTool === 'brush' || maskTool === 'arrow' ? 'active' : ''}`}
+              onClick={() => {
+                if (maskTool !== 'brush' && maskTool !== 'arrow') setMaskTool('brush');
+                setOpenDropdown((prev) => (prev === 'pen' ? null : 'pen'));
+              }}
+              title="Paint & Annotation Tools (B)"
+            >
+              {drawSubTool === 'arrow' ? (
+                <CornerDownRight size={17} style={{ color: '#f43f5e' }} />
+              ) : drawSubTool === 'line' ? (
+                <PenTool size={17} style={{ color: '#f43f5e' }} />
+              ) : drawSubTool === 'rect' ? (
+                <Square size={17} style={{ color: '#f43f5e' }} />
+              ) : drawSubTool === 'circle' ? (
+                <Circle size={17} style={{ color: '#f43f5e' }} />
+              ) : (
+                <Paintbrush2 size={17} style={{ color: maskTool === 'brush' ? '#f43f5e' : undefined }} />
+              )}
+              <span className="mask-dropdown-caret">
+                <svg width="5" height="5" viewBox="0 0 6 6" fill="currentColor">
+                  <path d="M6 6L6 0L0 6Z" />
+                </svg>
+              </span>
+            </button>
+
+            {openDropdown === 'pen' && (
+              <div className="mask-vertical-dropdown">
+                <button
+                  type="button"
+                  className={`mask-dropdown-item ${drawSubTool === 'brush' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMaskTool('brush');
+                    setDrawSubTool('brush');
+                    setOpenDropdown(null);
+                  }}
+                  title="Inpaint Paintbrush"
+                >
+                  <Paintbrush2 size={16} />
+                  <span className="mask-dropdown-label">Brush</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`mask-dropdown-item ${drawSubTool === 'arrow' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMaskTool('arrow');
+                    setDrawSubTool('arrow');
+                    setOpenDropdown(null);
+                  }}
+                  title="Arrow & Card Note"
+                >
+                  <CornerDownRight size={16} />
+                  <span className="mask-dropdown-label">Arrow</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`mask-dropdown-item ${drawSubTool === 'line' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMaskTool('brush');
+                    setDrawSubTool('line');
+                    setOpenDropdown(null);
+                  }}
+                  title="Straight Line"
+                >
+                  <PenTool size={16} />
+                  <span className="mask-dropdown-label">Line</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`mask-dropdown-item ${drawSubTool === 'rect' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMaskTool('brush');
+                    setDrawSubTool('rect');
+                    setOpenDropdown(null);
+                  }}
+                  title="Solid Rectangle"
+                >
+                  <Square size={16} />
+                  <span className="mask-dropdown-label">Rectangle</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`mask-dropdown-item ${drawSubTool === 'circle' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMaskTool('brush');
+                    setDrawSubTool('circle');
+                    setOpenDropdown(null);
+                  }}
+                  title="Solid Circle"
+                >
+                  <Circle size={16} />
+                  <span className="mask-dropdown-label">Circle</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Stepper Brush Size */}
+          <div className="mask-brush-size-stepper" title="Brush Size">
+            <button type="button" onClick={() => setBrushSize(Math.max(5, brushSize - 5))}><Minus size={12} /></button>
+            <span className="mask-size-text">{brushSize} <small>px</small></span>
+            <button type="button" onClick={() => setBrushSize(Math.min(100, brushSize + 5))}><Plus size={12} /></button>
+          </div>
+
+          <div className="mask-canvas-divider-vertical" />
+
+          {/* 4. Eraser & Clear */}
           <button
-            className={`mask-canvas-tool ${maskTool === 'eraser' ? 'active' : ''}`}
+            type="button"
+            className={`mask-toolbar-btn ${maskTool === 'eraser' ? 'active' : ''}`}
             onClick={() => setMaskTool('eraser')}
-            title="Eraser (E)"
+            title="Eraser Tool (E)"
           >
-            <Eraser size={16} />
+            <Eraser size={17} style={{ color: maskTool === 'eraser' ? '#f59e0b' : undefined }} />
           </button>
+
           <button
-            className={`mask-canvas-tool ${maskTool === 'lasso' ? 'active' : ''}`}
-            onClick={() => setMaskTool('lasso')}
-            title="Lasso (L)"
+            type="button"
+            className="mask-toolbar-btn danger"
+            onClick={clearMask}
+            title="Clear Mask Selection"
           >
-            <Scissors size={16} />
+            <Trash2 size={17} />
           </button>
+
+          <div className="mask-canvas-divider-vertical" />
+
+          {/* 5. Add Card & Export */}
           <button
-            className={`mask-canvas-tool ${maskTool === 'crop' ? 'active' : ''}`}
-            onClick={() => { setMaskTool('crop'); setCropRect(null); }}
-            title="Crop (C)"
+            type="button"
+            className="mask-toolbar-btn"
+            onClick={() => {
+              const newArrow: ArrowNodeItem = {
+                id: `arrow-${Date.now()}`,
+                targetPos: { x: 50, y: 50 },
+                cardPos: { x: 35, y: 30 },
+                text: '',
+                refImage: null,
+              };
+              setArrowNodes((prev) => [...prev, newArrow]);
+            }}
+            title="Add Reference Image / Card"
           >
-            <Crop size={16} />
+            <FolderPlus size={17} style={{ color: '#a855f7' }} />
+          </button>
+
+          <button
+            type="button"
+            className="mask-toolbar-btn primary"
+            onClick={exportMask}
+            title="Export Mask PNG"
+          >
+            <FileDown size={17} />
           </button>
         </div>
 
-        <div className="mask-canvas-divider" />
-
-        <div className="mask-canvas-controls">
-          <div className="mask-canvas-control">
-            <span className="mask-canvas-label">Size</span>
-            <input
-              type="range"
-              min={5}
-              max={100}
-              value={brushSize}
-              onChange={(e) => setBrushSize(Number(e.target.value))}
-              className="mask-canvas-slider"
-            />
-            <span className="mask-canvas-value">{brushSize}</span>
-          </div>
-          <div className="mask-canvas-control">
-            <span className="mask-canvas-label">Opacity</span>
-            <input
-              type="range"
-              min={10}
-              max={100}
-              value={Math.round(maskOpacity * 100)}
-              onChange={(e) => setMaskOpacity(Number(e.target.value) / 100)}
-              className="mask-canvas-slider"
-            />
-            <span className="mask-canvas-value">{Math.round(maskOpacity * 100)}%</span>
-          </div>
-        </div>
-
-        <div className="mask-canvas-divider" />
-
-        <div className="mask-canvas-actions">
+        <div className="mask-canvas-top-actions">
           <button
-            className="mask-canvas-action"
-            onClick={undo}
+            type="button"
+            className={`mask-toolbar-btn ${showLayerStack ? 'active' : ''}`}
+            onClick={() => setShowLayerStack((prev) => !prev)}
+            title="Layers Panel"
+          >
+            <Layers size={16} />
+          </button>
+
+          <button
+            type="button"
+            className="mask-toolbar-btn"
+            onClick={() => {
+              undo();
+              updateMaskPreview();
+            }}
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
+            style={{ opacity: canUndo ? 1 : 0.4 }}
           >
-            <RotateCcw size={14} />
+            <RotateCcw size={15} />
           </button>
+
           <button
-            className="mask-canvas-action"
-            onClick={redo}
+            type="button"
+            className="mask-toolbar-btn"
+            onClick={() => {
+              redo();
+              updateMaskPreview();
+            }}
             disabled={!canRedo}
-            title="Redo (Ctrl+Shift+Z)"
+            title="Redo (Ctrl+Y)"
+            style={{ opacity: canRedo ? 1 : 0.4 }}
           >
-            <RotateCw size={14} />
-          </button>
-          <button
-            className="mask-canvas-action clear"
-            onClick={clearMask}
-            title="Clear"
-          >
-            <Trash2 size={14} />
-          </button>
-          <button
-            className="mask-canvas-action"
-            onClick={exportMask}
-            title="Export Mask"
-          >
-            <Download size={14} />
+            <RotateCw size={15} />
           </button>
         </div>
       </div>
 
-      {/* Canvas Area */}
+      {showLayerStack && (
+        <LayersPanel
+          onClose={() => setShowLayerStack(false)}
+          showSelectionLayer={maskTool === 'lasso' || hasSelectionContent}
+          arrowCount={arrowNodes.length}
+          selectedLayerId={selectedLayerId}
+          onSelectLayer={setSelectedLayerId}
+          layerVisibility={layerVisibility}
+          onToggleVisibility={(id) => setLayerVisibility((v) => ({ ...v, [id]: !v[id] }))}
+          resolvedImage={resolvedImage}
+          maskPreviewUrl={maskPreviewUrl}
+          onAddArrowLayer={() => {
+            const newArrow: ArrowNodeItem = {
+              id: `arrow-${Date.now()}`,
+              targetPos: { x: 50, y: 50 },
+              cardPos: { x: 35, y: 30 },
+              text: '',
+              refImage: null,
+            };
+            setArrowNodes((prev) => [...prev, newArrow]);
+            setSelectedLayerId('arrows');
+          }}
+          onDeleteSelectedLayer={() => {
+            if (selectedLayerId === 'arrows') {
+              setArrowNodes([]);
+              setSelectedLayerId('image');
+            } else if (selectedLayerId === 'selection') {
+              clearMask();
+              setSelectedLayerId('image');
+            }
+          }}
+        />
+      )}
+
       <div
         className="mask-canvas-wrapper"
         ref={wrapperRef}
-        onMouseDown={maskTool === 'crop' ? onCropWrapperDown : undefined}
-        onMouseMove={maskTool === 'crop' ? onCropWrapperMove : undefined}
-        onMouseUp={maskTool === 'crop' ? onCropWrapperUp : undefined}
-        onMouseLeave={maskTool === 'crop' ? onCropWrapperUp : undefined}
-        style={{ cursor: maskTool === 'crop' ? 'crosshair' : 'default' }}
+        onWheel={(e) => {
+          const delta = e.deltaY < 0 ? 1.15 : 0.86;
+          setZoomScale((prev) => Math.max(1, Math.min(4.5, prev * delta)));
+        }}
+        onClick={(e) => {
+          if (maskTool === 'arrow' && wrapperRef.current) {
+            const rect = wrapperRef.current.getBoundingClientRect();
+            const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+            const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+            const newArrow: ArrowNodeItem = {
+              id: `arrow-${Date.now()}`,
+              targetPos: { x, y },
+              cardPos: { x: Math.max(12, Math.min(85, x - 15)), y: Math.max(12, Math.min(85, y - 20)) },
+              text: '',
+              refImage: null,
+            };
+            setArrowNodes((prev) => [...prev, newArrow]);
+          }
+        }}
+        onMouseDown={maskTool === 'crop' ? crop.onCropWrapperDown : undefined}
+        onMouseMove={maskTool === 'crop' ? crop.onCropWrapperMove : undefined}
+        onMouseUp={maskTool === 'crop' ? crop.onCropWrapperUp : undefined}
+        onMouseLeave={maskTool === 'crop' ? crop.onCropWrapperUp : undefined}
+        style={{ cursor: maskTool === 'crop' ? 'crosshair' : maskTool === 'arrow' ? 'copy' : 'default' }}
       >
-        <img
-          src={resolvedImage || image || ''}
-          alt="Base"
-          className="mask-canvas-base-image"
-          onLoad={(e) => setImgMeta({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-        />
-        <canvas
-          ref={canvasRef}
-          className="mask-canvas-draw"
-          onMouseDown={maskTool !== 'crop' ? startDrawing : undefined}
-          onMouseMove={maskTool !== 'crop' ? draw : undefined}
-          onMouseUp={maskTool !== 'crop' ? stopDrawing : undefined}
-          onMouseLeave={maskTool !== 'crop' ? () => { stopDrawing(); setShowBrushCursor(false); } : undefined}
-          onMouseEnter={maskTool !== 'crop' ? () => setShowBrushCursor(true) : undefined}
-          style={{ cursor: maskTool === 'crop' ? 'crosshair' : maskTool === 'brush' ? 'none' : 'crosshair', pointerEvents: maskTool === 'crop' ? 'none' : 'all' }}
-        />
-        {/* Crop overlay */}
-        {maskTool === 'crop' && cropRect && (() => {
-          const cr = getCropCssRect();
-          if (!cr) return null;
-          return (
-            <>
-              {/* Dark overlay outside crop */}
-              <div className="crop-overlay crop-overlay-top"    style={{ top: 0, left: 0, right: 0, height: cr.y }} />
-              <div className="crop-overlay crop-overlay-bottom" style={{ top: cr.y + cr.h, left: 0, right: 0, bottom: 0 }} />
-              <div className="crop-overlay crop-overlay-left"  style={{ top: cr.y, left: 0, width: cr.x, height: cr.h }} />
-              <div className="crop-overlay crop-overlay-right" style={{ top: cr.y, left: cr.x + cr.w, right: 0, height: cr.h }} />
-              {/* Crop border */}
-              <div className="crop-border" style={{ left: cr.x, top: cr.y, width: cr.w, height: cr.h }}>
-                {/* Rule-of-thirds grid */}
-                <div className="crop-grid-line crop-grid-h" style={{ top: '33.33%' }} />
-                <div className="crop-grid-line crop-grid-h" style={{ top: '66.66%' }} />
-                <div className="crop-grid-line crop-grid-v" style={{ left: '33.33%' }} />
-                <div className="crop-grid-line crop-grid-v" style={{ left: '66.66%' }} />
-                {/* Corner handles */}
-                <div className="crop-handle crop-handle-tl" />
-                <div className="crop-handle crop-handle-tr" />
-                <div className="crop-handle crop-handle-bl" />
-                <div className="crop-handle crop-handle-br" />
-                {/* Edge handles */}
-                <div className="crop-handle crop-handle-t" />
-                <div className="crop-handle crop-handle-b" />
-                <div className="crop-handle crop-handle-l" />
-                <div className="crop-handle crop-handle-r" />
-              </div>
-              {/* Action buttons */}
-              <div className="crop-actions" style={{ left: cr.x + cr.w, top: Math.max(cr.y - 40, 4) }}>
-                <button className="crop-btn crop-btn-apply" onClick={applyCrop} title="Apply crop (Enter)">
-                  <Check size={13} /> Apply
-                </button>
-                <button className="crop-btn crop-btn-cancel" onClick={cancelCrop} title="Cancel (Esc)">
-                  <X size={13} />
-                </button>
-              </div>
-            </>
-          );
-        })()}
+        <div
+          className="mask-canvas-stage"
+          style={{
+            transform: `scale(${zoomScale})`,
+            transformOrigin: 'center center',
+          }}
+        >
+          <img
+            src={resolvedImage || activeImageSrc || ''}
+            alt="Base"
+            className="mask-canvas-base-image"
+            style={{
+              opacity: layerVisibility.image ? 1 : 0,
+              pointerEvents: layerVisibility.image ? 'auto' : 'none',
+            }}
+            onLoad={(e) => setImgMeta({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          />
+          <canvas
+            ref={canvasRef}
+            className={`mask-canvas-draw ${isGenerating ? 'mask-pulsing' : ''}`}
+            onMouseDown={maskTool !== 'crop' && maskTool !== 'arrow' ? startDrawing : undefined}
+            onMouseMove={maskTool !== 'crop' && maskTool !== 'arrow' ? draw : undefined}
+            onMouseUp={maskTool !== 'crop' && maskTool !== 'arrow' ? stopDrawing : undefined}
+            onTouchStart={maskTool !== 'crop' && maskTool !== 'arrow' ? startDrawing : undefined}
+            onTouchMove={maskTool !== 'crop' && maskTool !== 'arrow' ? draw : undefined}
+            onTouchEnd={maskTool !== 'crop' && maskTool !== 'arrow' ? stopDrawing : undefined}
+            onMouseLeave={
+              maskTool !== 'crop' && maskTool !== 'arrow'
+                ? () => {
+                    stopDrawing();
+                    setShowBrushCursor(false);
+                  }
+                : undefined
+            }
+            onMouseEnter={maskTool !== 'crop' && maskTool !== 'arrow' ? () => setShowBrushCursor(true) : undefined}
+            style={{
+              cursor: maskTool === 'select' ? 'default' : 'crosshair',
+              pointerEvents: maskTool === 'crop' || maskTool === 'arrow' || maskTool === 'select' || !layerVisibility.selection ? 'none' : 'all',
+              opacity: layerVisibility.selection ? 1 : 0,
+            }}
+          />
 
-        {showBrushCursor && maskTool === 'brush' && cursorPos && (() => {
-          const canvas = canvasRef.current;
-          if (!canvas) return null;
-          const rect = canvas.getBoundingClientRect();
-          // Convert canvas coordinates back to CSS pixels for display
-          const cssX = (cursorPos.x / canvas.width) * rect.width + canvas.offsetLeft;
-          const cssY = (cursorPos.y / canvas.height) * rect.height + canvas.offsetTop;
-          // Scale brush size to CSS pixels
-          const cssBrushSize = (brushSize / canvas.width) * rect.width;
-          return (
+          {isDrawing && maskTool === 'lasso' && (
+            <svg
+              className={`mask-shape-preview-svg ${isGenerating ? 'mask-pulsing' : ''}`}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 15,
+              }}
+              viewBox={`0 0 ${canvasRef.current?.width ?? 100} ${canvasRef.current?.height ?? 100}`}
+            >
+              {shapeSubTool === 'polygon' && lassoPointsRef.current.length > 1 && (
+                <polygon
+                  points={lassoPointsRef.current.map((p) => `${p.x},${p.y}`).join(' ')}
+                  fill="rgba(225, 29, 72, 0.35)"
+                  stroke="#e11d48"
+                  strokeWidth="2"
+                  strokeDasharray="5 5"
+                />
+              )}
+              {shapeSubTool === 'rectangle' && shapeStart && shapeCurrent && (
+                <rect
+                  x={Math.min(shapeStart.x, shapeCurrent.x)}
+                  y={Math.min(shapeStart.y, shapeCurrent.y)}
+                  width={Math.abs(shapeCurrent.x - shapeStart.x)}
+                  height={Math.abs(shapeCurrent.y - shapeStart.y)}
+                  fill="rgba(225, 29, 72, 0.35)"
+                  stroke="#e11d48"
+                  strokeWidth="2"
+                  strokeDasharray="5 5"
+                />
+              )}
+              {shapeSubTool === 'circle' && shapeStart && shapeCurrent && (
+                <ellipse
+                  cx={(shapeStart.x + shapeCurrent.x) / 2}
+                  cy={(shapeStart.y + shapeCurrent.y) / 2}
+                  rx={Math.abs(shapeCurrent.x - shapeStart.x) / 2}
+                  ry={Math.abs(shapeCurrent.y - shapeStart.y) / 2}
+                  fill="rgba(225, 29, 72, 0.35)"
+                  stroke="#e11d48"
+                  strokeWidth="2"
+                  strokeDasharray="5 5"
+                />
+              )}
+            </svg>
+          )}
+
+          {showBrushCursor && (maskTool === 'brush' || maskTool === 'eraser') && cursorPos && (
             <div
               className="mask-canvas-cursor"
-              style={{ left: cssX, top: cssY, width: cssBrushSize, height: cssBrushSize }}
+              style={{
+                left: cursorPos.x,
+                top: cursorPos.y,
+                width: brushSize,
+                height: brushSize,
+                transform: 'translate(-50%, -50%)',
+                position: 'absolute',
+                pointerEvents: 'none',
+                zIndex: 20,
+              }}
             />
-          );
-        })()}
-      </div>
-
-      {/* Generate Section (optional) */}
-      {showGenerateButton && (
-        <div className="mask-canvas-generate">
-          <input
-            type="text"
-            placeholder={isGenerating ? "Generating..." : "Enter prompt for masked generation..."}
-            className="mask-canvas-prompt"
-            value={maskPrompt}
-            onChange={(e) => setMaskPrompt(e.target.value)}
-            disabled={isGenerating}
-          />
-          <button
-            className="mask-canvas-generate-btn"
-            onClick={handleGenerate}
-            disabled={!maskPrompt.trim() || isGenerating}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="spin" size={14} /> Generating...
-              </>
-            ) : (
-              'Generate'
-            )}
-          </button>
+          )}
         </div>
-      )}
 
-      {/* Hint */}
-      <div className="mask-canvas-hint">
-        {maskTool === 'crop' ? (
-          <><span>🔲 Drag to select crop area</span><span>⌨️ Enter=Apply, Esc=Cancel</span></>
-        ) : (
-          <><span>🖱️ Drag to draw mask</span><span>⌨️ B=Brush E=Eraser L=Lasso C=Crop</span><span>⌨️ Ctrl+Z=Undo</span></>
+        {layerVisibility.arrows &&
+          arrowNodes.map((arrow) => (
+            <VizMakerArrowCard
+              key={arrow.id}
+              arrow={arrow}
+              containerRect={wrapperRef.current?.getBoundingClientRect()}
+              onUpdate={(id, updates) => {
+                setArrowNodes((prev) => prev.map((a) => (a.id === id ? { ...a, ...updates } : a)));
+              }}
+              onDelete={(id) => {
+                setArrowNodes((prev) => prev.filter((a) => a.id !== id));
+              }}
+            />
+          ))}
+
+        {maskTool === 'crop' && cropCssRect && (
+          <CropOverlay cropCssRect={cropCssRect} onApply={crop.applyCrop} onCancel={crop.clearCropRect} />
         )}
       </div>
+
+      {showGenerateButton && (
+        <div className="vizmaker-bottom-prompt-bar-container">
+          <div className="vizmaker-bottom-prompt-bar">
+            <div className="vizmaker-prompt-inner-wrapper">
+              <div className="vizmaker-prompt-badge node-badge">
+                <span className="vizmaker-badge-chain">🔗</span>
+                <span>Node</span>
+              </div>
+
+              <textarea
+                className="vizmaker-prompt-textarea"
+                value={maskPrompt}
+                onChange={(e) => {
+                  setMaskPrompt(e.target.value);
+                  setGlobalPrompt(e.target.value);
+                }}
+                placeholder="Enter your prompt in any language..."
+                rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleGenerate();
+                  }
+                }}
+              />
+
+              <button
+                type="button"
+                className="vizmaker-reset-prompt-btn"
+                onClick={() => setMaskPrompt('')}
+                title="Reset prompt"
+              >
+                <RotateCcw size={13} />
+              </button>
+            </div>
+
+            <div className="vizmaker-make-btn-group">
+              <button
+                type="button"
+                className="vizmaker-make-btn"
+                onClick={() => void handleGenerate()}
+                disabled={isGenerating}
+                title="Generate AI Render (Make)"
+              >
+                <Wand2 size={15} className={isGenerating ? 'spin' : ''} />
+                <span>{isGenerating ? 'Generating...' : 'Make'}</span>
+                <span className="vizmaker-btn-cost">🪙 1.20</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

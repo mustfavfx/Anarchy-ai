@@ -128,15 +128,15 @@ export async function exportNodeImagesToPDF(
 ): Promise<void> {
   const images = nodes
     .filter(node => {
-      const data = node.data;
-      return data.image || data.outputData?.image;
+      const data = node?.data || {};
+      return data?.image || data?.outputData?.image;
     })
     .map(node => {
-      const data = node.data;
+      const data = node?.data || {};
       return {
-        url: data.image || data.outputData?.image,
-        name: `${data.type}_${node.id}`,
-        prompt: data.prompt
+        url: data?.image || data?.outputData?.image,
+        name: `${data?.type || 'node'}_${node?.id}`,
+        prompt: data?.prompt
       };
     });
 

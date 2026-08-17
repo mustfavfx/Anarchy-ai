@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useHistoryStore } from '@/stores/historyStore';
 import { migrateLegacyHistory } from '@/services/history/HistoryService';
 import { logger } from '@/utils/logger';
+import { historyEngine } from '@/services/history/engine';
 
 export function useHistory() {
   const store = useHistoryStore();
@@ -29,6 +30,14 @@ export function useHistory() {
         // Refresh entries and collections
         refreshHistory();
         refreshCollections();
+
+        // Rebuild SearchIndex Trie with existing entries
+        try {
+          await historyEngine.rebuildSearchIndex();
+          logger.log(`[useHistory] SearchIndex rebuilt successfully.`);
+        } catch (seedErr) {
+          logger.warn('[useHistory] SearchIndex rebuild failed (non-critical):', seedErr);
+        }
       } catch (err) {
         logger.error('[useHistory] Initialization failed:', err);
       }
@@ -38,7 +47,13 @@ export function useHistory() {
     return () => { active = false; };
   }, [refreshHistory, refreshCollections]);
 
-  // 2. Subscribe to custom global storage and state update events
+  // 2. Subscribe to CommandLog appends for UI synchronization
+  useEffect(() => {
+    const unsub = historyEngine.commandLog.onAppend(() => refreshHistory());
+    return () => unsub();
+  }, [refreshHistory]);
+
+  // 3. Subscribe to legacy DOM storage events as fallback
   useEffect(() => {
     const onHistoryUpdated = () => refreshHistory();
     const onCollectionsUpdated = () => refreshCollections();
@@ -55,6 +70,28 @@ export function useHistory() {
       globalThis.removeEventListener('anarchy:collections:updated', onCollectionsUpdated);
     };
   }, [refreshHistory, refreshCollections]);
+
+  // 4. Ctrl+Z / Ctrl+Y — Undo/Redo via CommandEngine
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const isTyping = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName);
+    if (isTyping) return;
+
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+      e.preventDefault();
+      historyEngine.undo.undo('default-canvas').catch?.(() => {});
+    } else if (
+      (e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))
+    ) {
+      e.preventDefault();
+      historyEngine.undo.redo('default-canvas').catch?.(() => {});
+    }
+  }, []);
+
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // 3. Trigger background semantic search indexing when entries change (only if AI Semantic Search is active)
   useEffect(() => {

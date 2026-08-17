@@ -99,6 +99,8 @@ const VizGhostAttachEdge = memo(({
   targetPosition,
   style = {},
   markerEnd,
+  data,
+  animated,
 }: EdgeProps) => {
   // Always use smooth bezier curve to prevent path shape flipping/flickering
   const [edgePath] = getBezierPathManual(
@@ -108,22 +110,24 @@ const VizGhostAttachEdge = memo(({
     targetY,
     sourcePosition,
     targetPosition,
-    0.35 // Perfect curve balance (not too tight, not too loose)
+    0.35 // Perfect curve balance
   );
 
-  // Define static styles; visual overrides (opacity, strokeWidth, dasharray) are applied in CSS via parent classes during dragging.
+  const isDataFlow = Boolean(animated || data?.isDataFlow || data?.isActive);
+
+  // Define static styles with brand red (#e11d48) and glowing effect when data is flowing
   const edgeStyle: React.CSSProperties = {
     ...style,
-    strokeWidth: 2,
-    stroke: '#e11d48', // Brand red
-    opacity: 0.8,
-    strokeDasharray: '5 5',
+    strokeWidth: isDataFlow ? 2.5 : 2,
+    stroke: isDataFlow ? '#f43f5e' : '#e11d48',
+    opacity: 0.85,
+    strokeDasharray: isDataFlow ? '6 6' : '5 5',
     strokeLinecap: 'round',
-    filter: 'none', // No glow effect
+    filter: isDataFlow ? 'drop-shadow(0 0 6px rgba(225, 29, 72, 0.7))' : 'none',
   };
 
   return (
-    <>
+    <g className="vizmaker-edge-group">
       {/* Base edge */}
       <BaseEdge 
         id={id} 
@@ -131,7 +135,7 @@ const VizGhostAttachEdge = memo(({
         style={edgeStyle} 
         markerEnd={markerEnd}
       />
-    </>
+    </g>
   );
 });
 

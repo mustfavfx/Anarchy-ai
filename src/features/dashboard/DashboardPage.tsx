@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight, Play, Plus, FolderOpen, Folder,
   Layers, Image as ImageIcon, GitBranch, Clock,
-  PenLine, Zap, History, Shield
+  PenLine, Zap, History, Shield, RotateCw
 } from 'lucide-react';
 import { listProjects, timeAgo, type ProjectMeta } from '../../services/projects/ProjectService';
 import { getHistoryStats } from '../../services/history/HistoryService';
-import { PRESET_PROMPTS } from '../builder/presetPrompts';
+import { PRESET_PROMPTS, VIDEO_PRESET_PROMPTS } from '../builder/presetPrompts';
 import { ChangelogModal } from './ChangelogModal';
 import { PrivacyPolicyModal } from '../settings/SettingsModals';
 import { SESSION_KEYS } from '../../utils/storageKeys';
@@ -29,11 +29,20 @@ const ProjectImage: React.FC<{ url?: string; alt: string }> = ({ url, alt }) => 
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const [quickPresets] = useState(() => {
-    const all = PRESET_PROMPTS.flatMap(g => g.prompts);
+  const [quickPresets, setQuickPresets] = useState<{ label: string; text: string }[]>([]);
+
+  const refreshPresets = useCallback(() => {
+    const all = [
+      ...PRESET_PROMPTS.flatMap(g => g.prompts),
+      ...VIDEO_PRESET_PROMPTS.flatMap(g => g.prompts)
+    ];
     const shuffled = [...all].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 10);
-  });
+    setQuickPresets(shuffled.slice(0, 10));
+  }, []);
+
+  useEffect(() => {
+    refreshPresets();
+  }, [refreshPresets]);
   const [recentProjects, setRecentProjects] = useState<ProjectMeta[]>([]);
   const [totalProjectCount, setTotalProjectCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -146,6 +155,26 @@ export const DashboardPage: React.FC = () => {
             <span className="header-with-icon">
               <PenLine size={16} className="text-red" />
               <h3>Quick Presets</h3>
+              <button
+                type="button"
+                className="presets-refresh-btn animate-spin-hover"
+                onClick={refreshPresets}
+                title="Shuffle/Change presets"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.4)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginLeft: '8px',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <RotateCw size={13} />
+              </button>
             </span>
             <button className="view-all" onClick={() => navigate('/builder')}>
               All presets <ChevronRight size={14} />

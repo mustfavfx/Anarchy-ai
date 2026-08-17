@@ -1,3 +1,15 @@
+﻿!macro NSIS_HOOK_PREINSTALL
+  ; Remove any duplicate or old desktop shortcuts from both user and common desktop
+  Delete "$DESKTOP\Anarchy AI.lnk"
+  Delete "$DESKTOP\anarchy-ai.lnk"
+  Delete "$DESKTOP\Anarchy AI Desktop.lnk"
+  Delete "$DESKTOP\Anarchy AI Desktop Launcher.lnk"
+  Delete "$COMMONDESKTOP\Anarchy AI.lnk"
+  Delete "$COMMONDESKTOP\anarchy-ai.lnk"
+  Delete "$COMMONDESKTOP\Anarchy AI Desktop.lnk"
+  Delete "$COMMONDESKTOP\Anarchy AI Desktop Launcher.lnk"
+!macroend
+
 !macro NSIS_HOOK_POSTINSTALL
   ; Register the file extension and associate it with AnarchyAI.ana
   WriteRegStr SHCTX "Software\Classes\.ana" "" "AnarchyAI.ana"
@@ -19,6 +31,10 @@
   ; Clean up registry keys on uninstall
   DeleteRegKey SHCTX "Software\Classes\.ana"
   DeleteRegKey SHCTX "Software\Classes\AnarchyAI.ana"
+  
+  ; Remove desktop shortcut on uninstall
+  Delete "$DESKTOP\Anarchy AI.lnk"
+  Delete "$COMMONDESKTOP\Anarchy AI.lnk"
   
   ; Notify system of registry change
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'

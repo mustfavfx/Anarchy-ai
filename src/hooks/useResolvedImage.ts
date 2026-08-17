@@ -8,7 +8,7 @@ export function useResolvedImage(rawImage: string | undefined | null): string | 
     let active = true;
     let currentBlobUrl: string | undefined = undefined;
 
-    if (!rawImage) {
+    if (!rawImage || typeof rawImage !== 'string') {
       setResolvedUrl(undefined);
       return;
     }

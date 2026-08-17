@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { isVideoUrl } from '../utils/builderHelpers';
 
@@ -6,6 +7,7 @@ interface NodeLightboxProps {
   lightbox: 'preview' | 'expand';
   displayImage: string;
   label?: string;
+  isVideo?: boolean;
   onClose: () => void;
 }
 
@@ -13,9 +15,10 @@ export const NodeLightbox: React.FC<NodeLightboxProps> = ({
   lightbox,
   displayImage,
   label,
+  isVideo: isVideoProp,
   onClose,
 }) => {
-  const isVideo = isVideoUrl(displayImage);
+  const isVideo = isVideoProp !== undefined ? isVideoProp : isVideoUrl(displayImage);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Auto-play video when lightbox opens
@@ -28,7 +31,7 @@ export const NodeLightbox: React.FC<NodeLightboxProps> = ({
   const maxW = lightbox === 'expand' ? '92vw' : '78vw';
   const maxH = lightbox === 'expand' ? '90vh' : '78vh';
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -41,7 +44,7 @@ export const NodeLightbox: React.FC<NodeLightboxProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'rgba(0,0,0,0.88)',
+        background: 'rgba(0,0,0,0.92)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -116,6 +119,7 @@ export const NodeLightbox: React.FC<NodeLightboxProps> = ({
           }}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 };

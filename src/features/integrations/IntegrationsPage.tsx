@@ -566,7 +566,7 @@ export const IntegrationsPage: React.FC = () => {
                     <li>Open any project, set the desired view, then click <strong>Send to Anarchy</strong>.</li>
                     <li>The current view image is sent to the Builder canvas as a Source Node.</li>
                   </ol>
-                  <p><strong>Requirements:</strong> Revit 2022-2024 installed under Program Files\Autodesk. Revit 2025+ uses .NET 8 and is not yet supported.</p>
+                  <p><strong>Requirements:</strong> Revit 2020-2027 installed under Program Files\Autodesk (Revit 2025+ requires .NET 8 SDK).</p>
                 </div>
               </div>
             )}

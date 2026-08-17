@@ -1,6 +1,7 @@
 import React from 'react';
 import type { HistoryGroup, HistoryEntry } from '../types';
 import { HistoryCard } from './HistoryCard';
+import { useHistoryStore } from '@/stores/historyStore';
 import { X, Layers, Trash2 } from 'lucide-react';
 
 interface GroupExplorerModalProps {
@@ -22,7 +23,12 @@ export const GroupExplorerModal: React.FC<GroupExplorerModalProps> = ({
   onAddToCollection,
   onOpenWorkflow
 }) => {
+  const { setPreviewEntry } = useHistoryStore();
 
+  const handleCardWorkflowOpen = (entry: HistoryEntry) => {
+    onClose();
+    onOpenWorkflow(entry);
+  };
 
   return (
     <div className="history-overlay explorer-overlay">
@@ -70,15 +76,22 @@ export const GroupExplorerModal: React.FC<GroupExplorerModalProps> = ({
         <div className="explorer-grid-container">
           <div className="history-grid explorer-grid">
             {group.children.map(entry => (
-              <HistoryCard
+              <div 
                 key={entry.id}
-                entry={entry}
-                isGroup={false}
-                onStar={onStar}
-                onDelete={onDelete}
-                onAddToCollection={onAddToCollection}
-                onOpenWorkflow={onOpenWorkflow}
-              />
+                onClick={() => {
+                  onClose();
+                  setPreviewEntry(entry);
+                }}
+              >
+                <HistoryCard
+                  entry={entry}
+                  isGroup={false}
+                  onStar={onStar}
+                  onDelete={onDelete}
+                  onAddToCollection={onAddToCollection}
+                  onOpenWorkflow={handleCardWorkflowOpen}
+                />
+              </div>
             ))}
           </div>
         </div>

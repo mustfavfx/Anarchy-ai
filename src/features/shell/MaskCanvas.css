@@ -1,15 +1,20 @@
-/* ============================================
-   MaskCanvas Component Styles
-   ============================================ */
+/* ==========================================================================
+   ANARCHY — VizMaker 100% Ultra-Clean Mask Canvas Styles
+   Clean, Sleek, Professional Workspace Matching VizMaker Studio Layout
+   ========================================================================== */
 
 .mask-canvas-container {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  background: #0a0a0b;
-  border-radius: 8px;
+  background: #090a0f;
+  background-image: radial-gradient(circle at 50% 10%, rgba(225, 29, 72, 0.04) 0%, transparent 70%);
+  border-radius: 12px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+  position: relative;
 }
 
 /* ── Empty State ───────────────────────────────────────────────────────────── */
@@ -20,509 +25,792 @@
   align-items: center;
   justify-content: center;
   flex: 1;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.4);
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.5);
   padding: 40px;
 }
 
 .mask-canvas-empty span {
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
 }
 
 .mask-canvas-empty small {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
 }
 
-/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+/* ── VizMaker Top Fixed Bar Header ────────────────────────────────────────── */
 
-.mask-canvas-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  background: rgba(20, 20, 25, 0.95);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-  overflow-x: auto;
-}
-
-.mask-canvas-tools {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.mask-canvas-tool {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.mask-canvas-tool:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-.mask-canvas-tool.active {
-  background: rgba(225, 29, 72, 0.25);
-  color: #fecdd3;
-}
-
-.mask-canvas-divider {
-  width: 1px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.mask-canvas-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.mask-canvas-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mask-canvas-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-}
-
-.mask-canvas-slider {
-  width: 80px;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  outline: none;
-}
-
-.mask-canvas-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #e11d48;
-  cursor: pointer;
-  border: 2px solid white;
-}
-
-.mask-canvas-value {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  min-width: 28px;
-  text-align: center;
-}
-
-.mask-canvas-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.mask-canvas-action {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.mask-canvas-action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-.mask-canvas-action:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.mask-canvas-action.clear {
-  color: #ef4444;
-}
-
-.mask-canvas-action.clear:hover {
-  background: rgba(239, 68, 68, 0.15);
-}
-
-/* ── Canvas Wrapper ────────────────────────────────────────────────────────── */
-
-.mask-canvas-wrapper {
-  flex: 1;
+.mask-canvas-top-bar {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 52px;
+  padding: 0 16px;
+  background: rgba(12, 14, 22, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  flex-shrink: 0;
+  z-index: 35;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Left Mode Tabs (Preview | Compare | Draw) */
+.mask-canvas-mode-tabs {
+  position: absolute;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.mask-mode-tab {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mask-mode-tab:hover {
+  color: #ffffff;
+}
+
+.mask-mode-tab.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Center Floating Island Dock Toolbar */
+.mask-canvas-tools-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(18, 20, 32, 0.95);
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 18px rgba(225, 29, 72, 0.12);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mask-canvas-tools-toolbar:hover {
+  border-color: rgba(225, 29, 72, 0.35);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.85), 0 0 24px rgba(225, 29, 72, 0.2);
+}
+
+/* Sleek Rectangle Tool Buttons */
+.mask-toolbar-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mask-toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  transform: translateY(-1px) scale(1.03);
+}
+
+.mask-toolbar-btn:active {
+  transform: scale(0.95);
+}
+
+.mask-toolbar-btn.active {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.35), rgba(190, 18, 60, 0.2));
+  border: 1.5px solid #e11d48;
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(225, 29, 72, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+  transform: scale(1.03);
+}
+
+.mask-dropdown-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.mask-dropdown-caret {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.mask-toolbar-btn.active .mask-dropdown-caret {
+  color: #fb7185;
+}
+
+/* Floating Vertical Subtool Dropdown Popover */
+.mask-vertical-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(14, 16, 26, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 5px;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.85), 0 0 24px rgba(225, 29, 72, 0.2);
+  z-index: 100;
+  min-width: 130px;
+  animation: maskSubmenuFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes maskSubmenuFade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.mask-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.mask-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.mask-dropdown-item.active {
+  background: rgba(225, 29, 72, 0.22);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.mask-dropdown-label {
+  font-size: 11.5px;
+}
+
+/* Gradient Vertical Divider */
+.mask-canvas-divider-vertical {
+  width: 1px;
+  height: 22px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Compact Rectangle Brush Size Stepper */
+.mask-brush-size-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 2px 6px;
+  height: 32px;
+  user-select: none;
+  transition: border-color 0.2s ease;
+}
+
+.mask-brush-size-stepper:hover {
+  border-color: rgba(225, 29, 72, 0.35);
+}
+
+.mask-brush-size-stepper button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  transition: all 0.15s ease;
+}
+
+.mask-brush-size-stepper button:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mask-size-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fb7185;
+  letter-spacing: 0.2px;
+  padding: 0 4px;
+  min-width: 36px;
+  text-align: center;
+}
+
+.mask-size-text small {
+  font-size: 9.5px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.mask-toolbar-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+.mask-toolbar-btn.primary {
+  color: #c084fc;
+}
+
+.mask-toolbar-btn.primary:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.4);
+  color: #e9d5ff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+}
+
+/* Right Section Actions */
+.mask-canvas-top-actions {
+  position: absolute;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── VizMaker Floating Layers Overlay (Top Right over Canvas) ────────────────── */
+
+.vizmaker-layers-overlay-panel {
+  position: absolute;
+  top: 56px;
+  right: 16px;
+  width: 230px;
+  background: #1c1d22;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 8px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vizmaker-layers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  padding: 4px 6px 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vizmaker-layers-header button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vizmaker-layers-header button:hover {
+  color: #ffffff;
+}
+
+.vizmaker-layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vizmaker-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vizmaker-layer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.vizmaker-layer-item.active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(6, 182, 212, 0.4);
+}
+
+.vizmaker-layer-eye-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.vizmaker-layer-eye {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.vizmaker-layer-eye.off {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.vizmaker-layer-thumb-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  background: #0e0e12;
-  border-radius: 0 0 12px 12px;
-  min-height: 200px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.vizmaker-layer-thumb-box.selected-area {
+  background: #000;
+  border-color: #06b6d4;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+.vizmaker-selected-area-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid #06b6d4;
+  box-shadow: inset 0 0 4px rgba(6, 182, 212, 0.5);
+}
+
+.vizmaker-layer-thumb-box-dual {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vizmaker-layer-thumb-main {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vizmaker-layer-thumb-main.active {
+  border-color: #06b6d4;
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.5);
+}
+
+.vizmaker-layer-thumb-mask {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: #333;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.vizmaker-mask-symbol {
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.vizmaker-layer-title {
+  font-size: 12px;
+  color: #ffffff;
+  font-weight: 500;
+  flex: 1;
+}
+
+.vizmaker-layer-pin-icon,
+.vizmaker-layer-lock-icon {
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: auto;
+}
+
+.vizmaker-layers-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 6px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vizmaker-layer-footer-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.vizmaker-layer-footer-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* ── Main Canvas Wrapper & Interactive Surface ───────────────────────────── */
+
+.mask-canvas-wrapper {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050608;
+  user-select: none;
+  touch-action: none;
+}
+
+.mask-canvas-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  will-change: transform;
 }
 
 .mask-canvas-base-image {
-  position: absolute;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  user-select: none;
+  display: block;
   pointer-events: none;
 }
 
 .mask-canvas-draw {
   position: absolute;
-  z-index: 10;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: all;
+  z-index: 10;
   touch-action: none;
 }
 
-.mask-canvas-cursor {
+/* ── VizMaker Floating Sleek Bottom Prompt Bar ────────────────────────────── */
+
+.vizmaker-bottom-prompt-bar-container {
   position: absolute;
-  border-radius: 50%;
-  border: 2px solid rgba(225, 29, 72, 0.8);
-  background: rgba(225, 29, 72, 0.15);
-  pointer-events: none;
-  z-index: 20;
-  transform: translate(-50%, -50%);
-  transition: width 0.1s, height 0.1s;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 720px;
+  z-index: 40;
 }
 
-/* ── Generate Section ──────────────────────────────────────────────────────── */
-
-.mask-canvas-generate {
+.vizmaker-bottom-prompt-bar {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  background: rgba(20, 20, 25, 0.95);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: center;
+  gap: 10px;
+  background: rgba(12, 14, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 10px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(225, 29, 72, 0.18);
+  transition: all 0.25s ease;
 }
 
-.mask-canvas-prompt {
+.vizmaker-bottom-prompt-bar:focus-within {
+  border-color: rgba(225, 29, 72, 0.5);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.9), 0 0 30px rgba(225, 29, 72, 0.3);
+}
+
+.vizmaker-prompt-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(225, 29, 72, 0.15);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  color: #fb7185;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.vizmaker-prompt-textarea {
   flex: 1;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
-  font-size: 13px;
+  background: transparent;
+  border: none;
   outline: none;
+  color: #ffffff;
+  font-size: 12.5px;
+  resize: none;
+  max-height: 38px;
+  font-family: inherit;
 }
 
-.mask-canvas-prompt::placeholder {
+.vizmaker-prompt-textarea::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
 
-.mask-canvas-prompt:focus {
-  border-color: rgba(225, 29, 72, 0.4);
-}
-
-.mask-canvas-generate-btn {
-  height: 36px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #e11d48, #be123c);
-  color: white;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.mask-canvas-generate-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
-}
-
-.mask-canvas-generate-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ── Hint ─────────────────────────────────────────────────────────────────── */
-
-.mask-canvas-hint {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+.vizmaker-prompt-inner-wrapper {
   display: flex;
-  gap: 20px;
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 20px;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 4px 10px;
+  height: 38px;
+}
+
+.vizmaker-prompt-badge.node-badge {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  pointer-events: none;
-  z-index: 30;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
-.mask-canvas-hint span {
-  white-space: nowrap;
+.vizmaker-badge-chain {
+  font-size: 11px;
+  opacity: 0.8;
 }
 
-/* ============================================
-   Crop Tool Styles
-   ============================================ */
+.vizmaker-reset-prompt-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
 
+.vizmaker-reset-prompt-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.vizmaker-make-btn-group {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.vizmaker-make-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 16px;
+  height: 38px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.4);
+  transition: all 0.2s ease;
+}
+
+.vizmaker-make-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6);
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+}
+
+.vizmaker-make-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.vizmaker-btn-cost {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-left: 2px;
+}
+
+/* Crop tool overlays */
 .crop-overlay {
   position: absolute;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.65);
   pointer-events: none;
-  z-index: 15;
+  z-index: 25;
 }
 
 .crop-border {
   position: absolute;
-  border: 1.5px solid #ffffff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(0, 0, 0, 0.35);
-  z-index: 16;
-  cursor: move;
-  box-sizing: border-box;
-}
-
-/* Rule-of-thirds grid */
-.crop-grid-line {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.3);
+  border: 2px dashed #e11d48;
+  box-shadow: 0 0 16px rgba(225, 29, 72, 0.4);
   pointer-events: none;
+  z-index: 30;
 }
 
-.crop-grid-h {
-  left: 0;
-  right: 0;
-  height: 1px;
-}
-
-.crop-grid-v {
-  top: 0;
-  bottom: 0;
-  width: 1px;
-}
-
-/* Corner handles */
-.crop-handle {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background: white;
-  border: 2px solid #e11d48;
-  border-radius: 50%;
-  z-index: 17;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s ease, background-color 0.15s ease;
-}
-
-.crop-handle:hover {
-  transform: scale(1.35);
-  background: #e11d48;
-}
-
-.crop-handle-tl { top: -5px;  left: -5px;  cursor: nwse-resize; }
-.crop-handle-tr { top: -5px;  right: -5px; cursor: nesw-resize; }
-.crop-handle-bl { bottom: -5px; left: -5px;  cursor: nesw-resize; }
-.crop-handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; }
-
-.crop-handle-t { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.crop-handle-b { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.crop-handle-l { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
-.crop-handle-r { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
-
-/* Crop size label */
-.crop-size-label {
-  position: absolute;
-  bottom: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(0, 0, 0, 0.6);
-  padding: 2px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-/* Apply / Cancel buttons */
 .crop-actions {
   position: absolute;
   display: flex;
-  gap: 4px;
-  z-index: 20;
-  transform: translateX(-100%);
-  margin-left: -4px;
+  gap: 6px;
+  z-index: 35;
+  transform: translateY(-100%);
 }
 
 .crop-btn {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 28px;
-  padding: 0 10px;
-  border: none;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
+  border: none;
   cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
 }
 
 .crop-btn-apply {
-  background: #16a34a;
-  color: white;
-}
-
-.crop-btn-apply:hover {
-  background: #15803d;
-  transform: translateY(-1px);
+  background: #10b981;
+  color: #fff;
 }
 
 .crop-btn-cancel {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.8);
-  padding: 0 8px;
+  background: rgba(239, 68, 68, 0.8);
+  color: #fff;
 }
 
-.crop-btn-cancel:hover {
-  background: rgba(239, 68, 68, 0.25);
-  color: #fca5a5;
-}
-
-/* Crop tool active state */
-.mask-canvas-tool.active[title="Crop (C)"] {
-  background: rgba(22, 163, 74, 0.25);
-  color: #86efac;
-}
-
-/* ============================================
-   Responsive - Small Screens
-   ============================================ */
-
-@media (max-width: 768px) {
-  .mask-canvas-toolbar {
-    padding: 8px 12px;
-    gap: 8px;
+/* ── Pulsing Highlight during Mask Inpaint Generation ────────────────────────── */
+@keyframes maskSelectionPulse {
+  0% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 4px #e11d48);
   }
-
-  .mask-canvas-tools {
-    gap: 4px;
+  50% {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 20px #e11d48) brightness(1.25);
   }
-
-  .mask-canvas-tool {
-    width: 32px;
-    height: 32px;
-  }
-
-  .mask-canvas-tool svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .mask-canvas-controls {
-    gap: 10px;
-  }
-
-  .mask-canvas-control {
-    gap: 6px;
-  }
-
-  .mask-canvas-slider {
-    width: 60px;
-  }
-
-  .mask-canvas-label {
-    font-size: 10px;
-  }
-
-  .mask-canvas-value {
-    font-size: 10px;
-    min-width: 24px;
-  }
-
-  .mask-canvas-actions {
-    gap: 4px;
-  }
-
-  .mask-canvas-action {
-    width: 28px;
-    height: 28px;
-  }
-
-  .mask-canvas-hint {
-    gap: 12px;
-    padding: 6px 12px;
-    font-size: 10px;
-  }
-
-  .mask-canvas-generate {
-    padding: 10px 12px;
-  }
-
-  .mask-canvas-prompt {
-    height: 32px;
-    font-size: 12px;
-  }
-
-  .mask-canvas-generate-btn {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 12px;
+  100% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 4px #e11d48);
   }
 }
 
-@media (max-width: 480px) {
-  .mask-canvas-toolbar {
-    flex-wrap: wrap;
-    padding: 6px 10px;
-    gap: 6px;
-  }
+.mask-canvas-draw.mask-pulsing,
+.mask-shape-preview-svg.mask-pulsing {
+  animation: maskSelectionPulse 1.2s infinite ease-in-out !important;
+}
 
-  .mask-canvas-controls {
-    order: 3;
-    width: 100%;
-    justify-content: space-between;
-    padding-top: 6px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-  }
+.vizmaker-prompt-badge.resolution {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+  font-size: 11px;
+}
 
-  .mask-canvas-slider {
-    width: 50px;
-  }
+.mask-canvas-cursor {
+  position: absolute;
+  border: 1.5px solid #ffffff;
+  background: rgba(225, 29, 72, 0.35);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6), inset 0 0 4px rgba(225, 29, 72, 0.5);
+  will-change: left, top;
+}
 
-  .mask-canvas-hint {
-    display: none;
-  }
+/* Animation utilities */
+.spin {
+  animation: viz-spin 1.2s linear infinite;
+}
 
-  .mask-canvas-generate {
-    flex-direction: column;
-  }
-
-  .mask-canvas-generate-btn {
-    width: 100%;
-  }
+@keyframes viz-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

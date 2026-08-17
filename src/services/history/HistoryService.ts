@@ -563,15 +563,39 @@ export async function cacheLocalImage(key: string, dataUrlOrBlob: string | Blob)
   try {
     const db = await openImageDB();
     const tx = db.transaction(IDB_CACHE_STORE, 'readwrite');
-    let dataToStore = dataUrlOrBlob;
-    if (typeof dataUrlOrBlob === 'string' && dataUrlOrBlob.startsWith('data:')) {
-      try {
-        dataToStore = dataURLtoBlob(dataUrlOrBlob);
-      } catch (e) {
-        logger.warn('[HistoryService] Failed to convert dataUrl to Blob, saving as string:', e);
+    let dataToStore: Blob | string = dataUrlOrBlob;
+
+    if (typeof dataUrlOrBlob === 'string') {
+      if (dataUrlOrBlob.startsWith('data:')) {
+        try {
+          dataToStore = dataURLtoBlob(dataUrlOrBlob);
+        } catch (e) {
+          logger.warn('[HistoryService] Failed to convert dataUrl to Blob, saving as string:', e);
+        }
+      } else if (dataUrlOrBlob.startsWith('http://') || dataUrlOrBlob.startsWith('https://')) {
+        try {
+          const resolvedBlob = await resolveUrlToBlob(dataUrlOrBlob);
+          if (resolvedBlob) {
+            dataToStore = resolvedBlob;
+          }
+        } catch (e) {
+          logger.warn('[HistoryService] Failed to convert remote URL to Blob in cacheLocalImage:', e);
+        }
       }
     }
+
+    const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
+    const idbKey = `idb://${cleanKey}`;
+
+    // Store under both raw key and idbKey variants for bulletproof lookup
     tx.objectStore(IDB_CACHE_STORE).put(dataToStore, key);
+    if (key !== cleanKey) {
+      tx.objectStore(IDB_CACHE_STORE).put(dataToStore, cleanKey);
+    }
+    if (key !== idbKey) {
+      tx.objectStore(IDB_CACHE_STORE).put(dataToStore, idbKey);
+    }
+
     await new Promise<void>((res, rej) => {
       tx.oncomplete = () => res();
       tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB cache write error'));
@@ -584,23 +608,42 @@ export async function cacheLocalImage(key: string, dataUrlOrBlob: string | Blob)
 
 export async function getLocalImage(key: string): Promise<string | null> {
   try {
+    const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
+    const idbKey = `idb://${cleanKey}`;
     const db = await openImageDB();
     const tx = db.transaction(IDB_CACHE_STORE, 'readonly');
-    const req = tx.objectStore(IDB_CACHE_STORE).get(key);
+    const store = tx.objectStore(IDB_CACHE_STORE);
+
     let result = await new Promise<any>((res) => {
-      req.onsuccess = () => res(req.result ?? null);
-      req.onerror = () => res(null);
+      const r1 = store.get(key);
+      r1.onsuccess = () => {
+        if (r1.result) return res(r1.result);
+        const r2 = store.get(cleanKey);
+        r2.onsuccess = () => {
+          if (r2.result) return res(r2.result);
+          const r3 = store.get(idbKey);
+          r3.onsuccess = () => res(r3.result ?? null);
+          r3.onerror = () => res(null);
+        };
+        r2.onerror = () => res(null);
+      };
+      r1.onerror = () => res(null);
     });
     db.close();
 
     if (!result) {
-      const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
       const dbImages = await openImageDB();
       const txImages = dbImages.transaction(IDB_STORE, 'readonly');
-      const reqImages = txImages.objectStore(IDB_STORE).get(cleanKey);
+      const storeImages = txImages.objectStore(IDB_STORE);
       result = await new Promise<any>((res) => {
-        reqImages.onsuccess = () => res(reqImages.result ?? null);
-        reqImages.onerror = () => res(null);
+        const r1 = storeImages.get(cleanKey);
+        r1.onsuccess = () => {
+          if (r1.result) return res(r1.result);
+          const r2 = storeImages.get(key);
+          r2.onsuccess = () => res(r2.result ?? null);
+          r2.onerror = () => res(null);
+        };
+        r1.onerror = () => res(null);
       });
       dbImages.close();
     }
@@ -617,41 +660,71 @@ export async function getLocalImage(key: string): Promise<string | null> {
 
 export async function getLocalImageAsObjectURL(key: string): Promise<string | null> {
   try {
+    const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
+    const idbKey = `idb://${cleanKey}`;
     const db = await openImageDB();
     const tx = db.transaction(IDB_CACHE_STORE, 'readonly');
-    const req = tx.objectStore(IDB_CACHE_STORE).get(key);
+    const store = tx.objectStore(IDB_CACHE_STORE);
+
     let result = await new Promise<any>((res) => {
-      req.onsuccess = () => res(req.result ?? null);
-      req.onerror = () => res(null);
+      const r1 = store.get(key);
+      r1.onsuccess = () => {
+        if (r1.result) return res(r1.result);
+        const r2 = store.get(cleanKey);
+        r2.onsuccess = () => {
+          if (r2.result) return res(r2.result);
+          const r3 = store.get(idbKey);
+          r3.onsuccess = () => res(r3.result ?? null);
+          r3.onerror = () => res(null);
+        };
+        r2.onerror = () => res(null);
+      };
+      r1.onerror = () => res(null);
     });
     db.close();
 
     if (!result) {
-      const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
       const dbImages = await openImageDB();
       const txImages = dbImages.transaction(IDB_STORE, 'readonly');
-      const reqImages = txImages.objectStore(IDB_STORE).get(cleanKey);
+      const storeImages = txImages.objectStore(IDB_STORE);
       result = await new Promise<any>((res) => {
-        reqImages.onsuccess = () => res(reqImages.result ?? null);
-        reqImages.onerror = () => res(null);
+        const r1 = storeImages.get(cleanKey);
+        r1.onsuccess = () => {
+          if (r1.result) return res(r1.result);
+          const r2 = storeImages.get(key);
+          r2.onsuccess = () => res(r2.result ?? null);
+          r2.onerror = () => res(null);
+        };
+        r1.onerror = () => res(null);
       });
       dbImages.close();
     }
 
     if (!result) return null;
+
     if (result instanceof Blob) {
       return registerObjectUrl(URL.createObjectURL(result));
     }
+
     if (typeof result === 'string') {
       if (result.startsWith('data:')) {
         try {
           const blob = dataURLtoBlob(result);
-          // Save back as Blob to migrate it
           await cacheLocalImage(key, blob);
           return registerObjectUrl(URL.createObjectURL(blob));
         } catch {
           return result;
         }
+      }
+      if (result.startsWith('http://') || result.startsWith('https://')) {
+        try {
+          const blob = await resolveUrlToBlob(result);
+          if (blob) {
+            await cacheLocalImage(key, blob);
+            return registerObjectUrl(URL.createObjectURL(blob));
+          }
+        } catch {}
+        return result;
       }
       return result;
     }
@@ -856,9 +929,20 @@ export async function addHistoryEntry(entry: Omit<HistoryEntry, 'id' | 'timestam
       nodeTree: undefined,         // Stripped tree structure, loaded dynamically
     };
 
-    const entries = loadEntries();
-    entries.unshift(entryForStorage);
-    saveEntries(entries);
+    const existingEntries = loadEntries();
+    saveEntries([entryForStorage, ...existingEntries]);
+
+    // Sync with History Engine Production v3.1 Single Source of Truth
+    try {
+      const { historyEngine } = await import('./engine');
+      await historyEngine.addEntry({
+        ...entryForStorage,
+        outputImage: entry.outputImage,
+        inputImage: entry.inputImage,
+        rootSourceImage: entry.rootSourceImage,
+        nodeTree: entry.nodeTree,
+      });
+    } catch {}
 
     // Return the original full object including data URLs for immediate local use in UI if needed
     return {

@@ -54,6 +54,10 @@
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
+.app-content--mini-canvas-hidden {
+  display: none !important;
+}
+
 /* Hide non-canvas UI inside mini canvas */
 .app-content--mini-canvas .builder-prompt-container,
 .app-content--mini-canvas .builder-watermark,

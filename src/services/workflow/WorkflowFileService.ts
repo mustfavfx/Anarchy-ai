@@ -149,7 +149,7 @@ async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
     
     // Cache original image from Base64 back to IDB
     if (dataCopy.originalImage && dataCopy.originalImage.startsWith('data:')) {
-      if (dataCopy.originalImage === s.data.image && mainImageKey) {
+      if (dataCopy.originalImage === s.data?.image && mainImageKey) {
         dataCopy.originalImage = mainImageKey;
       } else {
         const uuid = safeGenerateUUID();
@@ -161,7 +161,7 @@ async function deserializeNodes(serialized: SerializedNode[]): Promise<Node[]> {
     
     // Cache output data image from Base64 back to IDB
     if (dataCopy.outputData?.image && dataCopy.outputData.image.startsWith('data:')) {
-      if (dataCopy.outputData.image === s.data.image && mainImageKey) {
+      if (dataCopy.outputData.image === s.data?.image && mainImageKey) {
         dataCopy.outputData.image = mainImageKey;
       } else {
         const uuid = safeGenerateUUID();

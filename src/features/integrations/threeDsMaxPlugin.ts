@@ -94,16 +94,25 @@ icon:#("AnarchyLogo", 1)
 )
 
 -- Auto-create Menu Item on startup
-(
-	local mainMenuBar = menuMan.getMainMenuBar()
-	local menuName = "Anarchy"
-	local existingMenu = menuMan.findMenu menuName
-	if existingMenu == undefined do (
-		local newMenu = menuMan.createMenu menuName
-		local actionItem = menuMan.createActionItem "AnarchySync" "Anarchy"
-		newMenu.addItem actionItem 1
-		local subMenuItem = menuMan.createSubMenuItem menuName newMenu
-		mainMenuBar.addItem subMenuItem (mainMenuBar.numItems() + 1)
-		menuMan.updateMenuBar()
-	)
-)`;
+global createAnarchyMenu
+fn createAnarchyMenu = (
+	try (
+		if menuMan != undefined and (menuMan.getMainMenuBar()) != undefined do (
+			local mainMenuBar = menuMan.getMainMenuBar()
+			local menuName = "Anarchy"
+			local existingMenu = menuMan.findMenu menuName
+			if existingMenu == undefined do (
+				local newMenu = menuMan.createMenu menuName
+				local actionItem = menuMan.createActionItem "AnarchySync" "Anarchy"
+				newMenu.addItem actionItem 1
+				local subMenuItem = menuMan.createSubMenuItem menuName newMenu
+				mainMenuBar.addItem subMenuItem (mainMenuBar.numItems() + 1)
+				menuMan.updateMenuBar()
+			)
+		)
+	) catch ()
+)
+
+createAnarchyMenu()
+try ( callbacks.removeScripts id:#AnarchyMenuSetup ) catch ()
+try ( callbacks.addScript #postSystemStartup "createAnarchyMenu()" id:#AnarchyMenuSetup ) catch ()`;

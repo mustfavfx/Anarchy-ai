@@ -3,7 +3,7 @@ import {
   Settings, Shield, Database,
   Check,
   Save, RefreshCw, Trash2, Info,
-  Zap, History, Bell, FileText,
+  Zap, History, FileText,
   Download, Upload, Activity,
   Mail, Camera, MessageCircle, Globe
 } from 'lucide-react';
@@ -21,6 +21,7 @@ import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { invoke } from '@tauri-apps/api/core';
 import { SupportModal } from '../dashboard/SupportModal';
 
+
 export const SettingsPage: React.FC = () => {
   const aiConfig = useAIConfigStore((s) => s.config);
   const setAIConfig = useAIConfigStore((s) => s.setConfig);
@@ -35,6 +36,8 @@ export const SettingsPage: React.FC = () => {
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClearData, setConfirmClearData] = useState(false);
   const [appVersion, setAppVersion] = useState('...');
+
+
   
   // System Health States
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error' | 'not-configured'>('checking');
@@ -286,27 +289,6 @@ export const SettingsPage: React.FC = () => {
           {/* General */}
           {activeTab === 'general' && (
             <>
-              {/* Notifications Card */}
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <Bell size={18} className="card-icon" />
-                  <h3>Notifications</h3>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Enable Notifications</label>
-                    <span className="setting-desc">Show toast notifications for completed generations</span>
-                  </div>
-                  <div className="setting-control">
-                    <button
-                      className={`toggle-switch ${settings.notifications ? 'on' : ''}`}
-                      onClick={() => updateSetting('notifications', !settings.notifications)}
-                    />
-                  </div>
-                </div>
-              </div>
-
               {/* Watermark Card */}
               <div className="settings-card wm-card">
                 <div className="settings-card-header">

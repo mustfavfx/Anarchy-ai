@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ChevronDown, Check, Wand2, ImagePlus, Maximize2, 
-  Film, Zap, Sparkles,
+  Film, Zap, Sparkles, Lock,
   Banana,
   Flame, Crown, Star,
   Sprout, Clapperboard, Brain, Layers, Rocket, Globe,
@@ -71,6 +71,8 @@ interface AIControlPanelProps {
     prunaEnhanceRealism?: boolean;
     prunaQuality?: number;
     prunaOutputFormat?: string;
+    // Krea AI settings
+    kreaCreativity?: 'raw' | 'low' | 'medium' | 'high';
     // Style settings
     styleType?: string;
     stylePreset?: string;
@@ -107,6 +109,10 @@ interface AIControlPanelProps {
     pixverseGenerateMultiClipSwitch?: boolean;
     // OpenAI Sora settings
     soraInputReference?: string | null;
+    // Anarchy / Reve postprocessing settings
+    anarchyRemoveBackground?: boolean;
+    anarchyUpscaleFactor?: 'Off' | '2x' | '3x' | '4x';
+    anarchyEffect?: string;
   };
   onParamsChange: (params: AIControlPanelProps['params']) => void;
 }
@@ -299,28 +305,103 @@ const PanelFileSelector: React.FC<PanelFileSelectorProps> = ({
 
 
 // Tool types matching the reference design
-type ToolType = 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator';
+type ToolType = 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator' | 'anarchy-creator';
 
 const TOOLS: { id: ToolType; name: string; icon: React.ReactNode; disabled?: boolean }[] = [
-  { id: 'image-editor',   name: 'Image Editing',     icon: <Wand2 size={16} /> },
+  { id: 'image-editor',   name: 'Image Studio',      icon: <Wand2 size={16} /> },
   { id: 'image-upscaler', name: 'Image Upscaling',   icon: <Maximize2 size={16} /> },
-  { id: 'image-creator',  name: 'Image Generation',  icon: <ImagePlus size={16} />, disabled: true },
-  { id: 'video-creator',  name: 'Video Generation',  icon: <Film size={16} /> },
+  { id: 'video-creator',  name: 'Video Studio',      icon: <Film size={16} /> },
+  { id: 'anarchy-creator', name: 'Anarchy Generation', icon: <Sparkles size={16} />, disabled: true },
 ];
 
 // Engine/Models definition - supports all model types (image, upscale, video, 3D, chat)
 interface Engine {
   id: ReplicateImageModel | ReplicateUpscaleModel | import('../../services/replicate/ReplicateService').ReplicateVideoModel;
   name: string;
-  provider: 'Google' | 'BlackForest' | 'Recraft' | 'Together' | 'ByteDance' | 'OpenAI' | 'Replicate';
+  provider: 'Google' | 'BlackForest' | 'Recraft' | 'Together' | 'ByteDance' | 'OpenAI' | 'Replicate' | 'Anarchy AI';
   color: string;
   icon: React.ReactNode;
   tool: ToolType;
   badge?: string;
+  /** If true, only shown when studioMode === 'generate' inside image-editor */
+  generateOnly?: boolean;
 }
 
 
 const ENGINES: Engine[] = [
+  // ── Anarchy Generation (Reve AI v2 Models) ──
+  {
+    id: 'reve/create' as ReplicateImageModel,
+    name: 'Anarchy Create (v2)',
+    provider: 'Anarchy AI',
+    color: '#e11d48',
+    icon: <Sparkles size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'v2'
+  },
+  {
+    id: 'reve/edit-fast' as ReplicateImageModel,
+    name: 'Anarchy Edit Fast',
+    provider: 'Anarchy AI',
+    color: '#e11d48',
+    icon: <Sparkles size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'Fast'
+  },
+  {
+    id: 'reve/extract-layout' as ReplicateImageModel,
+    name: 'Anarchy Analysis (v2)',
+    provider: 'Anarchy AI',
+    color: '#e11d48',
+    icon: <Layers size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'Layout'
+  },
+  {
+    id: 'reve/create-layout' as ReplicateImageModel,
+    name: 'Anarchy Create Layout (v2)',
+    provider: 'Anarchy AI',
+    color: '#e11d48',
+    icon: <Layers size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'Layout'
+  },
+  {
+    id: 'reve/render-layout' as ReplicateImageModel,
+    name: 'Anarchy Render Layout (v2)',
+    provider: 'Anarchy AI',
+    color: '#e11d48',
+    icon: <Layers size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'Layout'
+  },
+  {
+    id: 'reve/reconcile-layouts' as ReplicateImageModel,
+    name: 'Anarchy Reconcile Layouts (v2)',
+    provider: 'Anarchy AI',
+    color: '#e11d48',
+    icon: <Layers size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'Layout'
+  },
+  {
+    id: 'prunaai/p-image',
+    name: 'Pruna P-Image',
+    provider: 'Replicate',
+    color: '#8b5cf6',
+    icon: <Zap size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'Fast'
+  },
+  {
+    id: 'krea/krea-2-large',
+    name: 'Krea 2 Large',
+    provider: 'Replicate',
+    color: '#ec4899',
+    icon: <Sparkles size={18} />,
+    tool: 'anarchy-creator',
+    badge: 'Pro'
+  },
   // ── Video Generation (7 models) ──
   {
     id: 'bytedance/seedance-2.0',
@@ -402,14 +483,6 @@ const ENGINES: Engine[] = [
     badge: 'Lite'
   },
   {
-    id: 'bytedance/seedream-4.5',
-    name: 'Seedream 4.5',
-    provider: 'ByteDance',
-    color: '#e11d48',
-    icon: <Zap size={18} />,
-    tool: 'image-editor'
-  },
-  {
     id: 'bytedance/seedream-5-pro',
     name: 'Seedream 5 Pro',
     provider: 'ByteDance',
@@ -445,21 +518,24 @@ const ENGINES: Engine[] = [
     badge: 'Pro'
   },
   {
-    id: 'black-forest-labs/flux-kontext-pro',
-    name: 'FLUX Kontext Pro',
-    provider: 'BlackForest',
-    color: '#e11d48',
-    icon: <Star size={18} />,
-    tool: 'image-editor',
-    badge: 'Pro'
-  },
-  {
-    id: 'xai/grok-imagine-image',
-    name: 'Grok Imagine',
+    id: 'prunaai/p-image',
+    name: 'Pruna P-Image',
     provider: 'Replicate',
-    color: '#e11d48',
+    color: '#8b5cf6',
     icon: <Zap size={18} />,
     tool: 'image-editor',
+    badge: 'Fast',
+    generateOnly: true
+  },
+  {
+    id: 'krea/krea-2-large',
+    name: 'Krea 2 Large',
+    provider: 'Replicate',
+    color: '#ec4899',
+    icon: <Sparkles size={18} />,
+    tool: 'image-editor',
+    badge: 'Pro',
+    generateOnly: true
   },
   // ── Image Upscaling ──
   {
@@ -529,6 +605,13 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
     }
   }, [selectedTool, setConfig]);
 
+  // Ensure active model is a Reve model when anarchy-creator is selected
+  useEffect(() => {
+    if (selectedTool === 'anarchy-creator' && !selectedModel.startsWith('reve/')) {
+      onModelChange('reve/create');
+    }
+  }, [selectedTool, selectedModel, onModelChange]);
+
   // Refs for dropdown containers
   const toolDropdownRef = useRef<HTMLDivElement>(null);
   const engineDropdownRef = useRef<HTMLDivElement>(null);
@@ -537,11 +620,17 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   const styleTypeDropdownRef = useRef<HTMLDivElement>(null);
   const stylePresetDropdownRef = useRef<HTMLDivElement>(null);
   const seqDropdownRef = useRef<HTMLDivElement>(null);
-
-  const availableEngines = useMemo(
-    () => ENGINES.filter(engine => engine.tool === selectedTool),
-    [selectedTool]
-  );
+  const studioModeForFilter = config.studioMode || 'edit';
+  const availableEngines = useMemo(() => {
+    return ENGINES.filter(engine => {
+      if (engine.tool !== selectedTool) return false;
+      // In IMAGE STUDIO, Edit mode hides generateOnly models, while Generate mode shows all models
+      if (selectedTool === 'image-editor' && studioModeForFilter === 'edit' && engine.generateOnly) {
+        return false;
+      }
+      return true;
+    });
+  }, [selectedTool, studioModeForFilter]);
 
   const selectedEngine = availableEngines.find(e => e.id === selectedModel) || availableEngines[0] || ENGINES[0];
   
@@ -582,16 +671,12 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   }, [selectedModel, availableResolutions, availableAspectRatios, modelSettings, onParamsChange]);
 
   // Only auto-switch model when tool changes, not on every render
-  const prevToolRef = useRef<ToolType>(selectedTool);
   const selectedModelRef = useRef(selectedModel);
   selectedModelRef.current = selectedModel;
   
   useEffect(() => {
-    const toolChanged = prevToolRef.current !== selectedTool;
-    prevToolRef.current = selectedTool;
-    
-    // Only change model if tool changed AND current model is not available in new tool
-    if (toolChanged && availableEngines.length > 0 && !availableEngines.some(engine => engine.id === selectedModelRef.current)) {
+    // Only change model if current model is not available in current availableEngines list
+    if (availableEngines.length > 0 && !availableEngines.some(engine => engine.id === selectedModelRef.current)) {
       onModelChange(availableEngines[0].id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
     }
   }, [selectedTool, availableEngines, onModelChange]);
@@ -638,8 +723,32 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   // Models with variable upscale factors
   const supportsUpscaleFactor = (selectedModel as string) === 'prunaai/p-image-upscale';     // 1x, 2x, 4x, 8x, 16x
 
+  const studioMode = config.studioMode || 'edit';
+
   return (
     <div className="ai-control-v2">
+      {/* Studio Mode Toggle (Edit vs Generate) - IMAGE STUDIO only */}
+      {selectedTool === 'image-editor' && (
+        <div className="studio-mode-toggle">
+          <button
+            type="button"
+            className={`mode-toggle-btn ${studioMode === 'edit' ? 'active' : ''}`}
+            onClick={() => setConfig(prev => ({ ...prev, studioMode: 'edit' }))}
+          >
+            <Wand2 size={14} />
+            <span>Edit</span>
+          </button>
+          <button
+            type="button"
+            className={`mode-toggle-btn ${studioMode === 'generate' ? 'active' : ''}`}
+            onClick={() => setConfig(prev => ({ ...prev, studioMode: 'generate' }))}
+          >
+            <Sparkles size={14} />
+            <span>Generate</span>
+          </button>
+        </div>
+      )}
+
       {/* Tool Selector - Main Dropdown */}
       <div className="control-section tool-section" ref={toolDropdownRef}>
         <div 
@@ -668,6 +777,10 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                 onClick={() => {
                   if (tool.disabled) return;
                   setSelectedTool(tool.id);
+                  const enginesForTool = ENGINES.filter(e => e.tool === tool.id);
+                  if (enginesForTool.length > 0 && !enginesForTool.some(e => e.id === selectedModel)) {
+                    onModelChange(enginesForTool[0].id);
+                  }
                   setShowEngineDropdown(false);
                   setShowToolDropdown(false);
                 }}
@@ -675,7 +788,11 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                 {tool.icon}
                 <span className="tool-name">{tool.name}</span>
                 {tool.disabled 
-                  ? <span className="coming-soon">Coming soon</span>
+                  ? (
+                    <span className="coming-soon" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 255, 255, 0.06)', color: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      Coming soon
+                    </span>
+                  )
                   : selectedTool === tool.id && <Check size={14} />
                 }
               </div>
@@ -1798,6 +1915,223 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
         </>
       )}
 
+      {/* ── Anarchy Creator (Reve AI) Advanced Controls ── */}
+      {selectedTool === 'anarchy-creator' && (
+        <div className="anarchy-generation-container" style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+          
+          {/* Postprocessing & Effects Suite */}
+          <div className="anarchy-section-card" style={{
+            background: 'rgba(255, 255, 255, 0.025)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            padding: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={12} style={{ color: '#e11d48' }} /> Postprocessing & Effects
+            </div>
+
+            {/* Remove Background */}
+            <div className="control-section">
+              <label className="checkbox-container" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={params.anarchyRemoveBackground === true}
+                  onChange={(e) => updateParam('anarchyRemoveBackground', e.target.checked)}
+                  style={{ accentColor: '#e11d48', cursor: 'pointer', width: '16px', height: '16px' }}
+                />
+                <span className="checkbox-label" style={{ marginLeft: '8px', fontSize: '12px', fontWeight: 500, color: '#f1f5f9' }}>
+                  Remove Background
+                </span>
+              </label>
+              <span className="param-hint" style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: '#64748b' }}>
+                Automatically isolate main subject and output transparent PNG.
+              </span>
+            </div>
+
+            {/* Upscale Modifier */}
+            <div className="control-section">
+              <label className="section-label" style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '6px', display: 'block' }}>
+                Postprocessing Upscale
+              </label>
+              <div className="upscale-factor-row" style={{ display: 'flex', gap: '6px' }}>
+                {['Off', '2x', '3x', '4x'].map(factor => (
+                  <button
+                    key={factor}
+                    type="button"
+                    className={`upscale-factor-btn ${(params.anarchyUpscaleFactor ?? 'Off') === factor ? 'active' : ''}`}
+                    onClick={() => updateParam('anarchyUpscaleFactor', factor as any)}
+                    style={{
+                      flex: 1,
+                      padding: '6px 0',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      border: (params.anarchyUpscaleFactor ?? 'Off') === factor ? '1px solid #e11d48' : '1px solid rgba(255, 255, 255, 0.1)',
+                      background: (params.anarchyUpscaleFactor ?? 'Off') === factor ? 'rgba(225, 29, 72, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                      color: (params.anarchyUpscaleFactor ?? 'Off') === factor ? '#ffffff' : '#94a3b8',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {factor}
+                  </button>
+                ))}
+              </div>
+              <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                Upscale final image resolution by 2x, 3x, or 4x factor.
+              </span>
+            </div>
+
+            {/* Preset Effects */}
+            <div className="control-section">
+              <label className="section-label" style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '6px', display: 'block' }}>
+                Preset Effect Filter
+              </label>
+              <PanelSelect
+                value={params.anarchyEffect ?? 'None'}
+                options={[
+                  { value: 'None', label: 'None (No effect)' },
+                  { value: 'sketch', label: 'Sketch Filter' },
+                  { value: 'oil_painting', label: 'Oil Painting' },
+                  { value: 'cartoon', label: 'Cartoon Style' },
+                  { value: 'cyberpunk', label: 'Cyberpunk Glow' },
+                  { value: 'pencil_drawing', label: 'Pencil Sketch' },
+                  { value: 'watercolor', label: 'Watercolor Wash' }
+                ]}
+                onChange={(v) => updateParam('anarchyEffect', v)}
+              />
+              <span className="param-hint" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+                Apply a preset artistic effect filter to generated image.
+              </span>
+            </div>
+          </div>
+
+          {/* Reve Interactive Helpers & Guide */}
+          {(selectedModel === 'reve/edit-fast' || selectedModel === 'reve/create') && (
+            <div className="control-section" style={{
+              background: 'rgba(139, 92, 246, 0.06)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: '12px',
+              padding: '12px'
+            }}>
+              <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c4b5fd', fontWeight: 600, fontSize: '12px', marginBottom: '8px' }}>
+                <span>🖌️</span> Edit Inside the Image
+              </label>
+              <div style={{ fontSize: '11.5px', color: '#a78bfa', lineHeight: '1.5' }}>
+                Reference connected images inside your prompt using frame tags:
+              </div>
+              
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                {['<frame>0</frame>', '<frame>1</frame>', '<frame>2</frame>'].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      try {
+                        navigator.clipboard.writeText(tag);
+                      } catch {}
+                    }}
+                    title="انقر لنسخ الوسم | Click to copy frame reference"
+                    style={{
+                      background: 'rgba(139, 92, 246, 0.15)',
+                      border: '1px solid rgba(139, 92, 246, 0.4)',
+                      borderRadius: '6px',
+                      color: '#ddd6fe',
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      fontFamily: 'monospace',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    + {tag}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ marginTop: '10px', fontSize: '11px', color: '#94a3b8', lineHeight: '1.6' }}>
+                <div style={{ color: '#c4b5fd', fontWeight: 600, marginBottom: '2px' }}>Examples:</div>
+                <div>• <span style={{ color: '#e2e8f0' }}>Remove:</span> "Remove people from &lt;frame&gt;0&lt;/frame&gt;"</div>
+                <div>• <span style={{ color: '#e2e8f0' }}>Change:</span> "Make sky sunset in &lt;frame&gt;0&lt;/frame&gt;"</div>
+                <div>• <span style={{ color: '#e2e8f0' }}>Mix:</span> "Apply style of &lt;frame&gt;0&lt;/frame&gt; to &lt;frame&gt;1&lt;/frame&gt;"</div>
+              </div>
+            </div>
+          )}
+
+          {/* Extract Layout Mode */}
+          {selectedModel === 'reve/extract-layout' && (
+            <div className="control-section" style={{
+              background: 'rgba(139, 92, 246, 0.06)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: '12px',
+              padding: '12px'
+            }}>
+              <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c4b5fd', fontWeight: 600, fontSize: '12px', marginBottom: '6px' }}>
+                <span>🗺️</span> Extract Layout Mode
+              </label>
+              <div style={{ fontSize: '11.5px', color: '#a78bfa', lineHeight: '1.5' }}>
+                Analyzes connected images to extract bounding boxes, region labels (`sky`, `wall`, `pool`), and color palettes onto interactive layout canvas.
+              </div>
+            </div>
+          )}
+
+          {/* Create Layout Mode */}
+          {selectedModel === 'reve/create-layout' && (
+            <div className="control-section" style={{
+              background: 'rgba(139, 92, 246, 0.06)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: '12px',
+              padding: '12px'
+            }}>
+              <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c4b5fd', fontWeight: 600, fontSize: '12px', marginBottom: '6px' }}>
+                <span>📐</span> Create Layout Mode
+              </label>
+              <div style={{ fontSize: '11.5px', color: '#a78bfa', lineHeight: '1.5' }}>
+                Generates interactive layout map with bounding boxes directly from prompt commands (`add`, `shift`, `remove`, `change`, `keep`).
+              </div>
+            </div>
+          )}
+
+          {/* Render Layout Mode */}
+          {selectedModel === 'reve/render-layout' && (
+            <div className="control-section" style={{
+              background: 'rgba(139, 92, 246, 0.06)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: '12px',
+              padding: '12px'
+            }}>
+              <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c4b5fd', fontWeight: 600, fontSize: '12px', marginBottom: '6px' }}>
+                <span>🎨</span> Render Layout Mode
+              </label>
+              <div style={{ fontSize: '11.5px', color: '#a78bfa', lineHeight: '1.5' }}>
+                Renders high-fidelity image output from JSON layout structure using connected node images as pixel context references.
+              </div>
+            </div>
+          )}
+
+          {/* Reconcile Layouts Mode */}
+          {selectedModel === 'reve/reconcile-layouts' && (
+            <div className="control-section" style={{
+              background: 'rgba(139, 92, 246, 0.06)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: '12px',
+              padding: '12px'
+            }}>
+              <label className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c4b5fd', fontWeight: 600, fontSize: '12px', marginBottom: '6px' }}>
+                <span>🔄</span> Reconcile Layouts Mode
+              </label>
+              <div style={{ fontSize: '11.5px', color: '#a78bfa', lineHeight: '1.5' }}>
+                Seamlessly reconciles manual user layout edits with original layout structure to preserve scene lighting and perspective.
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
       {/* Custom Width and Height sliders (only shown when resolution is custom) */}
       {params.resolution === 'custom' && (
         <div className="control-section" style={{ marginTop: '8px' }}>
@@ -1847,7 +2181,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
       )}
 
       {/* ── Seedream Sequential Generation settings ── */}
-      {selectedEngine.id === 'bytedance/seedream-4.5' && (
+      {(selectedEngine.id as string) === 'bytedance/seedream-4.5' && (
         <div className="control-section" ref={seqDropdownRef}>
           <div className="control-row">
             <div className="control-half" style={{ width: '100%' }}>
@@ -1899,6 +2233,26 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Krea 2 Large Creativity Setting ── */}
+      {(selectedEngine.id as string) === 'krea/krea-2-large' && (
+        <div className="control-section">
+          <label className="section-label">Creativity</label>
+          <div className="upscale-factor-row">
+            {(['raw', 'low', 'medium', 'high'] as const).map(level => (
+              <button
+                key={level}
+                type="button"
+                className={`upscale-factor-btn ${(params.kreaCreativity ?? 'medium') === level ? 'active' : ''}`}
+                onClick={() => updateParam('kreaCreativity', level)}
+                style={{ textTransform: 'capitalize' }}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

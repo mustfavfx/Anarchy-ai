@@ -1,15 +1,17 @@
-import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   ReactFlow,
   Background,
   BackgroundVariant,
   MiniMap,
+  Panel,
   useReactFlow,
   ReactFlowProvider,
   SelectionMode,
   useStore,
 } from '@xyflow/react';
+import { LayoutGrid } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
 import { useBuilderWorkflow, type ProcessingType } from './useBuilderWorkflow';
@@ -22,10 +24,14 @@ import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { BuilderContextMenu } from './components/BuilderContextMenu';
 import { BuilderPromptBar } from './components/BuilderPromptBar';
 import { CreditErrorModal } from './components/CreditErrorModal';
+import { DxfCalibrationModal } from './components/DxfCalibrationModal';
 import { useBuilderDrop } from './hooks/useBuilderDrop';
 import { useBuilderKeyboard } from './hooks/useBuilderKeyboard';
 import { useAuth } from '../auth/AuthContext';
 import { cacheLocalImage } from '../../services/history/HistoryService';
+import { CanvasHandoffService } from '../../services/canvas/CanvasHandoffService';
+import { getHistoryNodeLabel } from '@/utils/nodeLabel';
+import { restoreNodeTree } from '../../services/canvas/NodeTreeRestoreService';
 import { logger } from '../../utils/logger';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { invoke } from '@tauri-apps/api/core';
@@ -53,7 +59,6 @@ import {
   convertNodeTreeToWorkflow,
   htmlToCanvas,
   makeSourceOutput,
-  isValidPosition,
   positionExtraNode,
   positionExternalNode,
   patchNodeImage,
@@ -67,13 +72,13 @@ import {
 import './BuilderPage.css';
 
 // Check if running in a Tauri desktop environment
-export const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
+const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 
 type ContextAction =
   | 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node'
   | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-dxf' | 'analyze-plan'
   | 'export-all' | 'export-pdf' | 'save-project' | 'load-project'
-  | 'open-images-folder' | 'export-node-pdf';
+  | 'open-images-folder' | 'export-node-pdf' | 'draw-mask';
 
 // Props for multi-tab support
 interface BuilderContentProps {
@@ -104,7 +109,13 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const hasFittedInitially = useRef(false);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-
+  // Stable ref to fitView — populated after useReactFlow() is called below.
+  // Using a ref avoids a temporal dead-zone crash because forceCanvasRepaint
+  // is defined before fitView is available.
+  const fitViewRef = useRef<((options?: any) => void) | null>(null);
+  // Set to true by forceCanvasRepaint to trigger a delayed fitView in a
+  // downstream effect that has access to nodesRefForActive.
+  const needsFitAfterLoadRef = useRef(false);
   // Force a real GPU composite repaint by toggling display on the .tab-pane ancestor.
   // Targeting .tab-pane (not canvas-container child) is critical — this is the exact
   // element whose display:none/flex controls the GPU layer, same as manual tab switching.
@@ -112,13 +123,23 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const el = canvasContainerRef.current;
     if (!el) return;
     const target = (el.closest('.tab-pane') as HTMLElement | null) || el;
+
+    // Phase 1: immediate display toggle to force GPU layer rebuild
     requestAnimationFrame(() => {
       target.style.setProperty('display', 'none', 'important');
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-      void target.offsetHeight; // sync reflow — forces GPU layer rebuild
-      target.style.removeProperty('display'); // let .active class take over
+       
+      void target.offsetHeight; // sync reflow
+      target.style.removeProperty('display');
       window.dispatchEvent(new Event('resize'));
     });
+
+    // Phase 2: fire extra resize pulses so ReactFlow fully measures itself
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 200);
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 500);
+
+    // Phase 3 (fitView) is handled by a dedicated effect below that has
+    // access to nodesRefForActive (declared later in the component body).
+    needsFitAfterLoadRef.current = true;
   }, []);
 
   // Memoize custom node/edge renderer objects to prevent react-flow re-creation warning
@@ -134,6 +155,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     isTrial,
   } = useBuilderCredits(authUser?.id);
 
+  // Sync credits into store so EnlargedPreview / ConnectedNodeInspectorPanel can read it
+  const setUserCreditsInStore = useAIConfigStore((s) => s.setUserCreditsInStore);
+  useEffect(() => {
+    if (userCredits !== null) setUserCreditsInStore(userCredits);
+  }, [userCredits, setUserCreditsInStore]);
+
+  const studioMode = useAIConfigStore(state => state.config.studioMode || 'edit');
+
   const {
     nodes,
     edges,
@@ -144,9 +173,11 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setSelectedNodeId,
     updateNodeData,
     updateNodeImageAndPropagate,
+    getNodes,
     addChildNode,
     createSourceNode,
     spawnGhostNode,
+    createStandaloneGhostNode,
     executeNode,
     cancelExecution,
     deleteNode,
@@ -158,6 +189,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     redo,
     canUndo,
     canRedo,
+    restoreWorkflow,
     spawnBenchmarkLayout
   } = useBuilderWorkflow(tabId, !!initialWorkflow || !!initialImage);
 
@@ -169,13 +201,27 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     handleGenerate,
     makeRetryHandler,
   } = useBuilderGeneration({
+    selectedNodeId,
     nodes,
+    getNodes,
+    setNodes,
     executeNode,
     createSourceNode,
+    createStandaloneGhostNode,
     spawnGhostNode,
     setUserCredits,
     setCreditError,
   });
+
+  // Ensure an idle Standalone Ghost Node is present on canvas when in Generate mode
+  useEffect(() => {
+    if (studioMode === 'generate' && isRestored) {
+      const hasIdleGhost = nodes.some(n => n.data?.type === 'ghost' && n.data?.state === 'idle');
+      if (!hasIdleGhost) {
+        createStandaloneGhostNode();
+      }
+    }
+  }, [studioMode, isRestored, nodes, createStandaloneGhostNode]);
 
   // Sanitize onNodesChange to prevent NaN position errors
   const handleNodesChange = useCallback((changes: any[]) => {
@@ -356,11 +402,14 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const fitView = useCallback((options?: any) => {
     return rawFitView(options);
   }, [rawFitView]);
+  // Keep the stable ref in sync so forceCanvasRepaint can call fitView
+  // without being declared after it.
+  useEffect(() => { fitViewRef.current = fitView; }, [fitView]);
 
-  // Register node image update callback so RightSidebar crop/edit updates node data in canvas
+  // Register node image & layout update callback so LayoutEditor/RightSidebar updates node data in canvas
   useEffect(() => {
-    setNodeImageUpdateFn((nodeId: string, image: string) => {
-      updateNodeImageAndPropagate(nodeId, image);
+    setNodeImageUpdateFn((nodeId: string, image?: string, layout?: any) => {
+      updateNodeImageAndPropagate(nodeId, image, layout);
     });
     return () => setNodeImageUpdateFn(null);
   }, [setNodeImageUpdateFn, updateNodeImageAndPropagate]);
@@ -458,6 +507,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     handleContextExportPDF,
     handleContextOpenImagesFolder,
     handleContextExportNodePDF,
+    dxfCalibrationTarget,
+    confirmDxfExport,
+    cancelDxfCalibration,
   } = useBuilderExport({
     nodes,
     addNotification,
@@ -577,6 +629,21 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     nodesRefForActive.current = nodes;
   }, [nodes]);
 
+  // After forceCanvasRepaint fires (on project load), do a delayed fitView
+  // once nodes are committed to the DOM. needsFitAfterLoadRef is set by
+  // forceCanvasRepaint (which cannot access nodesRefForActive directly).
+  useEffect(() => {
+    if (!needsFitAfterLoadRef.current) return;
+    const t = setTimeout(() => {
+      if (nodesRefForActive.current && nodesRefForActive.current.length > 0) {
+        fitView({ padding: 0.3, duration: 300 });
+        hasFittedInitially.current = true;
+      }
+      needsFitAfterLoadRef.current = false;
+    }, 600);
+    return () => clearTimeout(t);
+  }, [nodes, fitView]);
+
   // Dispatch window resize after tab becomes active — polls until canvas is on-screen
   useEffect(() => {
     if (!isActive) return;
@@ -616,12 +683,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     };
   }, [isActive, fitView, nodes.length]);
 
-  const handleExternalImage = useCallback((image: string, rawSource: string) => {
-    const nodeLabel = resolveSourceLabel(rawSource);
+  const handleExternalImage = useCallback((image: string, rawSource: string, label?: string, prompt?: string) => {
+    let nodeLabel = label;
+    if (!nodeLabel || rawSource.startsWith('history:h_')) {
+      nodeLabel = rawSource.startsWith('history:') ? 'History Image' : resolveSourceLabel(rawSource);
+    }
     applyWatermarkToSource(image).then(watermarked => {
-      const sourceId = createSourceNode(watermarked, nodeLabel);
+      const sourceId = createSourceNode(watermarked, nodeLabel, undefined, prompt);
       setSelectedNodeId(sourceId);
-      setSelectedNode({ id: sourceId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
+      setSelectedNode({ id: sourceId, type: 'source', image: watermarked, prompt: prompt || undefined, state: 'ready' });
       setTimeout(() => {
         setNodes(positionExternalNode(sourceId));
         fitView({ padding: 0.3, duration: 400 });
@@ -629,31 +699,118 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
   }, [createSourceNode, setSelectedNodeId, setSelectedNode, setNodes, fitView, applyWatermarkToSource]);
 
-  useEffect(() => {
-    const handleGlobalEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<{ image: string; source: string }>;
-      const activeTabId = localStorage.getItem('anarchy_builder_active_tab');
+  const handleRestoreFullNodeTree = useCallback((nodeTree: any, fallbackImage?: string, fallbackPrompt?: string, fallbackLabel?: string) => {
+    if (!nodeTree || !Array.isArray(nodeTree.nodes) || nodeTree.nodes.length === 0) {
+      if (fallbackImage) {
+        handleExternalImage(fallbackImage, 'history', fallbackLabel, fallbackPrompt);
+      }
+      return;
+    }
 
-      console.log('EVENT RECEIVED');
-      console.log('tabId=', tabId);
-      console.log('activeTabId=', activeTabId);
-      console.log('equal=', tabId === activeTabId);
-      console.log('isActive=', isActive);
+    const restoredNodes = nodeTree.nodes.map((n: any) => {
+      const typeStr = n.type || n.processingType || 'source';
+      const cleanModel = getHistoryNodeLabel({ model: n.model || n.config?.model || n.params?.model || n.label || '' });
+      const nodeLabel = cleanModel || (typeStr === 'source' ? (fallbackLabel || 'Source') : typeStr.charAt(0).toUpperCase() + typeStr.slice(1));
+      const promptText = n.prompt || n.config?.prompt || n.params?.prompt || fallbackPrompt || '';
+      const layoutData = n.layout || n.extractedLayout || n.analysisResult || n.params?.layout || n.params?.analysisResult;
 
-      // Only process the external image if this tab is the active tab
-      if (isActive) {
-        const { image, source } = customEvent.detail;
-        if (image) {
-          handleExternalImage(image, source);
+      return {
+        id: n.id,
+        type: 'baseNode',
+        position: n.position || { x: 200, y: 200 },
+        width: 260,
+        data: {
+          label: nodeLabel,
+          type: typeStr === 'source' ? 'source' : 'result',
+          processingType: n.processingType || typeStr,
+          state: n.state || 'ready',
+          image: n.image || fallbackImage,
+          originalImage: n.image || fallbackImage,
+          prompt: promptText,
+          layout: layoutData,
+          extractedLayout: layoutData,
+          isAnalyzed: !!layoutData,
+          createdAt: Date.now(),
+          historyEntryId: n.historyEntryId,
+          config: { prompt: promptText, model: cleanModel }
         }
+      };
+    });
+
+    const restoredEdges: any[] = [];
+    nodeTree.nodes.forEach((n: any) => {
+      if (n.parentId) {
+        restoredEdges.push({
+          id: `edge-${n.parentId}-${n.id}`,
+          source: n.parentId,
+          target: n.id,
+          sourceHandle: 'source',
+          type: 'default',
+          animated: false,
+          style: { stroke: '#e11d48', strokeWidth: 2, strokeDasharray: '5 5' }
+        });
+      }
+    });
+
+    restoreWorkflow({ nodes: restoredNodes, edges: restoredEdges });
+
+    setTimeout(() => {
+      const activeId = nodeTree.activeNodeId || nodeTree.nodes[nodeTree.nodes.length - 1]?.id;
+      if (activeId) {
+        setSelectedNodeId(activeId);
+      }
+      fitView({ padding: 0.3, duration: 400 });
+    }, 50);
+  }, [restoreWorkflow, handleExternalImage, setSelectedNodeId, fitView]);
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    // Signal canvas is initialized and ready
+    CanvasHandoffService.signalReady();
+
+    const processRestorePayload = (payload: any) => {
+      if (!payload) return;
+      if (payload.kind === 'nodeTree' && payload.nodeTree) {
+        handleRestoreFullNodeTree(payload.nodeTree);
+      } else if (payload.kind === 'image') {
+        handleExternalImage(payload.image, payload.source || 'history', payload.label, payload.prompt);
+      } else if (payload.nodeTree && Array.isArray(payload.nodeTree.nodes) && payload.nodeTree.nodes.length > 0) {
+        handleRestoreFullNodeTree(payload.nodeTree, payload.image, payload.prompt, payload.label);
+      } else if (payload.image) {
+        handleExternalImage(payload.image, payload.source || 'history', payload.label, payload.prompt);
+      }
+    };
+
+    // 1. Process immediate memory handoff
+    const handoffPayload = CanvasHandoffService.consumePending();
+    if (handoffPayload) {
+      processRestorePayload(handoffPayload);
+    }
+
+    // 2. Process global event
+    const handleGlobalEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<any>;
+      if (isActive && customEvent.detail) {
+        processRestorePayload(customEvent.detail);
       }
     };
 
     window.addEventListener('anarchy:external-image-global', handleGlobalEvent);
+
+    // 3. Check fallback pending queue in localStorage
+    try {
+      const pending = localStorage.getItem('anarchy_pending_canvas_restore');
+      if (pending) {
+        localStorage.removeItem('anarchy_pending_canvas_restore');
+        processRestorePayload(JSON.parse(pending));
+      }
+    } catch {}
+
     return () => {
       window.removeEventListener('anarchy:external-image-global', handleGlobalEvent);
     };
-  }, [tabId, isActive, handleExternalImage]);
+  }, [tabId, isActive, handleExternalImage, handleRestoreFullNodeTree]);
 
   // Viewport restore removed — always start fresh
 
@@ -810,6 +967,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const stableHandlers = useMemo(() => ({
     onAddChild: (id: string, type: ProcessingType) => {
+      const mode = useAIConfigStore.getState().config.studioMode || 'edit';
+      if (mode === 'generate') return;
       addChildNode(id, type);
     },
     onImageUpload: (id: string, url: string) => {
@@ -841,7 +1000,18 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const nodesWithCallbacks = useMemo(() => {
     const nextCache = new Map<string, BuilderNode>();
     const result = nodes
-      .filter(node => isValidPosition(node))
+      .filter(node => {
+        if (studioMode === 'generate') {
+          if (node.data.type === 'source' && !node.data.image && node.data.state === 'idle') {
+            return false;
+          }
+        } else if (studioMode === 'edit') {
+          if (node.data.type === 'ghost' && !node.data.lineage?.parentId && node.data.state === 'idle') {
+            return false;
+          }
+        }
+        return true;
+      })
       .map(node => {
         // Retrieve or build stable data object to prevent custom nodes from re-rendering during dragging
         const cachedEntry = nodeDataCache.current.get(node.id);
@@ -882,8 +1052,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       });
     mappedNodesCache.current = nextCache;
     return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- enableWatermark intentionally omitted per nodesRef pattern above
-  }, [nodes, stableHandlers, enableWatermark]);
+     
+  }, [nodes, stableHandlers, enableWatermark, studioMode]);
 
   // Fit view when nodes are measured to center them perfectly on initial load
   useEffect(() => {
@@ -926,20 +1096,30 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setContextMenu(null);
     logger.log('[BuilderPage] onNodeClick:', node.id);
     setSelectedNodeId(node.id);
-  }, [setSelectedNodeId]);
+    const data = node.data || {};
+    const img = data?.image || data?.outputData?.image;
+    setSelectedNode({
+      id: node.id,
+      type: data?.type || null,
+      image: img,
+      originalImage: data?.originalImage,
+      prompt: data?.prompt,
+      state: data?.state,
+    });
+  }, [setSelectedNodeId, setSelectedNode]);
 
   // Sync ReactFlow selection → selectedNodeId (covers drag-select, keyboard, etc.)
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: BuilderNode[]; edges: any[] }) => {
     if (selectedNodes.length === 1) {
       const node = selectedNodes[0];
-      const data = node.data;
-      const img = data.image || data.outputData?.image;
+      const data = node.data || {};
+      const img = data?.image || data?.outputData?.image;
       setSelectedNodeId(node.id);
       setSelectedNode({
         id: node.id,
-        type: data.type || null,
+        type: data?.type || null,
         image: img,
-        originalImage: data.originalImage,
+        originalImage: data?.originalImage,
         prompt: data.prompt,
         state: data.state,
       });
@@ -1054,6 +1234,50 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const contextNode = contextMenu?.type === 'node'
     ? nodesWithCallbacks.find(n => n.id === contextMenu.nodeId)
     : undefined;
+
+  const handleSpawnWithModel = useCallback((
+    tool: 'image-editor' | 'image-upscaler' | 'video-creator' | 'anarchy-creator',
+    model: string
+  ) => {
+    if (!contextNode) return;
+
+    // 1. Set the global config tool and model in the Zustand store
+    setConfig(prev => ({
+      ...prev,
+      selectedTool: tool,
+      model: model as any,
+    }));
+
+    // 2. Spawn the child node
+    const processingType = tool === 'video-creator' ? 'video' : (tool === 'image-upscaler' ? 'upscale' : 'render');
+    const childId = addChildNode(contextNode.id, processingType);
+
+    // 3. Select the newly spawned node
+    if (childId) {
+      setSelectedNodeId(childId);
+      setTimeout(() => {
+        const spawnedNode = nodesRef.current.find(n => n.id === childId);
+        if (spawnedNode) {
+          const data = spawnedNode.data || {};
+          setSelectedNode({
+            id: childId,
+            type: data?.type || null,
+            image: data?.image || data?.outputData?.image,
+            originalImage: data?.originalImage,
+            prompt: data?.prompt,
+            state: data?.state,
+          });
+        }
+      }, 50);
+    }
+
+    // 4. Trigger generation automatically
+    setTimeout(() => {
+      handleGenerate();
+    }, 120);
+
+    setContextMenu(null);
+  }, [contextNode, addChildNode, setSelectedNodeId, setSelectedNode, setConfig, handleGenerate]);
 
   // Listen to external save triggers (like closing the tab, closing the app, etc.)
   useEffect(() => {
@@ -1179,7 +1403,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       }
       case 'rearrange': {
         rearrangeNodes();
-        setTimeout(() => fitView({ padding: 0.2, minZoom: 0.6, duration: 500 }), 100);
+        setTimeout(() => fitView({ padding: 0.2, minZoom: 0.4, duration: 400 }), 50);
         break;
       }
       case 'spawn-ghost': {
@@ -1236,6 +1460,25 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       case 'export-node-pdf':
         void handleContextExportNodePDF(contextNode);
         break;
+      case 'draw-mask': {
+        if (contextNode) {
+          // 1. Select the node
+          setSelectedNodeId(contextNode.id);
+          const data = (contextNode.data || {}) as any;
+          setSelectedNode({
+            id: contextNode.id,
+            type: data?.type || null,
+            image: data?.image || data?.outputData?.image,
+            originalImage: data?.originalImage,
+            prompt: data?.prompt,
+            state: data?.state,
+          });
+
+          // 2. Open drawing/mask tab
+          useAIConfigStore.getState().setPreviewMode('draw');
+        }
+        break;
+      }
       default:
         break;
     }
@@ -1384,6 +1627,17 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
             size={1}
             color="rgba(255, 255, 255, 0.05)"
           />
+          <Panel position="top-left" className="builder-canvas-quick-panel">
+            <button
+              type="button"
+              className="builder-canvas-quick-btn"
+              onClick={() => runContextAction('rearrange')}
+              title="ترتيب النودات تلقائياً (Rearrange Graph)"
+              aria-label="ترتيب النودات تلقائياً"
+            >
+              <LayoutGrid size={15} />
+            </button>
+          </Panel>
           {/* FIX 4: Hide MiniMap above 50 nodes — it re-renders on every node
                position change and becomes very expensive at scale. */}
           {nodesWithCallbacks.length > 0 && nodesWithCallbacks.length <= 50 && (
@@ -1423,6 +1677,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           fitView={fitView}
           imageFileToDataUrl={imageFileToDataUrl}
           spawnFromImage={spawnFromImage}
+          onSpawnWithModel={handleSpawnWithModel}
         />
 
         <PerformanceHUD onSpawnBenchmark={spawnBenchmarkLayout} />
@@ -1471,6 +1726,15 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           balance={creditError.balance}
           needed={creditError.needed}
           onClose={() => setCreditError(null)}
+        />
+      )}
+
+      {/* DXF Scale Calibration Modal */}
+      {dxfCalibrationTarget && (
+        <DxfCalibrationModal
+          imageUrl={dxfCalibrationTarget.displayUrl}
+          onConfirm={confirmDxfExport}
+          onCancel={cancelDxfCalibration}
         />
       )}
     </div>

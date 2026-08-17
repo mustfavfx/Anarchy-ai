@@ -14,14 +14,19 @@ import { supabaseUrl, supabaseAnonKey } from '../supabase/supabaseClient';
 export type ReplicateImageModel =
   | 'google/nano-banana-2'              // Nano Banana 2 (Gemini 3.1 Flash)
   | 'google/nano-banana-2-lite'         // Nano Banana 2 Lite (Gemini 3.1 Flash Lite)
-  | 'bytedance/seedream-4.5'            // Seedream 4.5 - ByteDance
   | 'bytedance/seedream-5-pro'          // Seedream 5 Pro - ByteDance
   | 'black-forest-labs/flux-2-pro'      // FLUX 2 Pro - img2img + 8 ref images
   | 'openai/gpt-image-2'                // GPT Image 2 - OpenAI
   | 'google/nano-banana-pro'            // Nano Banana Pro (Gemini 3 Pro)
-  | 'xai/grok-imagine-image'            // Grok Imagine Image - xAI
-  | 'black-forest-labs/flux-kontext-pro' // FLUX Kontext Pro - character consistency
-  | 'stability-ai/stable-diffusion-3.5-large'; // Stable Diffusion 3.5 Large
+  | 'prunaai/p-image'                    // Pruna AI P-Image
+  | 'krea/krea-2-large'                  // Krea 2 Large
+  | 'stability-ai/stable-diffusion-3.5-large' // Stable Diffusion 3.5 Large
+  | 'reve/edit-fast'                     // Edit Fast - Reve AI
+  | 'reve/create'                        // Create - Reve AI v2
+  | 'reve/extract-layout'                // Extract Layout - Reve AI v2
+  | 'reve/render-layout'                 // Render Layout - Reve AI v2
+  | 'reve/create-layout'                 // Create Layout - Reve AI v2
+  | 'reve/reconcile-layouts';            // Reconcile Layouts - Reve AI v2
 
 // ── Upscale Models ────────────────────────────────────────────────────────────
 export type ReplicateUpscaleModel =
@@ -208,23 +213,6 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
     pricePerImage: 0.001,
   },
-  // ── 2. Seedream 4.5 ─────────────────────────────────────────────────────────
-  'bytedance/seedream-4.5': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 14,
-    resolutions: ['2K', '4K', 'custom'],
-    aspectRatios: ['match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
-    pricePerImage: 0.016,
-  },
   // ── 2.1. Seedream 5 Pro ─────────────────────────────────────────────────────
   'bytedance/seedream-5-pro': {
     supportsImg2Img: true,
@@ -273,7 +261,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     stepsRange: [1, 1],
     maxReferenceImages: 10,
     resolutions: ['auto', 'low', 'medium', 'high'],
-    aspectRatios: ['1:1', '3:2', '2:3'],
+    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
     pricePerImage: 0.04,
   },
   // ── 5. Nano Banana Pro (Gemini 3 Pro Image) ──────────────────────────────────
@@ -294,25 +282,25 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     pricePerImage: 0.015,
   },
 
-  // ── 7. FLUX Kontext Pro ───────────────────────────────────────────────
-  'black-forest-labs/flux-kontext-pro': {
+  // ── Pruna AI P-Image ────────────────────────────────────────────────────────
+  'prunaai/p-image': {
     supportsImg2Img: true,
     supportsMultiImage: false,
     supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
+    supportsSteps: true,
+    supportsNegativePrompt: true,
     supportsUpscale: false,
     supportsLoRA: false,
     supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
+    defaultSteps: 25,
+    stepsRange: [1, 50],
     maxReferenceImages: 1,
-    resolutions: ['Auto'],
-    aspectRatios: ['match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
-    pricePerImage: 0.05,
+    resolutions: ['1K', '2K'],
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
+    pricePerImage: 0.02,
   },
-  // ── 8. Grok Imagine Image ──────────────────────────────────────────────────
-  'xai/grok-imagine-image': {
+  // ── Krea 2 Large ────────────────────────────────────────────────────────────
+  'krea/krea-2-large': {
     supportsImg2Img: true,
     supportsMultiImage: false,
     supportsSeed: false,
@@ -321,12 +309,12 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     supportsUpscale: false,
     supportsLoRA: false,
     supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
+    defaultSteps: 30,
+    stepsRange: [1, 50],
     maxReferenceImages: 1,
     resolutions: ['Auto'],
-    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
-    pricePerImage: 0.03,
+    aspectRatios: ['1:1', '4:3', '3:2', '16:9', '2.35:1', '4:5', '2:3', '3:4', '9:16'],
+    pricePerImage: 0.06,
   },
   // ── 9. Stable Diffusion 3.5 Large ────────────────────────────────────────
   'stability-ai/stable-diffusion-3.5-large': {
@@ -345,6 +333,105 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '9:21'],
     pricePerImage: 0.065, // $0.065 per image (official Replicate price)
   },
+
+  // ── Reve AI Models ──────────────────────────────────────────────────────────
+  'reve/edit-fast': {
+    supportsImg2Img: true,
+    supportsMultiImage: true,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 8,
+    resolutions: ['Auto'],
+    aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '21:9', '9:21', 'auto'],
+    pricePerImage: 0.01,
+  },
+  'reve/create': {
+    supportsImg2Img: true,
+    supportsMultiImage: true,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 8,
+    resolutions: ['Auto'],
+    aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '21:9', '9:21', 'auto'],
+    pricePerImage: 0.01,
+  },
+  'reve/extract-layout': {
+    supportsImg2Img: true,
+    supportsMultiImage: false,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 1,
+    resolutions: ['Auto'],
+    aspectRatios: ['auto'],
+    pricePerImage: 0.01,
+  },
+  'reve/render-layout': {
+    supportsImg2Img: true,
+    supportsMultiImage: true,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 8,
+    resolutions: ['Auto'],
+    aspectRatios: ['auto'],
+    pricePerImage: 0.01,
+  },
+  'reve/create-layout': {
+    supportsImg2Img: false,
+    supportsMultiImage: false,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 0,
+    resolutions: ['Auto'],
+    aspectRatios: ['auto'],
+    pricePerImage: 0.01,
+  },
+  'reve/reconcile-layouts': {
+    supportsImg2Img: false,
+    supportsMultiImage: false,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 0,
+    resolutions: ['Auto'],
+    aspectRatios: ['auto'],
+    pricePerImage: 0.01,
+  },
+
   // ── 10. Topaz Labs Image Upscale ──────────────────────────────────────────
   'topazlabs/image-upscale': {
     supportsImg2Img: false,
@@ -633,9 +720,13 @@ function arToSize(ar: string, base: number): { width: number; height: number } {
 }
 
 function resolutionToPixels(res: string): number {
-  if (res === '2K') return 1536;
-  const n = Number.parseInt(res);
-  return isNaN(n) ? 1024 : n;
+  if (!res || res === 'Auto') return 1024;
+  const upper = res.toUpperCase();
+  if (upper === '1K' || upper === 'HD' || upper === 'STANDARD') return 1024;
+  if (upper === '2K' || upper === 'QHD') return 1536;
+  if (upper === '4K' || upper === 'UHD') return 2048;
+  const n = Number.parseInt(res, 10);
+  return (isNaN(n) || n < 256) ? 1024 : n;
 }
 
 // ── Supabase proxy URL ───────────────────────────────────────────────────────
@@ -882,7 +973,7 @@ class ReplicateService {
         webhookWithParams += `&workflow_id=${encodeURIComponent(workflowIdVal)}`;
       }
       body.webhook = webhookWithParams;
-      body.webhook_events_filter = ['completed'];
+      body.webhook_events_filter = ['start', 'output', 'completed'];
 
       logger.log('[ReplicateService] Including webhook:', webhookWithParams);
     }
@@ -1020,26 +1111,46 @@ class ReplicateService {
 
   // ── Extract first image URL from prediction output ────────────────────────
   public extractImageUrl(output: unknown): string {
-    if (typeof output === 'string') return output;
-    if (Array.isArray(output) && output.length > 0 && typeof output[0] === 'string') return output[0];
-    if (output && typeof output === 'object' && 'url' in output) {
-      const urlVal = (output as Record<string, unknown>).url;
-      if (typeof urlVal === 'string') return urlVal;
-    }
-    throw new Error('No image URL in Replicate response');
+    const urls = this.extractImageUrls(output);
+    if (urls.length > 0) return urls[0];
+    throw new Error(`No valid image URL found in prediction output: ${JSON.stringify(output)}`);
   }
 
   // ── Extract all image URLs from prediction output ─────────────────────────
   public extractImageUrls(output: unknown): string[] {
-    if (Array.isArray(output)) {
-      return output.filter((item): item is string => typeof item === 'string');
-    }
-    if (typeof output === 'string') return [output];
-    if (output && typeof output === 'object' && 'url' in output) {
-      const urlVal = (output as Record<string, unknown>).url;
-      if (typeof urlVal === 'string') return [urlVal];
-    }
-    return [];
+    if (!output) return [];
+
+    const urls: string[] = [];
+
+    const extractFromValue = (val: unknown) => {
+      if (!val) return;
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+          urls.push(trimmed);
+        } else if (trimmed.length > 10 && !trimmed.includes(' ') && (trimmed.includes('/') || trimmed.includes('.'))) {
+          urls.push(trimmed);
+        }
+        return;
+      }
+      if (Array.isArray(val)) {
+        val.forEach(extractFromValue);
+        return;
+      }
+      if (typeof val === 'object') {
+        const obj = val as Record<string, unknown>;
+        if (typeof obj.url === 'string') extractFromValue(obj.url);
+        else if (typeof obj.href === 'string') extractFromValue(obj.href);
+        else if (typeof obj.file === 'string') extractFromValue(obj.file);
+        else if (typeof obj.image === 'string') extractFromValue(obj.image);
+        else {
+          Object.values(obj).forEach(v => extractFromValue(v));
+        }
+      }
+    };
+
+    extractFromValue(output);
+    return urls;
   }
 
   // ── Build input payload for Nano Banana models (image_input field) ─────────
@@ -1079,6 +1190,8 @@ class ReplicateService {
     return input;
   }
 
+
+
   // ── Build input payload for FLUX models ───────────────────────────────────
   private buildFluxInput(
     params: ReplicateGenerationParams,
@@ -1087,64 +1200,29 @@ class ReplicateService {
     const meta = this.getModelCapabilities(params.model);
     const input: Record<string, any> = { prompt: params.prompt };
 
-    if (params.model === 'black-forest-labs/flux-kontext-pro') {
-      if (images.length > 0) {
-        input.input_image = images[0];
-      }
-      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-        input.aspect_ratio = params.aspectRatio;
-      } else if (images.length > 0) {
+    const mpMap: Record<string, string> = {
+      '0.5K': '0.5 MP',
+      '1K': '1 MP',
+      '2K': '2 MP',
+      '4K': '4 MP',
+    };
+    input.resolution = mpMap[params.resolution ?? '1K'] ?? '1 MP';
+
+    if (images.length > 0) {
+      if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input') {
         input.aspect_ratio = 'match_input_image';
-      }
-      if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
-      return input;
-    }
-
-    if (params.model === 'black-forest-labs/flux-2-pro') {
-      const mpMap: Record<string, string> = {
-        '0.5K': '0.5 MP',
-        '1K': '1 MP',
-        '2K': '2 MP',
-        '4K': '4 MP',
-      };
-      input.resolution = mpMap[params.resolution ?? '1K'] ?? '1 MP';
-
-      if (images.length > 0) {
-        if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input') {
-          input.aspect_ratio = 'match_input_image';
-        } else {
-          input.aspect_ratio = params.aspectRatio;
-        }
-        input.input_images = images;
-        if (meta.supportsReferenceStrength && params.strength != null) {
-          input.prompt_strength = params.strength;
-        }
       } else {
-        input.aspect_ratio = params.aspectRatio ?? '1:1';
+        input.aspect_ratio = params.aspectRatio;
       }
-
-      if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
+      input.input_images = images;
+      if (meta.supportsReferenceStrength && params.strength != null) {
+        input.prompt_strength = params.strength;
+      }
     } else {
-      const base = resolutionToPixels(params.resolution ?? 'Auto');
-      const dims = arToSize(params.aspectRatio ?? '1:1', base);
-      input.width = dims.width;
-      input.height = dims.height;
-      if (meta.supportsSteps) input.num_inference_steps = params.steps ?? meta.defaultSteps;
-      if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
-      if (meta.supportsNegativePrompt && params.negativePrompt) {
-        input.negative_prompt = params.negativePrompt;
-      }
-      if (images.length > 0) {
-        input.image = images[0];
-        if (meta.supportsReferenceStrength && params.strength != null) {
-          input.prompt_strength = params.strength;
-        }
-      }
-      if (meta.supportsLoRA && params.loraUrl) {
-        input.extra_lora = params.loraUrl;
-        input.extra_lora_scale = params.loraScale ?? 0.8;
-      }
+      input.aspect_ratio = params.aspectRatio ?? '1:1';
     }
+
+    if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
     return input;
   }
 
@@ -1155,14 +1233,22 @@ class ReplicateService {
     const meta = this.getModelCapabilities(params.model);
     const input: Record<string, any> = { prompt: params.prompt };
 
-    const base = resolutionToPixels(params.resolution ?? 'Auto');
-    const dims = arToSize(params.aspectRatio ?? '1:1', base);
-    input.width = dims.width;
-    input.height = dims.height;
+    if (params.aspectRatio && params.aspectRatio !== 'Auto') {
+      input.aspect_ratio = params.aspectRatio;
+    } else {
+      input.aspect_ratio = '1:1';
+    }
 
     if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
     if (meta.supportsNegativePrompt && params.negativePrompt) {
       input.negative_prompt = params.negativePrompt;
+    }
+    if (meta.supportsSteps && params.steps != null) {
+      input.num_inference_steps = params.steps;
+    }
+    // Krea-specific: creativity level ('raw' | 'low' | 'medium' | 'high')
+    if (params.model === 'krea/krea-2-large') {
+      input.creativity = (params as any).kreaCreativity || (params as any).creativity || 'medium';
     }
     return input;
   }
@@ -1178,7 +1264,11 @@ class ReplicateService {
 
     const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
     const imageUrls = this.extractImageUrls(prediction.output);
-    const imageUrl = imageUrls[0] || '';
+    if (imageUrls.length === 0 || !imageUrls[0]) {
+      logger.error('[ReplicateService] Prediction completed but returned no valid image output:', prediction);
+      throw new Error(`Model returned output without valid image URL: ${JSON.stringify(prediction.output ?? prediction)}`);
+    }
+    const imageUrl = imageUrls[0];
 
     const result = this.buildResult(params, imageUrl, {}, start);
     result.imageUrls = imageUrls;
@@ -1222,7 +1312,11 @@ class ReplicateService {
 
     const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
     const imageUrls = this.extractImageUrls(prediction.output);
-    const imageUrl = imageUrls[0] || '';
+    if (imageUrls.length === 0 || !imageUrls[0]) {
+      logger.error('[ReplicateService] Img2Img prediction completed but returned no valid image output:', prediction);
+      throw new Error(`Model returned output without valid image URL: ${JSON.stringify(prediction.output ?? prediction)}`);
+    }
+    const imageUrl = imageUrls[0];
 
     const result = this.buildResult(params, imageUrl, input, start);
     result.imageUrls = imageUrls;
@@ -1265,20 +1359,7 @@ class ReplicateService {
     return input;
   }
 
-  // ── Build input for Grok Imagine Image ──────────────────────────────────
-  private buildGrokInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const input: Record<string, any> = { prompt: params.prompt };
-    if (images.length > 0) {
-      input.image = images[0];
-    }
-    if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio;
-    }
-    return input;
-  }
+
 
   // ── Build input for GPT Image 2 ───────────────────────────────────────────
   private buildGptImageInput(
@@ -1297,6 +1378,8 @@ class ReplicateService {
 
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
       input.aspect_ratio = params.aspectRatio;
+    } else if (params.aspectRatio === 'Auto' || params.aspectRatio === 'auto') {
+      input.aspect_ratio = 'auto';
     }
 
     return input;
@@ -1524,11 +1607,9 @@ class ReplicateService {
     const m = params.model;
     if (m.startsWith('google/nano-banana')) return this.buildNanoBananaInput(params, images);
     if (m.startsWith('black-forest-labs/flux')) return this.buildFluxInput(params, images);
-    if (m === 'bytedance/seedream-4.5' || m === 'bytedance/seedream-5-pro') return this.buildSeedreamInput(params, images);
+    if (m === 'bytedance/seedream-5-pro') return this.buildSeedreamInput(params, images);
     if (m === 'openai/gpt-image-2') return this.buildGptImageInput(params, images);
-    if (m === 'xai/grok-imagine-image') return this.buildGrokInput(params, images);
     if (m === 'stability-ai/stable-diffusion-3.5-large') return this.buildStableDiffusionInput(params, images);
-
     // Video models routing
     if (
       m === 'bytedance/seedance-2.0' ||

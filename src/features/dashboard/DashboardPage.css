@@ -427,3 +427,20 @@
     grid-template-columns: 1fr;
   }
 }
+
+.presets-refresh-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+.presets-refresh-btn:active {
+  transform: scale(0.9);
+}
+
+.presets-refresh-btn svg {
+  transition: transform 0.4s ease;
+}
+
+.animate-spin-hover:hover svg {
+  transform: rotate(180deg);
+}

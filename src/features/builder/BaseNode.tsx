@@ -1,17 +1,20 @@
-import React, { memo, useRef, useState } from 'react';
+﻿import React, { memo, useRef, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { 
   FileInput, Wand2, X, Sun, Moon, Users, 
   Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright,
-  Eye, Copy, Volume2, VolumeX, Play, Pause, Clapperboard
+  Eye, Copy, Volume2, VolumeX, Play, Pause, Clapperboard, Sparkles
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
 import { ExportModal } from '../../shared/components/ExportModal';
 import { getLocalImageAsObjectURL, revokeObjectUrl } from '../../services/history/HistoryService';
+import { anarchyService } from '../../services/anarchy/AnarchyService';
 import { NodeLightbox } from './components/NodeLightbox';
 import { NodeUploadPlaceholder } from './components/NodeUploadPlaceholder';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { isVideoNode } from './utils/builderHelpers';
+import { isVideoNode, isVideoUrl } from './utils/builderHelpers';
+import { downloadImage } from '../../utils/imageExport';
+import { useAIConfigStore } from '../../stores/aiConfigStore';
 import './BaseNode.css';
 import './BaseNode.glass.css';
 import type { ProcessingType, BuilderNodeData } from './types';
@@ -79,8 +82,11 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
     }
   };
 
+  const [imgError, setImgError] = useState(false);
+
   React.useEffect(() => {
     setImgDims(null);
+    setImgError(false);
     let active = true;
     let currentBlobUrl: string | undefined = undefined;
 
@@ -152,7 +158,9 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const isResult = nodeType === 'result';
   
   // Determine state flags
-  const isProcessing = nodeState === 'processing';
+  const isConnecting = nodeState === 'connecting';
+  const isQueued = nodeState === 'queued';
+  const isProcessing = nodeState === 'processing' || isConnecting || isQueued;
   const isReady = nodeState === 'ready' || nodeState === 'completed';
   const isError = nodeState === 'error' || nodeState === 'failed';
   const isCancelled = nodeState === 'cancelled';
@@ -174,7 +182,12 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
     e.stopPropagation();
     const imageUrl = displayImage;
     if (imageUrl) {
-      setExportTarget({ url: imageUrl, name: `${nodeData.label || nodeData.type}_${Date.now()}` });
+      const isVid = isVideoNode(nodeData) || uploadedIsVideo || isVideoUrl(imageUrl);
+      if (isVid) {
+        downloadImage(imageUrl, `${nodeData.label || nodeData.type || 'video'}_${Date.now()}`, { isVideo: true });
+      } else {
+        setExportTarget({ url: imageUrl, name: `${nodeData.label || nodeData.type}_${Date.now()}` });
+      }
     }
   };
 
@@ -257,8 +270,11 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
     processFiles(files);
   };
 
-  // Handle click on source/result node to spawn ghost node
+  const studioMode = useAIConfigStore((s) => s.config.studioMode || 'edit');
+
+  // Handle click on source/result node to spawn ghost node (Edit mode only)
   const handleNodeClick = () => {
+    if (studioMode === 'generate') return; // Do not spawn ghost node in Generate mode
     if ((isSource || isResult) && nodeData.image && nodeData.onAddChild) {
       // Spawn a ghost node with default processing type
       nodeData.onAddChild('render');
@@ -271,12 +287,22 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
   const readyState = isReady ? 'node-ready' : '';
   
 
+  const isAnalyzed = React.useMemo(() => {
+    if (nodeData.extractedLayout || nodeData.layout) return true;
+    if (!displayImageRaw) return false;
+    try {
+      const key = anarchyService.getCacheKey(displayImageRaw);
+      if (anarchyService.layoutCache.has(key)) return true;
+      if (localStorage.getItem(`anarchy_layout_${key}`)) return true;
+    } catch {}
+    return false;
+  }, [nodeData.extractedLayout, nodeData.layout, displayImageRaw]);
 
   return (
     <div 
       className={`
         anarchy-node 
-        ${nodeType} 
+        type-${nodeType} 
         state-${nodeState}
         processing-${processingType} 
         ${selected ? 'selected' : ''} 
@@ -284,6 +310,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
         ${processingAnim}
         ${errorState}
         ${readyState}
+        ${isAnalyzed ? 'node-is-analyzed' : ''}
       `}
       role="button"
       tabIndex={0}
@@ -307,6 +334,12 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
           <div className="node-identity">
             <div className="node-title-group">
               <span className="node-type-label">{nodeData.label}</span>
+              {isAnalyzed && (
+                <span className="node-status-badge analyzed" title="Scene Analyzed — Layout & Objects Extracted">
+                  <Sparkles size={10} />
+                  Analyzed
+                </span>
+              )}
               {isProcessing && (
                 <span className="node-status-badge processing">
                   <Loader2 size={10} className="spin" />
@@ -347,7 +380,38 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
         </div>
 
         {/* Content Section */}
-        <div className="node-body">
+        <div className="node-body" style={{ position: 'relative' }}>
+          {/* Processing/Connecting Overlay */}
+          {(isProcessing || isConnecting || isQueued) && (
+            <div className="ghost-processing-overlay" style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(15, 15, 20, 0.94)', borderRadius: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Loader2 size={24} className="spin" style={{ color: '#e11d48' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#f43f5e' }}>
+                {isConnecting 
+                  ? 'Connecting to Model...' 
+                  : isQueued 
+                    ? 'Queued...' 
+                    : 'Generating...'}
+              </span>
+              {(isQueued || isProcessing) && (
+                <span className="ghost-status-badge">
+                  {isQueued ? 'queued' : 'processing'}
+                </span>
+              )}
+              {nodeData.onCancel && (
+                <button 
+                  type="button"
+                  className="ghost-cancel-btn" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nodeData.onCancel?.();
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Image Display (Source and Result nodes) */}
           {(isSource || isResult) && (
             <div 
@@ -381,10 +445,29 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                       }}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
                     />
+                  ) : imgError ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '24px 12px', background: 'rgba(225, 29, 72, 0.08)', borderRadius: '6px', textAlign: 'center', width: '100%', height: '100%' }}>
+                      <AlertCircle size={22} style={{ color: '#e11d48' }} />
+                      <span style={{ fontSize: '11px', color: '#f8fafc', fontWeight: 600 }}>تعذر تحميل الصورة</span>
+                      <button
+                        type="button"
+                        style={{ fontSize: '10px', background: '#e11d48', color: '#fff', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImgError(false);
+                          if (displayImageRaw?.startsWith('idb://')) {
+                            getLocalImageAsObjectURL(displayImageRaw).then((u) => setResolvedImageUrl(u || undefined));
+                          }
+                        }}
+                      >
+                        <RefreshCw size={10} />
+                        إعادة محاولة
+                      </button>
+                    </div>
                   ) : (
                     <img
                       src={displayImage}
-                      alt={nodeData.label}
+                      alt={nodeData.label || 'صورة النود'}
                       loading="lazy"
                       decoding="async"
                       fetchPriority="low"
@@ -392,6 +475,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                         const img = e.currentTarget;
                         setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
                       }}
+                      onError={() => setImgError(true)}
                     />
                   )}
                   {imgDims && (
@@ -496,11 +580,12 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
         <NodeLightbox
           lightbox={lightbox}
           displayImage={displayImage}
+          isVideo={isVideoNode(nodeData) || uploadedIsVideo}
           label={nodeData.label}
           onClose={() => setLightbox(null)}
         />
       )}
-      {isResult && nodeData.prompt && (
+      {nodeData.prompt && (
         <div
           className="node-prompt-bar"
           onMouseDown={(e) => e.stopPropagation()}

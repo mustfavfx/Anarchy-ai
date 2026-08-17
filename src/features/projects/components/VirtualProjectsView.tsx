@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { List } from 'react-window';
 const AnyList = List as React.ComponentType<any>;
-import { Pencil, Copy, Trash2, Loader2 } from 'lucide-react';
+import { Pencil, Copy, Trash2, Loader2, Sparkles, Layers, Image as ImageIcon, Cpu, Network } from 'lucide-react';
 import type { ProjectMeta } from '../../../services/projects/ProjectService';
 import { timeAgo } from '../../../services/projects/ProjectService';
 import { ProjectImage } from '../ProjectsPage';
@@ -61,10 +61,9 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
     return Math.floor((dimensions.width - (columnsCount - 1) * gridGap - 8) / columnsCount);
   }, [dimensions.width, columnsCount]);
 
-
   const gridRowHeight = useMemo(() => {
     const imageHeight = Math.floor(itemWidth * 10 / 16); // 16:10 aspect ratio
-    const detailsHeight = 130;
+    const detailsHeight = 145;
     return imageHeight + detailsHeight;
   }, [itemWidth]);
 
@@ -89,14 +88,24 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
           onClick={() => onOpenProject(project)}
         >
           <div className="list-item-thumb">
-            <ProjectImage url={project.thumbnailUrl} alt={project.name} className="small" />
+            {project.hasImage ? (
+              <ProjectImage url={project.thumbnailUrl} alt={project.name} className="small" />
+            ) : (
+              <div className="project-no-image small blueprint-thumb">
+                <Layers size={18} className="blueprint-icon" />
+              </div>
+            )}
           </div>
           <div className="list-item-info">
-            <h3 className="project-display-title">{project.name}</h3>
+            <div className="title-row">
+              <h3 className="project-display-title">{project.name}</h3>
+              {project.modelTag && <span className="model-badge-mini">{project.modelTag}</span>}
+            </div>
             <div className="project-metadata">
-              <span>{project.sourceCount} sources</span>
+              <span>{project.sourceCount} inputs</span>
               <span>{project.outputCount} outputs</span>
-              <span>{project.refCount} refs</span>
+              <span>{project.refCount} links</span>
+              <span>{project.totalNodes || 1} nodes</span>
             </div>
           </div>
           <div className={`status-tag ${project.status}`}>{project.status}</div>
@@ -158,8 +167,33 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
             onClick={() => onOpenProject(project)}
           >
             <div className="project-image-box">
-              <ProjectImage url={project.thumbnailUrl} alt={project.name} />
+              {project.hasImage ? (
+                <ProjectImage url={project.thumbnailUrl} alt={project.name} />
+              ) : (
+                <div className="project-blueprint-preview">
+                  <div className="blueprint-grid-overlay" />
+                  <div className="blueprint-center-content">
+                    <div className="blueprint-badge-glow">
+                      <Sparkles size={22} className="sparkle-anim" />
+                    </div>
+                    {project.promptSnippet ? (
+                      <p className="blueprint-prompt-quote">"{project.promptSnippet}"</p>
+                    ) : (
+                      <span className="blueprint-canvas-tag">AI Canvas Workflow</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className={`status-tag ${project.status}`}>{project.status}</div>
+
+              {project.modelTag && (
+                <div className="project-model-pill">
+                  <Cpu size={10} />
+                  <span>{project.modelTag}</span>
+                </div>
+              )}
+
               <div className="project-card-actions">
                 <button
                   className="project-action-btn"
@@ -189,9 +223,10 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
             <div className="project-details-box">
               <h3 className="project-display-title">{project.name}</h3>
               <div className="project-metadata">
-                <span>{project.sourceCount} sources</span>
-                <span>{project.outputCount} outputs</span>
-                <span>{project.refCount} refs</span>
+                <span title="Input Sources">📷 {project.sourceCount} inputs</span>
+                <span title="Generated Outputs">🎨 {project.outputCount} outputs</span>
+                <span title="Node Connections">🔗 {project.refCount} links</span>
+                <span title="Total Nodes">📦 {project.totalNodes || 1} nodes</span>
               </div>
               <div className="project-footer">
                 <span className="updated-text">Updated {timeAgo(project.updatedAt)}</span>

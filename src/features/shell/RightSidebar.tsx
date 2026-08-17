@@ -1,14 +1,14 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+﻿import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { logger } from '../../utils/logger';
-import { Image as ImageIcon, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download, Check } from 'lucide-react';
+import { Image as ImageIcon, ChevronLeft, ChevronRight, Plus, SplitSquareHorizontal, X, Download } from 'lucide-react';
 import { ExportModal } from '../../shared/components/ExportModal';
 import { AIControlPanel } from '../builder/AIControlPanel';
-import { MaskCanvas } from './MaskCanvas';
+import { LayoutEditor } from '../builder/components/LayoutEditor';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { ReplicateImageModel, ReplicateUpscaleModel, ReplicateVideoModel } from '../../services/replicate';
-import { replicateService } from '../../services/replicate';
 import { useResolvedImage } from '../../hooks';
 import { isVideoUrl } from '../builder/utils/builderHelpers';
+import { downloadImage } from '../../utils/imageExport';
 import './RightSidebar.css';
 
 interface PreviewZoomStageProps {
@@ -230,16 +230,30 @@ export const RightSidebar: React.FC = () => {
   const setSelectedNode = useAIConfigStore((state) => state.setSelectedNode);
   const nodeImageUpdateFn = useAIConfigStore((state) => state.nodeImageUpdateFn);
 
-  const resolvedSelectedImage = useResolvedImage(selectedNode?.image);
+  const rawSelectedImage = (selectedNode as any)?.data?.image ?? selectedNode?.image;
+  const resolvedSelectedImage = useResolvedImage(rawSelectedImage);
   const resolvedCompareA = useResolvedImage(compareImages.A);
   const resolvedCompareB = useResolvedImage(compareImages.B);
   
-  const [previewMode, setPreviewMode] = React.useState<'preview' | 'compare' | 'draw'>('preview');
+  const previewMode = useAIConfigStore((state) => state.previewMode);
+  const setPreviewMode = useAIConfigStore((state) => state.setPreviewMode);
+  const selectedTool = config.selectedTool;
+
+  useEffect(() => {
+    if (selectedTool !== 'anarchy-creator' && previewMode === 'layout') {
+      setPreviewMode('preview');
+    }
+  }, [selectedTool, previewMode, setPreviewMode]);
+
+  const setIsRightSidebarCollapsed = useAIConfigStore((state) => state.setIsRightSidebarCollapsed);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
-  const [showExpandModal, setShowExpandModal] = React.useState(false);
   const [showExportModal, setShowExportModal] = React.useState(false);
-  const [expandModalTab, setExpandModalTab] = React.useState<'preview' | 'draw'>('preview');
-  const [isMaskGenerating, setIsMaskGenerating] = React.useState(false);
+
+  const toggleCollapse = () => {
+    const nextVal = !isCollapsed;
+    setIsCollapsed(nextVal);
+    setIsRightSidebarCollapsed(nextVal);
+  };
 
   // Zoom/Pan state for Preview mode
   const [zoom, setZoom]         = useState(1);
@@ -260,15 +274,7 @@ export const RightSidebar: React.FC = () => {
     }
   }, [selectedNode, resolvedSelectedImage, previewMode]);
 
-  // Handle escape key to close fullscreen preview modal
-  useEffect(() => {
-    if (!showExpandModal) return;
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowExpandModal(false);
-    };
-    globalThis.addEventListener('keydown', handleGlobalKeyDown);
-    return () => globalThis.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [showExpandModal]);
+
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -298,10 +304,6 @@ export const RightSidebar: React.FC = () => {
   // Compare split slider state
   const [compareSplit, setCompareSplit] = useState(50);
 
-  // Mask/Draw mode state
-  const [maskResult, setMaskResult] = useState<string | null>(null);
-  const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
-
   const handleModelChange = useCallback((model: ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel) => {
     setConfig(prev => ({ ...prev, model }));
   }, [setConfig]);
@@ -315,89 +317,24 @@ export const RightSidebar: React.FC = () => {
     }));
   }, [setConfig]);
 
-
   // Keyboard shortcuts for preview zoom (only active in preview mode)
   useEffect(() => {
     if (previewMode !== 'preview') return;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      const tagName = (e.target as HTMLElement).tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
       if (e.key === '+' || e.key === '=') setZoom(z => Math.min(10, z * 1.25));
       if (e.key === '-') setZoom(z => Math.max(0.1, z / 1.25));
       if (e.key === 'f' || e.key === 'F') fitToStage();
-      if (e.key === 'Enter') setShowExpandModal(true);
-      if (e.key === 'Escape') setShowExpandModal(false);
+      if (e.key === 'Enter') setIsEnlargedView(true);
     };
     globalThis.addEventListener('keydown', onKey);
     return () => globalThis.removeEventListener('keydown', onKey);
-  }, [previewMode, fitToStage]);
+  }, [previewMode, fitToStage, setIsEnlargedView]);
 
-  // Handle crop — update selectedNode store AND the actual ReactFlow node data
-  const handleCrop = useCallback((croppedDataUrl: string) => {
-    if (!selectedNode?.id) return;
-    setSelectedNode({ ...selectedNode, image: croppedDataUrl });
-    nodeImageUpdateFn?.(selectedNode.id, croppedDataUrl);
-    setPreviewMode('preview');
-  }, [selectedNode, setSelectedNode, nodeImageUpdateFn]);
 
-  // Handle mask generation
-  const handleMaskGenerate = useCallback(async (maskDataUrl: string, prompt: string) => {
-    if (!selectedNode?.image || !prompt.trim()) return;
-    setIsMaskGenerating(true);
 
-    try {
-      // 1. Resolve and upload the base image
-      let baseImageUrl = resolvedSelectedImage || selectedNode.image;
-      if (baseImageUrl.startsWith('data:') || baseImageUrl.startsWith('blob:')) {
-        baseImageUrl = await replicateService.uploadToReplicate(baseImageUrl);
-      } else if (baseImageUrl.startsWith('idb://')) {
-        const { getLocalImage } = await import('../../services/history/HistoryService');
-        const localData = await getLocalImage(baseImageUrl);
-        if (localData) {
-          baseImageUrl = await replicateService.uploadToReplicate(localData);
-        }
-      }
 
-      // 2. Upload the generated binary mask
-      const maskUrl = await replicateService.uploadToReplicate(maskDataUrl);
-
-      // 3. Submit inpainting prediction to Replicate (flux-1-fill)
-      const result = await replicateService.runPrediction(
-        'black-forest-labs/flux-1-fill',
-        {
-          image: baseImageUrl,
-          mask: maskUrl,
-          prompt: prompt,
-          num_inference_steps: 28,
-          guidance: 30,
-          output_format: 'png',
-        }
-      );
-
-      const imageUrl = replicateService.extractImageUrl(result.output);
-      if (imageUrl) {
-        setMaskResult(imageUrl);
-      }
-    } catch (error) {
-      logger.error('Mask generation failed:', error);
-    } finally {
-      setIsMaskGenerating(false);
-    }
-  }, [selectedNode, resolvedSelectedImage, replicateService]);
-
-  // Handle apply mask result — cache it in IndexedDB/Tauri and update ReactFlow workspace node
-  const handleApplyMaskResult = useCallback(async () => {
-    if (!selectedNode?.id || !maskResult) return;
-    
-    try {
-      setSelectedNode({ ...selectedNode, image: maskResult });
-      nodeImageUpdateFn?.(selectedNode.id, maskResult);
-      setMaskResult(null);
-      setPreviewMode('preview');
-      setShowExpandModal(false);
-    } catch (err) {
-      logger.error('[Mask] Failed to apply mask result to node:', err);
-    }
-  }, [selectedNode, setSelectedNode, maskResult, nodeImageUpdateFn]);
 
   return (
     <div className={`right-sidebar-wrapper ${isCollapsed ? 'collapsed' : ''}`}>
@@ -411,7 +348,10 @@ export const RightSidebar: React.FC = () => {
           <div className="sidebar-canvas-return">
             <button
               className="sidebar-canvas-return-btn"
-              onClick={() => setIsEnlargedView(false)}
+              onClick={() => {
+                setIsEnlargedView(false);
+                setPreviewMode('preview');
+              }}
               title="Back to canvas view"
             >
               ◧ Canvas
@@ -431,7 +371,21 @@ export const RightSidebar: React.FC = () => {
                 <button type="button" className={`sidebar-tab ${previewMode === 'preview' ? 'active' : ''}`} onClick={() => setPreviewMode('preview')}>Preview</button>
                 <button type="button" className={`sidebar-tab ${previewMode === 'compare' ? 'active' : ''}`} onClick={() => setPreviewMode('compare')}>Compare</button>
                 {!(selectedNode?.isVideo || isVideoUrl(selectedNode?.image) || isVideoUrl(resolvedSelectedImage)) && (
-                  <button type="button" className={`sidebar-tab ${previewMode === 'draw' ? 'active' : ''}`} onClick={() => setPreviewMode('draw')}>Mask</button>
+                  <>
+                    <button
+                      type="button"
+                      className={`sidebar-tab ${previewMode === 'draw' ? 'active' : ''}`}
+                      onClick={() => {
+                        setPreviewMode('draw');
+                        setIsEnlargedView(true);
+                      }}
+                    >
+                      Mask
+                    </button>
+                    {selectedTool === 'anarchy-creator' && (
+                      <button type="button" className={`sidebar-tab ${previewMode === 'layout' ? 'active' : ''}`} onClick={() => setPreviewMode('layout')}>Layers</button>
+                    )}
+                  </>
                 )}
               </div>
               <div className="sidebar-preview-actions">
@@ -453,13 +407,28 @@ export const RightSidebar: React.FC = () => {
                 {selectedNode?.image && (
                   <button
                     className="sidebar-icon-btn"
-                    onClick={() => setShowExportModal(true)}
-                    title="Export image"
+                    onClick={() => {
+                      const mediaUrl = resolvedSelectedImage || selectedNode.image;
+                      const isVid = selectedNode?.isVideo || isVideoUrl(mediaUrl);
+                      if (isVid && mediaUrl) {
+                        downloadImage(mediaUrl, selectedNode.type ?? 'video', { isVideo: true });
+                      } else {
+                        setShowExportModal(true);
+                      }
+                    }}
+                    title={selectedNode?.isVideo || isVideoUrl(resolvedSelectedImage || selectedNode.image) ? "Download video (MP4)" : "Export image"}
                   ><Download size={13} /></button>
                 )}
                 <button
                   className={`sidebar-enlarge-btn ${isEnlargedView ? 'active' : ''}`}
-                  onClick={() => setIsEnlargedView(!isEnlargedView)}
+                  onClick={() => {
+                    if (isEnlargedView) {
+                      setIsEnlargedView(false);
+                      setPreviewMode('preview');
+                    } else {
+                      setIsEnlargedView(true);
+                    }
+                  }}
                   title={isEnlargedView ? 'Back to canvas (Esc)' : 'Expand preview'}
                 >
                   {isEnlargedView ? 'Canvas' : 'Expand'}
@@ -489,7 +458,7 @@ export const RightSidebar: React.FC = () => {
                   onFit={fitToStage}
                   onZoomIn={() => setZoom(z => Math.min(10, z * 1.25))}
                   onZoomOut={() => setZoom(z => Math.max(0.1, z / 1.25))}
-                  onExpand={() => setShowExpandModal(true)}
+                  onExpand={() => setIsEnlargedView(true)}
                 />
               )}
 
@@ -512,34 +481,50 @@ export const RightSidebar: React.FC = () => {
                 />
               )}
 
-              {/* MASK/DRAW MODE — Using MaskCanvas Component */}
-              {previewMode === 'draw' && (
-                <div className="mask-container-v2">
-                  <MaskCanvas
-                    image={resolvedSelectedImage || null}
-                    onGenerate={handleMaskGenerate}
-                    onCrop={handleCrop}
-                    showGenerateButton={true}
-                    isGenerating={isMaskGenerating}
-                    className="sidebar-mask-canvas"
+              {/* LAYOUT/LAYERS MODE — Interactive Object & Bounding Box Editor */}
+              {previewMode === 'layout' && (
+                <div className="layout-mode-stage">
+                  <LayoutEditor
+                    image={resolvedSelectedImage || selectedNode?.data?.image || selectedNode?.image || null}
+                    initialLayout={selectedNode?.data?.extractedLayout || selectedNode?.data?.layout || (selectedNode as any)?.extractedLayout || (selectedNode as any)?.layout}
+                    onApplyResult={(newImg) => {
+                      if (!selectedNode?.id) return;
+                      const updatedData = { ...selectedNode.data, image: newImg };
+                      setSelectedNode({ ...selectedNode, data: updatedData, image: newImg } as any);
+                      nodeImageUpdateFn?.(selectedNode.id, newImg);
+                      setPreviewMode('preview');
+                    }}
+                    onLayoutExtracted={(layoutData) => {
+                      if (!selectedNode?.id) return;
+                      const updatedData = { ...selectedNode.data, extractedLayout: layoutData, layout: layoutData };
+                      setSelectedNode({ ...selectedNode, data: updatedData, extractedLayout: layoutData, layout: layoutData } as any);
+                      nodeImageUpdateFn?.(selectedNode.id, undefined, layoutData);
+                    }}
                   />
-                  {maskResult && (
-                    <div className="mask-result-overlay">
-                      <img src={maskResult} alt="Generated Result" />
-                      <div className="mask-result-actions">
-                        <button
-                          className="mask-result-apply-btn"
-                          onClick={handleApplyMaskResult}
-                        >
-                          <Check size={14} /> Apply to Node
-                        </button>
-                        <button
-                          className="mask-result-discard-btn"
-                          onClick={() => setMaskResult(null)}
-                        >
-                          <X size={14} /> Discard
-                        </button>
+                </div>
+              )}
+              {previewMode === 'draw' && (
+                <div className="sidebar-mask-launcher-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '20px', background: '#0a0d17', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', gap: '14px', textAlign: 'center' }}>
+                  {resolvedSelectedImage || selectedNode?.image ? (
+                    <>
+                      <div style={{ position: 'relative', width: '100%', height: '160px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <img src={resolvedSelectedImage || selectedNode?.image || ''} alt="Node Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => setIsEnlargedView(true)}
+                            style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #e11d48, #8b5cf6)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 14px rgba(225, 29, 72, 0.4)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            🎨 Open Studio Mask Editor
+                          </button>
+                        </div>
                       </div>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>Full-screen studio masking active for selected node</span>
+                    </>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: 'rgba(255,255,255,0.4)' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>No Image Selected</span>
+                      <small style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>Click an image node on the canvas to open mask editor</small>
                     </div>
                   )}
                 </div>
@@ -647,121 +632,11 @@ export const RightSidebar: React.FC = () => {
 
     </aside>
 
-      {/* Fullscreen Modal */}
-      {showExpandModal && selectedNode?.image && (
-        <dialog
-          aria-label="Fullscreen image preview"
-          className="preview-expand-modal"
-          open
-          style={{ outline: 'none' }}
-        >
-          <button type="button" className="preview-expand-backdrop" onClick={() => setShowExpandModal(false)} aria-label="Close preview" />
-          <div className="preview-expand-content">
-            {/* Top bar */}
-            <div className="preview-expand-topbar">
-              <span className="preview-expand-title">
-                {selectedNode.type ?? 'Image'}
-                {imgNaturalSize && (
-                  <span className="preview-expand-dims"> · {imgNaturalSize.w}×{imgNaturalSize.h}</span>
-                )}
-              </span>
-              {/* Tab switcher */}
-              <div className="preview-expand-tabs">
-                <button
-                  className={`preview-expand-tab ${expandModalTab === 'preview' ? 'active' : ''}`}
-                  onClick={() => setExpandModalTab('preview')}
-                  title="Preview"
-                >
-                  Preview
-                </button>
-                <button
-                  className={`preview-expand-tab ${expandModalTab === 'draw' ? 'active' : ''}`}
-                  onClick={() => setExpandModalTab('draw')}
-                  title="Mask / Crop"
-                >
-                  Mask &amp; Crop
-                </button>
-              </div>
-              <div className="preview-expand-actions">
-                <button
-                  className="preview-expand-close"
-                  onClick={() => { setShowExpandModal(false); setShowExportModal(true); }}
-                  title="Export image"
-                >
-                  <Download size={15} />
-                </button>
-                <button
-                  className="preview-expand-close"
-                  onClick={() => setShowExpandModal(false)}
-                  title="Close (Esc)"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            </div>
-            {expandModalTab === 'preview' ? (
-              <img
-                key={selectedNode.image}
-                src={
-                  resolvedSelectedImage && !resolvedSelectedImage.startsWith('idb://')
-                    ? resolvedSelectedImage
-                    : selectedNode.image && !selectedNode.image.startsWith('idb://')
-                    ? selectedNode.image
-                    : undefined
-                }
-                alt={selectedNode.type || 'Node'}
-                className="preview-expand-image"
-                onLoad={e => {
-                  const t = e.currentTarget;
-                  t.style.display = '';
-                  setImgNaturalSize({ w: t.naturalWidth, h: t.naturalHeight });
-                }}
-                onError={e => { e.currentTarget.style.display = 'none'; }}
-              />
-            ) : (
-              <div className="preview-expand-mask-wrap" style={{ position: 'relative' }}>
-                <MaskCanvas
-                  image={resolvedSelectedImage || null}
-                  onGenerate={handleMaskGenerate}
-                  onCrop={(cropped) => {
-                    setSelectedNode({ ...selectedNode, image: cropped });
-                    if (selectedNode?.id) {
-                      nodeImageUpdateFn?.(selectedNode.id, cropped);
-                    }
-                    setExpandModalTab('preview');
-                  }}
-                  showGenerateButton={true}
-                  isGenerating={isMaskGenerating}
-                  className="expand-modal-mask-canvas"
-                />
-                {maskResult && (
-                  <div className="mask-result-overlay">
-                    <img src={maskResult} alt="Generated Result" />
-                    <div className="mask-result-actions">
-                      <button
-                        className="mask-result-apply-btn"
-                        onClick={handleApplyMaskResult}
-                      >
-                        <Check size={14} /> Apply to Node
-                      </button>
-                      <button
-                        className="mask-result-discard-btn"
-                        onClick={() => setMaskResult(null)}
-                      >
-                        <X size={14} /> Discard
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </dialog>
-      )}
+
 
     <button
       className="right-collapse-btn"
-      onClick={() => setIsCollapsed(!isCollapsed)}
+      onClick={toggleCollapse}
       title={isCollapsed ? 'Expand' : 'Collapse'}
     >
       {isCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}

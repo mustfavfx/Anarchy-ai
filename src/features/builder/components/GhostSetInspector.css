@@ -1,0 +1,366 @@
+/* GhostSetInspector.css - Modern Modal for Candidate Comparison */
+
+.ghost-inspector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: rgba(8, 10, 16, 0.88);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.ghost-inspector-modal {
+  width: 100%;
+  max-width: 1100px;
+  height: 90vh;
+  background: rgba(16, 20, 30, 0.96);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(225, 29, 72, 0.15);
+  overflow: hidden;
+}
+
+.ghost-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 18, 0.5);
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-title h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.header-title p {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin: 2px 0 0 0;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mode-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease-in-out;
+}
+
+.mode-btn.active {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.3) 0%, rgba(190, 18, 60, 0.45) 100%);
+  border-color: #e11d48;
+  color: #fff;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Content Comparison View ── */
+.ghost-inspector-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #090b10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slider-compare-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compare-bg-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.compare-fg-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.compare-fg-img {
+  height: 100%;
+  object-fit: contain;
+}
+
+.compare-slider-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+.slider-divider-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e11d48;
+  box-shadow: 0 0 12px #e11d48;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.slider-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e11d48;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(225, 29, 72, 0.8);
+}
+
+.slider-badge {
+  position: absolute;
+  bottom: 16px;
+  background: rgba(10, 12, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.slider-badge.left { left: 16px; }
+.slider-badge.right { right: 16px; color: #fb7185; border-color: rgba(225, 29, 72, 0.4); }
+
+.side-by-side-stage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+}
+
+.side-card {
+  position: relative;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.side-card.active {
+  border-color: #e11d48;
+  box-shadow: 0 0 20px rgba(225, 29, 72, 0.2);
+}
+
+.side-card img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.card-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(10, 12, 18, 0.85);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.card-badge.highlight {
+  color: #fb7185;
+  border: 1px solid rgba(225, 29, 72, 0.4);
+}
+
+/* ── Candidates Selector Cards ── */
+.ghost-candidates-bar {
+  background: rgba(12, 15, 24, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.candidates-list {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.candidate-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  min-width: 220px;
+}
+
+.candidate-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.candidate-card.selected {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.2) 0%, rgba(190, 18, 60, 0.35) 100%);
+  border-color: #e11d48;
+}
+
+.candidate-card img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.cand-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.cand-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.cand-engine {
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.cand-seed {
+  font-size: 9.5px;
+  color: #fb7185;
+  margin-left: auto;
+}
+
+.ghost-confirm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.credit-guarantee {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.cost-tag {
+  background: rgba(225, 29, 72, 0.2);
+  color: #fb7185;
+  border: 1px solid rgba(225, 29, 72, 0.4);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ghost-cancel-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ghost-confirm-btn {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  border: none;
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.4);
+}

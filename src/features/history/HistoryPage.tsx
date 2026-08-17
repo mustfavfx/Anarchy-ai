@@ -1,18 +1,21 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHistory } from './hooks/useHistory';
 import { useHistorySelection } from './hooks/useHistorySelection';
 import { useHistoryStore } from '@/stores/historyStore';
+import { useHistoryRestore } from './hooks/useHistoryRestore';
 import { buildWorkflowTreeForEntry, type HistoryTreeNode } from './components/WorkflowTreeRenderer';
 import type { NodeTreeData } from '@/types/history';
 import { HistoryHeader } from './components/HistoryHeader';
 import { HistoryFilters } from './components/HistoryFilters';
 import { HistoryGrid } from './components/HistoryGrid';
+import { HistoryMetricsBar } from './components/HistoryMetricsBar';
 import { PreviewModal } from './components/PreviewModal';
 import { GroupExplorerModal } from './components/GroupExplorerModal';
 import { CollectionsSidebar } from './components/CollectionsSidebar';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { ExportModal } from '../../shared/components/ExportModal';
+import { downloadImage, isVideoUrl } from '../../utils/imageExport';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import type { Collection } from '../../services/history/CollectionService';
 import type { HistoryEntry } from './types';
@@ -20,6 +23,7 @@ import {
   X, Check, FolderHeart, Plus, CheckSquare, 
   Square, Download, Trash2, Zap, Clock, Star
 } from 'lucide-react';
+import { getHistoryNodeLabel } from '@/utils/nodeLabel';
 import './HistoryPage.css';
 
 /* ════════════════════════════════════════════════════════════════════
@@ -167,6 +171,9 @@ export const HistoryPage: React.FC = () => {
     removeEntryFromCollection
   } = useHistory();
 
+  // HistoryEngine v3.1 safe restore pipeline (Validate → Repair → SessionManager → Navigate)
+  const { restore: restoreViaEngine } = useHistoryRestore();
+
   const {
     selectedIds,
     handleBulkDelete,
@@ -198,120 +205,22 @@ export const HistoryPage: React.FC = () => {
 
   const handleOpenWorkflow = async (entry: HistoryEntry) => {
     try {
-      // Reconstruct the full lineage tree from the history list
-      const allEntries = useHistoryStore.getState().entries;
-      const { root } = buildWorkflowTreeForEntry(entry, allEntries);
-      
-      // Map of ID -> TreeNode
-      const nodesMap = new Map<string, HistoryTreeNode>();
-      const collectNodes = (node: HistoryTreeNode) => {
-        nodesMap.set(node.id, node);
-        node.children.forEach(collectNodes);
-      };
-      collectNodes(root);
-      
-      // Calculate layout positions
-      const positions = new Map<string, { x: number, y: number }>();
-      let currentY = 150;
-      
-      const layoutNode = (node: HistoryTreeNode, depth: number = 0) => {
-        const x = 120 + depth * 380;
-        const y = currentY;
-        positions.set(node.id, { x, y });
-        
-        if (node.children.length === 0) {
-          currentY += 280; // spacing between branches
-        } else {
-          node.children.forEach((child) => {
-            layoutNode(child, depth + 1);
-          });
-        }
-      };
-      
-      layoutNode(root);
-      
-      const rootId = root.id;
-      
-      const getHistoryNodeLabel = (entryItem: HistoryEntry): string => {
-        const icons: Record<string, string> = {
-          variation: '🎨',
-          edit: '🪄',
-          upscale: '🔍',
-          generate: '📷',
-          render: '📷',
-          source: '📷',
-        };
-        const icon = icons[entryItem.type] || icons[entryItem.nodeType || ''] || '📷';
-        const modelName = entryItem.model || entryItem.params?.model || '';
-        const cleanModel = modelName ? (modelName.length > 20 ? modelName.slice(0, 20) + '...' : modelName) : '';
-        if (cleanModel) {
-          return `${icon} ${cleanModel}`;
-        }
-        const typeStr = entryItem.type || entryItem.nodeType || 'Node';
-        const cleanType = typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
-        return `${icon} ${cleanType}`;
-      };
-
-      const nodes = Array.from(nodesMap.values()).map(node => {
-        const pos = positions.get(node.id) || { x: 200, y: 200 };
-        const isRoot = node.id === rootId;
-        const entryItem = node.entry;
-        
-        const imgUrl = isRoot 
-          ? `idb://${entryItem.id}_root_source` 
-          : `idb://${entryItem.id}_output`;
-          
-        return {
-          id: node.id,
-          type: isRoot ? 'source' as const : 'result' as const,
-          position: pos,
-          image: imgUrl,
-          label: getHistoryNodeLabel(entryItem),
-          prompt: entryItem.prompt,
-          processingType: isRoot ? 'source' : (entryItem.type === 'upscale' ? 'upscale' : entryItem.type),
-          state: 'ready' as const,
-          parentId: node.parentId,
-          historyEntryId: entryItem.id
-        };
-      });
-      
-      const nodeTree: NodeTreeData = {
-        nodes,
-        sourceNodeId: rootId,
-        activeNodeId: entry.id,
-        createdAt: Date.now()
-      };
-      
-      navigate('/builder');
-
-      // Dispatch the workflow loading event after navigation
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('anarchy:load-workflow', {
-          detail: nodeTree
-        }));
-      }, 80);
+      await restoreViaEngine(entry);
     } catch (err) {
       console.error('[HistoryPage] Failed to restore workflow:', err);
     }
   };
 
-  // ── Send to Canvas ──────────────────────────────────────────────────────────
-  // IMPORTANT: Do NOT use sessionStorage + navigate here. The MultiBuilderPage
-  // is ALWAYS mounted (hidden via CSS) so its startup useEffect only runs once.
-  // Any sessionStorage writes after that are never picked up.
-  //
-  // Instead, we:
-  //   1. Convert the blob URL → base64 BEFORE navigate() so the blob is still
-  //      valid (HistoryPage/PreviewModal unmount on navigation, revoking blobs).
-  //   2. Call navigate('/builder') to reveal the canvas.
-  //   3. Dispatch 'anarchy:external-image-global' which BuilderPage already
-  //      listens to and uses to create a source node on the active tab.
-  const handleSendToCanvas = async (url: string, entry: HistoryEntry) => {
+  // ── Send to Canvas via HistoryEngine v3.1 RestorePipeline ──────────────────
+  // Pipeline: GraphValidation → AutoRepair → CanvasSessionManager → navigate('/builder')
+  const handleSendToCanvas = useCallback(async (url: string, entry: HistoryEntry) => {
     try {
+      // Attempt engine restore (validates graph, repairs, sets session, navigates)
+      const success = await restoreViaEngine(entry);
+      if (success) return;
+
+      // Fallback: image-only send via legacy CanvasHandoffService
       let imageData = url;
-      // Convert blob URL to base64 data URL before navigation.
-      // fetch() starts reading the blob synchronously so the data is captured
-      // even though revokeObjectURL() fires later during cleanup.
       if (url.startsWith('blob:')) {
         const res = await fetch(url);
         const blob = await res.blob();
@@ -323,46 +232,24 @@ export const HistoryPage: React.FC = () => {
         });
       }
 
-      const getHistoryNodeLabel = (entryItem: HistoryEntry): string => {
-        const icons: Record<string, string> = {
-          variation: '🎨',
-          edit: '🪄',
-          upscale: '🔍',
-          generate: '📷',
-          render: '📷',
-          source: '📷',
-        };
-        const icon = icons[entryItem.type] || icons[entryItem.nodeType || ''] || '📷';
-        const modelName = entryItem.model || entryItem.params?.model || '';
-        const cleanModel = modelName ? (modelName.length > 20 ? modelName.slice(0, 20) + '...' : modelName) : '';
-        if (cleanModel) {
-          return `${icon} ${cleanModel}`;
-        }
-        const typeStr = entryItem.type || entryItem.nodeType || 'Node';
-        const cleanType = typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
-        return `${icon} ${cleanType}`;
-      };
-
+      const { CanvasHandoffService } = await import('@/services/canvas/CanvasHandoffService');
       const nodeLabel = getHistoryNodeLabel(entry);
-
+      const promptText = entry.prompt || entry.params?.prompt || '';
+      CanvasHandoffService.setPending({
+        kind: 'image',
+        image: imageData,
+        source: entry.id ? `history:${entry.id}` : 'history',
+        label: nodeLabel,
+        prompt: promptText,
+        model: entry.model || entry.params?.model || '',
+      });
       navigate('/builder');
-
-      // Small delay so the builder tab becomes visually active before the
-      // event fires (prevents any edge case where the tab hasn't mounted yet).
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('anarchy:external-image-global', {
-          detail: {
-            image: imageData,
-            source: entry.id ? `history:${entry.id}` : 'history',
-            label: nodeLabel,
-          }
-        }));
-      }, 80);
     } catch (err) {
       console.error('[HistoryPage] handleSendToCanvas failed:', err);
-      navigate('/builder'); // navigate anyway as fallback
+      navigate('/builder');
     }
-  };
+  }, [restoreViaEngine, navigate]);
+
 
   const handleSendGroupToCanvas = async (urls: string[]) => {
     if (urls.length === 0) return;
@@ -430,6 +317,9 @@ export const HistoryPage: React.FC = () => {
       {/* Statistics */}
       <StatsRow />
 
+      {/* Live Analytics — generation metrics, duration, model usage */}
+      <HistoryMetricsBar entries={entries} />
+
       {/* Bulk Action Header */}
       <BulkActionBar
         onDeleteClick={() => setConfirmBulkDelete(true)}
@@ -440,6 +330,7 @@ export const HistoryPage: React.FC = () => {
 
       {/* Dynamic Channels Filter Bar */}
       <HistoryFilters />
+
 
       {/* Main Grid View Area */}
       <div className={`history-layout ${showPinboard ? 'with-sidebar' : ''}`}>
@@ -456,6 +347,25 @@ export const HistoryPage: React.FC = () => {
         )}
       </div>
 
+      {/* Group Explorer workspace overlay */}
+      {activeGroup && (
+        <GroupExplorerModal
+          group={activeGroup}
+          onClose={() => setActiveGroup(null)}
+          onStar={(_, id) => toggleStar(id)}
+          onDelete={(_, id) => deleteEntry(id)}
+          onDeleteGroup={async (groupId) => {
+            setActiveGroup(null);
+            await useHistoryStore.getState().deleteGroup(groupId);
+          }}
+          onAddToCollection={(_, id) => setAddToColEntryId(id)}
+          onOpenWorkflow={(entry) => {
+            setActiveGroup(null);
+            handleOpenWorkflow(entry);
+          }}
+        />
+      )}
+
       {/* Image Preview Modal Overlay */}
       {previewEntry && (
         <PreviewModal
@@ -466,26 +376,17 @@ export const HistoryPage: React.FC = () => {
           hasNext={hasNext}
           onStar={(_, id) => toggleStar(id)}
           onOpenWorkflow={handleOpenWorkflow}
-          onOpenExport={(url, name) => setExportTarget({ url, name })}
+          onOpenExport={(url, name) => {
+            if (isVideoUrl(url)) {
+              downloadImage(url, name, { isVideo: true });
+            } else {
+              setExportTarget({ url, name });
+            }
+          }}
           onSendToCanvas={handleSendToCanvas}
           onSendGroupToCanvas={handleSendGroupToCanvas}
           onReusePrompt={handleReusePrompt}
           onPreviewChange={setPreviewEntry}
-        />
-      )}
-
-      {/* Group Explorer workspace overlay */}
-      {activeGroup && (
-        <GroupExplorerModal
-          group={activeGroup}
-          onClose={() => setActiveGroup(null)}
-          onStar={(_, id) => toggleStar(id)}
-          onDelete={(_, id) => deleteEntry(id)}
-          onDeleteGroup={async (groupId) => {
-            await useHistoryStore.getState().deleteGroup(groupId);
-          }}
-          onAddToCollection={(_, id) => setAddToColEntryId(id)}
-          onOpenWorkflow={handleOpenWorkflow}
         />
       )}
 

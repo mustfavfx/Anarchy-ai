@@ -33,12 +33,55 @@
    PAGE WRAPPER
    ══════════════════════════════════════════════════════ */
 .history-page {
-  padding: 40px 48px;
+  padding: 24px 32px;
   background-color: var(--bg-app);
   height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+}
+
+.history-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+.history-grid-container {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Anarchy Generation Special Badge ── */
+.anarchy-gen-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.95) 0%, rgba(190, 18, 60, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4), 0 0 10px rgba(225, 29, 72, 0.3);
+  letter-spacing: 0.02em;
+  z-index: 4;
+  backdrop-filter: blur(4px);
+}
+
+.anarchy-gen-icon {
+  color: #ffd700;
+  animation: pulseSparkle 2s ease-in-out infinite alternate;
 }
 
 /* ── Header ── */
@@ -230,6 +273,116 @@
 .hstat-val { font-size: 16px; font-weight: 700; color: white; }
 .hstat-label { font-size: 10px; color: rgba(255, 255, 255, 0.25); text-transform: uppercase; letter-spacing: 0.3px; }
 
+/* ── History Metrics Bar ── */
+.history-metrics-bar {
+  margin-bottom: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.metrics-primary-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.metric-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.metric-chip-icon { color: #e11d48; opacity: 0.7; flex-shrink: 0; }
+.metric-chip-val { font-size: 13px; font-weight: 700; color: #fff; }
+.metric-chip-label { font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.4px; }
+
+.metrics-expand-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: transparent;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.metrics-expand-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
+
+.metrics-secondary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 10px 12px 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.12);
+}
+
+.metric-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 14px;
+  min-width: 80px;
+}
+.metric-detail-label { font-size: 9px; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.4px; }
+.metric-detail-val { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); }
+
+.metrics-model-chart {
+  width: 100%;
+  margin-top: 10px;
+  padding: 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.model-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.model-bar-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  min-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.model-bar-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.model-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #e11d48, #7c3aed);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.model-bar-pct {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  min-width: 28px;
+  text-align: right;
+}
+
+
 /* ── Filters ── */
 .history-filters {
   display: flex;
@@ -261,6 +414,23 @@
   background: rgba(255, 255, 255, 0.03);
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* Auto-tag chips */
+.hfilter-chip.tag-chip {
+  border-color: rgba(124, 58, 237, 0.25);
+  color: rgba(167, 139, 250, 0.8);
+}
+.hfilter-chip.tag-chip:hover:not(.active) {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.4);
+  color: rgba(167, 139, 250, 1);
+}
+.hfilter-chip.tag-chip.active {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: rgba(124, 58, 237, 0.5);
+  color: #a78bfa;
+}
+
 
 /* ══════════════════════════════════════════════════════
    GRID VIEW
@@ -501,6 +671,14 @@
   align-items: center;
   justify-content: center;
   animation: hfadeIn 0.12s ease;
+}
+
+.explorer-overlay {
+  z-index: 1000;
+}
+
+.history-overlay:not(.explorer-overlay) {
+  z-index: 1050;
 }
 
 @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {

@@ -11,7 +11,7 @@ import type { Node } from '@xyflow/react';
 
 export type NodeState = 'idle' | 'connecting' | 'queued' | 'processing' | 'ready' | 'completed' | 'error' | 'failed' | 'cancelled';
 
-export type NodeType = 'source' | 'ghost' | 'result';
+export type NodeType = 'source' | 'ghost' | 'result' | 'dummy' | 'group';
 
 export type ProcessingType = 
   | 'source'      // Original input image
@@ -84,6 +84,16 @@ export interface BuilderNodeData extends Record<string, unknown> {
   predictionId?: string;    // Replicate prediction ID for tracking generation
   userId?: string;          // User ID for Realtime subscription
   historyEntryId?: string;  // Links the canvas node to its history entry ID
+
+  // Dummy Node Loading State
+  isDummy?: boolean;
+  progressPercentage?: number;
+  statusMessage?: string;
+
+  // Group Node State
+  groupTitle?: string;
+  groupColor?: string;
+  groupChildren?: string[];
   
   // Lineage
   lineage: NodeLineage;
@@ -118,6 +128,7 @@ export interface BuilderNodeData extends Record<string, unknown> {
   onExecute?: (prompt: string) => void;
   onRetry?: () => void;
   onCancel?: () => void;
+  onArrangeGroup?: () => void;
   // Performance: injected once from BuilderPage to avoid per-node Zustand subscriptions
   enableWatermark?: boolean;
 }

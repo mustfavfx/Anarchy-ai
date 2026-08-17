@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NavRail } from './NavRail';
 import { TitleBar } from './TitleBar';
@@ -11,8 +11,6 @@ import { EnlargedPreview } from './EnlargedPreview';
 import { OnboardingModal } from '../../shared/components/OnboardingModal';
 import { ToastNotification } from './ToastNotification';
 import { NotificationCenter } from './NotificationCenter';
-import { getObjectUrlRegistrySize, revokeAllObjectUrls } from '../../services/history/HistoryService';
-import { DEV_MODE } from '../../services/credit/creditService';
 import './AppShell.css';
 import { track } from '../../services/tracking/trackingService';
 
@@ -39,19 +37,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const isBuilderPage   = location.pathname === '/builder';
   const isEnlargedView  = useAIConfigStore(s => s.isEnlargedView);
-
-  const [activeBlobs, setActiveBlobs] = useState(0);
-
-  useEffect(() => {
-    const isDev = import.meta.env.DEV || DEV_MODE;
-    if (!isDev) return;
-
-    setActiveBlobs(getObjectUrlRegistrySize());
-    const interval = setInterval(() => {
-      setActiveBlobs(getObjectUrlRegistrySize());
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  const isRightSidebarCollapsed = useAIConfigStore(s => s.isRightSidebarCollapsed);
 
   useEffect(() => {
     track({ event: 'page_viewed', properties: { page: location.pathname } }).catch(() => {});
@@ -150,7 +136,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
         {/* ── Builder layout: always mounted, hidden via CSS to preserve canvas state ── */}
         <main
-          className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}${!isBuilderPage ? ' app-content--hidden' : ''}`}
+          className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}${isEnlargedView && isRightSidebarCollapsed ? ' app-content--mini-canvas-hidden' : ''}${!isBuilderPage ? ' app-content--hidden' : ''}`}
         >
           <MultiBuilderPage />
         </main>
@@ -184,34 +170,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       {/* Notification center panel */}
       <NotificationCenter />
 
-      {/* Developer Mode Monitor Panel */}
-      {(import.meta.env.DEV || DEV_MODE) && (
-        <div className="dev-monitor-panel">
-          <div className="dev-monitor-header">
-            <span className="dev-monitor-title">DEV MONITOR</span>
-            <span className="dev-monitor-badge">Active</span>
-          </div>
-          <div className="dev-monitor-body">
-            <div className="dev-monitor-stat">
-              <span className="stat-label">Active Blobs:</span>
-              <span className={`stat-value ${activeBlobs > 30 ? 'warning' : ''}`}>{activeBlobs}</span>
-            </div>
-          </div>
-          <div className="dev-monitor-actions">
-            <button 
-              type="button" 
-              className="dev-monitor-btn"
-              onClick={() => {
-                revokeAllObjectUrls();
-                setActiveBlobs(0);
-              }}
-              title="Force garbage collect/revoke all Object URLs"
-            >
-              Revoke All
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

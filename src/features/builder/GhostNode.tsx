@@ -12,11 +12,12 @@
 import React, { memo, useMemo, useCallback, useEffect, useState } from 'react';
 import { Handle, Position, type NodeProps, useReactFlow, useUpdateNodeInternals, useStore } from '@xyflow/react';
 import { 
-  Loader2, AlertCircle, Eraser, RefreshCw
+  Loader2, AlertCircle, Eraser, RefreshCw, Sparkles
 } from 'lucide-react';
 import type { ProcessingType, BuilderNodeData, NodeState } from './types';
 import { predictionRealtime, type PredictionStatus } from '../../services/replicate/predictionRealtime';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
+import { useAIConfigStore } from '../../stores/aiConfigStore';
 import './GhostNode.css';
 import './GhostNode.glass.css';
 
@@ -54,9 +55,22 @@ interface GhostNodeProps extends NodeProps {
 // Extracted component to avoid nested ternary
 interface GhostPlaceholderProps {
   connectedCount: number;
+  isStandaloneGenerator?: boolean;
 }
 
-const GhostPlaceholder = memo(({ connectedCount }: GhostPlaceholderProps) => {
+const GhostPlaceholder = memo(({ connectedCount, isStandaloneGenerator }: GhostPlaceholderProps) => {
+  if (isStandaloneGenerator) {
+    return (
+      <div className="ghost-placeholder standalone-generator" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', textAlign: 'center' }}>
+        <Sparkles size={24} style={{ color: '#e11d48', filter: 'drop-shadow(0 0 8px rgba(225, 29, 72, 0.6))', marginBottom: '6px' }} />
+        <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', letterSpacing: '0.3px' }}>Ready for Prompt</span>
+        <span className="ghost-input-hint" style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '3px' }}>
+          Text-to-Image Creator • Type prompt below
+        </span>
+      </div>
+    );
+  }
+
   let message: string;
   if (connectedCount === 0) {
     message = 'Connect inputs';
@@ -121,7 +135,7 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
       }
     });
     return maxIdx;
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- id is the node ID, stable for the lifetime of this component instance
+   
   }, [incomingEdges]);
 
   // Render handles up to max connected index + 1 (min 1 slot, max 8 slots)
@@ -218,7 +232,16 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
     return `${start + (spacing * index)}%`;
   };
 
+  const studioMode = useAIConfigStore((s) => s.config.studioMode);
+  const selectedTool = useAIConfigStore((s) => s.config.selectedTool);
 
+  const isStandaloneGenerator = !data.lineage?.parentId && connectedCount === 0;
+  const isGeneratorTab = studioMode === 'generate' || selectedTool === 'image-creator' || selectedTool === 'anarchy-creator' || selectedTool === 'video-creator' || selectedTool === '3d-creator';
+
+  // Standalone generator node should only appear in Generation section of Image Studio
+  if (isStandaloneGenerator && !isGeneratorTab && !isProcessing && !isConnecting && !isQueued) {
+    return null;
+  }
 
   return (
     <div 
@@ -234,8 +257,8 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
         isConnectable={false}
       />
 
-      {/* Multiple Input Handles on Left Side */}
-      {Array.from({ length: slotCount }, (_, i) => {
+      {/* Multiple Input Handles on Left Side (Only for connected/downstream nodes) */}
+      {!isStandaloneGenerator && Array.from({ length: slotCount }, (_, i) => {
         const labelText = i === 0 ? 'Primary Source' : `Reference Input #${i}`;
         return (
           <Handle
@@ -269,7 +292,7 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
           <Eraser size={14} />
         </button>
 
-        <GhostPlaceholder connectedCount={connectedCount} />
+        <GhostPlaceholder connectedCount={connectedCount} isStandaloneGenerator={isStandaloneGenerator} />
 
 
         {/* Midjourney style progress thumbnail preview */}
@@ -356,7 +379,7 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
                 }}
               >
                 <RefreshCw size={12} />
-                Restart
+                Retry
               </button>
             )}
           </div>
@@ -381,6 +404,15 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
         <span className="ghost-handle-label" style={{ left: 'auto', right: '14px' }}>Generated Output</span>
       </Handle>
     </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.data?.state === nextProps.data?.state &&
+    prevProps.data?.promptDraft === nextProps.data?.promptDraft &&
+    prevProps.data?.image === nextProps.data?.image &&
+    prevProps.data?.updatedAt === nextProps.data?.updatedAt
   );
 });
 

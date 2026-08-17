@@ -11,6 +11,49 @@
   background: #0d0d0f;
 }
 
+/* Studio Mode Toggle (Edit vs Generate) - Transparent Pill Style */
+.studio-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.mode-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-toggle-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mode-toggle-btn.active {
+  color: #ffffff;
+  font-weight: 700;
+  background: rgba(136, 19, 55, 0.38);
+  border: 1px solid rgba(225, 29, 72, 0.65);
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.15);
+}
+
 /* Section Base */
 .control-section {
   position: relative;
@@ -232,12 +275,13 @@
 
 /* Engine Dropdown Menu */
 .engine-menu {
-  max-height: 400px;
+  max-height: 280px;
   overflow-y: auto;
+  padding: 4px;
 }
 
 .engine-menu::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .engine-menu::-webkit-scrollbar-track {
@@ -245,21 +289,21 @@
 }
 
 .engine-menu::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
 }
 
 .engine-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 4px 6px;
 }
 
 .engine-icon-small {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
   background: rgba(255, 255, 255, 0.05);
   display: grid;
   place-items: center;
@@ -273,13 +317,13 @@
 }
 
 .engine-icon-small svg {
-  width: 16px !important;
-  height: 16px !important;
+  width: 13px !important;
+  height: 13px !important;
   display: block;
 }
 
 .engine-item-name {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   flex: 1;

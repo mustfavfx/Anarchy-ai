@@ -61,6 +61,10 @@ describe('Credit Service', () => {
       it('should return correct cost for Nano Banana Lite', () => {
         expect(getModelCost('google/nano-banana-2-lite')).toBe(0.8);
       });
+
+      it('should return correct cost for Reve Edit Fast', () => {
+        expect(getModelCost('reve/edit-fast')).toBe(0.4);
+      });
       
       it('should return correct cost for Nano Banana Pro', () => {
         expect(getModelCost('google/nano-banana-pro', { resolution: '1024x1024' })).toBe(3);

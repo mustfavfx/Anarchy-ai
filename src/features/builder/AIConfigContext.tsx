@@ -20,7 +20,7 @@ export interface AIConfig {
   upscaleFactor: number;
   resolution: string;
   aspectRatio: string;
-  selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator';
+  selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator' | 'anarchy-creator';
   // Topaz Labs settings
   enhanceModel?: string;
   faceEnhancement?: boolean;
@@ -60,6 +60,8 @@ export interface SelectedNodeInfo {
   prompt: string | undefined;
   state: string | undefined;
   errorMessage?: string;
+  extractedLayout?: any;
+  layout?: any;
 }
 
 export interface CompareImages {
