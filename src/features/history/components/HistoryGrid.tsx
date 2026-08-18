@@ -19,9 +19,9 @@ export const HistoryGrid: React.FC<HistoryGridProps> = ({
   onOpenWorkflow
 }) => {
   const { isGroupedView, searchQuery, selectedFilter } = useHistoryStore();
-  const { filteredEntries, filteredGroups } = useHistoryFilters();
+  const { filteredEntries = [], filteredGroups = [] } = useHistoryFilters();
 
-  const isEmpty = isGroupedView ? filteredGroups.length === 0 : filteredEntries.length === 0;
+  const isEmpty = isGroupedView ? (filteredGroups?.length ?? 0) === 0 : (filteredEntries?.length ?? 0) === 0;
 
   if (isEmpty) {
     return (

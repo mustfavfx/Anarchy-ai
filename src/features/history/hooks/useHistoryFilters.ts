@@ -211,9 +211,10 @@ export function useHistoryFilters() {
   }, [filteredEntries, isGroupedView]);
 
   return {
-    filteredEntries,
-    groupedEntries,
-    availableModels,
+    filteredEntries: filteredEntries || [],
+    groupedEntries: groupedEntries || [],
+    filteredGroups: groupedEntries || [],
+    availableModels: availableModels || [],
     isSemanticSearching
   };
 }
