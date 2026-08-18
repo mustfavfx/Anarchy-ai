@@ -1,3 +1,10 @@
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useHistoryStore } from '@/stores/historyStore';
+import { 
+  Search, ArrowUpDown, CheckSquare, BookOpen, Trash2, 
+  Layers, Grid, SlidersHorizontal, ChevronDown, Check
+} from 'lucide-react';
+
 const MODEL_NAME_MAP: Record<string, string> = {
   'bytedance/seedream-5-pro': 'Seedream 5 Pro',
   'bytedance/seedream-4.5': 'Seedream 4.5',
@@ -24,13 +31,6 @@ function formatModelName(slug: string): string {
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 }
-
-import React from 'react';
-import { useHistoryStore } from '@/stores/historyStore';
-import { 
-  Search, ArrowUpDown, CheckSquare, BookOpen, Trash2, 
-  Layers, Grid, SlidersHorizontal
-} from 'lucide-react';
 
 interface HistoryHeaderProps {
   onClearClick: () => void;
@@ -59,8 +59,23 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
     setIsGroupedView,
   } = useHistoryStore();
 
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!isModelDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setIsModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isModelDropdownOpen]);
+
   // Extract unique model names
-  const uniqueModels = React.useMemo(() => {
+  const uniqueModels = useMemo(() => {
     const models = new Set<string>();
     entries.forEach(e => { if (e.model) models.add(e.model); });
     return Array.from(models).sort();
@@ -86,20 +101,48 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
           </div>
         </div>
 
-        {/* Model Dropdown Filter */}
+        {/* Custom Anarchy AI Model Dropdown Filter */}
         {uniqueModels.length > 0 && (
-          <div className="dropdown-container">
-            <SlidersHorizontal size={12} className="dropdown-icon" />
-            <select
-              className="history-model-select"
-              value={selectedModel}
-              onChange={e => setSelectedModel(e.target.value)}
+          <div className="history-custom-dropdown" ref={modelDropdownRef}>
+            <button
+              type="button"
+              className={`history-dropdown-trigger ${isModelDropdownOpen ? 'active' : ''} ${selectedModel !== 'all' ? 'has-filter' : ''}`}
+              onClick={() => setIsModelDropdownOpen(prev => !prev)}
             >
-              <option value="all">All Models ({uniqueModels.length})</option>
-              {uniqueModels.map(m => (
-                <option key={m} value={m}>{formatModelName(m)}</option>
-              ))}
-            </select>
+              <SlidersHorizontal size={13} className="dropdown-icon" />
+              <span className="dropdown-trigger-text">
+                {selectedModel === 'all' ? `All Models (${uniqueModels.length})` : formatModelName(selectedModel)}
+              </span>
+              <ChevronDown size={13} className={`dropdown-chevron ${isModelDropdownOpen ? 'open' : ''}`} />
+            </button>
+
+            {isModelDropdownOpen && (
+              <div className="history-dropdown-menu">
+                <button
+                  type="button"
+                  className={`history-dropdown-item ${selectedModel === 'all' ? 'selected' : ''}`}
+                  onClick={() => { setSelectedModel('all'); setIsModelDropdownOpen(false); }}
+                >
+                  <span className="item-label">All Models</span>
+                  <span className="item-count">({uniqueModels.length})</span>
+                  {selectedModel === 'all' && <Check size={13} className="item-check" />}
+                </button>
+
+                <div className="history-dropdown-divider" />
+
+                {uniqueModels.map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`history-dropdown-item ${selectedModel === m ? 'selected' : ''}`}
+                    onClick={() => { setSelectedModel(m); setIsModelDropdownOpen(false); }}
+                  >
+                    <span className="item-label">{formatModelName(m)}</span>
+                    {selectedModel === m && <Check size={13} className="item-check" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -135,28 +178,25 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
           <span>Select</span>
         </button>
 
-        {/* Collections Pinboard Toggle */}
+        {/* Pinboard toggle */}
         <button 
           className={`sort-btn ${showPinboard ? 'active' : ''}`}
           onClick={() => setShowPinboard(!showPinboard)}
-          title="Collections & Saved Pinboard Workspace"
+          title="View PDF Export Layout"
         >
           <BookOpen size={13} />
-          <span>Collections</span>
+          <span>Pinboard</span>
         </button>
 
-        {/* Export PDF Button */}
-        <button className="sort-btn" onClick={onPdfExportClick} title="Export History as PDF Contact Sheet">
-          <span>PDF</span>
+        {/* Clear history */}
+        <button 
+          className="clear-btn" 
+          onClick={onClearClick}
+          title="Clear all generated history"
+        >
+          <Trash2 size={13} />
+          <span>Clear</span>
         </button>
-
-        {/* Clear All */}
-        {entries.length > 0 && (
-          <button className="clear-all-btn" onClick={onClearClick} title="Clear All History">
-            <Trash2 size={13} />
-            <span>Clear All</span>
-          </button>
-        )}
       </div>
     </div>
   );
