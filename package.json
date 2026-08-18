@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -19,7 +19,8 @@
     "release": "node scripts/release.js",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",
-    "release:major": "node scripts/release.js major"
+    "release:major": "node scripts/release.js major",
+    "type-check": "tsc -b"
   },
   "dependencies": {
     "@sentry/react": "^10.59.0",
