@@ -26,7 +26,7 @@ export const SettingsPage: React.FC = () => {
   const aiConfig = useAIConfigStore((s) => s.config);
   const setAIConfig = useAIConfigStore((s) => s.setConfig);
   const [settings, setSettings] = useState<AppSettings>(SettingsService.getSettings());
-  const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about' | 'health'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about'>('general');
   const [saved, setSaved] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
@@ -272,7 +272,6 @@ export const SettingsPage: React.FC = () => {
           {[
             { id: 'general' as const, label: 'General', icon: <Settings size={16} /> },
             { id: 'storage' as const, label: 'Storage', icon: <Database size={16} /> },
-            { id: 'health' as const, label: 'System Health', icon: <Activity size={16} /> },
             { id: 'about' as const, label: 'About', icon: <Info size={16} /> },
           ].map(tab => (
             <button
