@@ -1352,16 +1352,26 @@ fn remove_matching_files(root: &std::path::Path, needles: &[&str], removed: &mut
 #[tauri::command]
 async fn is_plugin_installed(target: String) -> bool {
     let app_data = std::env::var("APPDATA").unwrap_or_default();
+    let prog_data = std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string());
     match target.as_str() {
         "3dsmax" => {
             let installs = detect_3dsmax_installs();
             if installs.is_empty() {
                 return false;
             }
+            let languages = ["ENU", "DEU", "FRA", "JPN", "CHS", "KOR", "PTB"];
             for install in installs {
                 let profile = std::path::PathBuf::from(&install.path);
-                let script_path = profile.join("ENU").join("scripts").join("startup").join("AnarchyConnector.ms");
-                if script_path.exists() {
+                // Check all language subfolders
+                for lang in &languages {
+                    let script_path = profile.join(lang).join("scripts").join("startup").join("AnarchyConnector.ms");
+                    let macro_path = profile.join(lang).join("usermacros").join("Anarchy-AnarchySync.mcr");
+                    if script_path.exists() || macro_path.exists() {
+                        return true;
+                    }
+                }
+                // Check direct scripts folder
+                if profile.join("scripts").join("startup").join("AnarchyConnector.ms").exists() {
                     return true;
                 }
             }
@@ -1373,10 +1383,11 @@ async fn is_plugin_installed(target: String) -> bool {
                 return false;
             }
             for install in installs {
-                let addins_dir = std::path::PathBuf::from(&app_data)
-                    .join("Autodesk").join("Revit").join("Addins").join(&install.version);
-                let addin_file = addins_dir.join("Anarchy.addin");
-                if addin_file.exists() {
+                let addin1 = std::path::PathBuf::from(&app_data)
+                    .join("Autodesk").join("Revit").join("Addins").join(&install.version).join("Anarchy.addin");
+                let addin2 = std::path::PathBuf::from(&prog_data)
+                    .join("Autodesk").join("Revit").join("Addins").join(&install.version).join("Anarchy.addin");
+                if addin1.exists() || addin2.exists() {
                     return true;
                 }
             }

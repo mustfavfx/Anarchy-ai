@@ -227,11 +227,20 @@ export const IntegrationsPage: React.FC = () => {
       const installs = (await invoke<AutodeskInstall[]>('detect_autodesk_installs', {
         target: plugin.id,
       })) || [];
-      setDetectedInstalls(installs);
-      setSelectedVersions(Array.isArray(installs) ? installs.map(install => install.version) : []);
+
+      if (Array.isArray(installs) && installs.length > 0) {
+        setDetectedInstalls(installs);
+        setSelectedVersions(installs.map(install => install.version));
+      } else {
+        // Fallback: Show all supported versions so user can select their version on any drive
+        const versions = SUPPORTED_VERSIONS[plugin.id] || ['2022', '2023', '2024', '2025', '2026', '2027'];
+        setDetectedInstalls(versions.map(v => ({ version: v, path: 'Custom / Standard Drive' })));
+        setSelectedVersions(['2024', '2025']);
+      }
     } catch (error) {
-      setDetectedInstalls([]);
-      setSelectedVersions([]);
+      const versions = SUPPORTED_VERSIONS[plugin.id] || ['2022', '2023', '2024', '2025', '2026', '2027'];
+      setDetectedInstalls(versions.map(v => ({ version: v, path: 'Custom / Standard Drive' })));
+      setSelectedVersions(['2024', '2025']);
       setInstallMessage(error instanceof Error ? error.message : String(error));
     }
   };
@@ -543,13 +552,11 @@ export const IntegrationsPage: React.FC = () => {
                   <h4>How to use inside 3ds Max</h4>
                   <ol>
                     <li>Restart 3ds Max after installation.</li>
-                    <li>Open Customize → Customize User Interface.</li>
-                    <li>Open the Toolbars tab.</li>
-                    <li>Choose Category: Anarchy.</li>
-                    <li>Drag the Anarchy command to the top toolbar.</li>
-                    <li>Open Anarchy AI Builder, then click the red A button in 3ds Max.</li>
+                    <li>A floating toolbar <strong>"Anarchy AI"</strong> and a top menu bar <strong>"Anarchy AI"</strong> will automatically appear on your screen!</li>
+                    <li>You can also find it under <em>Customize → Customize User Interface → Toolbars → Category: Anarchy</em>.</li>
+                    <li>Open Anarchy AI Builder, then click <strong>"⚡ Send to Anarchy"</strong> in 3ds Max.</li>
                   </ol>
-                  <p>The active viewport image will arrive as a Source Node in the Builder canvas.</p>
+                  <p>The active viewport image will immediately arrive as a Source Node in your Builder canvas.</p>
                 </div>
               </div>
             )}

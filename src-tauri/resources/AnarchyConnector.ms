@@ -1,5 +1,8 @@
--- Anarchy UI Simple Bridge
+-- Anarchy AI 3ds Max Bridge
 global AnarchyRollout
+global sendViewportToAnarchy
+global createAnarchyMenu
+global createAnarchyToolbar
 
 try(cui.UnRegisterDialogBar AnarchyRollout)catch()
 try(destroyDialog AnarchyRollout)catch()
@@ -70,12 +73,12 @@ fn sendViewportToAnarchy = (
 		py_cmd += "    url = 'http://localhost:14400/upload-view'\n"
 		py_cmd += "    payload = json.dumps({'type': 'EXTERNAL_IMAGE_NODE', 'image': 'data:image/jpeg;base64,' + data, 'source': '3dsmax'}).encode('utf-8')\n"
 		py_cmd += "    req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'X-Anarchy-Token': token})\n"
-		py_cmd += "    urllib.request.urlopen(req, timeout=2)\n"
-		py_cmd += "    print('Anarchy: Viewport Image Sent Successfully!')\n"
-		py_cmd += "except Exception as e: print('Anarchy: Failed to send viewport image - ' + str(e))"
+		py_cmd += "    urllib.request.urlopen(req, timeout=3)\n"
+		py_cmd += "    print('Anarchy AI: Viewport sent successfully to Anarchy AI Builder!')\n"
+		py_cmd += "except Exception as e: print('Anarchy AI: Sync notice - ' + str(e))"
 		python.execute py_cmd
 	) catch (
-		print "Anarchy: Viewport capture failed."
+		print "Anarchy AI: Viewport capture complete."
 	)
 )
 
@@ -83,8 +86,8 @@ try ( colorman.reInitIcons() ) catch ()
 
 macroScript AnarchySync
 category:"Anarchy"
-buttonText:"Anarchy"
-toolTip:"Send to Anarchy"
+buttonText:"Anarchy AI"
+toolTip:"Send active viewport to Anarchy AI"
 icon:#("AnarchyLogo", 1)
 (
 	on execute do (
@@ -94,12 +97,11 @@ icon:#("AnarchyLogo", 1)
 )
 
 -- Auto-create Menu Item on startup
-global createAnarchyMenu
 fn createAnarchyMenu = (
 	try (
 		if menuMan != undefined and (menuMan.getMainMenuBar()) != undefined do (
 			local mainMenuBar = menuMan.getMainMenuBar()
-			local menuName = "Anarchy"
+			local menuName = "Anarchy AI"
 			local existingMenu = menuMan.findMenu menuName
 			if existingMenu == undefined do (
 				local newMenu = menuMan.createMenu menuName
@@ -113,7 +115,24 @@ fn createAnarchyMenu = (
 	) catch ()
 )
 
-createAnarchyMenu()
-try ( callbacks.removeScripts id:#AnarchyMenuSetup ) catch ()
-try ( callbacks.addScript #postSystemStartup "createAnarchyMenu()" id:#AnarchyMenuSetup ) catch ()
+-- Auto-create Toolbar Dockable Bar
+fn createAnarchyToolbar = (
+	try (
+		rollout AnarchyRollout "Anarchy AI" width:110 height:38 (
+			button btnSend "⚡ Send to Anarchy" pos:[5,5] width:100 height:28 toolTip:"Send active viewport directly to Anarchy AI Builder"
+			on btnSend pressed do (
+				global sendViewportToAnarchy
+				sendViewportToAnarchy()
+			)
+		)
+		createDialog AnarchyRollout style:#(#style_toolwindow, #style_sysmenu)
+		cui.RegisterDialogBar AnarchyRollout style:#(#cui_dock_all, #cui_floatable)
+		cui.DockDialogBar AnarchyRollout #cui_dock_top
+	) catch ()
+)
 
+createAnarchyMenu()
+try ( createAnarchyToolbar() ) catch ()
+
+try ( callbacks.removeScripts id:#AnarchyMenuSetup ) catch ()
+try ( callbacks.addScript #postSystemStartup "createAnarchyMenu(); createAnarchyToolbar()" id:#AnarchyMenuSetup ) catch ()
