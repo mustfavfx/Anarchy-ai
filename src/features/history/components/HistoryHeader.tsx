@@ -1,3 +1,30 @@
+const MODEL_NAME_MAP: Record<string, string> = {
+  'bytedance/seedream-5-pro': 'Seedream 5 Pro',
+  'bytedance/seedream-4.5': 'Seedream 4.5',
+  'google/nano-banana-2': 'Google Nano Banana 2',
+  'google/nano-banana-2-lite': 'Google Nano Banana 2 Lite',
+  'google/nano-banana': 'Google Nano Banana',
+  'krea/krea-2-large': 'Krea 2 Large',
+  'openai/gpt-image-2': 'GPT Image 2',
+  'openai/dall-e-3': 'DALL·E 3',
+  'prunaai/p-image': 'Pruna AI (P-Image)',
+  'topazlabs/image-upscale': 'Topaz Labs Upscale',
+  'black-forest-labs/flux-1.1-pro': 'FLUX 1.1 Pro',
+  'black-forest-labs/flux-schnell': 'FLUX Schnell',
+  'black-forest-labs/flux-dev': 'FLUX Dev',
+  'stability-ai/sdxl': 'Stable Diffusion XL',
+};
+
+function formatModelName(slug: string): string {
+  if (!slug) return 'Unknown';
+  if (MODEL_NAME_MAP[slug]) return MODEL_NAME_MAP[slug];
+  const name = slug.includes('/') ? slug.split('/')[1] : slug;
+  return name
+    .split(/[-_]/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 import React from 'react';
 import { useHistoryStore } from '@/stores/historyStore';
 import { 
@@ -70,7 +97,7 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
             >
               <option value="all">All Models ({uniqueModels.length})</option>
               {uniqueModels.map(m => (
-                <option key={m} value={m}>{m}</option>
+                <option key={m} value={m}>{formatModelName(m)}</option>
               ))}
             </select>
           </div>

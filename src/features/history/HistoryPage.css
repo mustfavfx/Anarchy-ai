@@ -1983,8 +1983,11 @@ button.pinboard-item:hover {
 }
 
 .history-model-select option {
-  background: #121214;
-  color: white;
+  background: #16171d;
+  color: #ffffff;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 /* ══════════════════════════════════════════════════════
