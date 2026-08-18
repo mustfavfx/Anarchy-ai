@@ -92,7 +92,8 @@ class WatermarkService {
       fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     } = options;
 
-    if (!text.trim()) return;
+    const lines = text.split(/\r?\n/).map(l => l.trimEnd()).filter(l => l.length > 0);
+    if (lines.length === 0) return;
 
     ctx.save();
     ctx.font = `bold ${fontSize}px ${fontFamily}`;
@@ -105,12 +106,29 @@ class WatermarkService {
     ctx.shadowOffsetY = 1;
     ctx.fillStyle = color;
 
-    const metrics = ctx.measureText(text);
-    const textWidth = metrics.width;
-    const textHeight = fontSize;
+    const lineHeight = Math.round(fontSize * 1.25);
+    const totalBlockHeight = (lines.length - 1) * lineHeight + fontSize;
 
-    const { x, y } = this.calculatePosition(position, width, height, textWidth, textHeight);
-    ctx.fillText(text, x, y);
+    let maxLineWidth = 0;
+    for (const line of lines) {
+      const w = ctx.measureText(line).width;
+      if (w > maxLineWidth) maxLineWidth = w;
+    }
+
+    const { x, y } = this.calculatePosition(position, width, height, maxLineWidth, totalBlockHeight);
+
+    lines.forEach((line, index) => {
+      let lineX = x;
+      if (position.includes('right')) {
+        const lw = ctx.measureText(line).width;
+        lineX = x + (maxLineWidth - lw);
+      } else if (position.includes('center')) {
+        const lw = ctx.measureText(line).width;
+        lineX = x + (maxLineWidth - lw) / 2;
+      }
+      const lineY = y + index * lineHeight;
+      ctx.fillText(line, lineX, lineY);
+    });
 
     ctx.restore();
   }
