@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, FolderOpen, Image as ImageIcon, Check, Loader2, FileImage, Video } from 'lucide-react';
 import { exportImage, getImageDimensions, isVideoUrl, type ExportFormat, type ExportScale } from '../../utils/imageExport';
 import { save } from '@tauri-apps/plugin-dialog';

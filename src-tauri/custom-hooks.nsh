@@ -1,4 +1,4 @@
-﻿!macro NSIS_HOOK_PREINSTALL
+!macro NSIS_HOOK_PREINSTALL
   ; Remove any duplicate or old desktop shortcuts from both user and common desktop
   Delete "$DESKTOP\Anarchy AI.lnk"
   Delete "$DESKTOP\anarchy-ai.lnk"

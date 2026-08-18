@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Image and Video export utilities — download / save media from anywhere in the app.
  * Supports format conversion (PNG / JPG / WebP), quality control, and MP4/WebM video export.
  * Works inside Tauri's webview (no extra plugins required).

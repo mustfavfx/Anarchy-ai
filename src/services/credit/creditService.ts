@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Credit-Based Pay-as-you-go System
  * Users buy credit upfront, consume per generation
  */

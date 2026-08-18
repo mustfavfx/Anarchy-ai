@@ -1,4 +1,4 @@
-﻿cargo : warning: patch `time v0.3.48 (E:\New folder (5)\Anarchy Ai 0.07\src-tauri\patched_crates\time)` was not used 
+cargo : warning: patch `time v0.3.48 (E:\New folder (5)\Anarchy Ai 0.07\src-tauri\patched_crates\time)` was not used 
 in the crate graph
 At line:1 char:1
 + cargo run --no-default-features > rust_crash2.log 2>&1

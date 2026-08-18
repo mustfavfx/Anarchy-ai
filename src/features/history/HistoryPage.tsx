@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHistory } from './hooks/useHistory';
 import { useHistorySelection } from './hooks/useHistorySelection';

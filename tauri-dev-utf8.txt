@@ -1,4 +1,4 @@
-﻿
+
 > anarchy-ai-0-07@0.0.0 tauri
 > tauri dev
 
