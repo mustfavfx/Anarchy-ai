@@ -1,30 +1,34 @@
 /**
  * Watermark Service
- * Adds watermarks to images with customizable position and style
+ * Adds watermarks (single or multiple) to images with customizable position and style
  */
 
 import type { WatermarkPosition } from '../../stores/aiConfigStore';
 import { logger } from '../../utils/logger';
 
-export interface WatermarkOptions {
+export interface WatermarkItem {
   type?: 'text' | 'image';
-  text: string;
+  text?: string;
   watermarkImage?: string;
   watermarkImageSize?: number;
   position: WatermarkPosition;
   opacity: number;
-  fontSize: number;
+  fontSize?: number;
   color?: string;
   fontFamily?: string;
 }
 
+export interface WatermarkOptions extends WatermarkItem {
+  items?: WatermarkItem[];
+}
+
 class WatermarkService {
   /**
-   * Add watermark to image
+   * Add watermark(s) to image
    */
   async applyWatermark(
     imageUrl: string,
-    options: WatermarkOptions
+    options: WatermarkOptions | WatermarkItem[]
   ): Promise<string> {
     // Load image as bitmap to avoid CORS issues with base64 and external URLs
     const bitmap = await this.loadBitmap(imageUrl);
@@ -36,10 +40,18 @@ class WatermarkService {
     ctx.drawImage(bitmap, 0, 0);
     bitmap.close();
 
-    if (options.type === 'image' && options.watermarkImage) {
-      await this.drawImageWatermark(ctx, canvas.width, canvas.height, options);
-    } else {
-      this.drawTextWatermark(ctx, canvas.width, canvas.height, options);
+    const items: WatermarkItem[] = Array.isArray(options)
+      ? options
+      : options.items && options.items.length > 0
+        ? options.items
+        : [options];
+
+    for (const item of items) {
+      if (item.type === 'image' && item.watermarkImage) {
+        await this.drawImageWatermark(ctx, canvas.width, canvas.height, item);
+      } else if (item.text && item.text.trim().length > 0) {
+        this.drawTextWatermark(ctx, canvas.width, canvas.height, item);
+      }
     }
 
     return canvas.toDataURL('image/jpeg', 0.95);
@@ -69,23 +81,28 @@ class WatermarkService {
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
-    options: WatermarkOptions
+    options: WatermarkItem
   ): void {
     const {
-      text,
+      text = '',
       position,
       opacity,
-      fontSize,
+      fontSize = 24,
       color = '#ffffff',
-      fontFamily = 'Arial, sans-serif',
+      fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     } = options;
 
+    if (!text.trim()) return;
+
+    ctx.save();
     ctx.font = `bold ${fontSize}px ${fontFamily}`;
     ctx.globalAlpha = opacity;
 
-    // Shadow for readability on any background
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 4;
+    // Shadow for high readability on any background
+    ctx.shadowColor = 'rgba(0,0,0,0.85)';
+    ctx.shadowBlur = Math.max(4, Math.round(fontSize * 0.2));
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
     ctx.fillStyle = color;
 
     const metrics = ctx.measureText(text);
@@ -95,8 +112,7 @@ class WatermarkService {
     const { x, y } = this.calculatePosition(position, width, height, textWidth, textHeight);
     ctx.fillText(text, x, y);
 
-    ctx.globalAlpha = 1;
-    ctx.shadowBlur = 0;
+    ctx.restore();
   }
 
   /**
@@ -106,9 +122,9 @@ class WatermarkService {
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
-    options: WatermarkOptions
+    options: WatermarkItem
   ): Promise<void> {
-    const { watermarkImage, watermarkImageSize = 80, position, opacity } = options;
+    const { watermarkImage, watermarkImageSize = 20, position, opacity } = options;
     if (!watermarkImage) return;
 
     return new Promise((resolve) => {
@@ -121,9 +137,12 @@ class WatermarkService {
         const wmH = Math.round(wmW / aspect);
 
         const { x, y } = this.calculatePosition(position, width, height, wmW, wmH, true);
+        ctx.save();
         ctx.globalAlpha = opacity;
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 6;
         ctx.drawImage(wmImg, x, y, wmW, wmH);
-        ctx.globalAlpha = 1;
+        ctx.restore();
         resolve();
       };
       wmImg.onerror = () => resolve();
@@ -133,15 +152,6 @@ class WatermarkService {
 
   /**
    * Calculate position for both text and image watermarks.
-   *
-   * For TEXT:  (x, y) is the baseline anchor used by fillText — so top rows
-   *            need  y = padding + elementHeight  and bottom rows  y = imageHeight - padding.
-   *
-   * For IMAGE: (x, y) is the top-left corner used by drawImage — so top rows
-   *            need  y = padding  and bottom rows  y = imageHeight - elementHeight - padding.
-   *
-   * The caller passes `isImage = true` when computing coordinates for an image
-   * watermark so the correct formula is applied.
    */
   private calculatePosition(
     position: WatermarkPosition,
@@ -175,7 +185,6 @@ class WatermarkService {
             y: imageHeight - elementHeight - padding,
           };
         case 'bottom-right':
-          return { x: imageWidth - elementWidth - padding, y: imageHeight - elementHeight - padding };
         default:
           return { x: imageWidth - elementWidth - padding, y: imageHeight - elementHeight - padding };
       }
@@ -199,7 +208,6 @@ class WatermarkService {
       case 'bottom-center':
         return { x: Math.round((imageWidth - elementWidth) / 2), y: imageHeight - padding };
       case 'bottom-right':
-        return { x: imageWidth - elementWidth - padding, y: imageHeight - padding };
       default:
         return { x: imageWidth - elementWidth - padding, y: imageHeight - padding };
     }
@@ -210,7 +218,7 @@ class WatermarkService {
    */
   async applyWatermarkBatch(
     imageUrls: string[],
-    options: WatermarkOptions
+    options: WatermarkOptions | WatermarkItem[]
   ): Promise<string[]> {
     const results = await Promise.allSettled(
       imageUrls.map(url => this.applyWatermark(url, options))
@@ -226,25 +234,58 @@ class WatermarkService {
   }
 
   /**
-   * Remove watermark from image (experimental)
-   * Note: This is difficult and may not work perfectly
-   */
-  async removeWatermark(imageUrl: string): Promise<string> {
-    // This is a placeholder - actual watermark removal requires ML
-    // For now, just return the original image
-    logger.warn('Watermark removal is not fully implemented yet');
-    return imageUrl;
-  }
-
-  /**
    * Preview watermark without applying it
    */
   async previewWatermark(
     imageUrl: string,
-    options: WatermarkOptions
+    options: WatermarkOptions | WatermarkItem[]
   ): Promise<string> {
     return this.applyWatermark(imageUrl, options);
   }
 }
 
 export const watermarkService = new WatermarkService();
+
+/**
+ * Helper to extract all currently active watermark items from AIConfig
+ */
+export function getActiveWatermarkItems(aiConfig: any): WatermarkItem[] {
+  if (!aiConfig) return [];
+  const items: WatermarkItem[] = [];
+
+  // Slot 1 (Primary)
+  if (aiConfig.enableWatermark) {
+    const isImg = aiConfig.watermarkType === 'image';
+    const hasContent = isImg ? !!aiConfig.watermarkImage : (aiConfig.watermarkText?.trim().length ?? 0) > 0;
+    if (hasContent) {
+      items.push({
+        type: aiConfig.watermarkType || 'text',
+        text: aiConfig.watermarkText || 'Anarchy AI',
+        watermarkImage: aiConfig.watermarkImage,
+        watermarkImageSize: aiConfig.watermarkImageSize ?? 20,
+        position: aiConfig.watermarkPosition ?? 'bottom-right',
+        opacity: aiConfig.watermarkOpacity ?? 0.5,
+        fontSize: aiConfig.watermarkFontSize ?? 24,
+      });
+    }
+  }
+
+  // Slot 2 (Secondary)
+  if (aiConfig.enableWatermark2) {
+    const isImg2 = aiConfig.watermark2Type === 'image';
+    const hasContent2 = isImg2 ? !!aiConfig.watermark2Image : (aiConfig.watermark2Text?.trim().length ?? 0) > 0;
+    if (hasContent2) {
+      items.push({
+        type: aiConfig.watermark2Type || 'text',
+        text: aiConfig.watermark2Text || '',
+        watermarkImage: aiConfig.watermark2Image,
+        watermarkImageSize: aiConfig.watermark2ImageSize ?? 20,
+        position: aiConfig.watermark2Position ?? 'top-left',
+        opacity: aiConfig.watermark2Opacity ?? 0.5,
+        fontSize: aiConfig.watermark2FontSize ?? 24,
+      });
+    }
+  }
+
+  return items;
+}

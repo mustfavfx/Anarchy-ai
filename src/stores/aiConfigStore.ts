@@ -26,7 +26,7 @@ export interface AIConfig {
   aspectRatio: string;
   studioMode: 'edit' | 'generate';
   selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator' | 'anarchy-creator';
-  // Watermark settings
+  // Watermark 1 settings
   enableWatermark: boolean;
   watermarkType: 'text' | 'image';
   watermarkText: string;
@@ -35,6 +35,15 @@ export interface AIConfig {
   watermarkPosition: WatermarkPosition;
   watermarkOpacity: number;
   watermarkFontSize: number;
+  // Watermark 2 settings
+  enableWatermark2?: boolean;
+  watermark2Type?: 'text' | 'image';
+  watermark2Text?: string;
+  watermark2Image?: string;
+  watermark2ImageSize?: number;
+  watermark2Position?: WatermarkPosition;
+  watermark2Opacity?: number;
+  watermark2FontSize?: number;
   // Topaz Labs settings
   enhanceModel?: string;
   topazUpscaleFactor?: string;
@@ -149,7 +158,7 @@ const DEFAULT_CONFIG: AIConfig = {
   aspectRatio: '1:1',
   studioMode: 'edit',
   selectedTool: 'image-editor',
-  // Watermark settings
+  // Watermark 1 settings
   enableWatermark: true,
   watermarkType: 'text',
   watermarkText: 'Anarchy AI',
@@ -158,6 +167,15 @@ const DEFAULT_CONFIG: AIConfig = {
   watermarkPosition: 'bottom-right',
   watermarkOpacity: 0.5,
   watermarkFontSize: 24,
+  // Watermark 2 settings
+  enableWatermark2: false,
+  watermark2Type: 'text',
+  watermark2Text: '',
+  watermark2Image: '',
+  watermark2ImageSize: 20,
+  watermark2Position: 'top-left',
+  watermark2Opacity: 0.5,
+  watermark2FontSize: 24,
   // Topaz Labs defaults
   enhanceModel: 'Low Resolution V2',
   topazUpscaleFactor: '4x',
@@ -308,11 +326,16 @@ function loadWatermarkConfig(): Partial<AIConfig> {
 
 function saveWatermarkConfig(config: AIConfig) {
   try {
-    // Store image separately to avoid bloating main config key
+    // Store images separately to avoid bloating main config key
     if (config.watermarkImage) {
       localStorage.setItem(WM_KEY + '_img', config.watermarkImage);
     } else {
       localStorage.removeItem(WM_KEY + '_img');
+    }
+    if (config.watermark2Image) {
+      localStorage.setItem(WM_KEY + '_img2', config.watermark2Image);
+    } else {
+      localStorage.removeItem(WM_KEY + '_img2');
     }
     const wm = {
       enableWatermark: config.enableWatermark,
@@ -323,20 +346,29 @@ function saveWatermarkConfig(config: AIConfig) {
       watermarkPosition: config.watermarkPosition,
       watermarkOpacity: config.watermarkOpacity,
       watermarkFontSize: config.watermarkFontSize,
+      // Watermark 2
+      enableWatermark2: config.enableWatermark2,
+      watermark2Type: config.watermark2Type,
+      watermark2Text: config.watermark2Text,
+      watermark2Image: '', // loaded separately
+      watermark2ImageSize: config.watermark2ImageSize,
+      watermark2Position: config.watermark2Position,
+      watermark2Opacity: config.watermark2Opacity,
+      watermark2FontSize: config.watermark2FontSize,
     };
     localStorage.setItem(WM_KEY, JSON.stringify(wm));
   } catch {}
 }
 
-function loadWatermarkImage(): string {
-  try { return localStorage.getItem(WM_KEY + '_img') || ''; } catch { return ''; }
+function loadWatermarkImage(keySuffix = '_img'): string {
+  try { return localStorage.getItem(WM_KEY + keySuffix) || ''; } catch { return ''; }
 }
 
 // ── Store Creation ─────────────────────────────────────────────────────────────
 
 export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   // Config — merge persisted watermark settings on init
-  config: { ...DEFAULT_CONFIG, ...loadWatermarkConfig(), watermarkImage: loadWatermarkImage() },
+  config: { ...DEFAULT_CONFIG, ...loadWatermarkConfig(), watermarkImage: loadWatermarkImage('_img'), watermark2Image: loadWatermarkImage('_img2') },
   setConfig: (config) => {
     set((state) => {
       const next = typeof config === 'function' ? config(state.config) : config;

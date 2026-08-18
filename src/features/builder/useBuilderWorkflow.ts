@@ -24,7 +24,7 @@ import { anarchyService } from '../../services/anarchy/AnarchyService';
 import { UpscalerFactory } from '../../services/upscalers/UpscalerFactory';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
-import { watermarkService } from '../../services/watermark/WatermarkService';
+import { watermarkService, getActiveWatermarkItems } from '../../services/watermark/WatermarkService';
 import { addHistoryEntry, cacheLocalImage, getLocalImage, deleteLocalImage, revokeObjectUrl, dataURLtoBlob } from '../../services/history/HistoryService';
 import type { NodeTreeData } from '../../types/history';
 import { invoke } from '@tauri-apps/api/core';

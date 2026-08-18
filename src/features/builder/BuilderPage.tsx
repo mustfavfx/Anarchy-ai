@@ -35,7 +35,7 @@ import { restoreNodeTree } from '../../services/canvas/NodeTreeRestoreService';
 import { logger } from '../../utils/logger';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { invoke } from '@tauri-apps/api/core';
-import { watermarkService } from '../../services/watermark/WatermarkService';
+import { watermarkService, getActiveWatermarkItems } from '../../services/watermark/WatermarkService';
 
 // Hooks
 import { useBuilderCredits } from './hooks/useBuilderCredits';
