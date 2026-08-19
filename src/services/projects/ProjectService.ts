@@ -58,23 +58,33 @@ export function timeAgo(ts: number): string {
   return `${months}mo ago`;
 }
 
-function extractFirstNodeImage(n: any): string | undefined {
+function extractNodeImage(n: any): string | undefined {
   if (!n || !n.data) return undefined;
   const d = n.data;
   const candidates = [
     d.image,
     d.originalImage,
-    d.outputData?.image,
     d.inputData?.image,
+    d.inputData?.imageUrl,
+    d.inputData?.url,
+    d.outputData?.image,
+    d.outputData?.imageUrl,
+    d.outputData?.url,
+    d.imageUrl,
+    d.url,
+    d.src,
     d.compositeImage,
     d.maskImage,
+    d.previewUrl,
+    d.thumbnail,
     Array.isArray(d.images) ? d.images[0] : undefined,
     Array.isArray(d.refImages) ? d.refImages[0] : undefined,
     Array.isArray(d.referenceImages) ? d.referenceImages[0] : undefined,
+    Array.isArray(d.layers) && d.layers[0] ? d.layers[0].image : undefined,
   ];
 
   for (const img of candidates) {
-    if (typeof img === 'string' && img.trim().length > 10) {
+    if (typeof img === 'string' && img.trim().length > 5) {
       return img.trim();
     }
   }
@@ -138,11 +148,36 @@ export async function listProjects(): Promise<ProjectMeta[]> {
       let promptSnippet: string | undefined = undefined;
       let modelTag: string | undefined = undefined;
 
-      // Scan nodes for image, prompt, and model
+      // 1. Prioritize the FIRST input/source image entered into canvas
       for (const n of nodes) {
-        if (!thumbnailUrl) {
-          thumbnailUrl = extractFirstNodeImage(n);
+        const isSource = 
+          n.type === 'source' || 
+          n.data?.type === 'source' || 
+          n.data?.processingType === 'source' || 
+          (typeof n.id === 'string' && n.id.toLowerCase().startsWith('source'));
+
+        if (isSource) {
+          const img = extractNodeImage(n);
+          if (img) {
+            thumbnailUrl = img;
+            break;
+          }
         }
+      }
+
+      // 2. If no source node has an image, fallback to any node with an image (in array order)
+      if (!thumbnailUrl) {
+        for (const n of nodes) {
+          const img = extractNodeImage(n);
+          if (img) {
+            thumbnailUrl = img;
+            break;
+          }
+        }
+      }
+
+      // Extract prompt snippet & model tag
+      for (const n of nodes) {
         if (!promptSnippet) {
           promptSnippet = extractPrompt(n);
         }

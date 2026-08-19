@@ -214,18 +214,25 @@ export function useBuilderPersistence({
     }
   }, [doNewCanvas]);
 
-  // Background autosave without thumbnail generation (saves nodes, edges)
+  // Background autosave (saves nodes, edges, and input images to projects directory)
   useEffect(() => {
     if (!isRestored) return;
-    if (!currentFilePath) return;
+    if (nodes.length === 0) return;
 
     const timeoutId = setTimeout(async () => {
       try {
-        await saveWorkflow(nodes, edges, { filePath: currentFilePath });
+        const appData: string = await invoke('get_app_data_dir');
+        const projectsDir = `${appData}\\projects`;
+        await invoke('ensure_dir', { path: projectsDir });
+
+        const name = (currentFilePath ? currentFilePath.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') : 'untitled') || 'untitled';
+        const targetPath = currentFilePath || `${projectsDir}\\${name}.ana`;
+
+        await saveWorkflow(nodes, edges, { filePath: targetPath, name });
       } catch (err) {
         logger.warn('[Autosave] Background disk save failed:', err);
       }
-    }, 5000); // Debounce 5s
+    }, 2500); // Debounce 2.5s
 
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, isRestored, currentFilePath]);

@@ -72,28 +72,30 @@ async function serializeNodes(nodes: Node[]): Promise<SerializedNode[]> {
   for (const node of nodes) {
     const dataCopy = JSON.parse(JSON.stringify(stripCallbacks(node.data as Record<string, any>)));
     
-    // Resolve main image from IDB to Base64
-    if (dataCopy.image && dataCopy.image.startsWith('idb://')) {
-      const base64 = await getLocalImage(dataCopy.image);
-      if (base64) {
-        dataCopy.image = base64;
+    // Helper to resolve an IDB reference to base64
+    const resolveIdb = async (val: any): Promise<any> => {
+      if (typeof val === 'string' && val.startsWith('idb://')) {
+        const base64 = await getLocalImage(val);
+        return base64 || val;
       }
+      return val;
+    };
+
+    if (dataCopy.image) dataCopy.image = await resolveIdb(dataCopy.image);
+    if (dataCopy.originalImage) dataCopy.originalImage = await resolveIdb(dataCopy.originalImage);
+    if (dataCopy.inputData?.image) dataCopy.inputData.image = await resolveIdb(dataCopy.inputData.image);
+    if (dataCopy.outputData?.image) dataCopy.outputData.image = await resolveIdb(dataCopy.outputData.image);
+    if (dataCopy.compositeImage) dataCopy.compositeImage = await resolveIdb(dataCopy.compositeImage);
+    if (dataCopy.maskImage) dataCopy.maskImage = await resolveIdb(dataCopy.maskImage);
+
+    if (Array.isArray(dataCopy.images)) {
+      dataCopy.images = await Promise.all(dataCopy.images.map(resolveIdb));
     }
-    
-    // Resolve original image from IDB to Base64
-    if (dataCopy.originalImage && dataCopy.originalImage.startsWith('idb://')) {
-      const base64 = await getLocalImage(dataCopy.originalImage);
-      if (base64) {
-        dataCopy.originalImage = base64;
-      }
+    if (Array.isArray(dataCopy.refImages)) {
+      dataCopy.refImages = await Promise.all(dataCopy.refImages.map(resolveIdb));
     }
-    
-    // Resolve output data image from IDB to Base64
-    if (dataCopy.outputData?.image && dataCopy.outputData.image.startsWith('idb://')) {
-      const base64 = await getLocalImage(dataCopy.outputData.image);
-      if (base64) {
-        dataCopy.outputData.image = base64;
-      }
+    if (Array.isArray(dataCopy.referenceImages)) {
+      dataCopy.referenceImages = await Promise.all(dataCopy.referenceImages.map(resolveIdb));
     }
     
     serializedList.push({
