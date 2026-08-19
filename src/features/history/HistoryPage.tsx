@@ -166,6 +166,7 @@ export const HistoryPage: React.FC = () => {
     handleBulkDelete,
     handleBulkExportZip,
     handleBulkExportPDF,
+    handleExportAllPDF,
     handleBulkExportFolder
   } = useHistorySelection();
 
@@ -297,6 +298,7 @@ export const HistoryPage: React.FC = () => {
       <HistoryHeader
         onClearClick={() => setConfirmClear(true)}
         onPdfExportClick={handleBulkExportPDF}
+        onExportAllPdfClick={() => handleExportAllPDF(entries)}
         showPinboard={showPinboard}
         setShowPinboard={setShowPinboard}
       />
