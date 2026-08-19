@@ -522,7 +522,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
                           type="button"
                           className="image-action-btn remove" 
                           title="Remove"
-                          onClick={(e) => { e.stopPropagation(); nodeData.onImageUpload?.(''); }}
+                          onClick={(e) => { e.stopPropagation(); setUploadedIsVideo(false); nodeData.onImageUpload?.(''); }}
                         >
                           <X size={14} />
                         </button>

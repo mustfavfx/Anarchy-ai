@@ -360,9 +360,22 @@ export function isVideoUrl(url: string | undefined | null): boolean {
 
 export function isVideoNode(nodeData: any): boolean {
   if (!nodeData) return false;
-  if (nodeData.outputData?.metadata?.isVideo || nodeData.config?.isVideo || nodeData.isVideo) {
+
+  const imageUrl = nodeData.image || nodeData.outputData?.image;
+  if (imageUrl && typeof imageUrl === 'string') {
+    if (imageUrl.startsWith('data:image/')) return false;
+    if (isVideoUrl(imageUrl)) return true;
+  }
+
+  // If explicitly set to false, it is not a video
+  if (nodeData.isVideo === false && !nodeData.outputData?.metadata?.isVideo) {
+    return false;
+  }
+
+  if (nodeData.isVideo === true || nodeData.outputData?.metadata?.isVideo === true) {
     return true;
   }
+
   const model = nodeData.config?.model || nodeData.outputData?.metadata?.model;
   if (model) {
     const VIDEO_MODELS = [
@@ -376,11 +389,10 @@ export function isVideoNode(nodeData: any): boolean {
       'wavespeedai/wan-2.1-i2v-480p',
       'wavespeedai/wan-2.1-i2v-720p',
     ];
-    const isVidModel = VIDEO_MODELS.some(m => model.startsWith(m) || m.startsWith(model));
-    if (isVidModel) return true;
+    return VIDEO_MODELS.some(m => model.startsWith(m) || m.startsWith(model));
   }
-  const imageUrl = nodeData.image || nodeData.outputData?.image;
-  return isVideoUrl(imageUrl);
+
+  return false;
 }
 
 export const nodeTypes = {
