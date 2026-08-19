@@ -33,11 +33,37 @@ export function useHistorySelection() {
       await exportQueue.startExportJob({
         type: 'pdf',
         entryIds: Array.from(selectedIds),
-        options: { title: 'Anarchy AI — History Export' }
+        options: { title: 'Anarchy AI — Selected History Export' }
       });
       setSelectMode(false);
     } catch (err) {
       logger.error('[HistorySelection] Bulk PDF export failed:', err);
+    }
+  };
+
+  const handleExportAllPDF = async (customEntries?: any[]) => {
+    try {
+      const { loadEntries } = await import('@/services/history/HistoryService');
+      const { exportQueue } = await import('@/services/export/ExportQueueService');
+      const { useNotificationStore } = await import('@/stores/notificationStore');
+      
+      const allEntries = customEntries && customEntries.length > 0 ? customEntries : loadEntries();
+      if (!allEntries || allEntries.length === 0) {
+        useNotificationStore.getState().addNotification({
+          type: 'info',
+          title: 'History Empty',
+          message: 'No history entries found to export.'
+        });
+        return;
+      }
+
+      await exportQueue.startExportJob({
+        type: 'pdf',
+        entryIds: allEntries.map((e: any) => e.id),
+        options: { title: 'Anarchy AI — Complete History Export' }
+      });
+    } catch (err) {
+      logger.error('[HistorySelection] Full PDF export failed:', err);
     }
   };
 
@@ -93,6 +119,15 @@ export function useHistorySelection() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      await deleteSelectedEntries();
+    } catch (err) {
+      logger.error('[HistorySelection] Bulk delete failed:', err);
+    }
+  };
+
   return {
     selectMode,
     selectedIds,
@@ -100,9 +135,10 @@ export function useHistorySelection() {
     setSelectedIds,
     toggleSelectId,
     toggleSelectAll,
-    handleBulkDelete: deleteSelectedEntries,
+    handleBulkDelete,
     handleBulkExportZip,
     handleBulkExportPDF,
+    handleExportAllPDF,
     handleBulkExportFolder
   };
 }

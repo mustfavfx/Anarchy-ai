@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useHistoryStore } from '@/stores/historyStore';
 import { 
   Search, ArrowUpDown, CheckSquare, BookOpen, Trash2, 
-  Layers, Grid, SlidersHorizontal, ChevronDown, Check
+  Layers, Grid, SlidersHorizontal, ChevronDown, Check, FileDown
 } from 'lucide-react';
 
 const MODEL_NAME_MAP: Record<string, string> = {
@@ -35,6 +35,7 @@ function formatModelName(slug: string): string {
 interface HistoryHeaderProps {
   onClearClick: () => void;
   onPdfExportClick: () => void;
+  onExportAllPdfClick: () => void;
   showPinboard: boolean;
   setShowPinboard: (show: boolean) => void;
 }
@@ -42,6 +43,7 @@ interface HistoryHeaderProps {
 export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
   onClearClick,
   onPdfExportClick,
+  onExportAllPdfClick,
   showPinboard,
   setShowPinboard
 }) => {
@@ -148,6 +150,16 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
       </div>
 
       <div className="history-header-actions">
+        {/* Export All as PDF button */}
+        <button 
+          className="sort-btn export-pdf-btn" 
+          onClick={onExportAllPdfClick}
+          title="Export All History as a PDF document"
+        >
+          <FileDown size={13} />
+          <span>Export PDF</span>
+        </button>
+
         {/* View mode toggle: Single cards vs Grouped by source */}
         <button
           className={`sort-btn ${isGroupedView ? 'active' : ''}`}
