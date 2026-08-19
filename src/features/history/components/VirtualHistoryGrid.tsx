@@ -47,14 +47,21 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
     };
   }, []);
 
-  const cardWidth = 240;
+  const minCardWidth = 235;
   const gap = 16;
   
   // Calculate dynamic column count based on container width
   const columnsCount = useMemo(() => {
-    const cols = Math.floor((dimensions.width + gap) / (cardWidth + gap));
+    const cols = Math.floor((dimensions.width + gap) / (minCardWidth + gap));
     return Math.max(1, cols);
   }, [dimensions.width]);
+
+  // Calculate fluid card width to fill 100% of the row to the scrollbar seamlessly
+  const dynamicCardWidth = useMemo(() => {
+    const totalGap = (columnsCount - 1) * gap;
+    const available = Math.max(100, dimensions.width - totalGap - 8); // 8px for left/right padding
+    return Math.floor(available / columnsCount);
+  }, [dimensions.width, columnsCount]);
 
   // Dynamic grid data
   const gridItems = isGrouped ? groups : entries;
@@ -88,7 +95,7 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
           if (isGrouped) {
             const groupItem = item as HistoryGroup;
             return (
-              <div key={groupItem.id} style={{ width: `${cardWidth}px`, flexShrink: 0 }}>
+              <div key={groupItem.id} style={{ width: `${dynamicCardWidth}px`, flexShrink: 0 }}>
                 <HistoryCard
                   group={groupItem}
                   isGroup={true}
@@ -102,7 +109,7 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
           } else {
             const entryItem = item as HistoryEntry;
             return (
-              <div key={entryItem.id} style={{ width: `${cardWidth}px`, flexShrink: 0 }}>
+              <div key={entryItem.id} style={{ width: `${dynamicCardWidth}px`, flexShrink: 0 }}>
                 <HistoryCard
                   entry={entryItem}
                   isGroup={false}

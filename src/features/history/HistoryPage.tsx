@@ -26,20 +26,7 @@ import {
 import { getHistoryNodeLabel } from '@/utils/nodeLabel';
 import './HistoryPage.css';
 
-/* ════════════════════════════════════════════════════════════════════
-   STATS ROW
-   ════════════════════════════════════════════════════════════════════ */
-const StatsRow: React.FC = () => {
-  const { stats } = useHistoryStore();
-  if (stats.total === 0) return null;
-  return (
-    <div className="history-stats">
-      <div className="hstat"><Zap size={14} className="hstat-icon" /><span className="hstat-val">{stats.total}</span><span className="hstat-label">Total</span></div>
-      <div className="hstat"><Clock size={14} className="hstat-icon" /><span className="hstat-val">{stats.todayCount}</span><span className="hstat-label">Today</span></div>
-      <div className="hstat"><Star size={14} className="hstat-icon" /><span className="hstat-val">{stats.starred}</span><span className="hstat-label">Starred</span></div>
-    </div>
-  );
-};
+/* StatsRow merged into HistoryMetricsBar */
 
 /* ════════════════════════════════════════════════════════════════════
    BULK ACTION BAR
@@ -315,7 +302,7 @@ export const HistoryPage: React.FC = () => {
       />
 
       {/* Statistics */}
-      <StatsRow />
+      
 
       {/* Live Analytics — generation metrics, duration, model usage */}
       <HistoryMetricsBar entries={entries} />

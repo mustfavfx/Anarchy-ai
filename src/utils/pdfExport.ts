@@ -18,7 +18,7 @@ export interface PDFExportOptions {
 }
 
 type Margins = { top: number; right: number; bottom: number; left: number };
-type ImageItem = { url: string; name?: string; prompt?: string };
+type ImageItem = { url: string; name?: string; prompt?: string; model?: string; date?: string };
 type PageDims = { pageWidth: number; pageHeight: number; contentWidth: number; contentHeight: number };
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
@@ -31,57 +31,103 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
   const img = new Image();
   img.crossOrigin = 'anonymous';
   await new Promise((resolve, reject) => {
-    img.onload = resolve;
+    img.onload = () => resolve(img);
     img.onerror = () => reject(new Error('Image load failed'));
     img.src = resolvedUrl;
   });
   return img;
 }
 
-function calcFit(img: HTMLImageElement, dims: PageDims): { w: number; h: number } {
-  const ar = img.width / img.height;
-  let w = dims.contentWidth;
+function calcFit(img: HTMLImageElement, maxWidth: number, maxHeight: number): { w: number; h: number } {
+  const ar = (img.naturalWidth || img.width) / (img.naturalHeight || img.height || 1);
+  let w = maxWidth;
   let h = w / ar;
-  if (h > dims.contentHeight) { h = dims.contentHeight; w = h * ar; }
+  if (h > maxHeight) {
+    h = maxHeight;
+    w = h * ar;
+  }
   return { w, h };
 }
 
-function addPromptToPDF(
-  pdf: jsPDF, prompt: string, textY: number,
-  dims: PageDims, margins: Margins
-): void {
-  if (textY > dims.pageHeight - margins.bottom - 20) pdf.addPage();
-  pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(100);
-  const lines = pdf.splitTextToSize(prompt, dims.contentWidth);
-  pdf.text(lines, margins.left, textY + 10);
-}
-
 async function addImagePage(
-  pdf: jsPDF, imageData: ImageItem, index: number,
-  dims: PageDims, margins: Margins, includeMetadata: boolean
+  pdf: jsPDF, 
+  imageData: ImageItem, 
+  index: number,
+  total: number,
+  dims: PageDims, 
+  margins: Margins, 
+  includeMetadata: boolean,
+  docTitle: string
 ): Promise<void> {
   if (index > 0) pdf.addPage();
+
+  // Dark header banner
+  pdf.setFillColor(18, 18, 22);
+  pdf.rect(0, 0, dims.pageWidth, 16, 'F');
+
+  // Red accent line
+  pdf.setFillColor(225, 29, 72);
+  pdf.rect(0, 16, dims.pageWidth, 1, 'F');
+
+  // Header Title
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(10);
+  pdf.setTextColor(255, 255, 255);
+  pdf.text(docTitle.toUpperCase(), margins.left, 11);
+
+  // Header Brand
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(251, 113, 133);
+  pdf.text('ANARCHY AI', dims.pageWidth - margins.right, 11, { align: 'right' });
+
+  // Page Footer
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.setTextColor(140, 140, 150);
+  pdf.text(`Page ${index + 1} of ${total}`, dims.pageWidth / 2, dims.pageHeight - 8, { align: 'center' });
+
+  const maxImageHeight = includeMetadata && imageData.prompt ? dims.contentHeight - 45 : dims.contentHeight - 20;
+
   try {
     const img = await loadImage(imageData.url);
-    const { w, h } = calcFit(img, dims);
+    const { w, h } = calcFit(img, dims.contentWidth, maxImageHeight);
     const x = (dims.pageWidth - w) / 2;
-    const y = margins.top + 20;
-    if (imageData.name) {
-      pdf.setFontSize(16);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(imageData.name, dims.pageWidth / 2, margins.top, { align: 'center' });
-    }
-    pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'MEDIUM');
+    const y = margins.top + 5;
+
+    // Render image with high-definition compression
+    pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
+
+    // Render metadata card below image
     if (includeMetadata && imageData.prompt) {
-      addPromptToPDF(pdf, imageData.prompt, y + h + 10, dims, margins);
+      const cardY = y + h + 6;
+      const cardHeight = dims.pageHeight - margins.bottom - cardY - 6;
+
+      if (cardHeight > 15) {
+        // Prompt background card
+        pdf.setFillColor(245, 245, 248);
+        pdf.roundedRect(margins.left, cardY, dims.contentWidth, cardHeight, 3, 3, 'F');
+
+        // Prompt Label
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(80, 80, 95);
+        pdf.text('PROMPT', margins.left + 5, cardY + 6);
+
+        // Prompt text
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.setTextColor(30, 30, 40);
+        const maxLines = Math.floor((cardHeight - 10) / 4);
+        const lines = pdf.splitTextToSize(imageData.prompt, dims.contentWidth - 10);
+        const displayedLines = lines.slice(0, Math.max(1, maxLines));
+        pdf.text(displayedLines, margins.left + 5, cardY + 12);
+      }
     }
   } catch (error) {
-    logger.error(`Failed to process image ${index}:`, error);
+    logger.error(`Failed to render image ${index}:`, error);
     pdf.setFontSize(12);
-    pdf.setTextColor(255, 0, 0);
-    pdf.text(`Failed to load image: ${imageData.name || 'Unknown'}`, margins.left, margins.top + 30);
+    pdf.setTextColor(225, 29, 72);
+    pdf.text(`Image ${index + 1}: ${imageData.name || 'Unavailable'}`, margins.left, margins.top + 30);
   }
 }
 
@@ -90,13 +136,15 @@ export async function exportImagesToPDF(
   options: PDFExportOptions = {}
 ): Promise<void> {
   const {
-    title = 'Anarchy AI Export',
+    title = 'Anarchy AI History Portfolio',
     author = 'Anarchy AI',
     subject = 'AI Generated Images',
-    keywords = 'AI, Image Generation, Anarchy AI',
+    keywords = 'AI, Architecture, Design, Anarchy AI',
     includeMetadata = true,
-    margins = { top: 20, right: 20, bottom: 20, left: 20 }
+    margins = { top: 22, right: 16, bottom: 16, left: 16 }
   } = options;
+
+  if (!images || images.length === 0) return;
 
   try {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -105,16 +153,18 @@ export async function exportImagesToPDF(
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const dims: PageDims = {
-      pageWidth, pageHeight,
+      pageWidth, 
+      pageHeight,
       contentWidth: pageWidth - margins.left - margins.right,
       contentHeight: pageHeight - margins.top - margins.bottom,
     };
 
     for (let i = 0; i < images.length; i++) {
-      await addImagePage(pdf, images[i], i, dims, margins, includeMetadata);
+      await addImagePage(pdf, images[i], i, images.length, dims, margins, includeMetadata, title);
     }
 
-    const filename = `${title.replaceAll(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const safeTitle = title.replaceAll(/[^a-zA-Z0-9]/g, '_');
+    const filename = `${safeTitle}_${new Date().toISOString().split('T')[0]}.pdf`;
     pdf.save(filename);
   } catch (error) {
     logger.error('PDF export failed:', error);
@@ -140,9 +190,5 @@ export async function exportNodeImagesToPDF(
       };
     });
 
-  if (images.length === 0) {
-    throw new Error('No images found to export');
-  }
-
-  await exportImagesToPDF(images, options);
+  return exportImagesToPDF(images, options);
 }
