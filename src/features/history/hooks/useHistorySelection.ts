@@ -41,12 +41,12 @@ export function useHistorySelection() {
     }
   };
 
-  const handleExportAllPDF = async (customEntries?: any[]) => {
+    const handleExportAllPDF = async (customEntries?: any[]) => {
+    const { useNotificationStore } = await import('@/stores/notificationStore');
+    const { loadEntries, loadFullImage, loadThumbnail } = await import('@/services/history/HistoryService');
+    const { exportImagesToPDF } = await import('@/utils/pdfExport');
+
     try {
-      const { loadEntries } = await import('@/services/history/HistoryService');
-      const { exportQueue } = await import('@/services/export/ExportQueueService');
-      const { useNotificationStore } = await import('@/stores/notificationStore');
-      
       const allEntries = customEntries && customEntries.length > 0 ? customEntries : loadEntries();
       if (!allEntries || allEntries.length === 0) {
         useNotificationStore.getState().addNotification({
@@ -57,13 +57,63 @@ export function useHistorySelection() {
         return;
       }
 
-      await exportQueue.startExportJob({
-        type: 'pdf',
-        entryIds: allEntries.map((e: any) => e.id),
-        options: { title: 'Anarchy AI — Complete History Export' }
+      useNotificationStore.getState().addNotification({
+        type: 'info',
+        title: 'Preparing PDF Export',
+        message: `Gathering ${allEntries.length} images for PDF presentation...`
       });
-    } catch (err) {
+
+      const items: Array<{ url: string; name: string; prompt?: string }> = [];
+
+      for (let i = 0; i < allEntries.length; i++) {
+        const entry = allEntries[i];
+        let url = await loadFullImage(entry.id, 'output')
+               || await loadFullImage(entry.id, 'input')
+               || await loadFullImage(entry.id, 'root_source')
+               || await loadThumbnail(entry.id, 'output')
+               || await loadThumbnail(entry.id, 'input')
+               || (entry as any).outputImage 
+               || (entry as any).inputImage;
+
+        if (!url && (entry as any).sourceImageId) {
+          url = await loadFullImage((entry as any).sourceImageId, 'root_source')
+             || await loadThumbnail((entry as any).sourceImageId, 'root_source');
+        }
+
+        if (url) {
+          items.push({
+            url,
+            name: entry.label || `Image ${i + 1}`,
+            prompt: entry.prompt || (entry as any).positivePrompt || undefined
+          });
+        }
+      }
+
+      if (items.length === 0) {
+        useNotificationStore.getState().addNotification({
+          type: 'error',
+          title: 'Export Failed',
+          message: 'No valid image data could be found to export.'
+        });
+        return;
+      }
+
+      const savedPath = await exportImagesToPDF(items, { title: 'Anarchy AI History Portfolio' });
+
+      if (savedPath) {
+        useNotificationStore.getState().addNotification({
+          type: 'success',
+          title: 'PDF Export Complete',
+          message: `Saved ${items.length} images to PDF successfully.`
+        });
+      }
+    } catch (err: any) {
       logger.error('[HistorySelection] Full PDF export failed:', err);
+      useNotificationStore.getState().addNotification({
+        type: 'error',
+        title: 'Export Error',
+        message: err?.message || 'Failed to export history to PDF.'
+      });
     }
   };
 

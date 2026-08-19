@@ -28,14 +28,28 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
     if (cached) resolvedUrl = cached;
   }
 
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Image load failed'));
+    img.onerror = () => {
+      // Fallback: try fetching as Blob -> Data URL if direct assignment fails
+      fetch(resolvedUrl)
+        .then(r => r.blob())
+        .then(blob => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const fallbackImg = new Image();
+            fallbackImg.onload = () => resolve(fallbackImg);
+            fallbackImg.onerror = () => reject(new Error('Image decode failed'));
+            fallbackImg.src = reader.result as string;
+          };
+          reader.readAsDataURL(blob);
+        })
+        .catch(reject);
+    };
     img.src = resolvedUrl;
   });
-  return img;
 }
 
 function calcFit(img: HTMLImageElement, maxWidth: number, maxHeight: number): { w: number; h: number } {
@@ -94,7 +108,7 @@ async function addImagePage(
     const x = (dims.pageWidth - w) / 2;
     const y = margins.top + 5;
 
-    // Render image with high-definition compression
+    // Render image
     pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
 
     // Render metadata card below image
@@ -134,7 +148,7 @@ async function addImagePage(
 export async function exportImagesToPDF(
   images: ImageItem[],
   options: PDFExportOptions = {}
-): Promise<void> {
+): Promise<string | null> {
   const {
     title = 'Anarchy AI History Portfolio',
     author = 'Anarchy AI',
@@ -144,7 +158,7 @@ export async function exportImagesToPDF(
     margins = { top: 22, right: 16, bottom: 16, left: 16 }
   } = options;
 
-  if (!images || images.length === 0) return;
+  if (!images || images.length === 0) return null;
 
   try {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -164,8 +178,28 @@ export async function exportImagesToPDF(
     }
 
     const safeTitle = title.replaceAll(/[^a-zA-Z0-9]/g, '_');
-    const filename = `${safeTitle}_${new Date().toISOString().split('T')[0]}.pdf`;
-    pdf.save(filename);
+    const defaultFilename = `${safeTitle}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const pdfDataUri = pdf.output('datauristring');
+
+    // Attempt Native Tauri Dialog Save
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const { invoke } = await import('@tauri-apps/api/core');
+      const filePath = await save({
+        defaultPath: defaultFilename,
+        filters: [{ name: 'PDF Document', extensions: ['pdf'] }]
+      });
+
+      if (filePath) {
+        await invoke('save_image_to_path', { path: filePath, dataUri: pdfDataUri });
+        return filePath;
+      }
+      return null;
+    } catch {
+      // Browser fallback
+      pdf.save(defaultFilename);
+      return defaultFilename;
+    }
   } catch (error) {
     logger.error('PDF export failed:', error);
     throw new Error('Failed to export PDF');
@@ -175,7 +209,7 @@ export async function exportImagesToPDF(
 export async function exportNodeImagesToPDF(
   nodes: any[],
   options: PDFExportOptions = {}
-): Promise<void> {
+): Promise<string | null> {
   const images = nodes
     .filter(node => {
       const data = node?.data || {};

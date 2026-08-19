@@ -56,10 +56,11 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
     return Math.max(1, cols);
   }, [dimensions.width]);
 
-  // Calculate fluid card width to fill 100% of the row to the scrollbar seamlessly
+  // Calculate fluid card width with a generous 18px margin from the vertical scrollbar
   const dynamicCardWidth = useMemo(() => {
     const totalGap = (columnsCount - 1) * gap;
-    const available = Math.max(100, dimensions.width - totalGap - 8); // 8px for left/right padding
+    // 24px = 6px left padding + 18px right margin before the scrollbar
+    const available = Math.max(100, dimensions.width - totalGap - 24);
     return Math.floor(available / columnsCount);
   }, [dimensions.width, columnsCount]);
 
@@ -86,8 +87,8 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
           ...style, 
           display: 'flex', 
           gap: `${gap}px`,
-          paddingLeft: '4px',
-          paddingRight: '4px',
+          paddingLeft: '6px',
+          paddingRight: '18px',
           boxSizing: 'border-box'
         }}
       >
