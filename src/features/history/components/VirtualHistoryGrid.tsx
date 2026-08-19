@@ -35,8 +35,8 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
       if (entries && entries[0]) {
         const { width, height } = entries[0].contentRect;
         setDimensions({
-          width: width > 0 ? width : 1000,
-          height: height > 0 ? height : 600,
+          width: width > 0 ? width : (el.clientWidth || 1000),
+          height: height > 0 ? height : (el.clientHeight || 600),
         });
       }
     });
@@ -125,7 +125,7 @@ export const VirtualHistoryGrid: React.FC<VirtualHistoryGridProps> = ({
     <div 
       ref={containerRef} 
       className="virtual-history-grid-wrapper"
-      style={{ width: '100%', height: 'calc(100vh - 200px)', minHeight: '300px' }}
+      style={{ width: '100%', height: '100%', minHeight: 0, flex: 1, overflow: 'hidden' }}
     >
       {gridItems.length === 0 ? (
         <div className="history-empty">
