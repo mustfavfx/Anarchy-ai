@@ -160,6 +160,11 @@ export const HistoryPage: React.FC = () => {
 
   // HistoryEngine v3.1 safe restore pipeline (Validate → Repair → SessionManager → Navigate)
   const { restore: restoreViaEngine } = useHistoryRestore();
+  const { setSelectedFilter } = useHistoryStore();
+
+  useEffect(() => {
+    setSelectedFilter('all');
+  }, [setSelectedFilter]);
 
   const {
     selectedIds,
@@ -317,8 +322,6 @@ export const HistoryPage: React.FC = () => {
         onExportFolderClick={handleBulkExportFolder}
       />
 
-      {/* Dynamic Channels Filter Bar */}
-      <HistoryFilters />
 
 
       {/* Main Grid View Area */}
