@@ -109,7 +109,7 @@ export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
               className={`history-dropdown-trigger ${isModelDropdownOpen ? 'active' : ''} ${selectedModel !== 'all' ? 'has-filter' : ''}`}
               onClick={() => setIsModelDropdownOpen(prev => !prev)}
             >
-              <SlidersHorizontal size={13} className="dropdown-icon" />
+              <SlidersHorizontal size={14} className="history-model-icon" />
               <span className="dropdown-trigger-text">
                 {selectedModel === 'all' ? `All Models (${uniqueModels.length})` : formatModelName(selectedModel)}
               </span>

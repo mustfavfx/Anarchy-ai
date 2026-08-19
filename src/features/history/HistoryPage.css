@@ -2110,12 +2110,7 @@ button.pinboard-item:hover {
   position: relative;
 }
 
-.dropdown-icon {
-  position: absolute;
-  left: 10px;
-  color: rgba(255, 255, 255, 0.3);
-  pointer-events: none;
-}
+/* Legacy dropdown icon removed to avoid overlapping */
 
 .history-model-select {
   padding-left: 28px !important;
@@ -3169,26 +3164,32 @@ button.pinboard-item:hover {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 9px;
-  padding: 0 12px;
+  padding: 0 14px;
   height: 38px;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
+  white-space: nowrap;
+  position: relative;
 }
 
-.history-dropdown-trigger:hover,
-.history-dropdown-trigger.active {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.16);
+.history-model-icon {
+  position: static !important;
+  display: inline-block;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.history-dropdown-trigger:hover .history-model-icon,
+.history-dropdown-trigger.active .history-model-icon {
   color: #ffffff;
 }
 
-.history-dropdown-trigger.has-filter {
-  background: rgba(225, 29, 72, 0.12);
-  border-color: rgba(225, 29, 72, 0.35);
+.history-dropdown-trigger.has-filter .history-model-icon {
   color: #fb7185;
 }
 
