@@ -38,6 +38,10 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const [currentCanvasImage, setCurrentCanvasImage] = useState<string | null>(image);
+  const [inpaintLayers, setInpaintLayers] = useState<InpaintLayer[]>([]);
+  const [activeLayerId, setActiveLayerId] = useState<string>('base');
+  const [baseImageVisible, setBaseImageVisible] = useState(true);
+  const [showLayerStack, setShowLayerStack] = useState(true);
 
   useEffect(() => {
     if (image) {
@@ -76,11 +80,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   }, []);
 
   const [zoomScale, setZoomScale] = useState(1);
-
-    const [inpaintLayers, setInpaintLayers] = useState<InpaintLayer[]>([]);
-  const [activeLayerId, setActiveLayerId] = useState<string>('base');
-  const [baseImageVisible, setBaseImageVisible] = useState(true);
-  const [showLayerStack, setShowLayerStack] = useState(true);
   const [selectedLayerId, setSelectedLayerId] = useState<LayerId>('image');
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
     image: true,
