@@ -52,6 +52,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const activeVisibleLayer = inpaintLayers.find(l => l.visible);
   const activeImageSrc = activeVisibleLayer ? activeVisibleLayer.image : (baseImageVisible ? (currentCanvasImage || image) : null);
   const resolvedImage = useResolvedImage(activeImageSrc);
+  const resolvedBaseImage = useResolvedImage(image);
 
   const [localIsGenerating, setLocalIsGenerating] = useState(false);
   const isGenActive = isGenerating || localIsGenerating;
@@ -987,7 +988,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             setHasSelectionContent(false);
             setMaskPreviewUrl(null);
           }}
-          baseImage={useResolvedImage(image) || image}
+          baseImage={resolvedBaseImage || image}
           baseImageVisible={baseImageVisible}
           onToggleBaseImageVisibility={() => setBaseImageVisible(v => !v)}
           currentMaskPreviewUrl={maskPreviewUrl}
