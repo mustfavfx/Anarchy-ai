@@ -2635,6 +2635,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         detail: {
           imageUrl: imageKey,
           sourceNodeId: parentId,
+          prompt: payload.prompt,
         }
       }));
 

@@ -7,7 +7,7 @@ import {
 import { useResolvedImage } from '../../hooks';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { VizMakerArrowCard, type ArrowNodeItem } from './components/VizMakerArrowCard';
-import { LayersPanel, type LayerId, type LayerVisibility } from './components/LayersPanel';
+import { LayersPanel, type InpaintLayer } from './components/LayersPanel';
 import { CropOverlay } from './components/CropOverlay';
 import { useMaskHistory } from './hooks/useMaskHistory';
 import { useMagicWand } from './hooks/useMagicWand';
@@ -45,7 +45,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     }
   }, [image]);
 
-  const activeImageSrc = currentCanvasImage || image;
+  const activeVisibleLayer = inpaintLayers.find(l => l.visible);
+  const activeImageSrc = activeVisibleLayer ? activeVisibleLayer.image : (baseImageVisible ? (currentCanvasImage || image) : null);
   const resolvedImage = useResolvedImage(activeImageSrc);
 
   const [localIsGenerating, setLocalIsGenerating] = useState(false);
@@ -76,7 +77,10 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
   const [zoomScale, setZoomScale] = useState(1);
 
-  const [showLayerStack, setShowLayerStack] = useState(false);
+    const [inpaintLayers, setInpaintLayers] = useState<InpaintLayer[]>([]);
+  const [activeLayerId, setActiveLayerId] = useState<string>('base');
+  const [baseImageVisible, setBaseImageVisible] = useState(true);
+  const [showLayerStack, setShowLayerStack] = useState(true);
   const [selectedLayerId, setSelectedLayerId] = useState<LayerId>('image');
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
     image: true,
@@ -166,9 +170,22 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   useEffect(() => {
     const handleInPlaceGen = (e: Event) => {
       setLocalIsGenerating(false);
-      const customEv = e as CustomEvent<{ imageUrl: string; sourceNodeId?: string }>;
+      const customEv = e as CustomEvent<{ imageUrl: string; sourceNodeId?: string; prompt?: string }>;
       if (customEv.detail?.imageUrl) {
+        const newLayer: InpaintLayer = {
+          id: `layer-${Date.now()}`,
+          name: customEv.detail.prompt || maskPrompt.trim() || 'AI Generation',
+          prompt: customEv.detail.prompt || maskPrompt.trim() || '',
+          image: customEv.detail.imageUrl,
+          maskPreviewUrl: maskPreviewUrl,
+          visible: true,
+          createdAt: Date.now(),
+        };
+
+        setInpaintLayers(prev => [newLayer, ...prev]);
+        setActiveLayerId(newLayer.id);
         setCurrentCanvasImage(customEv.detail.imageUrl);
+
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         if (canvas && ctx) {
@@ -952,34 +969,31 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       {showLayerStack && (
         <LayersPanel
           onClose={() => setShowLayerStack(false)}
-          showSelectionLayer={maskTool === 'lasso' || hasSelectionContent}
-          arrowCount={arrowNodes.length}
-          selectedLayerId={selectedLayerId}
-          onSelectLayer={setSelectedLayerId}
-          layerVisibility={layerVisibility}
-          onToggleVisibility={(id) => setLayerVisibility((v) => ({ ...v, [id]: !v[id] }))}
-          resolvedImage={resolvedImage}
-          maskPreviewUrl={maskPreviewUrl}
-          onAddArrowLayer={() => {
-            const newArrow: ArrowNodeItem = {
-              id: `arrow-${Date.now()}`,
-              targetPos: { x: 50, y: 50 },
-              cardPos: { x: 35, y: 30 },
-              text: '',
-              refImage: null,
-            };
-            setArrowNodes((prev) => [...prev, newArrow]);
-            setSelectedLayerId('arrows');
+          layers={inpaintLayers}
+          activeLayerId={activeLayerId}
+          onSelectLayer={setActiveLayerId}
+          onToggleLayerVisibility={(id) => {
+            setInpaintLayers(prev => prev.map(l => l.id === id ? { ...l, visible: !l.visible } : l));
           }}
-          onDeleteSelectedLayer={() => {
-            if (selectedLayerId === 'arrows') {
-              setArrowNodes([]);
-              setSelectedLayerId('image');
-            } else if (selectedLayerId === 'selection') {
-              clearMask();
-              setSelectedLayerId('image');
+          onDeleteLayer={(id) => {
+            setInpaintLayers(prev => prev.filter(l => l.id !== id));
+            setActiveLayerId('base');
+          }}
+          onAddLayer={() => {
+            const canvas = canvasRef.current;
+            const ctx = canvas?.getContext('2d');
+            if (canvas && ctx) {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
+            setHasSelectionContent(false);
+            setMaskPreviewUrl(null);
           }}
+          baseImage={useResolvedImage(image) || image}
+          baseImageVisible={baseImageVisible}
+          onToggleBaseImageVisibility={() => setBaseImageVisible(v => !v)}
+          currentMaskPreviewUrl={maskPreviewUrl}
+          isGenerating={isGenActive}
+          generatingPrompt={maskPrompt}
         />
       )}
 
