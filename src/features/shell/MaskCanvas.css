@@ -814,3 +814,17 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Professional Eraser Tool Styling */
+.eraser-tool-btn.active {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+.mask-eraser-cursor {
+  border: 2px dashed #f59e0b !important;
+  background: rgba(245, 158, 11, 0.15) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+}

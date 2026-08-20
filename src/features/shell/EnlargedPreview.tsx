@@ -147,18 +147,18 @@ export const EnlargedPreview: React.FC = () => {
       {/* ── Top bar ── */}
       <div className="ep-topbar">
         <div className="ep-tabs">
-          {(['preview', 'compare', 'draw', 'enhance', 'layout'] as const).map(t => {
+          {(['preview', 'compare', 'draw', 'layout'] as const).map(t => {
             const isVid = selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage);
-            if ((t === 'draw' || t === 'enhance' || t === 'layout') && isVid) return null;
+            if ((t === 'draw' || t === 'layout') && isVid) return null;
             if (t === 'layout' && config.selectedTool !== 'anarchy-creator') return null;
-            if ((t === 'draw' || t === 'enhance') && !image) return null;
+            if (t === 'draw' && !image) return null;
             return (
               <button
                 key={t}
                 className={`ep-tab ${tab === t ? 'active' : ''}`}
                 onClick={() => handleTabChange(t as any)}
               >
-                {t === 'draw' ? 'Mask' : t === 'compare' ? 'Compare' : t === 'layout' ? 'Layers' : t === 'enhance' ? 'Enhance' : 'Preview'}
+                {t === 'draw' ? 'Mask' : t === 'compare' ? 'Compare' : t === 'layout' ? 'Layers' : 'Preview'}
               </button>
             );
           })}

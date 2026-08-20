@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   MousePointer2, LassoSelect, Paintbrush2, Eraser, Trash2, Wand2, Crop,
-  RotateCcw, RotateCw, FileDown, Layers, CornerDownRight, Sparkles,
+  RotateCcw, RotateCw, FileDown, Layers, CornerDownRight, Sparkles, Coins,
   SquareDashed, Square, Circle, FolderPlus, PenTool, Shapes, Plus, Minus,
 } from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
@@ -12,6 +12,7 @@ import { CropOverlay } from './components/CropOverlay';
 import { useMaskHistory } from './hooks/useMaskHistory';
 import { useMagicWand } from './hooks/useMagicWand';
 import { useCropTool } from './hooks/useCropTool';
+import { getModelCost } from '../../services/credit/creditService';
 import './MaskCanvas.css';
 
 export interface MaskCanvasProps {
@@ -99,6 +100,15 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const aiConfig = useAIConfigStore((state) => state.config);
   const globalPrompt = useAIConfigStore((state) => state.workspacePrompt);
   const setGlobalPrompt = useAIConfigStore((state) => state.setWorkspacePrompt);
+  const userCredits = useAIConfigStore((s) => s.userCredits) ?? null;
+  const liveModel = aiConfig.model || 'google/nano-banana-2';
+  const cost = getModelCost(liveModel, {
+    resolution: aiConfig.resolution,
+    qualityVariant: aiConfig.qualityVariant,
+    prunaTarget: aiConfig.prunaTarget,
+    width: aiConfig.width,
+    height: aiConfig.height,
+  });
   const [maskPrompt, setMaskPrompt] = useState(globalPrompt);
 
   useEffect(() => {
@@ -1123,11 +1133,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         <div className="vizmaker-bottom-prompt-bar-container">
           <div className="vizmaker-bottom-prompt-bar">
             <div className="vizmaker-prompt-inner-wrapper">
-              <div className="vizmaker-prompt-badge node-badge">
-                <span className="vizmaker-badge-chain">🔗</span>
-                <span>Node</span>
-              </div>
-
               <textarea
                 className="vizmaker-prompt-textarea"
                 value={maskPrompt}
@@ -1135,7 +1140,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
                   setMaskPrompt(e.target.value);
                   setGlobalPrompt(e.target.value);
                 }}
-                placeholder="Enter your prompt in any language..."
+                placeholder="Describe what to generate inside the masked area..."
                 rows={1}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -1161,13 +1166,25 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
                 className="vizmaker-make-btn"
                 onClick={() => void handleGenerate()}
                 disabled={isGenerating}
-                title="Generate AI Render (Make)"
+                title="Generate AI Inpaint (Make)"
               >
-                <Wand2 size={15} className={isGenerating ? 'spin' : ''} />
+                <Sparkles size={15} className={isGenerating ? 'spin' : ''} />
                 <span>{isGenerating ? 'Generating...' : 'Make'}</span>
-                <span className="vizmaker-btn-cost">🪙 1.20</span>
               </button>
             </div>
+          </div>
+
+          <div className="prompt-bottom-badges-container" style={{ marginTop: '8px', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            <span className="generate-cost-badge" title="Credits required per generation">
+              <Coins size={10} />
+              Cost: {cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            </span>
+            {userCredits !== null && (
+              <span className="user-balance-badge" title="Your available credits">
+                <Coins size={10} className="balance-icon" />
+                Balance: {userCredits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              </span>
+            )}
           </div>
         </div>
       )}

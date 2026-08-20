@@ -3,7 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { 
   FileInput, Wand2, X, Sun, Moon, Users, 
   Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright,
-  Eye, Copy, Volume2, VolumeX, Play, Pause, Clapperboard, Sparkles
+  Eye, Copy, Volume2, VolumeX, Play, Pause, Clapperboard, Sparkles, Paintbrush2
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
 import { ExportModal } from '../../shared/components/ExportModal';
@@ -311,6 +311,7 @@ export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
         ${errorState}
         ${readyState}
         ${isAnalyzed ? 'node-is-analyzed' : ''}
+        ${isMaskEditing ? 'node-mask-editing-active' : ''}
       `}
       role="button"
       tabIndex={0}

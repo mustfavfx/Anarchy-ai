@@ -1743,3 +1743,52 @@
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
+/* ── Active Mask Editing State in Canvas ── */
+.node-mask-editing-active {
+  border-color: #e11d48 !important;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.6), 0 0 25px rgba(225, 29, 72, 0.5) !important;
+  animation: maskNodeGlow 2s infinite ease-in-out !important;
+}
+
+@keyframes maskNodeGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.5), 0 0 16px rgba(225, 29, 72, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.9), 0 0 30px rgba(225, 29, 72, 0.7);
+  }
+}
+
+.node-status-badge.mask-active {
+  background: rgba(225, 29, 72, 0.2) !important;
+  border: 1px solid rgba(225, 29, 72, 0.5) !important;
+  color: #fda4af !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.node-mask-active-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.mask-active-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(225, 29, 72, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4);
+  letter-spacing: 0.02em;
+}
