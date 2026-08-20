@@ -39,7 +39,11 @@ const PROCESSING_CONFIG: Record<ProcessingType, { icon: React.ReactNode; color: 
 };
 
 
-export const BaseNode = memo(({ data, selected }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
+  const previewMode = useAIConfigStore((s) => s.previewMode);
+  const isEnlargedView = useAIConfigStore((s) => s.isEnlargedView);
+  const selectedNode = useAIConfigStore((s) => s.selectedNode);
+  const isMaskEditing = Boolean((isEnlargedView || previewMode === 'draw') && (selected || selectedNode?.id === id));
   if (process.env.NODE_ENV === 'development' || (globalThis as any).__DEV__) {
     (globalThis as any).__anarchyNodeRenders = ((globalThis as any).__anarchyNodeRenders || 0) + 1;
   }
