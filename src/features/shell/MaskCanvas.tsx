@@ -48,6 +48,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const activeImageSrc = currentCanvasImage || image;
   const resolvedImage = useResolvedImage(activeImageSrc);
 
+  const [localIsGenerating, setLocalIsGenerating] = useState(false);
+  const isGenActive = isGenerating || localIsGenerating;
   const [isDrawing, setIsDrawing] = useState(false);
   const [maskTool, setMaskTool] = useState<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow'>('brush');
   const [shapeSubTool, setShapeSubTool] = useState<'polygon' | 'rectangle' | 'circle'>('rectangle');
@@ -163,6 +165,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
   useEffect(() => {
     const handleInPlaceGen = (e: Event) => {
+      setLocalIsGenerating(false);
       const customEv = e as CustomEvent<{ imageUrl: string; sourceNodeId?: string }>;
       if (customEv.detail?.imageUrl) {
         setCurrentCanvasImage(customEv.detail.imageUrl);
@@ -175,8 +178,15 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         setMaskPreviewUrl(null);
       }
     };
+    const handleGenErr = () => {
+      setLocalIsGenerating(false);
+    };
     window.addEventListener('anarchy:mask-generated-in-place', handleInPlaceGen);
-    return () => window.removeEventListener('anarchy:mask-generated-in-place', handleInPlaceGen);
+    window.addEventListener('anarchy:mask-generation-error', handleGenErr);
+    return () => {
+      window.removeEventListener('anarchy:mask-generated-in-place', handleInPlaceGen);
+      window.removeEventListener('anarchy:mask-generation-error', handleGenErr);
+    };
   }, []);
 
   const syncCanvasSize = useCallback(() => {
@@ -601,6 +611,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   };
 
   const handleGenerate = useCallback(async () => {
+    setLocalIsGenerating(true);
     const finalPrompt = maskPrompt.trim();
     const refImages: string[] = [];
 
@@ -1019,7 +1030,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           />
           <canvas
             ref={canvasRef}
-            className={`mask-canvas-draw ${isGenerating ? 'mask-pulsing' : ''}`}
+            className={`mask-canvas-draw ${isGenActive ? 'mask-pulsing' : ''}`}
             onMouseDown={maskTool !== 'crop' && maskTool !== 'arrow' ? startDrawing : undefined}
             onMouseMove={maskTool !== 'crop' && maskTool !== 'arrow' ? draw : undefined}
             onMouseUp={maskTool !== 'crop' && maskTool !== 'arrow' ? stopDrawing : undefined}
@@ -1044,7 +1055,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
           {isDrawing && maskTool === 'lasso' && (
             <svg
-              className={`mask-shape-preview-svg ${isGenerating ? 'mask-pulsing' : ''}`}
+              className={`mask-shape-preview-svg ${isGenActive ? 'mask-pulsing' : ''}`}
               style={{
                 position: 'absolute',
                 left: 0,
@@ -1165,11 +1176,11 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
                 type="button"
                 className="vizmaker-make-btn"
                 onClick={() => void handleGenerate()}
-                disabled={isGenerating}
+                disabled={isGenActive}
                 title="Generate AI Inpaint (Make)"
               >
-                <Sparkles size={15} className={isGenerating ? 'spin' : ''} />
-                <span>{isGenerating ? 'Generating...' : 'Make'}</span>
+                <Sparkles size={15} className={isGenActive ? 'spin' : ''} />
+                <span>{isGenActive ? 'Generating...' : 'Make'}</span>
               </button>
             </div>
           </div>

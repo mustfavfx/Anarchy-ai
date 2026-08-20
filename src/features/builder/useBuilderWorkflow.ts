@@ -2410,6 +2410,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     const parentId = payload.sourceNodeId || selectedNodeId || nodesRef.current[0]?.id;
     if (!parentId) {
       logger.warn('[BuilderWorkflow] No parent node ID for mask generation');
+      window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
       return;
     }
 
@@ -2417,29 +2418,19 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     const parentData = parentNode?.data as BuilderNodeData | undefined;
     const cleanParentImage = parentData?.outputData?.image || parentData?.image;
 
-    const dummyId = spawnGhostNode(parentId, 'local');
-    if (!dummyId) return;
-
     try {
       const currentConfig = useAIConfigStore.getState().config;
       const model = currentConfig.model || 'google/nano-banana-2';
 
-      const updateState = (status: string, pct: number, msg: string) => {
-        setNodes(nds => nds.map(n => n.id === dummyId ? {
-          ...n,
-          type: 'ghostNode',
-          data: {
-            ...n.data,
-            state: status as any,
-            progressPercentage: pct,
-            statusMessage: msg,
-            promptDraft: payload.prompt,
-            config: { ...currentConfig }
-          }
-        } : n));
-      };
-
-      updateState('connecting', 20, 'Preparing engine and image inputs...');
+      // Update active parent node state to processing
+      setNodes(nds => nds.map(n => n.id === parentId ? {
+        ...n,
+        data: {
+          ...n.data,
+          state: 'processing',
+          statusMessage: 'Inpainting masked region...',
+        }
+      } : n));
 
       // 1. Resolve and upload source images
       let sourceImgUrl = cleanParentImage || payload.compositeImage;
@@ -2480,8 +2471,6 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         )).filter(Boolean);
       }
 
-      updateState('processing', 50, 'Sending request to AI engine...');
-
       const userId = getCurrentUserId() || 'anonymous';
       let generatedImageUrl = '';
 
@@ -2490,10 +2479,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       const promptToUse = cleanUserPrompt || payload.prompt || 'AI Mask Generation';
 
       if ((model as string).startsWith('google/nano-banana')) {
-        // Nano Banana models use natural spatial reasoning for masked/indicated edits.
-        // Primary input MUST BE the composite image containing the red highlight so the model sees WHERE to edit!
         const spatialPrompt = (payload.maskDataUrl || uploadedCompositeImg)
-          ? `In the red highlighted region of the image, replace or generate: "${promptToUse}". Keep all unhighlighted areas, surrounding room, wall textures, floor, lighting, and furniture 100% identical and unchanged.`
+          ? `In the red highlighted region of the image, replace or generate: "${promptToUse}". Keep all unhighlighted areas, surrounding architecture, lighting, and details 100% identical and unchanged.`
           : promptToUse;
 
         const baseParams = {
@@ -2502,7 +2489,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           model: model as any,
           resolution: currentConfig.resolution || '1K',
           aspectRatio: currentConfig.aspectRatio || 'Auto',
-          nodeId: dummyId,
+          nodeId: parentId,
           userId,
         };
 
@@ -2518,7 +2505,12 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           baseParams,
           imageInputs,
           undefined,
-          (status) => updateState(status, 75, 'Processing AI generation...')
+          (status) => {
+            setNodes(nds => nds.map(n => n.id === parentId ? {
+              ...n,
+              data: { ...n.data, statusMessage: status }
+            } : n));
+          }
         );
 
         generatedImageUrl = genResult.imageUrl;
@@ -2527,7 +2519,6 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         (model as string).includes('inpaint') ||
         (model as string).includes('flux')
       )) {
-        // Direct mask payload for inpaint-capable engines
         const prediction = await replicateService.runPrediction(
           model as string,
           {
@@ -2537,7 +2528,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
             resolution: currentConfig.resolution || '1K',
             aspect_ratio: currentConfig.aspectRatio || '1:1',
           },
-          dummyId,
+          parentId,
           userId
         );
 
@@ -2551,14 +2542,13 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           generatedImageUrl = obj.url || obj.image || (Array.isArray(obj.images) ? obj.images[0] : '');
         }
       } else {
-        // General fallback using img2img
         const baseParams = {
           ...currentConfig,
           prompt: promptToUse,
           model: model as any,
           resolution: currentConfig.resolution || 'Auto',
           aspectRatio: currentConfig.aspectRatio || 'Auto',
-          nodeId: dummyId,
+          nodeId: parentId,
           userId,
         };
 
@@ -2574,7 +2564,12 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           baseParams,
           imageInputs,
           undefined,
-          (status) => updateState(status, 75, 'Processing AI generation...')
+          (status) => {
+            setNodes(nds => nds.map(n => n.id === parentId ? {
+              ...n,
+              data: { ...n.data, statusMessage: status }
+            } : n));
+          }
         );
 
         generatedImageUrl = genResult.imageUrl;
@@ -2583,8 +2578,6 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       if (!generatedImageUrl) {
         throw new Error('No image URL received from AI engine');
       }
-
-      updateState('completed', 100, 'Generation completed successfully!');
 
       // Persist generated image locally as a Blob so it never expires
       let localBlobOrData: Blob | string = generatedImageUrl;
@@ -2609,19 +2602,13 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         false
       );
 
-      const displayLabel = payload.prompt
-        ? (payload.prompt.length > 30 ? payload.prompt.slice(0, 30) + '...' : payload.prompt)
-        : 'Mask Inpaint Edit';
-
+      // In-place update of the parent node (NO new nodes created on canvas)
       setNodes(nds => nds.map(n => 
-        n.id === dummyId 
+        n.id === parentId 
           ? { 
               ...n, 
-              type: 'baseNode', 
               data: { 
                 ...n.data, 
-                label: displayLabel,
-                type: 'result',
                 state: 'ready',
                 image: imageKey,
                 originalImage: imageKey,
@@ -2633,7 +2620,15 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           : n
       ));
 
-      useBuilderQueueStore.getState().updateJob(dummyId, { state: 'ready' });
+      // Update selectedNode in AIConfigStore
+      useAIConfigStore.getState().setSelectedNode({
+        id: parentId,
+        type: parentData?.type || 'source',
+        image: imageKey,
+        originalImage: imageKey,
+        prompt: payload.prompt,
+        state: 'ready',
+      });
 
       // Notify MaskCanvas of the completed in-place edit
       window.dispatchEvent(new CustomEvent('anarchy:mask-generated-in-place', {
@@ -2642,14 +2637,28 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
           sourceNodeId: parentId,
         }
       }));
+
+      useNotificationStore.getState().addNotification({
+        type: 'success',
+        title: 'Inpaint Generated',
+        message: 'Image updated in-place successfully.',
+        duration: 3000
+      });
     } catch (err: any) {
       logger.error('[BuilderWorkflow] Mask generation error:', err);
-      setNodes(nds => nds.map(n => n.id === dummyId ? {
+      window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
+      setNodes(nds => nds.map(n => n.id === parentId ? {
         ...n,
-        data: { ...n.data, state: 'error', errorMessage: err?.message || 'فشل التوليد بالذكاء الاصطناعي' }
+        data: { ...n.data, state: 'ready', errorMessage: err?.message || 'AI inpaint generation failed' }
       } : n));
+      useNotificationStore.getState().addNotification({
+        type: 'error',
+        title: 'Inpaint Failed',
+        message: err?.message || 'Failed to generate inpainting edit.',
+        duration: 4000
+      });
     }
-  }, [selectedNodeId, spawnGhostNode, setNodes]);
+  }, [selectedNodeId, setNodes]);
 
   // Listen for mask generation trigger from MaskCanvas / EnlargedPreview
   useEffect(() => {
