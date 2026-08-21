@@ -17,6 +17,7 @@ import './MaskCanvas.css';
 
 export interface MaskCanvasProps {
   image: string | null;
+  originalImage?: string | null;
   onMaskChange?: (maskDataUrl: string | null) => void;
   onGenerate?: (compositeDataUrl: string, maskDataUrl: string, prompt: string, refImages?: string[]) => void;
   onCrop?: (croppedDataUrl: string) => void;
@@ -186,15 +187,18 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   useEffect(() => {
     const handleInPlaceGen = (e: Event) => {
       setLocalIsGenerating(false);
-      const customEv = e as CustomEvent<{ imageUrl: string; resolvedUrl?: string; sourceNodeId?: string; prompt?: string }>;
+      const customEv = e as CustomEvent<{ imageUrl: string; resolvedUrl?: string; originalImage?: string; maskDataUrl?: string; sourceNodeId?: string; prompt?: string }>;
       if (customEv.detail?.imageUrl) {
         const directImg = customEv.detail.resolvedUrl || customEv.detail.imageUrl;
+        if (customEv.detail.originalImage) {
+          setBaseOriginalImage(customEv.detail.originalImage);
+        }
         const newLayer: InpaintLayer = {
           id: `layer-${Date.now()}`,
-          name: customEv.detail.prompt || maskPrompt.trim() || 'Background copy',
+          name: customEv.detail.prompt || maskPrompt.trim() || 'Layer Edit',
           prompt: customEv.detail.prompt || maskPrompt.trim() || '',
           image: directImg,
-          maskPreviewUrl: maskPreviewUrl || null,
+          maskPreviewUrl: maskPreviewUrl || customEv.detail.maskDataUrl || null,
           visible: true,
           selectedTarget: 'mask',
           createdAt: Date.now(),
@@ -202,7 +206,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
         setInpaintLayers(prev => [newLayer, ...prev]);
         setActiveLayerId(newLayer.id);
-        setCurrentCanvasImage(directImg);
 
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
@@ -1010,7 +1013,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             setHasSelectionContent(false);
             setMaskPreviewUrl(null);
           }}
-          baseImage={resolvedBaseImage || image}
+          baseImage={resolvedBaseImage || baseOriginalImage}
           baseImageVisible={baseImageVisible}
           onToggleBaseImageVisibility={() => setBaseImageVisible(v => !v)}
           currentMaskPreviewUrl={maskPreviewUrl}

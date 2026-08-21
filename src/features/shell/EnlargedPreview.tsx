@@ -28,7 +28,9 @@ export const EnlargedPreview: React.FC = () => {
   const setIsEnlargedView = useAIConfigStore(s => s.setIsEnlargedView);
 
   const image = (selectedNode as any)?.data?.image ?? selectedNode?.image ?? null;
+  const originalImage = (selectedNode as any)?.data?.originalImage || (selectedNode as any)?.data?.image || selectedNode?.image || null;
   const resolvedImage = useResolvedImage(image);
+  const resolvedOriginalImage = useResolvedImage(originalImage);
   const resolvedCompareA = useResolvedImage(compareImages.A);
   const resolvedCompareB = useResolvedImage(compareImages.B);
   const resolvedCompareImages = { A: resolvedCompareA, B: resolvedCompareB };
@@ -336,6 +338,7 @@ export const EnlargedPreview: React.FC = () => {
             {image ? (
               <MaskCanvas
                 image={getSafeSrc(resolvedImage, image) || null}
+                originalImage={getSafeSrc(resolvedOriginalImage, originalImage) || null}
                 showGenerateButton={true}
                 isGenerating={
                   selectedNode?.data?.state === 'generating' ||

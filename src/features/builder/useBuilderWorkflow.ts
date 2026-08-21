@@ -25,6 +25,7 @@ import { UpscalerFactory } from '../../services/upscalers/UpscalerFactory';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { watermarkService, getActiveWatermarkItems } from '../../services/watermark/WatermarkService';
+import { getModelCost, checkCreditBalance, deductCredits, refundCredits, getUserCredit, DEV_MODE } from '../../services/credit/creditService';
 import { addHistoryEntry, cacheLocalImage, getLocalImage, deleteLocalImage, revokeObjectUrl, dataURLtoBlob } from '../../services/history/HistoryService';
 import type { NodeTreeData } from '../../types/history';
 import { invoke } from '@tauri-apps/api/core';
@@ -2417,11 +2418,53 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
 
     const parentNode = nodesRef.current.find(n => n.id === parentId);
     const parentData = parentNode?.data as BuilderNodeData | undefined;
+    const initialOriginalImage = parentData?.originalImage || parentData?.outputData?.image || parentData?.image || currentSelectedNode?.image;
     const cleanParentImage = parentData?.outputData?.image || parentData?.image || currentSelectedNode?.image;
 
+    const currentConfig = useAIConfigStore.getState().config;
+    const model = currentConfig.model || 'google/nano-banana-2';
+    const isTrial = useAIConfigStore.getState().isTrial;
+    const cost = getModelCost(model as string, {
+      resolution: currentConfig.resolution,
+      qualityVariant: currentConfig.qualityVariant,
+      prunaTarget: currentConfig.prunaTarget,
+      width: (currentConfig as any).width,
+      height: (currentConfig as any).height,
+      isTrial,
+    });
+
+    const userId = getCurrentUserId();
+    let creditDeducted = false;
+
     try {
-      const currentConfig = useAIConfigStore.getState().config;
-      const model = currentConfig.model || 'google/nano-banana-2';
+      // Check and deduct credits if user is logged in
+      if (userId && userId !== 'default_user' && !DEV_MODE) {
+        const creditCheck = await checkCreditBalance(userId, cost);
+        if (!creditCheck.hasEnough) {
+          useNotificationStore.getState().addNotification({
+            type: 'error',
+            title: 'Insufficient Credits',
+            message: `You need ${cost} credits, but have ${creditCheck.balance}. Please add credits.`,
+            duration: 4000
+          });
+          window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
+          return;
+        }
+
+        const deduct = await deductCredits(userId, cost, `AI Mask Inpaint: ${payload.prompt?.slice(0, 30)}...`);
+        if (!deduct.success) {
+          useNotificationStore.getState().addNotification({
+            type: 'error',
+            title: 'Credit Deduction Failed',
+            message: deduct.error || 'Failed to deduct credits.',
+            duration: 4000
+          });
+          window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
+          return;
+        }
+        creditDeducted = true;
+        getUserCredit(userId).then(c => c && useAIConfigStore.getState().setUserCredits(c.balance)).catch(() => {});
+      }
 
       // Update active parent node state to processing
       setNodes(nds => nds.map(n => n.id === parentId ? {
@@ -2603,7 +2646,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         false
       );
 
-      // In-place update of the parent node (NO new nodes created on canvas)
+      // In-place update of the parent node (Preserve original image in Layer 1 and set inpaint result)
+      const persistentOriginalImage = parentData?.originalImage || initialOriginalImage;
       setNodes(nds => nds.map(n => 
         n.id === parentId 
           ? { 
@@ -2612,7 +2656,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
                 ...n.data, 
                 state: 'ready',
                 image: imageKey,
-                originalImage: imageKey,
+                originalImage: persistentOriginalImage,
                 prompt: payload.prompt,
                 outputData: outputPacket,
                 updatedAt: Date.now()
@@ -2626,7 +2670,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         id: parentId,
         type: parentData?.type || 'source',
         image: imageKey,
-        originalImage: imageKey,
+        originalImage: persistentOriginalImage,
         prompt: payload.prompt,
         state: 'ready',
       });
@@ -2636,6 +2680,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
         detail: {
           imageUrl: imageKey,
           resolvedUrl: generatedImageUrl,
+          originalImage: persistentOriginalImage,
+          maskDataUrl: payload.maskDataUrl,
           sourceNodeId: parentId,
           prompt: payload.prompt,
         }
@@ -2649,6 +2695,10 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       });
     } catch (err: any) {
       logger.error('[BuilderWorkflow] Mask generation error:', err);
+      if (creditDeducted && userId && userId !== 'default_user' && !DEV_MODE) {
+        await refundCredits(userId, cost, 'AI Mask Inpaint Failure Refund').catch(() => {});
+        getUserCredit(userId).then(c => c && useAIConfigStore.getState().setUserCredits(c.balance)).catch(() => {});
+      }
       window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
       
       // Preserve node image and restore ready state
