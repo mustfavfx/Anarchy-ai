@@ -13,7 +13,7 @@
 .upscale-modal-card {
   background: #0f172a;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
+  border-radius: 12px;
   width: 100%;
   max-width: 680px;
   overflow: hidden;
@@ -68,7 +68,7 @@
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -118,7 +118,7 @@
   gap: 8px;
   padding: 10px 16px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   color: #ffffff;
   font-size: 13px;
   font-weight: 600;

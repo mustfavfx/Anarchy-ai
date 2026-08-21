@@ -43,7 +43,7 @@
   bottom: 0;
   background: rgba(225, 29, 72, 0.1);
   border: 3px dashed #e11d48;
-  border-radius: 4px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -232,7 +232,7 @@
   background: rgba(18, 18, 22, 0.85);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  border-radius: 14px;
   padding: 10px;
   z-index: 100;
   box-shadow:
@@ -250,7 +250,7 @@
   color: rgba(255, 255, 255, 0.35);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -270,7 +270,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 4px;
+  border-radius: 10px;
   box-shadow: inset 0 0 0 1px rgba(225, 29, 72, 0.2);
   pointer-events: none;
 }
@@ -314,7 +314,7 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 8px 14px;
-  border-radius: 4px;
+  border-radius: 12px;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.5),
     0 10px 30px rgba(0, 0, 0, 0.3);
@@ -401,7 +401,7 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 8px 14px;
-  border-radius: 4px;
+  border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.5);
@@ -643,7 +643,7 @@
   background: rgba(18, 18, 22, 0.85);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  border-radius: 12px;
   padding: 8px;
   z-index: 100;
   box-shadow:
@@ -660,7 +660,7 @@
   color: rgba(255, 255, 255, 0.4);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -688,7 +688,7 @@
   background: rgba(18, 18, 22, 0.8);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  border-radius: 10px;
   padding: 6px 12px;
   pointer-events: auto;
 }
@@ -730,7 +730,7 @@
   background: linear-gradient(180deg, rgba(22, 22, 28, 0.98) 0%, rgba(18, 18, 22, 0.98) 100%);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
+  border-radius: 14px;
   z-index: 200;
   box-shadow: 
     0 0 0 1px rgba(0, 0, 0, 0.6),
@@ -820,7 +820,7 @@
   padding: 0 20px;
   background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   color: white;
   font-size: 13px;
   font-weight: 600;
@@ -901,7 +901,7 @@
   justify-content: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: 10px;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   transition: all 0.15s;
@@ -920,7 +920,7 @@
 .prompt-bubble-inspector {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  border-radius: 10px;
   padding: 14px;
   position: relative;
 }
@@ -943,7 +943,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  border-radius: 4px;
+  border-radius: 10px;
   font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
@@ -1148,7 +1148,7 @@
 .inspector-preview {
   width: 100%;
   aspect-ratio: 4/3;
-  border-radius: 4px;
+  border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -1176,7 +1176,7 @@
 .empty-icon {
   width: 64px;
   height: 64px;
-  border-radius: 4px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
@@ -1213,7 +1213,7 @@
   gap: 1px;
   background: linear-gradient(180deg, rgba(20, 20, 26, 0.98) 0%, rgba(14, 14, 18, 0.96) 100%);
   border: 1px solid rgba(225, 29, 72, 0.25);
-  border-radius: 4px;
+  border-radius: 10px;
   backdrop-filter: blur(18px);
   box-shadow:
     0 14px 36px rgba(0, 0, 0, 0.58),
@@ -1351,7 +1351,7 @@
   gap: 1px;
   background: linear-gradient(180deg, rgba(20, 20, 26, 0.98) 0%, rgba(14, 14, 18, 0.96) 100%);
   border: 1px solid rgba(225, 29, 72, 0.25);
-  border-radius: 4px;
+  border-radius: 10px;
   backdrop-filter: blur(18px);
   box-shadow:
     0 14px 36px rgba(0, 0, 0, 0.58),
@@ -1474,7 +1474,7 @@
   padding: 9px 18px;
   background: #c81d45;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -1509,7 +1509,7 @@
   justify-content: center;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: 8px;
   color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1546,7 +1546,7 @@
   overflow-y: auto;
   background: rgba(14, 14, 16, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: 12px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
   backdrop-filter: blur(20px);
   z-index: 1000;
@@ -1619,7 +1619,7 @@
   padding: 8px 12px;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   text-align: left;
   transition: background 0.12s;
@@ -1673,7 +1673,7 @@
 .credit-error-modal {
   background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%);
   border: 1px solid rgba(225, 29, 72, 0.3);
-  border-radius: 4px;
+  border-radius: 20px;
   width: 90%;
   max-width: 360px;
   padding: 28px 32px;
@@ -1702,7 +1702,7 @@
 .credit-error-actions button {
   flex: 1;
   padding: 12px 20px;
-  border-radius: 4px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -1754,7 +1754,7 @@
     width: calc(100% - 16px);
     padding: 4px 4px 4px 12px;
     gap: 6px;
-    border-radius: 4px;
+    border-radius: 10px;
   }
   .builder-prompt-container .generate-btn span {
     display: none;
@@ -1776,7 +1776,7 @@
 .react-flow__minimap {
   background: rgba(10, 10, 12, 0.9) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 4px !important;
+  border-radius: 8px !important;
 }
 
 .react-flow__minimap-mask {
@@ -1881,7 +1881,7 @@
 .dxf-calib-modal {
   background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%);
   border: 1px solid rgba(225, 29, 72, 0.3);
-  border-radius: 4px;
+  border-radius: 20px;
   width: 92%;
   max-width: 640px;
   padding: 28px 32px;
@@ -1908,7 +1908,7 @@
   display: inline-block;
   width: 100%;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 12px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1986,7 +1986,7 @@
 .dxf-calib-input {
   flex: 1;
   padding: 10px 12px;
-  border-radius: 4px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
@@ -2000,7 +2000,7 @@
 .dxf-calib-unit {
   width: 72px;
   padding: 10px 8px;
-  border-radius: 4px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
@@ -2009,7 +2009,7 @@
 
 .dxf-calib-reset {
   padding: 10px 14px;
-  border-radius: 4px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.8);
@@ -2043,7 +2043,7 @@
 .dxf-calib-actions button {
   flex: 1;
   padding: 12px 16px;
-  border-radius: 4px;
+  border-radius: 10px;
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
@@ -2105,7 +2105,7 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: 8px;
   background: rgba(18, 18, 24, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.85);

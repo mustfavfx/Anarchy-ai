@@ -6,7 +6,7 @@
 /* ---- Root node ---- */
 .anarchy-node {
   width: 260px;
-  border-radius: 4px;
+  border-radius: 18px;
   background: linear-gradient(
     145deg,
     rgba(255, 255, 255, 0.035) 0%,
@@ -50,7 +50,7 @@
 
 /* ---- Wrapper ---- */
 .node-wrapper {
-  border-radius: 4px;
+  border-radius: 18px;
   background: transparent;
   padding: 0;
 }
@@ -62,11 +62,11 @@
     rgba(255, 255, 255, 0.05) 0%,
     transparent 100%
   );
-  border-radius: 4px 4px 0 0;
+  border-radius: 18px 18px 0 0;
 }
 
 .node-inner-shadow {
-  border-radius: 4px;
+  border-radius: 18px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -84,7 +84,7 @@
 .type-indicator {
   width: 26px;
   height: 26px;
-  border-radius: 3px;
+  border-radius: 8px;
   border: none;
   background: rgba(255, 255, 255, 0.04) !important;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
@@ -159,7 +159,7 @@
 }
 
 .node-image-region {
-  border-radius: 4px;
+  border-radius: 12px;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.05);
   min-height: 140px;
@@ -311,7 +311,7 @@
 .image-action-btn {
   width: 28px;
   height: 28px;
-  border-radius: 3px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;

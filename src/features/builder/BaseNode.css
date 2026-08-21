@@ -9,7 +9,7 @@
   width: 100%;
   min-width: 200px;
   position: relative;
-  border-radius: 4px;
+  border-radius: 14px;
   background: 
     linear-gradient(135deg, rgba(30, 30, 35, 0.85) 0%, rgba(18, 18, 22, 0.9) 50%, rgba(12, 12, 16, 0.95) 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -78,7 +78,7 @@
 .node-selection-ring {
   position: absolute;
   inset: -3px;
-  border-radius: 6px;
+  border-radius: 23px;
   border: 2px solid transparent;
   opacity: 0;
   transition: all 0.2s ease;
@@ -237,7 +237,7 @@
 .node-wrapper {
   position: relative;
   z-index: 1;
-  border-radius: 4px;
+  border-radius: 20px;
   overflow: hidden;
   background: inherit;
 }
@@ -263,7 +263,7 @@
 .node-inner-shadow {
   position: absolute;
   inset: 0;
-  border-radius: 4px;
+  border-radius: 20px;
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.03);
   pointer-events: none;
   z-index: 2;
@@ -294,7 +294,7 @@
 .type-indicator {
   width: 28px;
   height: 28px;
-  border-radius: 3px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -406,7 +406,7 @@
 .node-image-region {
   width: 100%;
   aspect-ratio: 1.5; /* Premium aspect ratio prevents node layout shifts and collapses */
-  border-radius: 4px;
+  border-radius: 12px;
   background: rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
@@ -426,7 +426,7 @@
   height: 100%;
   max-height: 100%;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 10px;
   transition: transform 0.3s ease, opacity 0.2s ease;
   display: block;
 }
@@ -503,7 +503,7 @@
 .image-action-btn {
   width: 32px;
   height: 32px;
-  border-radius: 3px;
+  border-radius: 8px;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -616,7 +616,7 @@
 .rp-icon {
   width: 44px;
   height: 44px;
-  border-radius: 4px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.03);
   display: flex;
   align-items: center;
@@ -754,7 +754,7 @@
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  border-radius: 10px;
   position: relative;
 }
 
@@ -814,7 +814,7 @@
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
+  border-radius: 10px;
 }
 
 .lineage-thumb {
@@ -937,7 +937,7 @@
   align-items: center;
   gap: 6px;
   padding: 7px 14px;
-  border-radius: 3px;
+  border-radius: 8px;
   background: rgba(225, 29, 72, 0.1);
   border: 1px solid rgba(225, 29, 72, 0.2);
   color: var(--accent-red);
@@ -1168,7 +1168,7 @@
   padding: 8px 12px;
   border: none;
   background: transparent;
-  border-radius: 3px;
+  border-radius: 8px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
@@ -1190,7 +1190,7 @@
   padding: 6px 12px;
   background: rgba(225, 29, 72, 0.1);
   border: 1px solid rgba(225, 29, 72, 0.2);
-  border-radius: 3px;
+  border-radius: 8px;
   font-size: 11px;
   font-weight: 600;
   color: var(--accent-red);
@@ -1277,7 +1277,7 @@
 
 .process-status-badge .status-pill {
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: 20px;
   font-size: 11px;
   font-weight: 500;
   background: rgba(255, 255, 255, 0.05);
@@ -1788,7 +1788,7 @@
   font-size: 9.5px;
   font-weight: 700;
   padding: 2px 7px;
-  border-radius: 4px;
+  border-radius: 12px;
   box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4);
   letter-spacing: 0.02em;
 }

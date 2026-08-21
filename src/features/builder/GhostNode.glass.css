@@ -6,7 +6,7 @@
 /* ---- Root ghost node: glass look ---- */
 .ghost-node {
   width: 200px;
-  border-radius: 4px;
+  border-radius: 18px;
   background: linear-gradient(
     145deg,
     rgba(255, 255, 255, 0.035) 0%,
@@ -66,7 +66,7 @@
 .ghost-node-content {
   position: relative;
   z-index: 2;
-  border-radius: 4px;
+  border-radius: 18px;
   overflow: hidden;
 }
 
@@ -111,7 +111,7 @@
 .ghost-type-badge {
   width: 26px;
   height: 26px;
-  border-radius: 3px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -177,7 +177,7 @@
 }
 
 .ghost-visual {
-  border-radius: 4px;
+  border-radius: 12px;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.05);
   min-height: 140px;
@@ -282,7 +282,7 @@
 /* ---- Prompt preview ---- */
 .ghost-prompt-preview {
   padding: 8px 10px;
-  border-radius: 3px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 11px;
@@ -363,7 +363,7 @@
 .ghost-node.minimal > .ghost-visual {
   min-height: 100px;
   width: 180px;
-  border-radius: 4px;
+  border-radius: 12px;
 }
 
 /* Eraser button - floats in top-right of the visual area */
@@ -373,7 +373,7 @@
   right: 8px;
   width: 28px;
   height: 28px;
-  border-radius: 3px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
