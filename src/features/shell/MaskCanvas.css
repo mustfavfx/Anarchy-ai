@@ -828,3 +828,188 @@
   background: rgba(245, 158, 11, 0.15) !important;
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
 }
+
+/* ── Photoshop Layer Mask Styles (Exact Replication) ─────────────────────────── */
+
+.ps-layers-panel {
+  width: 260px;
+  background: #1e1e24;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.ps-layer-item {
+  padding: 5px 8px;
+  background: #25262d;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.ps-layer-item:hover {
+  background: #2c2d36;
+}
+
+.ps-layer-item.active {
+  background: #323440;
+  border-color: #3b82f6;
+}
+
+.ps-thumb-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.ps-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 2px;
+  background: #000000;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ps-thumb:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.ps-thumb.selected-target {
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), inset 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.ps-thumb-mask {
+  background: #000000;
+}
+
+.ps-mask-white-fill {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+}
+
+.ps-thumb-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0 1px;
+}
+
+.ps-layer-title {
+  font-size: 12px;
+  color: #e2e8f0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ps-layers-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 2px 4px;
+}
+
+.ps-layer-color-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 3px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.ps-layer-color-switch:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ps-color-chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid #444;
+}
+
+.ps-color-chip.white {
+  background: #ffffff;
+}
+
+.ps-color-chip.white.active {
+  border: 1.5px solid #3b82f6;
+  box-shadow: 0 0 5px rgba(59, 130, 246, 0.8);
+}
+
+.ps-color-chip.black {
+  background: #000000;
+}
+
+.ps-color-chip.black.active {
+  border: 1.5px solid #3b82f6;
+  box-shadow: 0 0 5px rgba(59, 130, 246, 0.8);
+}
+
+.ps-color-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.ps-footer-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Photoshop Toolbar Color Switcher (Top Toolbar) */
+.ps-toolbar-color-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ps-toolbar-chips {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+
+.ps-toolbar-chip-fg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #222;
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.ps-toolbar-chip-bg {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #222;
+  border-radius: 2px;
+  z-index: 1;
+}

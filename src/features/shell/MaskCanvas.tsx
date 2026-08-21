@@ -67,6 +67,22 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [showBrushCursor, setShowBrushCursor] = useState(false);
   const [brushColor, setBrushColor] = useState('#e11d48');
+  const [psMaskColor, setPsMaskColor] = useState<'white' | 'black'>('white');
+
+  // Keyboard shortcut 'X' to swap Black & White mask colors, 'D' for default
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (e.key === 'x' || e.key === 'X') {
+        setPsMaskColor(prev => prev === 'white' ? 'black' : 'white');
+      } else if (e.key === 'd' || e.key === 'D') {
+        setPsMaskColor('white');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
   const maskOpacity = 0.55;
 
   useEffect(() => {
@@ -174,11 +190,12 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       if (customEv.detail?.imageUrl) {
         const newLayer: InpaintLayer = {
           id: `layer-${Date.now()}`,
-          name: customEv.detail.prompt || maskPrompt.trim() || 'AI Generation',
+          name: customEv.detail.prompt || maskPrompt.trim() || 'Background copy',
           prompt: customEv.detail.prompt || maskPrompt.trim() || '',
           image: customEv.detail.imageUrl,
-          maskPreviewUrl: maskPreviewUrl,
+          maskPreviewUrl: maskPreviewUrl || null,
           visible: true,
+          selectedTarget: 'mask',
           createdAt: Date.now(),
         };
 
@@ -971,7 +988,10 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           onClose={() => setShowLayerStack(false)}
           layers={inpaintLayers}
           activeLayerId={activeLayerId}
-          onSelectLayer={setActiveLayerId}
+          onSelectLayer={(id, target = 'mask') => {
+            setActiveLayerId(id);
+            setInpaintLayers(prev => prev.map(l => l.id === id ? { ...l, selectedTarget: target } : l));
+          }}
           onToggleLayerVisibility={(id) => {
             setInpaintLayers(prev => prev.map(l => l.id === id ? { ...l, visible: !l.visible } : l));
           }}
@@ -994,6 +1014,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           currentMaskPreviewUrl={maskPreviewUrl}
           isGenerating={isGenActive}
           generatingPrompt={maskPrompt}
+          activeMaskColor={psMaskColor}
+          onToggleMaskColor={() => setPsMaskColor(c => c === 'white' ? 'black' : 'white')}
         />
       )}
 

@@ -1,13 +1,15 @@
 import React from 'react';
-import { ChevronUp, Eye, EyeOff, Lock, Plus, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { ChevronUp, Eye, EyeOff, Lock, Plus, Trash2, Loader2, Sparkles, Link2 } from 'lucide-react';
 
 export interface InpaintLayer {
   id: string;
   name: string;
   prompt: string;
   image: string;
+  maskDataUrl?: string | null;
   maskPreviewUrl?: string | null;
   visible: boolean;
+  selectedTarget: 'image' | 'mask';
   isGenerating?: boolean;
   createdAt: number;
 }
@@ -16,7 +18,7 @@ export interface LayersPanelProps {
   onClose: () => void;
   layers: InpaintLayer[];
   activeLayerId: string;
-  onSelectLayer: (id: string) => void;
+  onSelectLayer: (id: string, target?: 'image' | 'mask') => void;
   onToggleLayerVisibility: (id: string) => void;
   onDeleteLayer: (id: string) => void;
   onAddLayer: () => void;
@@ -26,6 +28,8 @@ export interface LayersPanelProps {
   currentMaskPreviewUrl?: string | null;
   isGenerating?: boolean;
   generatingPrompt?: string;
+  activeMaskColor?: 'white' | 'black';
+  onToggleMaskColor?: () => void;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
@@ -42,9 +46,11 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   currentMaskPreviewUrl,
   isGenerating = false,
   generatingPrompt = '',
+  activeMaskColor = 'white',
+  onToggleMaskColor,
 }) => {
   return (
-    <div className="vizmaker-layers-overlay-panel">
+    <div className="vizmaker-layers-overlay-panel ps-layers-panel">
       <div className="vizmaker-layers-header">
         <div className="vizmaker-layers-title-row">
           <Sparkles size={13} style={{ color: '#e11d48' }} />
@@ -55,81 +61,113 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         </button>
       </div>
 
-      <div className="vizmaker-layers-list">
+      <div className="vizmaker-layers-list ps-layers-list">
         {/* Active Generating Layer Indicator */}
         {isGenerating && (
-          <div className="vizmaker-layer-item generating active">
+          <div className="vizmaker-layer-item ps-layer-item generating active">
             <div className="vizmaker-layer-eye-btn">
               <Loader2 size={13} className="spin" style={{ color: '#e11d48' }} />
             </div>
-            <div className="vizmaker-layer-thumb-box-dual">
-              <div className="vizmaker-layer-thumb-main">
+            <div className="ps-thumb-group">
+              <div className="ps-thumb ps-thumb-image">
                 {baseImage ? (
                   <img src={baseImage} alt="Base" className="vizmaker-layer-img-preview" />
                 ) : (
                   <div className="vizmaker-empty-thumb" />
                 )}
               </div>
-              <div className="vizmaker-layer-thumb-mask" style={{ background: '#000000', overflow: 'hidden' }}>
+              <div className="ps-thumb-link">
+                <Link2 size={11} style={{ color: 'rgba(255,255,255,0.4)' }} />
+              </div>
+              <div className="ps-thumb ps-thumb-mask active-mask-target">
                 {currentMaskPreviewUrl ? (
                   <img src={currentMaskPreviewUrl} alt="Mask Thumb" className="vizmaker-layer-img-preview" />
                 ) : (
-                  <span className="vizmaker-mask-symbol">M</span>
+                  <div className="ps-mask-white-fill" />
                 )}
               </div>
             </div>
             <span className="vizmaker-layer-title generating-title">
-              {generatingPrompt ? (generatingPrompt.length > 20 ? generatingPrompt.slice(0, 20) + '...' : generatingPrompt) : 'Generating inpaint...'}
+              {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : 'Generating inpaint...'}
             </span>
           </div>
         )}
 
-        {/* Current Inpaint Layers Stack */}
-        {layers.map((layer) => (
-          <div
-            key={layer.id}
-            className={`vizmaker-layer-item ${activeLayerId === layer.id ? 'active' : ''}`}
-            onClick={() => onSelectLayer(layer.id)}
-          >
-            <button
-              type="button"
-              className="vizmaker-layer-eye-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleLayerVisibility(layer.id);
-              }}
-              title={layer.visible ? 'Hide Layer' : 'Show Layer'}
+        {/* Current Inpaint Layers Stack (Photoshop style) */}
+        {layers.map((layer) => {
+          const isLayerActive = activeLayerId === layer.id;
+          const isMaskSelected = isLayerActive && layer.selectedTarget === 'mask';
+          const isImageSelected = isLayerActive && layer.selectedTarget === 'image';
+
+          return (
+            <div
+              key={layer.id}
+              className={`vizmaker-layer-item ps-layer-item ${isLayerActive ? 'active' : ''}`}
+              onClick={() => onSelectLayer(layer.id, 'mask')}
             >
-              {layer.visible ? (
-                <Eye size={13} className="vizmaker-layer-eye" />
-              ) : (
-                <EyeOff size={13} className="vizmaker-layer-eye off" />
-              )}
-            </button>
-
-            <div className="vizmaker-layer-thumb-box-dual">
-              <div className="vizmaker-layer-thumb-main">
-                <img src={layer.image} alt={layer.name} className="vizmaker-layer-img-preview" />
-              </div>
-              <div className="vizmaker-layer-thumb-mask" style={{ background: '#000000', overflow: 'hidden' }}>
-                {layer.maskPreviewUrl ? (
-                  <img src={layer.maskPreviewUrl} alt="Mask Cutout" className="vizmaker-layer-img-preview" />
+              <button
+                type="button"
+                className="vizmaker-layer-eye-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleLayerVisibility(layer.id);
+                }}
+                title={layer.visible ? 'Hide Layer (👁️)' : 'Show Layer'}
+              >
+                {layer.visible ? (
+                  <Eye size={13} className="vizmaker-layer-eye" />
                 ) : (
-                  <span className="vizmaker-mask-symbol">M</span>
+                  <EyeOff size={13} className="vizmaker-layer-eye off" />
                 )}
+              </button>
+
+              {/* Photoshop Dual Thumbnails with Link Chain */}
+              <div className="ps-thumb-group">
+                {/* Image Thumbnail */}
+                <div
+                  className={`ps-thumb ps-thumb-image ${isImageSelected ? 'selected-target' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectLayer(layer.id, 'image');
+                  }}
+                  title="Layer Image Thumbnail"
+                >
+                  <img src={layer.image} alt={layer.name} className="vizmaker-layer-img-preview" />
+                </div>
+
+                {/* Photoshop Link Chain 🔗 */}
+                <div className="ps-thumb-link" title="Layer and Mask Linked">
+                  <Link2 size={11} />
+                </div>
+
+                {/* Layer Mask Thumbnail ⬜/⬛ */}
+                <div
+                  className={`ps-thumb ps-thumb-mask ${isMaskSelected ? 'selected-target' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectLayer(layer.id, 'mask');
+                  }}
+                  title="Layer Mask Thumbnail (Click to paint mask with Black/White)"
+                >
+                  {layer.maskPreviewUrl ? (
+                    <img src={layer.maskPreviewUrl} alt="Mask" className="vizmaker-layer-img-preview" />
+                  ) : (
+                    <div className="ps-mask-white-fill" />
+                  )}
+                </div>
               </div>
+
+              <span className="vizmaker-layer-title ps-layer-title" title={layer.prompt || layer.name}>
+                {layer.name.length > 20 ? layer.name.slice(0, 20) + '...' : layer.name}
+              </span>
             </div>
+          );
+        })}
 
-            <span className="vizmaker-layer-title" title={layer.prompt || layer.name}>
-              {layer.name.length > 22 ? layer.name.slice(0, 22) + '...' : layer.name}
-            </span>
-          </div>
-        ))}
-
-        {/* Base Image Layer (Always at bottom) */}
+        {/* Base Image Layer (Locked background layer) */}
         <div
-          className={`vizmaker-layer-item ${activeLayerId === 'base' ? 'active' : ''}`}
-          onClick={() => onSelectLayer('base')}
+          className={`vizmaker-layer-item ps-layer-item ${activeLayerId === 'base' ? 'active' : ''}`}
+          onClick={() => onSelectLayer('base', 'image')}
         >
           <button
             type="button"
@@ -138,7 +176,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               e.stopPropagation();
               onToggleBaseImageVisibility();
             }}
-            title={baseImageVisible ? 'Hide Base Image' : 'Show Base Image'}
+            title={baseImageVisible ? 'Hide Background' : 'Show Background'}
           >
             {baseImageVisible ? (
               <Eye size={13} className="vizmaker-layer-eye" />
@@ -147,47 +185,59 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             )}
           </button>
 
-          <div className="vizmaker-layer-thumb-box-dual">
-            <div className="vizmaker-layer-thumb-main">
+          <div className="ps-thumb-group">
+            <div className={`ps-thumb ps-thumb-image ${activeLayerId === 'base' ? 'selected-target' : ''}`}>
               {baseImage ? (
                 <img src={baseImage} alt="Base" className="vizmaker-layer-img-preview" />
               ) : (
                 <div className="vizmaker-empty-thumb" />
               )}
             </div>
-            <div className="vizmaker-layer-thumb-mask" style={{ background: '#000000', overflow: 'hidden' }}>
-              <span className="vizmaker-mask-symbol">B</span>
-            </div>
           </div>
 
-          <span className="vizmaker-layer-title">Image (Base)</span>
+          <span className="vizmaker-layer-title ps-layer-title">Background</span>
           <Lock size={13} className="vizmaker-layer-lock-icon" />
         </div>
       </div>
 
-      <div className="vizmaker-layers-footer">
-        <button
-          type="button"
-          className="vizmaker-layer-action-btn"
-          onClick={onAddLayer}
-          title="Add New Drawing Layer (+)"
-        >
-          <Plus size={14} />
-        </button>
+      {/* Footer with Mask Color Quick Switcher and Actions */}
+      <div className="vizmaker-layers-footer ps-layers-footer">
+        {activeLayerId !== 'base' && onToggleMaskColor && (
+          <div
+            className="ps-layer-color-switch"
+            onClick={onToggleMaskColor}
+            title={`Active Mask Color: ${activeMaskColor === 'white' ? '⬜ White (Reveal)' : '⬛ Black (Hide/Erase)'}. Click or press 'X' to swap.`}
+          >
+            <div className={`ps-color-chip white ${activeMaskColor === 'white' ? 'active' : ''}`} />
+            <div className={`ps-color-chip black ${activeMaskColor === 'black' ? 'active' : ''}`} />
+            <span className="ps-color-label">{activeMaskColor === 'white' ? 'Reveal (White)' : 'Hide (Black)'}</span>
+          </div>
+        )}
 
-        <button
-          type="button"
-          className="vizmaker-layer-action-btn delete-btn"
-          onClick={() => {
-            if (activeLayerId && activeLayerId !== 'base') {
-              onDeleteLayer(activeLayerId);
-            }
-          }}
-          disabled={!activeLayerId || activeLayerId === 'base'}
-          title="Delete Selected Layer"
-        >
-          <Trash2 size={13} />
-        </button>
+        <div className="ps-footer-buttons">
+          <button
+            type="button"
+            className="vizmaker-layer-action-btn"
+            onClick={onAddLayer}
+            title="Add New Mask Selection (+)"
+          >
+            <Plus size={14} />
+          </button>
+
+          <button
+            type="button"
+            className="vizmaker-layer-action-btn delete-btn"
+            onClick={() => {
+              if (activeLayerId && activeLayerId !== 'base') {
+                onDeleteLayer(activeLayerId);
+              }
+            }}
+            disabled={!activeLayerId || activeLayerId === 'base'}
+            title="Delete Selected Layer (🗑️)"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
     </div>
   );
