@@ -93,6 +93,33 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           </div>
         )}
 
+                {/* Live Active Drawing / Mask Selection Layer */}
+        {currentMaskPreviewUrl && !isGenerating && (
+          <div className="vizmaker-layer-item ps-layer-item active" style={{ borderColor: '#e11d48' }}>
+            <button type="button" className="vizmaker-layer-eye-btn">
+              <Eye size={13} className="vizmaker-layer-eye" style={{ color: '#e11d48' }} />
+            </button>
+            <div className="ps-thumb-group">
+              <div className="ps-thumb ps-thumb-image">
+                {baseImage ? (
+                  <img src={baseImage} alt="Base" className="vizmaker-layer-img-preview" />
+                ) : (
+                  <div className="vizmaker-empty-thumb" />
+                )}
+              </div>
+              <div className="ps-thumb-link">
+                <Link2 size={11} style={{ color: '#e11d48' }} />
+              </div>
+              <div className="ps-thumb ps-thumb-mask selected-target" style={{ borderColor: '#e11d48', boxShadow: '0 0 6px rgba(225,29,72,0.6)' }}>
+                <img src={currentMaskPreviewUrl} alt="Live Mask Cutout" className="vizmaker-layer-img-preview" />
+              </div>
+            </div>
+            <span className="vizmaker-layer-title ps-layer-title" style={{ color: '#fecdd3', fontWeight: 600 }}>
+              {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : 'Layer Mask'}
+            </span>
+          </div>
+        )}
+
         {/* Current Inpaint Layers Stack (Photoshop style) */}
         {layers.map((layer) => {
           const isLayerActive = activeLayerId === layer.id;
