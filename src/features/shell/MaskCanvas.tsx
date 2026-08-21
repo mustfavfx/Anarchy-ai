@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   MousePointer2, LassoSelect, Paintbrush2, Eraser, Trash2, Wand2, Crop,
   RotateCcw, RotateCw, FileDown, Layers, CornerDownRight, Sparkles, Coins,
-  SquareDashed, Square, Circle, FolderPlus, PenTool, Shapes, Plus, Minus,
+  SquareDashed, Square, Circle, FolderPlus, PenTool, Shapes, Plus, Minus, Loader2,
 } from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
