@@ -2407,7 +2407,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     refImages?: string[];
     sourceNodeId?: string;
   }) => {
-    const parentId = payload.sourceNodeId || selectedNodeId || nodesRef.current[0]?.id;
+    const currentSelectedNode = useAIConfigStore.getState().selectedNode;
+    const parentId = payload.sourceNodeId || selectedNodeId || currentSelectedNode?.id || nodesRef.current.find(n => (n.data as any)?.image)?.id || nodesRef.current[0]?.id;
     if (!parentId) {
       logger.warn('[BuilderWorkflow] No parent node ID for mask generation');
       window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
@@ -2416,7 +2417,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
 
     const parentNode = nodesRef.current.find(n => n.id === parentId);
     const parentData = parentNode?.data as BuilderNodeData | undefined;
-    const cleanParentImage = parentData?.outputData?.image || parentData?.image;
+    const cleanParentImage = parentData?.outputData?.image || parentData?.image || currentSelectedNode?.image;
 
     try {
       const currentConfig = useAIConfigStore.getState().config;
@@ -2648,15 +2649,34 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     } catch (err: any) {
       logger.error('[BuilderWorkflow] Mask generation error:', err);
       window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
+      
+      // Preserve node image and restore ready state
       setNodes(nds => nds.map(n => n.id === parentId ? {
         ...n,
-        data: { ...n.data, state: 'ready', errorMessage: err?.message || 'AI inpaint generation failed' }
+        data: { 
+          ...n.data, 
+          state: 'ready', 
+          statusMessage: undefined,
+          errorMessage: err?.message || 'AI inpaint generation failed' 
+        }
       } : n));
+
+      // Keep selectedNode active in store with its original image
+      if (cleanParentImage) {
+        useAIConfigStore.getState().setSelectedNode({
+          id: parentId,
+          type: parentData?.type || 'source',
+          image: cleanParentImage,
+          originalImage: cleanParentImage,
+          state: 'ready',
+        });
+      }
+
       useNotificationStore.getState().addNotification({
         type: 'error',
-        title: 'Inpaint Failed',
-        message: err?.message || 'Failed to generate inpainting edit.',
-        duration: 4000
+        title: 'Inpaint Generation Error',
+        message: err?.message || 'Failed to connect to AI engine. Check API key and internet connection.',
+        duration: 5000
       });
     }
   }, [selectedNodeId, setNodes]);

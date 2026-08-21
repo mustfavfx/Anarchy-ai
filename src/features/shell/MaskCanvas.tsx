@@ -679,6 +679,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             maskDataUrl: result.mask,
             prompt: payloadPrompt,
             refImages,
+            sourceNodeId: useAIConfigStore.getState().selectedNode?.id
           },
         })
       );
