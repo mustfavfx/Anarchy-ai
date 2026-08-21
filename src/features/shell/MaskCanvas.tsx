@@ -186,13 +186,14 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   useEffect(() => {
     const handleInPlaceGen = (e: Event) => {
       setLocalIsGenerating(false);
-      const customEv = e as CustomEvent<{ imageUrl: string; sourceNodeId?: string; prompt?: string }>;
+      const customEv = e as CustomEvent<{ imageUrl: string; resolvedUrl?: string; sourceNodeId?: string; prompt?: string }>;
       if (customEv.detail?.imageUrl) {
+        const directImg = customEv.detail.resolvedUrl || customEv.detail.imageUrl;
         const newLayer: InpaintLayer = {
           id: `layer-${Date.now()}`,
           name: customEv.detail.prompt || maskPrompt.trim() || 'Background copy',
           prompt: customEv.detail.prompt || maskPrompt.trim() || '',
-          image: customEv.detail.imageUrl,
+          image: directImg,
           maskPreviewUrl: maskPreviewUrl || null,
           visible: true,
           selectedTarget: 'mask',
@@ -201,7 +202,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
         setInpaintLayers(prev => [newLayer, ...prev]);
         setActiveLayerId(newLayer.id);
-        setCurrentCanvasImage(customEv.detail.imageUrl);
+        setCurrentCanvasImage(directImg);
 
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
@@ -1055,16 +1056,22 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             transformOrigin: 'center center',
           }}
         >
-          <img
-            src={resolvedImage || activeImageSrc || ''}
-            alt="Base"
-            className="mask-canvas-base-image"
-            style={{
-              opacity: layerVisibility.image ? 1 : 0,
-              pointerEvents: layerVisibility.image ? 'auto' : 'none',
-            }}
-            onLoad={(e) => setImgMeta({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-          />
+          {resolvedImage ? (
+            <img
+              src={resolvedImage}
+              alt="Base"
+              className="mask-canvas-base-image"
+              style={{
+                opacity: layerVisibility.image ? 1 : 0,
+                pointerEvents: layerVisibility.image ? 'auto' : 'none',
+              }}
+              onLoad={(e) => setImgMeta({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+            />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 280, color: 'rgba(255,255,255,0.4)' }}>
+              <Loader2 size={28} className="spin" style={{ color: '#e11d48' }} />
+            </div>
+          )}
           <canvas
             ref={canvasRef}
             className={`mask-canvas-draw ${isGenActive ? 'mask-pulsing' : ''}`}

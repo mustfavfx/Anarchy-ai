@@ -2635,6 +2635,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       window.dispatchEvent(new CustomEvent('anarchy:mask-generated-in-place', {
         detail: {
           imageUrl: imageKey,
+          resolvedUrl: generatedImageUrl,
           sourceNodeId: parentId,
           prompt: payload.prompt,
         }

@@ -1,5 +1,16 @@
 import React from 'react';
 import { ChevronUp, Eye, EyeOff, Lock, Plus, Trash2, Loader2, Sparkles, Link2 } from 'lucide-react';
+import { useResolvedImage } from '../../../hooks';
+
+const LayerThumbnail: React.FC<{ rawSrc?: string | null; alt: string; className?: string }> = ({ rawSrc, alt, className }) => {
+  const resolved = useResolvedImage(rawSrc);
+  const safeSrc = resolved || (rawSrc && !rawSrc.startsWith('idb://') ? rawSrc : undefined);
+  if (!safeSrc) {
+    return <div className="vizmaker-empty-thumb" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#111' }}><Loader2 size={10} className="spin" style={{ color: '#e11d48' }} /></div>;
+  }
+  return <img src={safeSrc} alt={alt} className={className || 'vizmaker-layer-img-preview'} />;
+};
+
 
 export interface InpaintLayer {
   id: string;
@@ -71,7 +82,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             <div className="ps-thumb-group">
               <div className="ps-thumb ps-thumb-image">
                 {baseImage ? (
-                  <img src={baseImage} alt="Base" className="vizmaker-layer-img-preview" />
+                  <LayerThumbnail rawSrc={baseImage} alt="Base" />
                 ) : (
                   <div className="vizmaker-empty-thumb" />
                 )}
@@ -159,7 +170,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   }}
                   title="Layer Image Thumbnail"
                 >
-                  <img src={layer.image} alt={layer.name} className="vizmaker-layer-img-preview" />
+                  <LayerThumbnail rawSrc={layer.image} alt={layer.name} />
                 </div>
 
                 {/* Photoshop Link Chain 🔗 */}
