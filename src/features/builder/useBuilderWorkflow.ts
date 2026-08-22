@@ -2437,33 +2437,34 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     let creditDeducted = false;
 
     try {
-      // Check and deduct credits if user is logged in
-      if (userId && userId !== 'default_user' && !DEV_MODE) {
-        const creditCheck = await checkCreditBalance(userId, cost);
-        if (!creditCheck.hasEnough) {
-          useNotificationStore.getState().addNotification({
-            type: 'error',
-            title: 'Insufficient Credits',
-            message: `You need ${cost} credits, but have ${creditCheck.balance}. Please add credits.`,
-            duration: 4000
-          });
-          window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
-          return;
-        }
+      // Verify credit balance from store
+      const storeCredits = useAIConfigStore.getState().userCredits;
+      if (storeCredits !== null && storeCredits < cost && !DEV_MODE) {
+        useNotificationStore.getState().addNotification({
+          type: 'error',
+          title: 'Insufficient Credits',
+          message: `You need ${cost} credits, but have ${storeCredits}. Please add credits.`,
+          duration: 4000
+        });
+        window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
+        return;
+      }
 
-        const deduct = await deductCredits(userId, cost, `AI Mask Inpaint: ${payload.prompt?.slice(0, 30)}...`);
-        if (!deduct.success) {
-          useNotificationStore.getState().addNotification({
-            type: 'error',
-            title: 'Credit Deduction Failed',
-            message: deduct.error || 'Failed to deduct credits.',
-            duration: 4000
-          });
-          window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
-          return;
-        }
+      // Optimistically deduct credits locally
+      if (storeCredits !== null) {
+        useAIConfigStore.getState().setUserCredits(Math.max(0, storeCredits - cost));
+      }
+
+      // Background deduction from database
+      if (userId && userId !== 'default_user' && !DEV_MODE) {
+        deductCredits(userId, cost, `AI Mask Inpaint: ${payload.prompt?.slice(0, 30)}...`)
+          .then(res => {
+            if (res.success && typeof res.remaining === 'number') {
+              useAIConfigStore.getState().setUserCredits(res.remaining);
+            }
+          })
+          .catch(e => logger.warn('[BuilderWorkflow] Background credit deduction error:', e));
         creditDeducted = true;
-        getUserCredit(userId).then(c => c && useAIConfigStore.getState().setUserCredits(c.balance)).catch(() => {});
       }
 
       // Update active parent node state to processing
