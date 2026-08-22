@@ -675,7 +675,10 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     const payloadPrompt = combinedPrompt || 'AI Mask Generation';
 
     const result = await getCompositeAndMask();
-    if (!result) return;
+    if (!result) {
+      setLocalIsGenerating(false);
+      return;
+    }
 
     if (onGenerate) {
       onGenerate(result.composite, result.mask, payloadPrompt, refImages);

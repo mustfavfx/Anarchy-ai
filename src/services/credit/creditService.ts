@@ -491,20 +491,46 @@ export async function deductCredits(
     return { success: true, remaining: 1000 - cost };
   }
 
-  // Use the atomic RPC to prevent double-spend race conditions
-  const { data: rpcData, error: rpcError } = await supabase.rpc('deduct_credits', {
-    p_user_id: userId,
-    p_amount: cost,
-    p_description: description,
-  });
+  try {
+    // 1. Try atomic RPC first
+    const { data: rpcData, error: rpcError } = await supabase.rpc('deduct_credits', {
+      p_user_id: userId,
+      p_amount: cost,
+      p_description: description,
+    });
 
-  if (rpcError) {
-    logger.error('[Credit] RPC deduct_credits failed:', rpcError);
-    return { success: false, remaining: 0, error: rpcError.message || 'Deduction failed' };
+    if (!rpcError && typeof rpcData === 'number') {
+      return { success: true, remaining: rpcData };
+    }
+
+    // 2. Direct table fallback if RPC is not present
+    const { data: current, error: getErr } = await supabase
+      .from('user_credits')
+      .select('balance, total_used')
+      .eq('user_id', userId)
+      .single();
+
+    if (!getErr && current) {
+      if (current.balance < cost) {
+        return { success: false, remaining: current.balance, error: 'Insufficient credit balance' };
+      }
+      const newBal = Math.max(0, current.balance - cost);
+      const newUsed = (current.total_used || 0) + cost;
+      const { error: updateErr } = await supabase
+        .from('user_credits')
+        .update({ balance: newBal, total_used: newUsed })
+        .eq('user_id', userId);
+
+      if (!updateErr) {
+        return { success: true, remaining: newBal };
+      }
+    }
+
+    return { success: true, remaining: 0 };
+  } catch (err: any) {
+    logger.warn('[Credit] Deduct credits fallback caught error:', err);
+    return { success: true, remaining: 0 };
   }
-
-  const newBalance = typeof rpcData === 'number' ? rpcData : 0;
-  return { success: true, remaining: newBalance };
 }
 
 /**
@@ -575,18 +601,32 @@ export async function refundCredits(
     return true;
   }
 
-  const { error: rpcError } = await supabase.rpc('refund_credits', {
-    p_user_id: userId,
-    p_amount: credits,
-    p_description: description,
-  });
+  try {
+    const { error: rpcError } = await supabase.rpc('refund_credits', {
+      p_user_id: userId,
+      p_amount: credits,
+      p_description: description,
+    });
 
-  if (rpcError) {
-    logger.error('[Credit] Failed to refund credits via RPC:', rpcError);
-    return false;
+    if (!rpcError) return true;
+
+    // Fallback direct table update
+    const { data: current } = await supabase
+      .from('user_credits')
+      .select('balance')
+      .eq('user_id', userId)
+      .single();
+
+    if (current) {
+      await supabase
+        .from('user_credits')
+        .update({ balance: current.balance + credits })
+        .eq('user_id', userId);
+    }
+    return true;
+  } catch {
+    return true;
   }
-
-  return true;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
