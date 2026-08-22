@@ -28,6 +28,7 @@ export interface MaskCanvasProps {
 
 export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   image,
+  originalImage,
   onMaskChange,
   onGenerate,
   onCrop,
@@ -38,6 +39,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const baseOriginalImage = originalImage || image;
   const [currentCanvasImage, setCurrentCanvasImage] = useState<string | null>(image);
   const [inpaintLayers, setInpaintLayers] = useState<InpaintLayer[]>([]);
   const [activeLayerId, setActiveLayerId] = useState<string>('base');
@@ -51,9 +53,9 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   }, [image]);
 
   const activeVisibleLayer = inpaintLayers.find(l => l.visible);
-  const activeImageSrc = activeVisibleLayer ? activeVisibleLayer.image : (baseImageVisible ? (currentCanvasImage || image) : null);
+  const activeImageSrc = activeVisibleLayer ? activeVisibleLayer.image : (baseImageVisible ? (currentCanvasImage || baseOriginalImage) : null);
   const resolvedImage = useResolvedImage(activeImageSrc);
-  const resolvedBaseImage = useResolvedImage(image);
+  const resolvedBaseImage = useResolvedImage(baseOriginalImage);
 
   const [localIsGenerating, setLocalIsGenerating] = useState(false);
   const isGenActive = isGenerating || localIsGenerating;
