@@ -656,18 +656,20 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     const winPrompt = (window as any).__anarchyCurrentPrompt?.trim() || useAIConfigStore.getState().workspacePrompt?.trim() || '';
 
     const promptParts: string[] = [];
-    if (winPrompt) promptParts.push(winPrompt);
     if (finalPrompt) promptParts.push(finalPrompt);
+    else if (winPrompt) promptParts.push(winPrompt);
 
     if (arrowNodes.length > 0) {
       const arrowPrompts = arrowNodes.map((a) => a.text.trim()).filter(Boolean).join(', ');
-      if (arrowPrompts) promptParts.push(arrowPrompts);
+      if (arrowPrompts && !promptParts.includes(arrowPrompts)) promptParts.push(arrowPrompts);
       arrowNodes.forEach((a) => {
         if (a.refImage) refImages.push(a.refImage);
       });
     }
 
-    const combinedPrompt = promptParts.filter(Boolean).join(', ');
+    // Deduplicate identical prompt parts
+    const uniqueParts = Array.from(new Set(promptParts.map(p => p.trim()))).filter(Boolean);
+    const combinedPrompt = uniqueParts.join(', ');
     const payloadPrompt = combinedPrompt || 'AI Mask Generation';
 
     const result = await getCompositeAndMask();

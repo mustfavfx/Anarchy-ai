@@ -784,13 +784,17 @@ class ReplicateService {
   private readonly minRequestInterval = 12_000; // 12s between requests (5 req/min safe)
   private webhookUrl: string = '';
 
-  constructor() {
-    // Webhook URL auto-constructed from Supabase URL
+  public getWebhookUrl(): string {
+    if (this.webhookUrl && !this.webhookUrl.includes('placeholder')) return this.webhookUrl;
     if (supabaseUrl && !supabaseUrl.includes('placeholder')) {
-      this.webhookUrl = `${supabaseUrl}/functions/v1/replicate_webhook`;
+      return `${supabaseUrl}/functions/v1/replicate_webhook`;
     }
+    return 'https://ejzsbkxpqmhpjuqmszvd.supabase.co/functions/v1/replicate_webhook';
+  }
 
-    logger.log('[ReplicateService] Webhook URL:', this.webhookUrl || '(empty - webhook disabled)');
+  constructor() {
+    this.webhookUrl = this.getWebhookUrl();
+    logger.log('[ReplicateService] Webhook URL active:', this.webhookUrl);
     logger.log('[ReplicateService] Mode: Proxy-only (server-side API key)');
   }
 
@@ -963,11 +967,12 @@ class ReplicateService {
     const path = version ? '/predictions' : `/models/${modelId}/predictions`;
     const body: Record<string, unknown> = version ? { version, input } : { input };
 
-    // Add webhook URL if configured
-    if (this.webhookUrl) {
-      const finalNodeId = (nodeId || input.node_id || input.nodeId || 'unknown') as string;
-      const finalUserId = (userId || input.user_id || input.userId || 'anonymous') as string;
-      let webhookWithParams = `${this.webhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(modelId)}`;
+    // Add webhook URL to all Replicate predictions
+    const activeWebhookUrl = this.getWebhookUrl();
+    if (activeWebhookUrl) {
+      const finalNodeId = (nodeId || input.node_id || input.nodeId || 'canvas-node') as string;
+      const finalUserId = (userId || input.user_id || input.userId || 'user') as string;
+      let webhookWithParams = `${activeWebhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(modelId)}`;
       const workflowIdVal = (input.workflow_id || input.workflowId) as string | undefined;
       if (workflowIdVal) {
         webhookWithParams += `&workflow_id=${encodeURIComponent(workflowIdVal)}`;
@@ -975,7 +980,7 @@ class ReplicateService {
       body.webhook = webhookWithParams;
       body.webhook_events_filter = ['start', 'output', 'completed'];
 
-      logger.log('[ReplicateService] Including webhook:', webhookWithParams);
+      logger.log('[ReplicateService] Enforcing prediction webhook:', webhookWithParams);
     }
 
     logger.log('[ReplicateService] Submitting prediction:', {
