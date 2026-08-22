@@ -2523,9 +2523,14 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       const promptToUse = cleanUserPrompt || payload.prompt || 'AI Mask Generation';
 
       if ((model as string).startsWith('google/nano-banana')) {
+        // Normalize common Arabic typos (e.g. العرف -> الحرف)
+        const normalizedPrompt = promptToUse
+          .replace(/\bالعرف\b/g, 'الحرف')
+          .replace(/\bتغير\b/g, 'تغيير');
+
         const spatialPrompt = (payload.maskDataUrl || uploadedCompositeImg)
-          ? `In the red highlighted region of the image, replace or generate: "${promptToUse}". Keep all unhighlighted areas, surrounding architecture, lighting, and details 100% identical and unchanged.`
-          : promptToUse;
+          ? `Modify the element inside the red highlighted box of the image according to: "${normalizedPrompt}". Replace the existing carved/drawn text or object inside the red highlighted area with "${normalizedPrompt}", perfectly matching the surrounding material texture, depth, shadows, and perspective. All areas outside the red highlighted region must remain 100% identical and unchanged.`
+          : normalizedPrompt;
 
         const baseParams = {
           ...currentConfig,
