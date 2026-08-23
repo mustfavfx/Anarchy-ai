@@ -530,122 +530,142 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, maskTool, crop, updateMaskPreview]);
 
-  const getCompositeAndMask = (): Promise<{ composite: string; mask: string } | null> => {
+  const getCompositeAndMask = async (): Promise<{ composite: string; mask: string } | null> => {
     const canvas = canvasRef.current;
     const baseImgSrc = resolvedImage || image;
-    if (!canvas || !baseImgSrc) return Promise.resolve(null);
+    if (!canvas || !baseImgSrc) {
+      logger.warn('[MaskCanvas] getCompositeAndMask: missing canvas or baseImgSrc');
+      return null;
+    }
 
     const targetW = imgMeta?.w ?? canvas.width;
     const targetH = imgMeta?.h ?? canvas.height;
 
+    // Helper to render composite and mask once image is ready
+    const renderWithImage = (img: HTMLImageElement | HTMLCanvasElement): { composite: string; mask: string } | null => {
+      const compositeCanvas = document.createElement('canvas');
+      compositeCanvas.width = targetW;
+      compositeCanvas.height = targetH;
+      const compositeCtx = compositeCanvas.getContext('2d');
+      if (!compositeCtx) return null;
+
+      compositeCtx.imageSmoothingEnabled = true;
+      compositeCtx.imageSmoothingQuality = 'high';
+
+      if (layerVisibility.image !== false) {
+        compositeCtx.drawImage(img, 0, 0, targetW, targetH);
+      }
+
+      if (layerVisibility.selection !== false) {
+        compositeCtx.drawImage(canvas, 0, 0, targetW, targetH);
+      }
+
+      if (layerVisibility.arrows !== false && arrowNodes.length > 0) {
+        const radius = Math.max(16, Math.min(targetW, targetH) * 0.02);
+        const fontPx = Math.max(12, Math.round(radius * 0.9));
+        compositeCtx.fillStyle = '#E63030';
+        compositeCtx.strokeStyle = '#ffffff';
+        compositeCtx.lineWidth = Math.max(2, Math.round(radius * 0.15));
+        arrowNodes.forEach((a, index) => {
+          const px = (a.targetPos.x / 100) * targetW;
+          const py = (a.targetPos.y / 100) * targetH;
+
+          compositeCtx.beginPath();
+          compositeCtx.arc(px, py, radius, 0, Math.PI * 2);
+          compositeCtx.fill();
+          compositeCtx.stroke();
+
+          compositeCtx.fillStyle = '#ffffff';
+          compositeCtx.font = `bold ${fontPx}px sans-serif`;
+          compositeCtx.textAlign = 'center';
+          compositeCtx.textBaseline = 'middle';
+          compositeCtx.fillText(`${index + 1}`, px, py);
+        });
+      }
+      const compositeDataUrl = compositeCanvas.toDataURL('image/png');
+
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = targetW;
+      maskCanvas.height = targetH;
+      const maskCtx = maskCanvas.getContext('2d');
+      if (!maskCtx) return null;
+
+      maskCtx.clearRect(0, 0, targetW, targetH);
+
+      if (layerVisibility.selection !== false) {
+        maskCtx.drawImage(canvas, 0, 0, targetW, targetH);
+      }
+
+      if (layerVisibility.arrows !== false && arrowNodes.length > 0) {
+        maskCtx.fillStyle = '#ffffff';
+        arrowNodes.forEach((a) => {
+          const px = (a.targetPos.x / 100) * targetW;
+          const py = (a.targetPos.y / 100) * targetH;
+          const radius = Math.max(30, Math.min(targetW, targetH) * 0.06);
+          maskCtx.beginPath();
+          maskCtx.arc(px, py, radius, 0, Math.PI * 2);
+          maskCtx.fill();
+        });
+      }
+
+      const imgData = maskCtx.getImageData(0, 0, targetW, targetH);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        if (alpha > 5) {
+          data[i] = 255;
+          data[i + 1] = 255;
+          data[i + 2] = 255;
+          data[i + 3] = 255;
+        } else {
+          data[i] = 0;
+          data[i + 1] = 0;
+          data[i + 2] = 0;
+          data[i + 3] = 255;
+        }
+      }
+      maskCtx.putImageData(imgData, 0, 0);
+
+      const featheredCanvas = document.createElement('canvas');
+      featheredCanvas.width = targetW;
+      featheredCanvas.height = targetH;
+      const fCtx = featheredCanvas.getContext('2d');
+      if (fCtx) {
+        fCtx.filter = 'blur(4px)';
+        fCtx.drawImage(maskCanvas, 0, 0);
+        fCtx.filter = 'none';
+      }
+
+      const maskDataUrl = (fCtx ? featheredCanvas : maskCanvas).toDataURL('image/png');
+      return { composite: compositeDataUrl, mask: maskDataUrl };
+    };
+
+    // 1. Try using the already rendered DOM image if available
+    const domImg = wrapperRef.current?.querySelector<HTMLImageElement>('.mask-canvas-base-image');
+    if (domImg && domImg.complete && domImg.naturalWidth > 0) {
+      try {
+        const res = renderWithImage(domImg);
+        if (res) return res;
+      } catch (err) {
+        logger.warn('[MaskCanvas] DOM image canvas export failed, falling back to new Image():', err);
+      }
+    }
+
+    // 2. Fallback: Load image dynamically with proper CORS handling
     return new Promise((resolve) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      if (baseImgSrc.startsWith('http://') || baseImgSrc.startsWith('https://')) {
+        if (!baseImgSrc.startsWith('http://localhost')) {
+          img.crossOrigin = 'anonymous';
+        }
+      }
       img.onload = () => {
-        const compositeCanvas = document.createElement('canvas');
-        compositeCanvas.width = targetW;
-        compositeCanvas.height = targetH;
-        const compositeCtx = compositeCanvas.getContext('2d');
-        if (!compositeCtx) {
-          resolve(null);
-          return;
-        }
-
-        compositeCtx.imageSmoothingEnabled = true;
-        compositeCtx.imageSmoothingQuality = 'high';
-
-        if (layerVisibility.image !== false) {
-          compositeCtx.drawImage(img, 0, 0, targetW, targetH);
-        }
-
-        if (layerVisibility.selection !== false) {
-          compositeCtx.drawImage(canvas, 0, 0, targetW, targetH);
-        }
-
-        if (layerVisibility.arrows !== false && arrowNodes.length > 0) {
-          const radius = Math.max(16, Math.min(targetW, targetH) * 0.02);
-          const fontPx = Math.max(12, Math.round(radius * 0.9));
-          compositeCtx.fillStyle = '#E63030';
-          compositeCtx.strokeStyle = '#ffffff';
-          compositeCtx.lineWidth = Math.max(2, Math.round(radius * 0.15));
-          arrowNodes.forEach((a, index) => {
-            const px = (a.targetPos.x / 100) * targetW;
-            const py = (a.targetPos.y / 100) * targetH;
-
-            compositeCtx.beginPath();
-            compositeCtx.arc(px, py, radius, 0, Math.PI * 2);
-            compositeCtx.fill();
-            compositeCtx.stroke();
-
-            compositeCtx.fillStyle = '#ffffff';
-            compositeCtx.font = `bold ${fontPx}px sans-serif`;
-            compositeCtx.textAlign = 'center';
-            compositeCtx.textBaseline = 'middle';
-            compositeCtx.fillText(`${index + 1}`, px, py);
-          });
-        }
-        const compositeDataUrl = compositeCanvas.toDataURL('image/png');
-
-        const maskCanvas = document.createElement('canvas');
-        maskCanvas.width = targetW;
-        maskCanvas.height = targetH;
-        const maskCtx = maskCanvas.getContext('2d');
-        if (!maskCtx) {
-          resolve(null);
-          return;
-        }
-
-        maskCtx.clearRect(0, 0, targetW, targetH);
-
-        if (layerVisibility.selection !== false) {
-          maskCtx.drawImage(canvas, 0, 0, targetW, targetH);
-        }
-
-        if (layerVisibility.arrows !== false && arrowNodes.length > 0) {
-          maskCtx.fillStyle = '#ffffff';
-          arrowNodes.forEach((a) => {
-            const px = (a.targetPos.x / 100) * targetW;
-            const py = (a.targetPos.y / 100) * targetH;
-            const radius = Math.max(30, Math.min(targetW, targetH) * 0.06);
-            maskCtx.beginPath();
-            maskCtx.arc(px, py, radius, 0, Math.PI * 2);
-            maskCtx.fill();
-          });
-        }
-
-        const imgData = maskCtx.getImageData(0, 0, targetW, targetH);
-        const data = imgData.data;
-        for (let i = 0; i < data.length; i += 4) {
-          const alpha = data[i + 3];
-          if (alpha > 5) {
-            data[i] = 255;
-            data[i + 1] = 255;
-            data[i + 2] = 255;
-            data[i + 3] = 255;
-          } else {
-            data[i] = 0;
-            data[i + 1] = 0;
-            data[i + 2] = 0;
-            data[i + 3] = 255;
-          }
-        }
-        maskCtx.putImageData(imgData, 0, 0);
-
-        const featheredCanvas = document.createElement('canvas');
-        featheredCanvas.width = targetW;
-        featheredCanvas.height = targetH;
-        const fCtx = featheredCanvas.getContext('2d');
-        if (fCtx) {
-          fCtx.filter = 'blur(4px)';
-          fCtx.drawImage(maskCanvas, 0, 0);
-          fCtx.filter = 'none';
-        }
-
-        const maskDataUrl = (fCtx ? featheredCanvas : maskCanvas).toDataURL('image/png');
-
-        resolve({ composite: compositeDataUrl, mask: maskDataUrl });
+        resolve(renderWithImage(img));
       };
-      img.onerror = () => resolve(null);
+      img.onerror = (e) => {
+        logger.error('[MaskCanvas] Failed to load image for composite export:', e);
+        resolve(null);
+      };
       img.src = baseImgSrc;
     });
   };
