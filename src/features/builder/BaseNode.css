@@ -1792,3 +1792,19 @@
   box-shadow: 0 4px 12px rgba(225, 29, 72, 0.4);
   letter-spacing: 0.02em;
 }
+
+/* ================================================================
+   NO NODE SHADOW OVERRIDE - Strictly Clean & Crisp
+   ================================================================ */
+.anarchy-node,
+.anarchy-node:hover,
+.anarchy-node.selected,
+.anarchy-node:focus,
+.anarchy-node.active,
+.anarchy-node.state-ready,
+.anarchy-node.state-processing,
+.anarchy-node.state-connecting,
+.react-flow__node .anarchy-node {
+  box-shadow: none !important;
+  filter: none !important;
+}

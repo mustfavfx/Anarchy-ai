@@ -14,9 +14,7 @@
     rgba(0, 0, 0, 0.15) 100%
   ), rgba(18, 18, 22, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 8px 28px rgba(0, 0, 0, 0.4);
+  box-shadow: none !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
   position: relative;
   overflow: visible;
@@ -25,18 +23,12 @@
 .ghost-node:hover {
   transform: translateY(-1px);
   border-color: rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: none !important;
 }
 
 .ghost-node.selected {
   border-color: rgba(255, 255, 255, 0.25);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.08) inset,
-    0 0 0 1px rgba(255, 255, 255, 0.15),
-    0 0 28px rgba(255, 255, 255, 0.08),
-    0 12px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: none !important;
 }
 
 /* ---- Processing state: smooth pulsing glow border ---- */
@@ -47,18 +39,10 @@
 
 @keyframes ghostBorderPulse {
   0%, 100% {
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.06) inset,
-      0 0 0 1px color-mix(in srgb, var(--ghost-color, #10b981) 35%, transparent),
-      0 0 16px color-mix(in srgb, var(--ghost-color, #10b981) 18%, transparent),
-      0 8px 28px rgba(0, 0, 0, 0.4);
+    box-shadow: none !important;
   }
   50% {
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.06) inset,
-      0 0 0 2px color-mix(in srgb, var(--ghost-color, #10b981) 55%, transparent),
-      0 0 32px color-mix(in srgb, var(--ghost-color, #10b981) 40%, transparent),
-      0 8px 28px rgba(0, 0, 0, 0.4);
+    box-shadow: none !important;
   }
 }
 
@@ -117,7 +101,7 @@
   justify-content: center;
   flex-shrink: 0;
   background: rgba(16, 185, 129, 0.12);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  box-shadow: none !important;
   border: none;
 }
 
@@ -257,7 +241,7 @@
 .ghost-retry-btn:hover {
   background: #e11d48;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.35);
+  box-shadow: none !important;
 }
 
 .ghost-retry-btn:active {
