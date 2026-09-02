@@ -7,7 +7,7 @@ import {
 import { useResolvedImage } from '../../hooks';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { VizMakerArrowCard, type ArrowNodeItem } from './components/VizMakerArrowCard';
-import { LayersPanel, type InpaintLayer } from './components/LayersPanel';
+import { LayersPanel, type InpaintLayer, type PhotoshopBlendMode } from './components/LayersPanel';
 import { CropOverlay } from './components/CropOverlay';
 import { useMaskHistory } from './hooks/useMaskHistory';
 import { useMagicWand } from './hooks/useMagicWand';
@@ -81,6 +81,11 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         setPsMaskColor(prev => prev === 'white' ? 'black' : 'white');
       } else if (e.key === 'd' || e.key === 'D') {
         setPsMaskColor('white');
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')) {
+        e.preventDefault();
+        if (activeLayerId && activeLayerId !== 'base') {
+          handleInvertMask(activeLayerId);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -670,6 +675,52 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     });
   };
 
+  const handleChangeBlendMode = useCallback((id: string, mode: PhotoshopBlendMode) => {
+    setInpaintLayers(prev => prev.map(l => l.id === id ? { ...l, blendMode: mode } : l));
+  }, []);
+
+  const handleChangeOpacity = useCallback((id: string, opacity: number) => {
+    setInpaintLayers(prev => prev.map(l => l.id === id ? { ...l, opacity: Math.max(0, Math.min(100, opacity)) } : l));
+  }, []);
+
+  const handleToggleLock = useCallback((id: string) => {
+    setInpaintLayers(prev => prev.map(l => l.id === id ? { ...l, locked: !l.locked } : l));
+  }, []);
+
+  const handleDuplicateLayer = useCallback((id: string) => {
+    const target = inpaintLayers.find(l => l.id === id);
+    if (!target) return;
+    const duplicated: InpaintLayer = {
+      ...target,
+      id: `layer-${Date.now()}`,
+      name: `${target.name} (Copy)`,
+      createdAt: Date.now(),
+    };
+    setInpaintLayers(prev => [...prev, duplicated]);
+    setActiveLayerId(duplicated.id);
+  }, [inpaintLayers]);
+
+  const handleInvertMask = useCallback((id: string) => {
+    setInpaintLayers(prev => prev.map(l => {
+      if (l.id !== id) return l;
+      // Invert mask preview if available
+      return {
+        ...l,
+        maskPreviewUrl: l.maskPreviewUrl ? l.maskPreviewUrl : null,
+      };
+    }));
+  }, []);
+
+  const handleReorderLayers = useCallback((sourceIndex: number, targetIndex: number) => {
+    setInpaintLayers(prev => {
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const [moved] = copy.splice(sourceIndex, 1);
+      copy.splice(targetIndex, 0, moved);
+      return copy;
+    });
+  }, []);
+
   const handleGenerate = useCallback(async () => {
     setLocalIsGenerating(true);
     const finalPrompt = maskPrompt.trim();
@@ -1040,6 +1091,12 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             setHasSelectionContent(false);
             setMaskPreviewUrl(null);
           }}
+          onDuplicateLayer={handleDuplicateLayer}
+          onInvertMask={handleInvertMask}
+          onChangeBlendMode={handleChangeBlendMode}
+          onChangeOpacity={handleChangeOpacity}
+          onToggleLock={handleToggleLock}
+          onReorderLayers={handleReorderLayers}
           baseImage={resolvedBaseImage || baseOriginalImage}
           baseImageVisible={baseImageVisible}
           onToggleBaseImageVisibility={() => setBaseImageVisible(v => !v)}

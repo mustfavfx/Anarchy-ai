@@ -1013,3 +1013,154 @@
   border-radius: 2px;
   z-index: 1;
 }
+
+/* ── Photoshop Advanced Layers Panel Controls ────────────────────────────── */
+
+.ps-layers-top-controls {
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ps-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ps-blend-mode-select {
+  flex: 1;
+  background: #18181f;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 6px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ps-blend-mode-select:hover:not(:disabled) {
+  border-color: rgba(225, 29, 72, 0.5);
+  background: #202028;
+}
+
+.ps-blend-mode-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ps-opacity-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #18181f;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ps-opacity-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.ps-opacity-slider {
+  width: 44px;
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ps-opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e11d48;
+  cursor: pointer;
+}
+
+.ps-opacity-val {
+  font-size: 10px;
+  font-weight: 600;
+  color: #ffffff;
+  min-width: 26px;
+  text-align: right;
+}
+
+.ps-layer-sub-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 2px;
+}
+
+.ps-reorder-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-mini-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 3px;
+  padding: 2px 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ps-mini-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.ps-mini-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.ps-mini-btn.active-lock {
+  border-color: rgba(251, 191, 36, 0.6);
+  background: rgba(251, 191, 36, 0.15);
+}
+
+.ps-layer-count-badge {
+  background: rgba(225, 29, 72, 0.2);
+  border: 1px solid rgba(225, 29, 72, 0.4);
+  color: #f43f5e;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.ps-layer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ps-layer-blend-badge {
+  font-size: 9px;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: capitalize;
+}
