@@ -1,5 +1,6 @@
 import React from 'react';
 import { Eye, EyeOff, Move, Maximize2, Trash2, Layers as LayersIcon, Sliders, ChevronUp } from 'lucide-react';
+import { BLEND_MODES, type PhotoshopBlendMode } from './LayersPanel';
 import './LayerStackPanel.css';
 
 export interface CanvasLayerItem {
@@ -7,8 +8,8 @@ export interface CanvasLayerItem {
   name: string;
   image: string;
   visible: boolean;
-  opacity: number;
-  blendMode: 'normal' | 'color' | 'multiply' | 'overlay';
+  opacity: number; // Normalized 0-100 integer
+  blendMode: PhotoshopBlendMode;
   position: { x: number; y: number };
   scale: number;
 }

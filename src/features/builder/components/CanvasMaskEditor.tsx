@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Paintbrush, Eraser, RotateCcw, Trash2, Check, X, Sliders, MousePointerClick, Sparkles
+  Paintbrush, Eraser, RotateCcw, Trash2, Check, X, Sliders, MousePointerClick, Sparkles, ChevronDown
 } from 'lucide-react';
+import { PRESET_PROMPTS } from '../presetPrompts';
+import { PRESETS_TRANSLATIONS_AR } from '../presetPromptsAr';
 import './CanvasMaskEditor.css';
 
 interface CanvasMaskEditorProps {
@@ -23,14 +25,7 @@ interface Stroke {
   isErase: boolean;
 }
 
-const ARCHITECTURAL_INPAINT_PRESETS = [
-  { id: 'curtain-wall', label: 'Curtain Wall Glass', labelAr: 'زجاج واجهة ستائرية' },
-  { id: 'polished-concrete', label: 'Polished Concrete Panel', labelAr: 'لوحة خرسانية مصقولة' },
-  { id: 'warm-lighting', label: 'Warm Cove Lighting', labelAr: 'إضاءة مخفية دافئة' },
-  { id: 'vertical-louvers', label: 'Vertical Timber Louvers', labelAr: 'كاسرات شمس خشبية' },
-  { id: 'landscape-garden', label: 'Zen Garden Landscaping', labelAr: 'لاندسكيب حديقة زان' },
-  { id: 'travertine-stone', label: 'Travertine Marble Facing', labelAr: 'تكسية رخام ترافيرتين' },
-];
+
 
 export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
   imageUrl,
@@ -194,23 +189,107 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
     onApplyMask(maskDataUrl);
   };
 
+  // Selected Category for the 62 Presets
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Flatten and prepare all 62 presets with English & Arabic translations
+  const allPresets = useMemo(() => {
+    const list: { id: string; category: string; label: string; labelAr: string; text: string }[] = [];
+    PRESET_PROMPTS.forEach(group => {
+      group.prompts.forEach(p => {
+        const ar = PRESETS_TRANSLATIONS_AR[p.label] || p.label;
+        list.push({
+          id: p.label.toLowerCase().replace(/\s+/g, '-'),
+          category: group.category,
+          label: p.label,
+          labelAr: ar,
+          text: p.text,
+        });
+      });
+    });
+    return list;
+  }, []);
+
+  const filteredPresets = useMemo(() => {
+    if (selectedCategory === 'all') return allPresets;
+    return allPresets.filter(p => p.category === selectedCategory);
+  }, [allPresets, selectedCategory]);
+
+  const categories = useMemo(() => {
+    return ['all', ...PRESET_PROMPTS.map(g => g.category)];
+  }, []);
+
+  // Real Edge-Aware Snap-to-Element: Detects actual closed architectural element boundaries
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isSnapMode) return;
     const pt = getCanvasCoords(e);
-    if (!pt || !canvasRef.current) return;
+    if (!pt || !canvasRef.current || !imageRef.current) return;
 
-    // Snap-to-Element Contour Extractor: Automatically generates a rectangular element stroke around clicked point
-    const w = canvasRef.current.width;
-    const h = canvasRef.current.height;
-    const boxW = Math.min(w * 0.25, 120);
-    const boxH = Math.min(h * 0.25, 120);
+    const img = imageRef.current;
+    const off = document.createElement('canvas');
+    off.width = canvasRef.current.width;
+    off.height = canvasRef.current.height;
+    const oCtx = off.getContext('2d');
+    if (!oCtx) return;
+
+    oCtx.drawImage(img, 0, 0, off.width, off.height);
+    const imgData = oCtx.getImageData(0, 0, off.width, off.height);
+    const data = imgData.data;
+    const w = off.width;
+    const h = off.height;
+
+    // Sample seed pixel
+    const seedIdx = (Math.floor(pt.y) * w + Math.floor(pt.x)) * 4;
+    const sr = data[seedIdx];
+    const sg = data[seedIdx + 1];
+    const sb = data[seedIdx + 2];
+
+    // Find actual color/luminance boundary around clicked point
+    let minX = pt.x;
+    let maxX = pt.x;
+    let minY = pt.y;
+    let maxY = pt.y;
+    const maxRadius = Math.min(w, h) * 0.35;
+    const threshold = 38;
+
+    // Scan horizontal boundary
+    for (let dx = 1; dx < maxRadius && pt.x + dx < w; dx++) {
+      const idx = (Math.floor(pt.y) * w + Math.floor(pt.x + dx)) * 4;
+      const diff = Math.abs(data[idx] - sr) + Math.abs(data[idx+1] - sg) + Math.abs(data[idx+2] - sb);
+      if (diff > threshold * 3) break;
+      maxX = pt.x + dx;
+    }
+    for (let dx = 1; dx < maxRadius && pt.x - dx >= 0; dx++) {
+      const idx = (Math.floor(pt.y) * w + Math.floor(pt.x - dx)) * 4;
+      const diff = Math.abs(data[idx] - sr) + Math.abs(data[idx+1] - sg) + Math.abs(data[idx+2] - sb);
+      if (diff > threshold * 3) break;
+      minX = pt.x - dx;
+    }
+
+    // Scan vertical boundary
+    for (let dy = 1; dy < maxRadius && pt.y + dy < h; dy++) {
+      const idx = (Math.floor(pt.y + dy) * w + Math.floor(pt.x)) * 4;
+      const diff = Math.abs(data[idx] - sr) + Math.abs(data[idx+1] - sg) + Math.abs(data[idx+2] - sb);
+      if (diff > threshold * 3) break;
+      maxY = pt.y + dy;
+    }
+    for (let dy = 1; dy < maxRadius && pt.y - dy >= 0; dy++) {
+      const idx = (Math.floor(pt.y - dy) * w + Math.floor(pt.x)) * 4;
+      const diff = Math.abs(data[idx] - sr) + Math.abs(data[idx+1] - sg) + Math.abs(data[idx+2] - sb);
+      if (diff > threshold * 3) break;
+      minY = pt.y - dy;
+    }
+
+    // Ensure minimum reasonable element bounds
+    if (maxX - minX < 20) { minX = Math.max(0, pt.x - 40); maxX = Math.min(w, pt.x + 40); }
+    if (maxY - minY < 20) { minY = Math.max(0, pt.y - 40); maxY = Math.min(h, pt.y + 40); }
 
     const snappedPoints: StrokePoint[] = [
-      { x: Math.max(0, pt.x - boxW / 2), y: Math.max(0, pt.y - boxH / 2) },
-      { x: Math.min(w, pt.x + boxW / 2), y: Math.max(0, pt.y - boxH / 2) },
-      { x: Math.min(w, pt.x + boxW / 2), y: Math.min(h, pt.y + boxH / 2) },
-      { x: Math.max(0, pt.x - boxW / 2), y: Math.min(h, pt.y + boxH / 2) },
-      { x: Math.max(0, pt.x - boxW / 2), y: Math.max(0, pt.y - boxH / 2) },
+      { x: minX, y: minY },
+      { x: maxX, y: minY },
+      { x: maxX, y: maxY },
+      { x: minX, y: maxY },
+      { x: minX, y: minY },
     ];
 
     setStrokes(prev => [...prev, { points: snappedPoints, brushSize: 45, isErase: false }]);
@@ -308,19 +387,41 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
         </div>
       </div>
 
-      {/* Architectural Inpaint Presets Bar */}
+      {/* Architectural Inpaint Presets Bar (Full 62 Presets connected to presetPrompts.ts) */}
       <div className="mask-presets-bar">
         <div className="presets-label">
           <Sparkles size={13} className="text-rose-400" />
-          <span>{isArabic ? 'البرومتات المعمارية الـ 62:' : 'Inpaint Presets:'}</span>
+          <span>{isArabic ? `البرومتات المعمارية الـ 62 (${filteredPresets.length}):` : `Architectural Presets 62 (${filteredPresets.length}):`}</span>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="preset-category-filter-select"
+            style={{
+              background: '#1a1a24',
+              border: '1px solid rgba(255,255,255,0.18)',
+              color: '#fff',
+              fontSize: '11px',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginLeft: '6px'
+            }}
+          >
+            {categories.map(c => (
+              <option key={c} value={c}>
+                {c === 'all' ? (isArabic ? 'الكل (62)' : 'All (62)') : c}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="presets-chips">
-          {ARCHITECTURAL_INPAINT_PRESETS.map((p) => (
+        <div className="presets-chips" style={{ maxHeight: '68px', overflowY: 'auto' }}>
+          {filteredPresets.map((p) => (
             <button
               key={p.id}
               type="button"
               className="inpaint-preset-chip"
-              onClick={() => onSelectPreset && onSelectPreset(isArabic ? p.labelAr : p.label)}
+              onClick={() => onSelectPreset && onSelectPreset(p.text || (isArabic ? p.labelAr : p.label))}
+              title={p.text}
             >
               {isArabic ? p.labelAr : p.label}
             </button>

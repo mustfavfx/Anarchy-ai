@@ -159,60 +159,67 @@ class MaskService {
   }
 
   /**
-   * Apply feathering (soft edges) to mask
+   * Apply photographic-grade Gaussian feathering to mask shape boundaries
+   * Uses a separable 2D Gaussian kernel over the mask boundary, completely
+   * independent of canvas borders.
    */
   private applyFeathering(imgData: ImageData, width: number, height: number, featherSize: number): void {
+    if (featherSize <= 0) return;
     const data = imgData.data;
+    const radius = Math.max(1, Math.round(featherSize));
+    const totalPixels = width * height;
     
+    // Extract alpha channel
+    const alphaChannel = new Uint8ClampedArray(totalPixels);
+    for (let i = 0; i < totalPixels; i++) {
+      alphaChannel[i] = data[i * 4 + 3];
+    }
+
+    const temp = new Float32Array(totalPixels);
+    const kernelRadius = radius;
+    const sigma = Math.max(0.5, radius / 2.5);
+    const kernelSize = 2 * kernelRadius + 1;
+    const kernel = new Float32Array(kernelSize);
+    let kernelSum = 0;
+
+    for (let i = -kernelRadius; i <= kernelRadius; i++) {
+      const g = Math.exp(-(i * i) / (2 * sigma * sigma));
+      kernel[i + kernelRadius] = g;
+      kernelSum += g;
+    }
+    for (let i = 0; i < kernelSize; i++) {
+      kernel[i] /= kernelSum;
+    }
+
+    // Horizontal Gaussian pass
+    for (let y = 0; y < height; y++) {
+      const yOffset = y * width;
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let k = -kernelRadius; k <= kernelRadius; k++) {
+          const nx = Math.min(width - 1, Math.max(0, x + k));
+          sum += alphaChannel[yOffset + nx] * kernel[k + kernelRadius];
+        }
+        temp[yOffset + x] = sum;
+      }
+    }
+
+    // Vertical Gaussian pass & write back RGB + Alpha
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let k = -kernelRadius; k <= kernelRadius; k++) {
+          const ny = Math.min(height - 1, Math.max(0, y + k));
+          sum += temp[ny * width + x] * kernel[k + kernelRadius];
+        }
+        const finalVal = Math.round(sum);
         const idx = (y * width + x) * 4;
-        
-        // Check if pixel is near edge
-        const isEdge = this.isNearEdge(data, x, y, width, height);
-        
-        if (isEdge && data[idx + 3] > 0) {
-          // Apply feathering
-          const factor = this.getFeatherFactor(x, y, width, height, featherSize);
-          data[idx + 3] = Math.floor(data[idx + 3] * factor);
-        }
+        data[idx] = finalVal;
+        data[idx + 1] = finalVal;
+        data[idx + 2] = finalVal;
+        data[idx + 3] = finalVal;
       }
     }
-  }
-
-  /**
-   * Check if pixel is near edge
-   */
-  private isNearEdge(data: Uint8ClampedArray, x: number, y: number, width: number, height: number): boolean {
-    const idx = (y * width + x) * 4;
-    const current = data[idx + 3];
-    
-    // Check neighbors
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        
-        const nx = x + dx;
-        const ny = y + dy;
-        
-        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-          const nIdx = (ny * width + nx) * 4;
-          if (data[nIdx + 3] !== current) {
-            return true;
-          }
-        }
-      }
-    }
-    
-    return false;
-  }
-
-  /**
-   * Get feathering factor based on distance from edge
-   */
-  private getFeatherFactor(x: number, y: number, width: number, height: number, featherSize: number): number {
-    const distToEdge = Math.min(x, y, width - x - 1, height - y - 1);
-    return Math.min(1, distToEdge / featherSize);
   }
 
   /**

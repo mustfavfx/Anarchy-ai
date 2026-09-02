@@ -77,7 +77,8 @@ export function useMaskHistory(
     const state = historyRef.current[historyIndexRef.current];
     if (state) ctx.putImageData(state, 0, 0);
     updateHistoryButtons();
-  }, [canvasRef, updateHistoryButtons]);
+    notifyMaskChange();
+  }, [canvasRef, updateHistoryButtons, notifyMaskChange]);
 
   const redo = useCallback(() => {
     if (historyIndexRef.current >= historyRef.current.length - 1) return;
@@ -87,7 +88,8 @@ export function useMaskHistory(
     const state = historyRef.current[historyIndexRef.current];
     if (state) ctx.putImageData(state, 0, 0);
     updateHistoryButtons();
-  }, [canvasRef, updateHistoryButtons]);
+    notifyMaskChange();
+  }, [canvasRef, updateHistoryButtons, notifyMaskChange]);
 
   /** Wipes the history stack entirely (e.g. the underlying image changed). */
   const resetHistory = useCallback(() => {
