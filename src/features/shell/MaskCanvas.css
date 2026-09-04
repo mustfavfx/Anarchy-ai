@@ -1164,3 +1164,81 @@
   font-weight: 500;
   text-transform: capitalize;
 }
+
+/* ── VizMaker-Style Dual-Engine Workspace Mode (Mask vs Draw) ─────────────── */
+
+.mask-workspace-mode-selector {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.workspace-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.workspace-mode-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.workspace-mode-btn.active {
+  background: #e11d48;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.4);
+}
+
+.mask-draw-palette {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+.palette-color-btn {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease;
+}
+
+.palette-color-btn:hover {
+  transform: scale(1.2);
+}
+
+.palette-color-btn.selected {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  transform: scale(1.15);
+}
+
+.palette-custom-picker {
+  width: 16px;
+  height: 16px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 3px;
+}

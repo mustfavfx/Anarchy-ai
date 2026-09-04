@@ -37,7 +37,12 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   isGenerating = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Dual-Engine Workspace Mode: 'mask' (Inpaint Stencil) vs 'draw' (Visual Ink & Sketch)
+  const [workspaceMode, setWorkspaceMode] = useState<'mask' | 'draw'>('mask');
+  const [inkColor, setInkColor] = useState<string>('#3b82f6');
 
   const baseOriginalImage = originalImage || image;
   const [currentCanvasImage, setCurrentCanvasImage] = useState<string | null>(image);
@@ -260,6 +265,14 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       canvas.style.width = `${cw}px`;
       canvas.style.height = `${ch}px`;
 
+      const drawCanvas = drawingCanvasRef.current;
+      if (drawCanvas) {
+        drawCanvas.width = cw;
+        drawCanvas.height = ch;
+        drawCanvas.style.width = `${cw}px`;
+        drawCanvas.style.height = `${ch}px`;
+      }
+
       if (snapshot) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
@@ -395,16 +408,19 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         return;
       }
 
-      const ctx = canvasRef.current?.getContext('2d');
+      const targetCanvas = workspaceMode === 'draw' ? drawingCanvasRef.current : canvasRef.current;
+      const ctx = targetCanvas?.getContext('2d');
       if (!ctx) return;
       ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, brushSize / 2, 0, Math.PI * 2);
-      ctx.fillStyle = hexToRgba(brushColor, maskOpacity);
+      ctx.fillStyle = workspaceMode === 'draw' ? inkColor : hexToRgba(brushColor, maskOpacity);
       ctx.fill();
       lastPointRef.current = pt;
       setIsDrawing(true);
-      setHasSelectionContent(true);
+      if (workspaceMode === 'mask') {
+        setHasSelectionContent(true);
+      }
     },
     [maskTool, shapeSubTool, brushSize, brushColor, maskOpacity, hexToRgba, handleWandClick]
   );
@@ -425,13 +441,14 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         return;
       }
 
-      const ctx = canvasRef.current?.getContext('2d');
+      const targetCanvas = workspaceMode === 'draw' ? drawingCanvasRef.current : canvasRef.current;
+      const ctx = targetCanvas?.getContext('2d');
       if (!ctx) return;
       ctx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
       ctx.lineWidth = brushSize;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = hexToRgba(brushColor, maskOpacity);
+      ctx.strokeStyle = workspaceMode === 'draw' ? inkColor : hexToRgba(brushColor, maskOpacity);
 
       ctx.beginPath();
       if (lastPointRef.current) {
@@ -442,7 +459,9 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       ctx.lineTo(pt.x, pt.y);
       ctx.stroke();
       lastPointRef.current = pt;
-      setHasSelectionContent(true);
+      if (workspaceMode === 'mask') {
+        setHasSelectionContent(true);
+      }
     },
     [isDrawing, maskTool, shapeSubTool, brushSize, brushColor, maskOpacity, hexToRgba]
   );
@@ -613,30 +632,64 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         });
       }
 
+      // 1. Composite Ink / Drawing layer onto visual composite if user drew visual guidance
+      const drawCanvas = drawingCanvasRef.current;
+      if (drawCanvas) {
+        compositeCtx.drawImage(drawCanvas, 0, 0, targetW, targetH);
+      }
+
+      // 2. Binary mask thresholding
       const imgData = maskCtx.getImageData(0, 0, targetW, targetH);
       const data = imgData.data;
+      const binaryMap = new Uint8Array(targetW * targetH);
+
       for (let i = 0; i < data.length; i += 4) {
         const alpha = data[i + 3];
-        if (alpha > 5) {
-          data[i] = 255;
-          data[i + 1] = 255;
-          data[i + 2] = 255;
-          data[i + 3] = 255;
-        } else {
-          data[i] = 0;
-          data[i + 1] = 0;
-          data[i + 2] = 0;
-          data[i + 3] = 255;
+        if (alpha > 8) {
+          binaryMap[i / 4] = 1;
         }
+      }
+
+      // 3. Morphological Dilation (Distance expansion by 6px to avoid seam artifacts)
+      const dilationDistance = 6;
+      const dilatedMap = new Uint8Array(targetW * targetH);
+      dilatedMap.set(binaryMap);
+
+      for (let y = 0; y < targetH; y++) {
+        for (let x = 0; x < targetW; x++) {
+          if (binaryMap[y * targetW + x] === 1) {
+            for (let dy = -dilationDistance; dy <= dilationDistance; dy++) {
+              const ny = y + dy;
+              if (ny < 0 || ny >= targetH) continue;
+              for (let dx = -dilationDistance; dx <= dilationDistance; dx++) {
+                const nx = x + dx;
+                if (nx < 0 || nx >= targetW) continue;
+                if (dx * dx + dy * dy <= dilationDistance * dilationDistance) {
+                  dilatedMap[ny * targetW + nx] = 1;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Write back dilated mask
+      for (let i = 0; i < dilatedMap.length; i++) {
+        const val = dilatedMap[i] === 1 ? 255 : 0;
+        data[i * 4] = val;
+        data[i * 4 + 1] = val;
+        data[i * 4 + 2] = val;
+        data[i * 4 + 3] = 255;
       }
       maskCtx.putImageData(imgData, 0, 0);
 
+      // 5. Gaussian Feathering for seamless blending
       const featheredCanvas = document.createElement('canvas');
       featheredCanvas.width = targetW;
       featheredCanvas.height = targetH;
       const fCtx = featheredCanvas.getContext('2d');
       if (fCtx) {
-        fCtx.filter = 'blur(4px)';
+        fCtx.filter = 'blur(3px)';
         fCtx.drawImage(maskCanvas, 0, 0);
         fCtx.filter = 'none';
       }
@@ -1159,6 +1212,18 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
               <Loader2 size={28} className="spin" style={{ color: '#e11d48' }} />
             </div>
           )}
+          {/* Visual Ink / Drawing Layer Canvas */}
+          <canvas
+            ref={drawingCanvasRef}
+            className="mask-canvas-drawing-layer"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              pointerEvents: 'none',
+              zIndex: 3,
+            }}
+          />
           <canvas
             ref={canvasRef}
             className={`mask-canvas-draw ${isGenActive ? 'mask-pulsing' : ''}`}
