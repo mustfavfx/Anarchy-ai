@@ -11,6 +11,7 @@ import { useMaskHistory } from './hooks/useMaskHistory';
 import { useMagicWand } from './hooks/useMagicWand';
 import { useCropTool } from './hooks/useCropTool';
 import { getUnifiedCost } from '../../services/credit/creditService';
+import { exportToPsdWithDialog } from '../../services/export';
 import { MaskPromptBar } from './mask/components/MaskPromptBar';
 import { MaskTopToolbar } from './mask/components/MaskTopToolbar';
 import { MaskCompareView } from './mask/components/MaskCompareView';
@@ -379,6 +380,41 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     link.href = res.composite;
     link.click();
   }, []);
+
+  const handleExportPsd = useCallback(async () => {
+    const baseImg = resolvedImage || image;
+    if (!baseImg) return;
+    try {
+      const res = await getCompositeAndMask();
+      const activeMask = res?.mask || maskPreviewUrl || undefined;
+      const defaultFilename = `Anarchy_${Date.now()}`;
+      const savedPath = await exportToPsdWithDialog({
+        fileName: defaultFilename,
+        baseImage: baseImg,
+        baseImageVisible: layerVisibility.image !== false,
+        layers: inpaintLayers,
+        activeMaskDataUrl: activeMask,
+        canvasWidth: imgMeta?.w || canvasRef.current?.width,
+        canvasHeight: imgMeta?.h || canvasRef.current?.height,
+      });
+      if (savedPath) {
+        useNotificationStore.getState().addNotification({
+          type: 'success',
+          title: 'PSD Exported',
+          message: `Saved: ${savedPath.split(/[\\/]/).pop()}`,
+          duration: 3000,
+        });
+      }
+    } catch (err: any) {
+      logger.error('[MaskCanvas] Failed to export PSD:', err);
+      useNotificationStore.getState().addNotification({
+        type: 'error',
+        title: 'Export Failed',
+        message: err?.message || 'Could not export PSD file.',
+        duration: 4000,
+      });
+    }
+  }, [resolvedImage, image, maskPreviewUrl, inpaintLayers, layerVisibility.image, imgMeta]);
 
   const copyMaskToClipboard = useCallback(async () => {
     try {
@@ -1494,6 +1530,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         copyMaskToClipboard={copyMaskToClipboard}
         hasCopiedMask={hasCopiedMask}
         sendToGraphAsNode={sendToGraphAsNode}
+        onExportPsd={handleExportPsd}
         zoomScale={zoomScale}
         setZoomScale={setZoomScale}
         setPanOffset={setPanOffset}
@@ -1543,6 +1580,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           generatingPrompt={maskPrompt}
           activeMaskColor={psMaskColor}
           onToggleMaskColor={() => setPsMaskColor(c => c === 'white' ? 'black' : 'white')}
+          onExportPsd={handleExportPsd}
         />
       )}
 
@@ -1900,26 +1938,57 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             </svg>
           )}
 
-          {/* 5. Precision Circular Brush Cursor */}
-          {showBrushCursor && !isSpacebarDown && !isPanning && maskTool !== 'hand' && ((maskTool === 'brush' && (drawSubTool === 'brush' || drawSubTool === 'line')) || maskTool === 'eraser') && cursorPos && (
-            <div
-              className={`mask-canvas-cursor ${maskTool === 'eraser' ? 'mask-eraser-cursor' : ''}`}
-              style={{
-                left: cursorPos.x,
-                top: cursorPos.y,
-                width: brushSize,
-                height: brushSize,
-                transform: 'translate(-50%, -50%)',
-                position: 'absolute',
-                pointerEvents: 'none',
-                zIndex: 25,
-                borderColor: maskTool === 'eraser' ? '#f59e0b' : '#ffffff',
-                backgroundColor: maskTool === 'eraser' ? 'rgba(245, 158, 11, 0.15)' : hexToRgba(brushColor, 0.22),
-              }}
-            >
-              <div className="mask-cursor-center-dot" />
-            </div>
-          )}
+          {/* 5. Precision Dynamic Feather & Softness Circular Brush Cursor */}
+          {showBrushCursor && !isSpacebarDown && !isPanning && maskTool !== 'hand' && ((maskTool === 'brush' && (drawSubTool === 'brush' || drawSubTool === 'line')) || maskTool === 'eraser') && cursorPos && (() => {
+            const isEraser = maskTool === 'eraser';
+            const innerRatio = Math.max(0.06, brushHardness / 100);
+            const innerCoreDiameter = Math.max(4, Math.round(brushSize * innerRatio));
+            const primaryColor = isEraser ? 'rgba(245, 158, 11, 0.45)' : hexToRgba(brushColor, 0.48);
+            const midColor = isEraser ? 'rgba(245, 158, 11, 0.28)' : hexToRgba(brushColor, 0.32);
+            const transparentEdge = isEraser ? 'rgba(245, 158, 11, 0)' : hexToRgba(brushColor, 0);
+
+            const dynamicBackground = brushHardness < 98
+              ? `radial-gradient(circle at center, ${primaryColor} 0%, ${midColor} ${Math.round(brushHardness * 0.85)}%, ${transparentEdge} 100%)`
+              : (isEraser ? 'rgba(245, 158, 11, 0.22)' : hexToRgba(brushColor, 0.26));
+
+            return (
+              <div
+                className={`mask-canvas-cursor ${isEraser ? 'mask-eraser-cursor' : ''}`}
+                style={{
+                  left: cursorPos.x,
+                  top: cursorPos.y,
+                  width: brushSize,
+                  height: brushSize,
+                  transform: 'translate(-50%, -50%)',
+                  position: 'absolute',
+                  pointerEvents: 'none',
+                  zIndex: 25,
+                  borderColor: isEraser ? '#f59e0b' : '#ffffff',
+                  background: dynamicBackground,
+                }}
+              >
+                {/* Dynamic Inner Solid Core Ring (showing feather border) */}
+                {brushHardness < 98 && (
+                  <div
+                    className="mask-cursor-inner-core"
+                    style={{
+                      width: innerCoreDiameter,
+                      height: innerCoreDiameter,
+                      borderColor: isEraser ? 'rgba(245, 158, 11, 0.8)' : 'rgba(255, 255, 255, 0.75)',
+                    }}
+                  />
+                )}
+
+                {/* Precision Center Dot */}
+                <div className="mask-cursor-center-dot" />
+
+                {/* Dynamic Floating Size & Softness HUD Badge */}
+                <div className="mask-cursor-hud-badge">
+                  <span>Ø {Math.round(brushSize)}px • {brushHardness}%</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Floating Quick Shortcut Hints Strip */}

@@ -21,7 +21,7 @@ import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
-import { BuilderContextMenu } from './components/BuilderContextMenu';
+import { BuilderContextMenu, type ContextAction } from './components/BuilderContextMenu';
 import { BuilderPromptBar } from './components/BuilderPromptBar';
 import { CreditErrorModal } from './components/CreditErrorModal';
 import { DxfCalibrationModal } from './components/DxfCalibrationModal';
@@ -73,12 +73,6 @@ import './BuilderPage.css';
 
 // Check if running in a Tauri desktop environment
 const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
-
-type ContextAction =
-  | 'add-source' | 'rearrange' | 'spawn-ghost' | 'retry-node' | 'delete-node'
-  | 'compare-a' | 'compare-b' | 'save-node-image' | 'export-dxf' | 'analyze-plan'
-  | 'export-all' | 'export-pdf' | 'save-project' | 'load-project'
-  | 'open-images-folder' | 'export-node-pdf' | 'draw-mask';
 
 // Props for multi-tab support
 interface BuilderContentProps {
@@ -480,6 +474,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     edges,
     setNodes,
     setEdges,
+    tabId,
     initialProjectPath,
     onTitleChange,
     onDirtyChange,
@@ -505,6 +500,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     handleContextAnalyzePlan,
     handleContextExportAll,
     handleContextExportPDF,
+    handleContextExportZip,
     handleContextOpenImagesFolder,
     handleContextExportNodePDF,
     dxfCalibrationTarget,
@@ -1477,6 +1473,12 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       case 'export-pdf':
         handleContextExportPDF();
         break;
+      case 'export-zip':
+        void handleContextExportZip(false);
+        break;
+      case 'export-selection-zip':
+        void handleContextExportZip(true, contextNode);
+        break;
       case 'save-project':
         void handleSave();
         break;
@@ -1525,6 +1527,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     handleContextAnalyzePlan,
     handleContextExportAll,
     handleContextExportPDF,
+    handleContextExportZip,
     handleSave,
     handleLoad,
     handleContextOpenImagesFolder,

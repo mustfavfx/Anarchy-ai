@@ -4,7 +4,7 @@ import {
   RotateCcw, RotateCw, Plus, LayoutGrid, Maximize2,
   Save, FolderOpen, FolderDown, Download,
   Trash2, SplitSquareHorizontal,
-  FileText, Wand2, Film, ChevronRight, Paintbrush, Sparkles
+  FileText, Wand2, Film, ChevronRight, Paintbrush, Sparkles, Archive
 } from 'lucide-react';
 import { logger } from '../../../utils/logger';
 
@@ -21,6 +21,8 @@ export type ContextAction =
   | 'analyze-plan'
   | 'export-all' 
   | 'export-pdf' 
+  | 'export-zip'
+  | 'export-selection-zip'
   | 'save-project' 
   | 'load-project'
   | 'open-images-folder'
@@ -404,6 +406,17 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
             <Download size={14} className="context-icon" />
             <span className="context-main">Export to PDF</span>
           </button>
+
+          <button
+            type="button"
+            className="context-item"
+            onClick={() => { onAction('export-zip'); }}
+            disabled={!canvasHasAnyImage}
+          >
+            <Archive size={14} className="context-icon" />
+            <span className="context-main">Export All to ZIP</span>
+            <span className="context-badge">Batch</span>
+          </button>
         </>
       )}
 
@@ -471,6 +484,21 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
           >
             <FileText size={14} className="context-icon" />
             <span className="context-main">Export to PDF</span>
+          </button>
+
+          <button
+            type="button"
+            className="context-item"
+            onClick={() => { onAction('export-selection-zip'); }}
+            disabled={!contextNodeHasImage && nodes.filter(n => n.selected).length === 0}
+          >
+            <Archive size={14} className="context-icon" />
+            <span className="context-main">
+              {nodes.filter(n => n.selected).length > 1
+                ? `Export Selected to ZIP (${nodes.filter(n => n.selected).length} Nodes)`
+                : 'Export to ZIP Archive'}
+            </span>
+            <span className="context-badge">ZIP</span>
           </button>
 
           {/* 

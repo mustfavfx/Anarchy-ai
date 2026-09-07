@@ -891,6 +891,36 @@
   pointer-events: none;
 }
 
+.mask-cursor-inner-core {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.85);
+  transition: width 0.05s ease, height 0.05s ease;
+}
+
+.mask-cursor-hud-badge {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(7px);
+  background: rgba(15, 17, 26, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  padding: 1.5px 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #f4f4f5;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
+  z-index: 30;
+}
+
 /* Animation utilities */
 .spin {
   animation: viz-spin 1.2s linear infinite;

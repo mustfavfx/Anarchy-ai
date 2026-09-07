@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { logger } from '../../../utils/logger';
 import { saveWorkflow, saveWorkflowAs, loadWorkflow, resetFilePath } from '../../../services/workflow';
+import { AutoRecoveryService } from '../../../services/recovery/AutoRecoveryService';
 import { sanitizeEdges } from '../types';
 import type { BuilderNode } from '../types';
 import { type Edge } from '@xyflow/react';
@@ -11,6 +12,7 @@ interface UseBuilderPersistenceArgs {
   edges: Edge[];
   setNodes: React.Dispatch<React.SetStateAction<BuilderNode[]>>;
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+  tabId?: string;
   initialProjectPath?: string | null;
   onTitleChange?: (title: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -31,6 +33,7 @@ export function useBuilderPersistence({
   edges,
   setNodes,
   setEdges,
+  tabId,
   initialProjectPath,
   onTitleChange,
   onDirtyChange,
@@ -77,6 +80,18 @@ export function useBuilderPersistence({
     isDirtyRef.current = true;
     onDirtyChangeRef.current?.(true);
   }, [nodes, edges, isRestored]);
+
+  // Auto-Recovery periodic snapshot save for dirty sessions (.ana.bak)
+  useEffect(() => {
+    if (!isRestored || !isDirtyRef.current || !tabId) return;
+    const timer = setTimeout(() => {
+      if (isDirtyRef.current && isMountedRef.current && tabId) {
+        const title = currentFilePath ? currentFilePath.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Untitled' : 'Untitled';
+        AutoRecoveryService.saveRecoverySnapshot(tabId, title, nodes, edges, currentFilePath).catch(() => {});
+      }
+    }, 15000); // 15s debounced auto-recovery snapshot
+    return () => clearTimeout(timer);
+  }, [nodes, edges, isRestored, tabId, currentFilePath]);
 
   const applyWorkflow = useCallback((wf: any, fallbackName: string) => {
     if (!wf) return;
@@ -160,12 +175,15 @@ export function useBuilderPersistence({
     }
 
     addNotification({ type: 'success', title: 'Project Loaded', message: name });
+    if (tabId) {
+      AutoRecoveryService.clearRecoverySnapshot(tabId, currentFilePath).catch(() => {});
+    }
     // Force center viewport and real GPU repaint after DOM commits new nodes
     setTimeout(() => {
       try { fitView?.({ padding: 0.3, duration: 300 }); } catch {}
       forceCanvasRepaint?.();
     }, 150);
-  }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef, forceCanvasRepaint]);
+  }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef, forceCanvasRepaint, tabId, currentFilePath]);
 
   const handleSave = useCallback(async (): Promise<string | null> => {
     try {
@@ -181,6 +199,9 @@ export function useBuilderPersistence({
         skipDirtyRef.current = 1;
         isDirtyRef.current = false;
         onDirtyChange?.(false);
+        if (tabId) {
+          AutoRecoveryService.clearRecoverySnapshot(tabId, path).catch(() => {});
+        }
         return path;
       }
       return null;
@@ -190,7 +211,7 @@ export function useBuilderPersistence({
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
       return null;
     }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange, tabId]);
 
   const handleSaveAs = useCallback(async (): Promise<string | null> => {
     try {
@@ -206,6 +227,9 @@ export function useBuilderPersistence({
         skipDirtyRef.current = 1;
         isDirtyRef.current = false;
         onDirtyChange?.(false);
+        if (tabId) {
+          AutoRecoveryService.clearRecoverySnapshot(tabId, path).catch(() => {});
+        }
         return path;
       }
       return null;
@@ -215,7 +239,7 @@ export function useBuilderPersistence({
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
       return null;
     }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange, tabId]);
 
   const handleLoad = useCallback(async () => {
     try {
@@ -232,6 +256,9 @@ export function useBuilderPersistence({
         skipDirtyRef.current = 2;
         isDirtyRef.current = false;
         onDirtyChange?.(false);
+        if (tabId) {
+          AutoRecoveryService.clearRecoverySnapshot(tabId, result.filePath).catch(() => {});
+        }
         addNotification({ type: 'success', title: 'Project Loaded', message: result.name });
         // Force a real GPU repaint after nodes settle — fixes WebView2 black canvas bug.
         setTimeout(() => forceCanvasRepaint?.(), 300);
@@ -240,12 +267,15 @@ export function useBuilderPersistence({
       logger.error('[Load] failed:', err);
       addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
     }
-  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange, onProjectPathChange, hasFittedInitiallyRef, forceCanvasRepaint]);
+  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange, onProjectPathChange, hasFittedInitiallyRef, forceCanvasRepaint, tabId]);
 
   const doNewCanvas = useCallback(() => {
     resetFilePath();
     setCurrentFilePathState(null);
     onProjectPathChange?.(null);
+    if (tabId) {
+      AutoRecoveryService.clearRecoverySnapshot(tabId, currentFilePath).catch(() => {});
+    }
     setNodes([]);
     setEdges([]);
     setSelectedNodeId(null);
@@ -257,7 +287,7 @@ export function useBuilderPersistence({
       createSourceNode();
       setTimeout(() => fitView({ padding: 0.8, minZoom: 0.6, duration: 400 }), 100);
     }, 30);
-  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange, onProjectPathChange]);
+  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange, onProjectPathChange, tabId, currentFilePath]);
 
   const handleNewCanvas = useCallback(() => {
     if (isDirtyRef.current) {

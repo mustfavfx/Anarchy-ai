@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock Tauri deps before importing the service
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
-vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn(), open: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn().mockResolvedValue('C:\\test\\export.zip'), open: vi.fn() }));
 vi.mock('jspdf', () => ({
   default: vi.fn(() => ({
     setProperties: vi.fn(),
@@ -18,7 +18,12 @@ vi.mock('jspdf', () => ({
   })),
 }));
 
-import { PROGRAM_IDENTITY } from './ExportService';
+import {
+  PROGRAM_IDENTITY,
+  extractImagesFromNodes,
+  exportImagesToZipWithDialog,
+  exportNodesToZipWithDialog,
+} from './ExportService';
 
 // ── PROGRAM_IDENTITY ──────────────────────────────────────────────────────────
 describe('PROGRAM_IDENTITY', () => {
@@ -150,5 +155,116 @@ describe('fitImageToPDF logic', () => {
   it('does not upscale small image beyond content width', () => {
     const { finalWidth } = fit(100, 100, 170, 257);
     expect(finalWidth).toBe(170); // fills to contentWidth
+  });
+});
+
+// ── extractImagesFromNodes function ───────────────────────────────────────────
+describe('extractImagesFromNodes implementation', () => {
+  it('extracts primary image, variants, and prompts from nodes', () => {
+    const nodes: any[] = [
+      {
+        id: 'node-1',
+        data: {
+          type: 'source',
+          image: 'data:image/png;base64,primary1',
+          prompt: 'modern villa with large glass windows',
+          images: [
+            'data:image/png;base64,primary1',
+            'data:image/png;base64,variant2',
+          ],
+        },
+      },
+      {
+        id: 'node-2',
+        data: {
+          type: 'upscaler',
+          outputData: {
+            image: 'data:image/jpeg;base64,upscaled',
+            prompt: 'interior living room',
+          },
+        },
+      },
+      {
+        id: 'node-empty',
+        data: {
+          type: 'ghost',
+        },
+      },
+    ];
+
+    const extracted = extractImagesFromNodes(nodes);
+    expect(extracted).toHaveLength(3);
+
+    expect(extracted[0]).toEqual({
+      url: 'data:image/png;base64,primary1',
+      name: 'source_node-1',
+      prompt: 'modern villa with large glass windows',
+    });
+
+    expect(extracted[1]).toEqual({
+      url: 'data:image/png;base64,variant2',
+      name: 'source_node-1_variant_2',
+      prompt: 'modern villa with large glass windows',
+    });
+
+    expect(extracted[2]).toEqual({
+      url: 'data:image/jpeg;base64,upscaled',
+      name: 'upscaler_node-2',
+      prompt: 'interior living room',
+    });
+  });
+});
+
+// ── Batch ZIP Export ─────────────────────────────────────────────────────────
+describe('Batch ZIP Export', () => {
+  it('exportImagesToZipWithDialog packages images, prompts, and manifest', async () => {
+    const items = [
+      {
+        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        name: 'villa_facade',
+        prompt: 'luxury modern villa',
+      },
+      {
+        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        name: 'villa_interior',
+      },
+    ];
+
+    const result = await exportImagesToZipWithDialog(items, {
+      zipName: 'test_villa_export',
+      includePrompts: true,
+      includeManifest: true,
+    });
+
+    expect(result).toBe('C:\\test\\export.zip');
+  });
+
+  it('exportImagesToZipWithDialog throws if items array is empty', async () => {
+    await expect(exportImagesToZipWithDialog([])).rejects.toThrow('No images to export in archive');
+  });
+
+  it('exportNodesToZipWithDialog filters selected nodes when selectedOnly is true', async () => {
+    const nodes: any[] = [
+      {
+        id: 'n1',
+        selected: false,
+        data: { type: 'source', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' },
+      },
+      {
+        id: 'n2',
+        selected: true,
+        data: { type: 'result', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' },
+      },
+    ];
+
+    const result = await exportNodesToZipWithDialog(nodes, {}, true);
+    expect(result).toBe('C:\\test\\export.zip');
+  });
+
+  it('exportNodesToZipWithDialog throws if no images exist in target nodes', async () => {
+    const nodes: any[] = [
+      { id: 'n1', selected: true, data: { type: 'ghost' } },
+    ];
+    await expect(exportNodesToZipWithDialog(nodes, {}, true)).rejects.toThrow('No images found in selected nodes');
   });
 });

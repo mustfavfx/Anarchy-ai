@@ -26,6 +26,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolved undo/redo preview desynchronization in mask and layer workflows.
 
 ### Added
+- **Photoshop Layered Export (`.psd`)**:
+  - Implemented `exportToPsdWithDialog` in `PsdExportService.ts` via `ag-psd` to export the current workspace as a Photoshop document.
+  - Retains all inpaint layers, background base image, layer opacities, layer visibility, 16 blend modes (Normal, Multiply, Screen, Overlay, etc.), and active binary inpaint mask.
+  - Native binary writing using Tauri's `save_image_to_path` base64 decoding engine with reliable browser download fallback.
+  - Integrated into the Mask Canvas top toolbar export dropdown and the Layers Panel actions footer.
+
+- **Real-Time Brush Softness & Feather Dynamic Preview**:
+  - Engineered a dual-ring dynamic cursor in `MaskCanvas`: an inner dashed ring displays the solid brush hardness core (`brushHardness / 100 * brushSize`), while the outer solid ring bounds the feather extent (`brushSize`).
+  - Added real-time radial gradient background reflecting exact feather falloff directly underneath the artist's brush.
+  - Added a floating HUD badge showing live brush metrics (e.g. `Ø 48px • 75%`).
+
+- **Image Cache & IndexedDB Storage Cleaner in Settings**:
+  - Added a dedicated storage management card in `SettingsPage.tsx` using `StorageManagerService.ts`.
+  - Real-time disk quota and usage estimation via `navigator.storage.estimate()`.
+  - Safe one-click "Clean Image Cache" that immediately frees disk space by pruning ephemeral previews (`local_image_cache`) while strictly protecting `.ana` project files, persistent nodes, and account data.
+  - Live confirmation dialog with instant byte-level feedback.
+
+- **Auto-Recovery Crash Protection Snapshots (`.ana.bak`)**:
+  - Implemented `AutoRecoveryService.ts` to automatically save periodic recovery snapshots for dirty builder tabs without blocking the UI thread.
+  - Added an auto-recovery detection banner on startup in `MultiBuilderPage.tsx` alerting users to unsaved sessions with one-click "Restore Session" or "Discard" actions.
+  - Automatic snapshot cleanup upon successful clean saves, loads, or new project creation.
+
+- **Batch Export to Structured ZIP Archive**:
+  - Implemented `exportImagesToZipWithDialog` and `exportNodesToZipWithDialog` in `ExportService.ts` using `jszip`.
+  - Batch exports all canvas images or selected node images/variants at full resolution into a neat, compressed `.zip` archive.
+  - Automatically bundles prompt text files alongside images (`{index}_{name}_prompt.txt`) and generates a structured `manifest.json` metadata summary.
+  - Integrated into canvas and node context menus: "Export All to ZIP (Batch)" and "Export Selected to ZIP".
+
 - **Dashboard Recent Activity Thumbnails & Instant Canvas Restore**:
   - Implemented `ActivityItemThumbnail` in `DashboardPage.tsx` using `useResolvedImage` and IndexedDB cache (`loadThumbnail`) to display real generated image thumbnails for all recent activities.
   - Connected recent activity card clicks to `useHistoryRestore.restoreWorkflow`, enabling one-click restoration of historical node trees directly into the Canvas Builder.

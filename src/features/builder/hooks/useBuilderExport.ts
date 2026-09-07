@@ -8,6 +8,8 @@ import {
   exportImageToDXFWithDialog,
   saveDXFFromServer,
   exportImagesToPDFWithDialog,
+  exportImagesToZipWithDialog,
+  exportNodesToZipWithDialog,
 } from '../../../services/export';
 import type { DxfCalibration } from '../../../services/export';
 import { resolveImageUrl } from '../utils/builderHelpers';
@@ -164,6 +166,62 @@ export function useBuilderExport({
       .catch((err: any) => { logger.error('[PDF Export] failed:', err); addNotification({ type: 'error', title: 'PDF Export Failed', message: err?.message || 'Failed to export PDF' }); });
   };
 
+  const handleContextExportZip = async (selectedOnly?: boolean, targetNode?: BuilderNode) => {
+    let targetNodes: BuilderNode[] = [];
+    if (selectedOnly) {
+      const selected = nodes.filter(n => n.selected);
+      if (selected.length > 0) {
+        targetNodes = selected;
+      } else if (targetNode) {
+        targetNodes = [targetNode];
+      }
+    } else {
+      targetNodes = nodes;
+    }
+
+    if (targetNodes.length === 0) {
+      addNotification({
+        type: 'info',
+        title: 'No Selection',
+        message: 'No nodes selected for ZIP export.',
+      });
+      return;
+    }
+
+    addNotification({
+      type: 'info',
+      title: 'Creating ZIP...',
+      message: `Packaging images from ${targetNodes.length} node(s) into ZIP archive...`,
+    });
+
+    try {
+      const filePath = await exportNodesToZipWithDialog(
+        targetNodes,
+        {
+          zipName: selectedOnly ? 'anarchy_selected_export' : 'anarchy_canvas_export',
+          includePrompts: true,
+          includeManifest: true,
+        },
+        selectedOnly
+      );
+
+      if (filePath) {
+        addNotification({
+          type: 'success',
+          title: 'ZIP Exported ✓',
+          message: `Archive saved: ${filePath.split(/[\\/]/).pop()}`,
+        });
+      }
+    } catch (err: any) {
+      logger.error('[ZIP Export] failed:', err);
+      addNotification({
+        type: 'error',
+        title: 'ZIP Export Failed',
+        message: err?.message || String(err) || 'Failed to generate ZIP archive',
+      });
+    }
+  };
+
   const handleContextOpenImagesFolder = async (contextNode: BuilderNode | undefined) => {
     try {
       if (!contextNode) {
@@ -243,6 +301,7 @@ export function useBuilderExport({
     handleContextAnalyzePlan,
     handleContextExportAll,
     handleContextExportPDF,
+    handleContextExportZip,
     handleContextOpenImagesFolder,
     handleContextExportNodePDF,
     isAnalyzing: isAnalyzingRef,

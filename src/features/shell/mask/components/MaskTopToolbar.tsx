@@ -4,7 +4,7 @@ import {
   Crop, CornerDownRight, Paintbrush2, Eraser, Trash2, SlidersHorizontal,
   Contrast, Sparkles, Maximize2, Minimize2, PaintBucket, Columns, Eye,
   FolderPlus, FileDown, Download, Check, Copy, Share2, Minus, Plus,
-  Layers, RotateCcw, RotateCw,
+  Layers, RotateCcw, RotateCw, FileCode,
 } from 'lucide-react';
 
 export const MASK_COLOR_PRESETS = [
@@ -52,6 +52,7 @@ export interface MaskTopToolbarProps {
   copyMaskToClipboard: () => void;
   hasCopiedMask: boolean;
   sendToGraphAsNode: () => void;
+  onExportPsd?: () => void;
   zoomScale: number;
   setZoomScale: React.Dispatch<React.SetStateAction<number>>;
   setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
@@ -99,6 +100,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
   copyMaskToClipboard,
   hasCopiedMask,
   sendToGraphAsNode,
+  onExportPsd,
   zoomScale,
   setZoomScale,
   setPanOffset,
@@ -810,6 +812,21 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 {hasCopiedMask ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} style={{ color: '#f59e0b' }} />}
                 <span>{hasCopiedMask ? 'Copied to Clipboard!' : 'Copy Mask to Clipboard'}</span>
               </button>
+
+              {onExportPsd && (
+                <button
+                  type="button"
+                  className="mask-dropdown-item"
+                  onClick={() => {
+                    onExportPsd();
+                    setShowExportMenu(false);
+                  }}
+                  title="Export layered Photoshop PSD with inpaint masks, blend modes, and opacity"
+                >
+                  <FileCode size={14} style={{ color: '#38bdf8' }} />
+                  <span>Export Photoshop (.PSD)</span>
+                </button>
+              )}
 
               <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '2px 0' }} />
 

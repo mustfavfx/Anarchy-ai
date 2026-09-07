@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SESSION_KEYS } from '../../../utils/storageKeys';
+import type { RecoverySnapshot } from '../../../services/recovery/AutoRecoveryService';
 
 const TABS_STORAGE_KEY = 'anarchy_builder_tabs';
 const ACTIVE_TAB_KEY   = 'anarchy_builder_active_tab';
@@ -515,6 +516,23 @@ export function useMultiBuilderTabs() {
     saveNext();
   };
 
+  const restoreSnapshotTab = useCallback((snapshot: RecoverySnapshot) => {
+    const newTab: Tab = {
+      id: generateTabId(),
+      title: snapshot.title || 'Restored Session',
+      projectPath: snapshot.projectPath || null,
+      isDirty: true,
+      everEdited: true,
+      initialWorkflow: {
+        name: snapshot.title || 'Restored Session',
+        nodes: snapshot.nodes,
+        edges: snapshot.edges,
+      },
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }, []);
+
   return {
     tabs,
     setTabs,
@@ -535,5 +553,6 @@ export function useMultiBuilderTabs() {
     handleTabDrop,
     handleAppDontSaveAndClose,
     handleAppSaveAndClose,
+    restoreSnapshotTab,
   };
 }

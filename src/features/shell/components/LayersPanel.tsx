@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronUp, Eye, EyeOff, Lock, Unlock, Plus, Trash2, Loader2, Sparkles, 
-  Link2, Copy, Contrast, ArrowUp, ArrowDown, Edit3, Paintbrush2, ArrowLeftRight
+  Link2, Copy, Contrast, ArrowUp, ArrowDown, Edit3, Paintbrush2, ArrowLeftRight, FileCode
 } from 'lucide-react';
 import { useResolvedImage } from '../../../hooks';
 import { useTranslation } from '../../../services/i18n';
@@ -138,6 +138,7 @@ export interface LayersPanelProps {
   generatingPrompt?: string;
   activeMaskColor?: 'white' | 'black';
   onToggleMaskColor?: () => void;
+  onExportPsd?: () => void;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
@@ -171,6 +172,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   generatingPrompt = '',
   activeMaskColor = 'white',
   onToggleMaskColor,
+  onExportPsd,
 }) => {
   const { isAr } = useTranslation();
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
@@ -649,6 +651,19 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               disabled={!activeLayerId}
             >
               <Copy size={13} />
+            </button>
+          )}
+
+          {/* Export PSD (.psd) */}
+          {onExportPsd && (
+            <button
+              type="button"
+              className="vizmaker-layer-action-btn"
+              onClick={onExportPsd}
+              title={isAr ? 'تصدير كملف فوتوشوب (Export PSD)' : 'Export Layers as Photoshop PSD'}
+              style={{ color: '#38bdf8' }}
+            >
+              <FileCode size={13} />
             </button>
           )}
 

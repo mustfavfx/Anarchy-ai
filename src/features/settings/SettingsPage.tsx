@@ -21,6 +21,7 @@ import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { invoke } from '@tauri-apps/api/core';
 import { SupportModal } from '../dashboard/SupportModal';
 import { useTranslation } from '../../services/i18n';
+import { StorageManagerService, type StorageMetrics } from '../../services/storage/StorageManagerService';
 
 
 export const SettingsPage: React.FC = () => {
@@ -37,6 +38,9 @@ export const SettingsPage: React.FC = () => {
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'up-to-date' | 'error'>('idle');
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClearData, setConfirmClearData] = useState(false);
+  const [confirmCleanCache, setConfirmCleanCache] = useState(false);
+  const [isCleaningCache, setIsCleaningCache] = useState(false);
+  const [storageMetrics, setStorageMetrics] = useState<StorageMetrics | null>(null);
   const [appVersion, setAppVersion] = useState('...');
 
 
@@ -177,6 +181,15 @@ export const SettingsPage: React.FC = () => {
     });
   }, []);
 
+  const loadStorageMetrics = useCallback(async () => {
+    try {
+      const metrics = await StorageManagerService.getStorageMetrics();
+      setStorageMetrics(metrics);
+    } catch (err) {
+      console.warn('[SettingsPage] Failed to load storage metrics:', err);
+    }
+  }, []);
+
   // Initialize and load secure settings on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -185,9 +198,16 @@ export const SettingsPage: React.FC = () => {
       setSettings(current);
       SettingsService.applyTheme(current.theme);
       calculateDiskUsage();
+      loadStorageMetrics();
     };
     loadSettings();
-  }, [calculateDiskUsage]);
+  }, [calculateDiskUsage, loadStorageMetrics]);
+
+  useEffect(() => {
+    if (activeTab === 'storage') {
+      loadStorageMetrics();
+    }
+  }, [activeTab, loadStorageMetrics]);
 
   const saveSettings = () => {
     SettingsService.updateSettings(settings);
@@ -215,6 +235,23 @@ export const SettingsPage: React.FC = () => {
     const current = SettingsService.getSettings();
     setSettings(current);
     calculateDiskUsage();
+    loadStorageMetrics();
+  };
+
+  const doCleanImageCache = async () => {
+    setConfirmCleanCache(false);
+    setIsCleaningCache(true);
+    try {
+      const { freedBytes, freedCount } = await StorageManagerService.cleanImageCache();
+      await loadStorageMetrics();
+      calculateDiskUsage();
+      const freedMb = (freedBytes / (1024 * 1024)).toFixed(1);
+      notify.success('Cache Cleaned Successfully', `Freed ${freedCount} cached images (${freedMb} MB). Your projects remain safe.`);
+    } catch (err: any) {
+      notify.error('Cache Clean Failed', err?.message || 'Could not clean image cache.');
+    } finally {
+      setIsCleaningCache(false);
+    }
   };
 
   // Export/Import handlers
@@ -881,41 +918,98 @@ export const SettingsPage: React.FC = () => {
           {/* Storage */}
           {activeTab === 'storage' && (
             <>
-              {/* Storage Usage Card */}
-              <div className="settings-card">
+              {/* IndexedDB Image Cache & Storage Manager Card */}
+              <div className="settings-card storage-cache-card">
                 <div className="settings-card-header">
-                  <Database size={18} className="card-icon" />
-                  <h3>Storage Usage</h3>
+                  <Database size={18} className="card-icon" style={{ color: '#38bdf8' }} />
+                  <div>
+                    <h3>Image Cache & IndexedDB Storage</h3>
+                    <p className="card-desc">Monitor local cached image data and free up disk space</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={loadStorageMetrics}
+                    style={{ marginLeft: 'auto', height: 28, padding: '0 10px', fontSize: 11 }}
+                    title="Refresh storage statistics"
+                  >
+                    <RefreshCw size={12} />
+                    Refresh
+                  </button>
                 </div>
 
-                <div className="storage-visual">
-                  <div 
-                    className="storage-pie"
-                    style={{
-                      '--projects-deg': `${(diskUsage.projects / (diskUsage.total || 1)) * 360}deg`,
-                      '--total-deg': '360deg',
-                    } as React.CSSProperties}
-                  >
-                    <div className="storage-pie-center">
-                      <span>{diskUsage.total} KB</span>
+                {/* Live Storage Progress Bar */}
+                <div className="storage-meter-section" style={{ margin: '14px 0 16px' }}>
+                  <div className="storage-meter-labels" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6 }}>
+                    <span>Used: <strong style={{ color: '#fff' }}>{storageMetrics ? storageMetrics.formattedTotalUsage : `${diskUsage.total} KB`}</strong></span>
+                    <span>Quota: <strong style={{ color: '#fff' }}>{storageMetrics?.formattedQuota || 'Unlimited (Disk)'}</strong></span>
+                  </div>
+                  <div className="storage-progress-track" style={{ height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div
+                      className="storage-progress-fill"
+                      style={{
+                        height: '100%',
+                        borderRadius: 4,
+                        width: `${Math.max(2, Math.min(100, storageMetrics?.percentUsed || 10))}%`,
+                        background: (storageMetrics?.percentUsed || 0) > 85 ? '#e11d48' : ((storageMetrics?.percentUsed || 0) > 65 ? '#f59e0b' : '#10b981'),
+                        transition: 'width 0.4s ease',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Storage Metric Grid */}
+                <div className="storage-metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  <div className="storage-metric-box" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px' }}>
+                    <div className="metric-title" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>Temporary Image Cache</div>
+                    <div className="metric-val" style={{ fontSize: 18, fontWeight: 700, color: '#38bdf8' }}>
+                      {storageMetrics ? storageMetrics.formattedImageCache : '0 B'}
+                    </div>
+                    <div className="metric-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                      {storageMetrics?.imageCacheCount || 0} cached preview items
                     </div>
                   </div>
-                  <div className="storage-breakdown">
-                    <div className="storage-item">
-                      <div className="storage-dot projects" />
-                      <span className="storage-label">Projects</span>
-                      <span className="storage-value">{diskUsage.projects} KB</span>
+
+                  <div className="storage-metric-box" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px' }}>
+                    <div className="metric-title" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>Stored Project Images</div>
+                    <div className="metric-val" style={{ fontSize: 18, fontWeight: 700, color: '#a855f7' }}>
+                      {storageMetrics ? ((storageMetrics.storedImagesBytes / (1024 * 1024)).toFixed(1) + ' MB') : '0 B'}
                     </div>
-                    <div className="storage-item">
-                      <div className="storage-dot history" />
-                      <span className="storage-label">History</span>
-                      <span className="storage-value">{diskUsage.history} KB</span>
+                    <div className="metric-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                      {storageMetrics?.storedImagesCount || 0} saved assets
+                    </div>
+                  </div>
+
+                  <div className="storage-metric-box" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px' }}>
+                    <div className="metric-title" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>Projects & Preferences</div>
+                    <div className="metric-val" style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>
+                      {storageMetrics ? ((storageMetrics.projectsBytes / 1024).toFixed(1) + ' KB') : `${diskUsage.projects} KB`}
+                    </div>
+                    <div className="metric-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                      Workflows & tab states
                     </div>
                   </div>
                 </div>
-                <p className="storage-disclaimer">
-                  * Note: Storage size is an estimate based on local application database states.
-                </p>
+
+                {/* Cache Purge Action */}
+                <div className="setting-item" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, marginTop: 4 }}>
+                  <div className="setting-item-content">
+                    <label>Clean Image Cache (IndexedDB)</label>
+                    <span className="setting-desc">
+                      Purge temporary downloaded image previews from IndexedDB to reclaim disk space. Your .ana project files and active workflow nodes remain 100% safe.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setConfirmCleanCache(true)}
+                    disabled={isCleaningCache || (storageMetrics?.imageCacheCount === 0 && storageMetrics?.imageCacheBytes === 0)}
+                    style={{ borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8' }}
+                  >
+                    <Trash2 size={14} />
+                    {isCleaningCache ? 'Cleaning...' : 'Clean Image Cache'}
+                  </button>
+                </div>
               </div>
 
               {/* Data Transfer Card */}
@@ -1190,6 +1284,16 @@ export const SettingsPage: React.FC = () => {
           danger
           onConfirm={doClearAllData}
           onCancel={() => setConfirmClearData(false)}
+        />
+      )}
+      {confirmCleanCache && (
+        <ConfirmModal
+          title="Clean Image Cache"
+          message="Are you sure you want to clean the temporary image cache in IndexedDB?&#10;&#10;This will purge ephemeral cached image previews to free up disk space. Your .ana project files and active canvas nodes will remain 100% safe."
+          confirmLabel="Clean Image Cache"
+          danger
+          onConfirm={doCleanImageCache}
+          onCancel={() => setConfirmCleanCache(false)}
         />
       )}
     </div>

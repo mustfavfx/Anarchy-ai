@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { Plus, X, FileText } from 'lucide-react';
+import { Plus, X, FileText, ShieldAlert, RotateCcw } from 'lucide-react';
 import { BuilderContent } from './BuilderPage';
 import { useMultiBuilderTabs } from './hooks/useMultiBuilderTabs';
+import { AutoRecoveryService, type RecoverySnapshot } from '../../services/recovery/AutoRecoveryService';
 import './MultiBuilderPage.css';
 
 export const MultiBuilderPage: React.FC = () => {
@@ -25,10 +26,61 @@ export const MultiBuilderPage: React.FC = () => {
     handleTabDrop,
     handleAppDontSaveAndClose,
     handleAppSaveAndClose,
+    restoreSnapshotTab,
   } = useMultiBuilderTabs();
+
+  const [pendingRecovery, setPendingRecovery] = useState<RecoverySnapshot | null>(null);
+
+  useEffect(() => {
+    try {
+      const list = AutoRecoveryService.getPendingRecoverySnapshots();
+      if (list.length > 0) {
+        const sorted = list.sort((a, b) => b.timestamp - a.timestamp);
+        setPendingRecovery(sorted[0]);
+      }
+    } catch (err) {
+      console.warn('[MultiBuilderPage] Recovery check error:', err);
+    }
+  }, []);
 
   return (
     <div className="multi-builder-container">
+      {/* Auto-Recovery Crash Protection Banner */}
+      {pendingRecovery && (
+        <div className="builder-recovery-banner">
+          <div className="recovery-banner-info">
+            <ShieldAlert size={16} className="recovery-banner-icon" />
+            <span>
+              <strong>Unsaved Session Detected:</strong> Found an auto-recovery snapshot (<code>.ana.bak</code>) for <strong>"{pendingRecovery.title}"</strong> from {new Date(pendingRecovery.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Would you like to restore your last unsaved work?
+            </span>
+          </div>
+          <div className="recovery-banner-btns">
+            <button
+              type="button"
+              className="recovery-action-btn restore"
+              onClick={() => {
+                restoreSnapshotTab(pendingRecovery);
+                AutoRecoveryService.clearRecoverySnapshot(pendingRecovery.tabId, pendingRecovery.projectPath).catch(() => {});
+                setPendingRecovery(null);
+              }}
+            >
+              <RotateCcw size={13} />
+              Restore Session
+            </button>
+            <button
+              type="button"
+              className="recovery-action-btn discard"
+              onClick={() => {
+                AutoRecoveryService.discardAllSnapshots().catch(() => {});
+                setPendingRecovery(null);
+              }}
+            >
+              <X size={13} />
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
       {/* Tabs Bar */}
       <div className="builder-tabs-bar">
         <div className="builder-tabs-scroll">
