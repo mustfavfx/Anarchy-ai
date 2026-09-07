@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NavRail } from './NavRail';
 import { TitleBar } from './TitleBar';
@@ -11,6 +11,7 @@ import { EnlargedPreview } from './EnlargedPreview';
 import { OnboardingModal } from '../../shared/components/OnboardingModal';
 import { ToastNotification } from './ToastNotification';
 import { NotificationCenter } from './NotificationCenter';
+import { GlobalSearchModal } from '../search/GlobalSearchModal';
 import './AppShell.css';
 import { track } from '../../services/tracking/trackingService';
 
@@ -128,18 +129,34 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     };
   }, []);
 
+  const [showSearch, setShowSearch] = useState(false);
+
+  // Global Ctrl+K / Cmd+K Command Palette shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="app-shell">
       <TitleBar />
       <div className="app-body">
         <NavRail />
 
-        {/* ── Builder layout: always mounted, hidden via CSS to preserve canvas state ── */}
-        <main
-          className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}${isEnlargedView && isRightSidebarCollapsed ? ' app-content--mini-canvas-hidden' : ''}${!isBuilderPage ? ' app-content--hidden' : ''}`}
-        >
-          <MultiBuilderPage />
-        </main>
+        {/* ── Builder layout: mounted only when on builder route to save RAM & CPU ── */}
+        {isBuilderPage && (
+          <main
+            className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}${isEnlargedView && isRightSidebarCollapsed ? ' app-content--mini-canvas-hidden' : ''}`}
+          >
+            <MultiBuilderPage />
+          </main>
+        )}
         {isBuilderPage && (
           isEnlargedView ? (
             <div className="app-body-enlarged">
@@ -164,6 +181,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Onboarding for new users */}
       <OnboardingModal />
+
+      {/* Global Command Palette / Search */}
+      <GlobalSearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} />
 
       {/* Global toast notifications */}
       <ToastNotification />

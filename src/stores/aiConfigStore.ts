@@ -310,7 +310,10 @@ interface AIConfigState {
 
   // User credits — synced from useBuilderCredits so any panel can read it
   userCredits: number;
-  setUserCreditsInStore: (credits: number) => void;
+  setUserCreditsInStore: (credits: number, isTrial?: boolean) => void;
+  setUserCredits: (credits: number, isTrial?: boolean) => void;
+  isTrial: boolean;
+  setIsTrial: (isTrial: boolean) => void;
 }
 
 // ── Watermark Persistence Key ───────────────────────────────────────────────
@@ -450,7 +453,16 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
 
   // User credits — synced from useBuilderCredits
   userCredits: 0,
-  setUserCreditsInStore: (credits) => set({ userCredits: credits }),
+  setUserCreditsInStore: (credits, isTrial) => set((_state) => ({ 
+    userCredits: credits,
+    ...(typeof isTrial === 'boolean' ? { isTrial } : {})
+  })),
+  setUserCredits: (credits, isTrial) => set((_state) => ({ 
+    userCredits: credits,
+    ...(typeof isTrial === 'boolean' ? { isTrial } : {})
+  })),
+  isTrial: true,
+  setIsTrial: (isTrial) => set({ isTrial }),
 }));
 
 // ── Selectors (for performance) ───────────────────────────────────────────────

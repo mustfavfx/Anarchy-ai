@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { logger } from '../../../utils/logger';
 import { getUserCredit } from '../../../services/credit/creditService';
+import { useAIConfigStore } from '../../../stores/aiConfigStore';
 
 export function useBuilderCredits(authUserId: string | undefined) {
   const [userCredits, setUserCredits] = useState<number | null>(null);
@@ -13,8 +14,10 @@ export function useBuilderCredits(authUserId: string | undefined) {
       try {
         const credit = await getUserCredit(authUserId);
         if (credit) {
+          const isTrialUser = credit.totalPurchased === 0;
           setUserCredits(credit.balance);
-          setIsTrial(credit.totalPurchased === 0);
+          setIsTrial(isTrialUser);
+          useAIConfigStore.getState().setUserCreditsInStore(credit.balance, isTrialUser);
         }
       } catch (err) {
         logger.error('[Builder] Failed to fetch credits:', err);

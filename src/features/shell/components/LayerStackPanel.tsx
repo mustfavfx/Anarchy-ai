@@ -41,7 +41,13 @@ export const LayerStackPanel: React.FC<LayerStackPanelProps> = ({
           <span>Layers</span>
         </div>
         {onClose && (
-          <button type="button" className="layer-close-btn" onClick={onClose} title="إغلاق | Close">
+          <button
+            type="button"
+            className="layer-close-btn"
+            onClick={onClose}
+            title="Close"
+            aria-label="Close layers panel"
+          >
             <ChevronUp size={14} />
           </button>
         )}

@@ -502,6 +502,28 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                       >
                         <Eye size={14} />
                       </button>
+                      {!(isVideoNode(nodeData) || uploadedIsVideo) && (
+                        <button
+                          type="button"
+                          className="image-action-btn mask"
+                          title="Open AI Mask & Inpaint (Paintbrush)"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            useAIConfigStore.getState().setSelectedNode({
+                              id,
+                              type: nodeData.type,
+                              image: displayImageRaw || displayImage,
+                              originalImage: nodeData.originalImage || displayImageRaw || displayImage,
+                              state: nodeData.state || 'ready',
+                              prompt: nodeData.prompt || '',
+                            });
+                            useAIConfigStore.getState().setPreviewMode('draw');
+                            useAIConfigStore.getState().setIsEnlargedView(true);
+                          }}
+                        >
+                          <Paintbrush2 size={14} />
+                        </button>
+                      )}
                       {(isVideoNode(nodeData) || uploadedIsVideo) && (
                         <button
                           type="button"

@@ -119,9 +119,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
         if (!steps) {
           steps = await buildWorkflowTimeline(
             preview,
-            nodeTree,
-            null, // skip inputUrl since timeline now lazy loads step thumbnails
-            outputUrl
+            nodeTree
           );
           if (steps) {
             useHistoryStore.setState((state) => ({

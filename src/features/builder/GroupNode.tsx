@@ -2,11 +2,13 @@ import React, { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { LayoutGrid, Trash2, FolderKanban, Sparkles } from 'lucide-react';
 import type { BuilderNodeData } from './types';
+import { useTranslation } from '../../services/i18n';
 import './GroupNode.css';
 
 export const GroupNode: React.FC<NodeProps> = memo(({ data, selected }) => {
+  const { t } = useTranslation();
   const nodeData = data as unknown as BuilderNodeData;
-  const title = nodeData.groupTitle || nodeData.label || 'مجموعة المعالجة المعمارية';
+  const title = nodeData.groupTitle || nodeData.label || t('builder.groupTitle', 'Architectural Processing Group');
   const childrenCount = nodeData.groupChildren?.length || 0;
   const groupColor = nodeData.groupColor || '#e11d48';
 
@@ -23,15 +25,17 @@ export const GroupNode: React.FC<NodeProps> = memo(({ data, selected }) => {
         className="group-node-handle target"
       />
 
-      {/* Header Bar */}
-      <div className="group-node-header">
-        <div className="group-node-title-group">
-          <FolderKanban size={15} style={{ color: groupColor }} />
-          <span className="group-node-title-text">{title}</span>
-          <span className="group-node-count-badge">{childrenCount} عقد</span>
+      {/* Group Header Bar */}
+      <div className="group-node-header" style={{ backgroundColor: groupColor }}>
+        <div className="group-node-header-left">
+          <FolderKanban size={14} className="group-icon" />
+          <span className="group-node-title">{title}</span>
+          <span className="group-node-badge">
+            {childrenCount} {childrenCount === 1 ? 'node' : 'nodes'}
+          </span>
         </div>
 
-        <div className="group-node-actions">
+        <div className="group-node-header-actions">
           {/* Arrange Nodes Grid Animated Button */}
           <button
             type="button"
@@ -40,10 +44,11 @@ export const GroupNode: React.FC<NodeProps> = memo(({ data, selected }) => {
               e.stopPropagation();
               nodeData.onArrangeGroup?.();
             }}
-            title="إعادة الترتيب التلقائي الشبكي للنودات | Arrange Nodes Inside Group (Grid Layout)"
+            title={t('builder.autoArrange', 'Auto Arrange Nodes (Grid Layout)')}
+            aria-label={t('builder.autoArrange', 'Auto Arrange Nodes (Grid Layout)')}
           >
             <LayoutGrid size={13} />
-            <span>ترتيب شبكي</span>
+            <span>{t('builder.gridArrange', 'Grid Arrange')}</span>
           </button>
 
           {/* Delete Group Button */}
@@ -55,7 +60,8 @@ export const GroupNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                 e.stopPropagation();
                 nodeData.onDelete?.();
               }}
-              title="حذف المجموعة"
+              title={t('builder.deleteGroup', 'Delete Group')}
+              aria-label={t('builder.deleteGroup', 'Delete Group')}
             >
               <Trash2 size={13} />
             </button>
@@ -67,7 +73,7 @@ export const GroupNode: React.FC<NodeProps> = memo(({ data, selected }) => {
       <div className="group-node-body">
         <div className="group-watermark">
           <Sparkles size={18} style={{ opacity: 0.15, color: groupColor }} />
-          <span>مساحة الحاوية التجميعية</span>
+          <span>{t('builder.groupContainer', 'Group Container')}</span>
         </div>
       </div>
 

@@ -27,6 +27,7 @@ import { logger } from '../../../utils/logger';
 import { downloadImage } from '../../../utils/imageExport';
 import { getModelCost, checkCreditBalance, deductCredits } from '../../../services/credit/creditService';
 import { useAuth } from '../../auth/AuthContext';
+import { geminiAgentService } from '../../../services/gemini/GeminiAgentService';
 import './LayoutEditor.css';
 
 interface LayoutRegion {

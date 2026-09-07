@@ -261,7 +261,7 @@ export async function saveWorkflow(
     const appData: string = await invoke('get_app_data_dir');
     const projectsDir = `${appData}\\projects`;
     await invoke('ensure_dir', { path: projectsDir });
-    const safeName = workflow.name.replaceAll(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled';
+    const safeName = workflow.name.replace(/[^\p{L}\p{N}_\-\s]/gu, '').trim() || 'untitled';
     const projectCopy = `${projectsDir}\\${safeName}.ana`;
     await invoke('save_file', { path: projectCopy, contents: json });
   } catch { /* non-critical */ }

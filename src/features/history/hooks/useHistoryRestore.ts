@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { CanvasSessionManager, RestoreEngine } from '@/services/history/engine';
 import { CanvasHandoffService } from '@/services/canvas/CanvasHandoffService';
 import { getHistoryNodeLabel } from '@/utils/nodeLabel';
-import { loadWorkflowTree } from '@/services/history/HistoryService';
+import { loadWorkflowTree, loadEntries } from '@/services/history/HistoryService';
 import { useHistoryStore } from '@/stores/historyStore';
 import { buildWorkflowTreeForEntry, type HistoryTreeNode } from '@/features/history/components/WorkflowTreeRenderer';
 import type { HistoryEntry, NodeTreeData } from '@/types/history';
+import type { OperationType } from '@/types/classification';
 
 const DEFAULT_SESSION_ID = 'default-canvas';
 
@@ -92,7 +93,7 @@ export function createNodeTreeFromEntry(entry: HistoryEntry, allEntries: History
       layout: layoutData,
       extractedLayout: layoutData,
       isAnalyzed: !!layoutData,
-      processingType: isRoot ? 'source' : entryItem.type === 'upscale' ? 'upscale' : entryItem.type,
+      processingType: (isRoot ? 'source' : entryItem.type === 'upscale' ? 'upscale' : entryItem.type) as OperationType,
       state: 'ready' as const,
       parentId: node.parentId,
       historyEntryId: entryItem.id,
@@ -124,7 +125,10 @@ export function useHistoryRestore() {
     }
 
     if (!nodeTree || !nodeTree.nodes || nodeTree.nodes.length === 0) {
-      const allEntries = useHistoryStore.getState().entries;
+      let allEntries = useHistoryStore.getState().entries;
+      if (!allEntries || allEntries.length === 0) {
+        allEntries = loadEntries();
+      }
       nodeTree = createNodeTreeFromEntry(entry, allEntries);
     }
 
@@ -159,9 +163,10 @@ export function useHistoryRestore() {
     const cleanModel = entry.model || entry.params?.model || '';
     const nodeLabel = cleanModel ? cleanModel : getHistoryNodeLabel(entry);
     const promptText = entry.prompt || entry.params?.prompt || '';
+    const fallbackImg = entry.url || entry.thumbnailUrl || (entry.id ? `idb://${entry.id}_output` : '');
     const payload = {
       kind: 'image' as const,
-      image: entry.url || entry.thumbnailUrl || '',
+      image: fallbackImg,
       source: entry.id ? `history:${entry.id}` : 'history',
       label: nodeLabel,
       prompt: promptText,

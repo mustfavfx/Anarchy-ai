@@ -20,13 +20,15 @@ import { supabase, isSupabaseConfigured, supabaseUrl } from '../../services/supa
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
 import { invoke } from '@tauri-apps/api/core';
 import { SupportModal } from '../dashboard/SupportModal';
+import { useTranslation } from '../../services/i18n';
 
 
 export const SettingsPage: React.FC = () => {
+  const { t } = useTranslation();
   const aiConfig = useAIConfigStore((s) => s.config);
   const setAIConfig = useAIConfigStore((s) => s.setConfig);
   const [settings, setSettings] = useState<AppSettings>(SettingsService.getSettings());
-  const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about' | 'health'>('general');
   const [saved, setSaved] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
@@ -958,12 +960,12 @@ export const SettingsPage: React.FC = () => {
                 </div>
                 <div className="danger-item">
                   <div className="setting-item-content">
-                    <label className="danger-label">Clear All Data</label>
-                    <span className="setting-desc">Delete all projects, history, and settings. This cannot be undone.</span>
+                    <label className="danger-label">{t('settings.clearCache', 'Clear Local Cache & Preferences')}</label>
+                    <span className="setting-desc">{t('settings.clearCacheDesc', 'Clears local preferences, session cache, and resets settings to defaults. Project files (.ana) on disk remain untouched.')}</span>
                   </div>
-                  <button className="btn-danger" onClick={clearAllData}>
+                  <button type="button" className="btn-danger" onClick={clearAllData}>
                     <Trash2 size={14} />
-                    Clear All
+                    {t('settings.clearCacheBtn', 'Clear Cache')}
                   </button>
                 </div>
               </div>
@@ -1182,9 +1184,9 @@ export const SettingsPage: React.FC = () => {
       )}
       {confirmClearData && (
         <ConfirmModal
-          title="Clear All Data"
-          message={`This will permanently delete:\n• All projects\n• All history\n• All settings\n\nThis cannot be undone!`}
-          confirmLabel="Clear Everything"
+          title={t('settings.clearCacheConfirmTitle', 'Clear Local Cache & Preferences')}
+          message={t('settings.clearCacheConfirmMsg', 'This will reset your local UI preferences, stored cache, and settings to defaults.\n\nYour project files (.ana) and generated assets on disk will NOT be deleted.')}
+          confirmLabel={t('settings.clearCacheBtn', 'Clear Cache')}
           danger
           onConfirm={doClearAllData}
           onCancel={() => setConfirmClearData(false)}

@@ -899,6 +899,35 @@
   font-size: 22px;
 }
 
+/* Section header row with Browse button */
+.int-section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.int-browse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.int-browse-btn:hover {
+  background: rgba(225, 29, 72, 0.12);
+  border-color: rgba(225, 29, 72, 0.35);
+  color: #ff6b6b;
+}
+
 /* ── Version Grid (all supported versions 2022-2027) ── */
 .int-version-grid {
   display: grid;
@@ -906,14 +935,14 @@
   gap: 7px;
 }
 
-/* Version option — fixed height, equal for all */
+/* Version option — flexible height with clean padding */
 .int-version-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 0 10px;
-  height: 40px;
+  gap: 10px;
+  padding: 8px 12px;
+  min-height: 44px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 9px;
@@ -929,8 +958,8 @@
 
 .int-version-option input[type="checkbox"] {
   accent-color: #e11d48;
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   cursor: pointer;
 }
@@ -952,15 +981,45 @@
   background: rgba(16, 185, 129, 0.1);
 }
 
-.int-version-name {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.82);
-  font-weight: 600;
+.int-version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
   min-width: 0;
+}
+
+.int-version-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.int-version-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.int-version-badge-detected {
+  font-size: 9px;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.2;
+}
+
+.int-version-path {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  font-family: Consolas, monospace;
 }
 
 /* ✓ check icon on the right for detected versions */
@@ -988,12 +1047,12 @@
 
 /* Section header hint text */
 .int-section-hint {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
   color: #10b981;
   text-transform: none;
   letter-spacing: 0;
-  margin-left: 2px;
+  margin-left: 6px;
 }
 
 /* Image Logo overrides to render clean transparent PNGs */

@@ -184,4 +184,10 @@ export class HistoryRepository {
 
     return { imported: migrated.length, failed };
   }
+
+  async clear(): Promise<void> {
+    const keys = await this.storage.list();
+    await this.storage.deleteMany(keys);
+    this.cache?.clear();
+  }
 }

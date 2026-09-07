@@ -242,16 +242,18 @@ export function useMultiBuilderTabs() {
 
     if (projectPath) {
       sessionStorage.removeItem(SESSION_KEYS.OPEN_PROJECT_PATH);
+      const projectName = projectPath.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Project';
       
       setTabs(prev => {
         const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(projectPath));
         if (existing) {
           setActiveTabId(existing.id);
+          window.dispatchEvent(new CustomEvent('anarchy:reload-project', { detail: { tabId: existing.id, projectPath } }));
           return prev;
         }
         const newTab: Tab = {
           id: generateTabId(),
-          title: 'Loading...',
+          title: projectName,
           projectPath: projectPath,
           isDirty: false,
           everEdited: false,

@@ -242,6 +242,78 @@
   flex-shrink: 0;
 }
 
+/* Connected Segmented Inspection & Comparison Cluster */
+.mask-segmented-cluster {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.mask-segmented-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mask-segmented-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mask-segmented-btn.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.5), rgba(190, 18, 60, 0.35));
+  border: 1px solid rgba(225, 29, 72, 0.6);
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.4);
+}
+
+/* Compact Brush Size Pill Button */
+.mask-size-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0 8px;
+  height: 36px;
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.mask-size-badge-pill:hover,
+.mask-size-badge-pill.active {
+  border-color: rgba(225, 29, 72, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mask-size-num {
+  color: #fda4af;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.mask-size-unit {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+}
+
 /* Compact Rectangle Brush Size Stepper */
 .mask-brush-size-stepper {
   display: inline-flex;
@@ -330,7 +402,8 @@
   position: absolute;
   top: 56px;
   right: 16px;
-  width: 230px;
+  width: 285px;
+  box-sizing: border-box;
   background: #1c1d22;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
@@ -342,6 +415,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow: hidden;
 }
 
 .vizmaker-layers-header {
@@ -797,12 +871,24 @@
 .mask-canvas-cursor {
   position: absolute;
   border: 1.5px solid #ffffff;
-  background: rgba(225, 29, 72, 0.35);
+  background: rgba(225, 29, 72, 0.25);
   border-radius: 50%;
   pointer-events: none;
-  z-index: 20;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6), inset 0 0 4px rgba(225, 29, 72, 0.5);
+  z-index: 25;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), 0 0 12px rgba(0, 0, 0, 0.6);
   will-change: left, top;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mask-cursor-center-dot {
+  width: 2.5px;
+  height: 2.5px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 2px #000000;
+  pointer-events: none;
 }
 
 /* Animation utilities */
@@ -824,18 +910,50 @@
 }
 
 .mask-eraser-cursor {
-  border: 2px dashed #f59e0b !important;
+  border: 1.5px dashed #f59e0b !important;
   background: rgba(245, 158, 11, 0.15) !important;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), 0 0 10px rgba(245, 158, 11, 0.4) !important;
+}
+
+.mask-eraser-cursor .mask-cursor-center-dot {
+  background: #f59e0b;
+}
+
+.mask-hud-btn {
+  transition: all 0.15s ease;
+}
+
+.mask-hud-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+.mask-zoom-btn {
+  transition: all 0.15s ease;
+}
+
+.mask-zoom-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 4px;
+}
+
+.mask-zoom-text {
+  transition: color 0.15s ease;
+}
+
+.mask-zoom-text:hover {
+  color: #38bdf8 !important;
 }
 
 /* ── Photoshop Layer Mask Styles (Exact Replication) ─────────────────────────── */
 
 .ps-layers-panel {
-  width: 260px;
+  width: 285px;
   background: #1e1e24;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
@@ -890,6 +1008,22 @@
   background: #000000;
 }
 
+.ps-mask-empty-thumb {
+  width: 100%;
+  height: 100%;
+  background: #090a0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  transition: all 0.15s ease;
+}
+
+.ps-mask-empty-thumb:hover {
+  background: #14151f;
+  border-color: #f43f5e;
+}
+
 .ps-mask-white-fill {
   width: 100%;
   height: 100%;
@@ -911,13 +1045,49 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  user-select: none;
+}
+
+.ps-layer-rename-input {
+  background: #0d0e12;
+  border: 1px solid #3b82f6;
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: 11px;
+  padding: 1px 5px;
+  width: 100%;
+  outline: none;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+}
+
+.ps-layer-item.active-mask-layer {
+  background: #2a1f26 !important;
+  border-color: #e11d48 !important;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.35) !important;
+}
+
+.ps-layer-count-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  background: rgba(225, 29, 72, 0.2);
+  color: #f43f5e;
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  border-radius: 10px;
+  margin-left: 4px;
 }
 
 .ps-layers-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 4px 2px 4px;
+  margin: 4px -8px -8px -8px;
+  padding: 8px 12px;
+  background: rgba(12, 13, 18, 0.98);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 0 9px 9px;
+  box-sizing: border-box;
+  width: calc(100% + 16px);
 }
 
 .ps-layer-color-switch {
@@ -925,11 +1095,13 @@
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  padding: 3px 6px;
+  padding: 3px 8px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  transition: all 0.15s ease;
+  border-radius: 6px;
+  transition: all 0.16s ease;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .ps-layer-color-switch:hover {
@@ -937,11 +1109,18 @@
   border-color: rgba(255, 255, 255, 0.25);
 }
 
+.ps-color-chips-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .ps-color-chip {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 2px;
-  border: 1px solid #444;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.15s ease;
 }
 
 .ps-color-chip.white {
@@ -949,29 +1128,105 @@
 }
 
 .ps-color-chip.white.active {
-  border: 1.5px solid #3b82f6;
-  box-shadow: 0 0 5px rgba(59, 130, 246, 0.8);
+  border: 1.5px solid #e11d48;
+  box-shadow: 0 0 6px rgba(225, 29, 72, 0.85);
+  transform: scale(1.1);
 }
 
 .ps-color-chip.black {
   background: #000000;
+  border-color: #555;
 }
 
 .ps-color-chip.black.active {
-  border: 1.5px solid #3b82f6;
-  box-shadow: 0 0 5px rgba(59, 130, 246, 0.8);
+  border: 1.5px solid #e11d48;
+  box-shadow: 0 0 6px rgba(225, 29, 72, 0.85);
+  transform: scale(1.1);
+}
+
+.ps-color-swap-icon {
+  color: rgba(255, 255, 255, 0.45);
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.ps-layer-color-switch:hover .ps-color-swap-icon {
+  color: #ffffff;
+  transform: rotate(180deg);
 }
 
 .ps-color-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  color: #cbd5e1;
+  color: #e2e8f0;
+}
+
+.ps-color-shortcut {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: inherit;
+}
+
+.ps-footer-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 3px;
+  flex-shrink: 0;
 }
 
 .ps-footer-buttons {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.vizmaker-layer-action-btn {
+  width: 27px;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.vizmaker-layer-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.vizmaker-layer-action-btn:active:not(:disabled) {
+  transform: scale(0.93);
+}
+
+.vizmaker-layer-action-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+.vizmaker-layer-action-btn.delete-btn:hover:not(:disabled) {
+  background: rgba(225, 29, 72, 0.22);
+  border-color: rgba(225, 29, 72, 0.6);
+  color: #fb7185;
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.35);
 }
 
 /* Photoshop Toolbar Color Switcher (Top Toolbar) */
@@ -1017,22 +1272,29 @@
 /* ── Photoshop Advanced Layers Panel Controls ────────────────────────────── */
 
 .ps-layers-top-controls {
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: rgba(0, 0, 0, 0.35);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .ps-control-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ps-blend-mode-select {
   flex: 1;
+  min-width: 0;
   background: #18181f;
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #f1f5f9;
@@ -1043,6 +1305,7 @@
   outline: none;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .ps-blend-mode-select:hover:not(:disabled) {
@@ -1055,6 +1318,23 @@
   cursor: not-allowed;
 }
 
+.ps-blend-mode-select optgroup {
+  background: #121218;
+  color: #fb7185;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 4px 2px;
+}
+
+.ps-blend-mode-select option {
+  background: #1c1c24;
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+}
+
 .ps-opacity-control {
   display: flex;
   align-items: center;
@@ -1063,12 +1343,15 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 2px 6px;
   border-radius: 4px;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .ps-opacity-label {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .ps-opacity-slider {
@@ -1079,6 +1362,7 @@
   border-radius: 2px;
   outline: none;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .ps-opacity-slider::-webkit-slider-thumb {
@@ -1094,8 +1378,9 @@
   font-size: 10px;
   font-weight: 600;
   color: #ffffff;
-  min-width: 26px;
+  min-width: 25px;
   text-align: right;
+  flex-shrink: 0;
 }
 
 .ps-layer-sub-controls {
@@ -1242,3 +1527,59 @@
   cursor: pointer;
   border-radius: 3px;
 }
+
+/* ── Polygonal Lasso & Laser Drafting Styles ───────────────────────────────── */
+
+.mask-polygon-preview-svg {
+  filter: drop-shadow(0 0 6px rgba(225, 29, 72, 0.4));
+}
+
+@keyframes maskNodePulse {
+  0% {
+    r: 6px;
+    opacity: 1;
+  }
+  50% {
+    r: 8.5px;
+    opacity: 0.85;
+  }
+  100% {
+    r: 6px;
+    opacity: 1;
+  }
+}
+
+.mask-start-node-pulse {
+  animation: maskNodePulse 1.4s infinite ease-in-out;
+}
+
+/* ── Floating Shortcuts Strip ──────────────────────────────────────────────── */
+
+.mask-shortcuts-strip {
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.mask-shortcuts-strip kbd {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 9.5px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.mask-hud-btn {
+  transition: all 0.15s ease;
+}
+
+.mask-hud-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  transform: translateY(-1px);
+}
+
+.mask-preset-pill:hover {
+  background: rgba(225, 29, 72, 0.18) !important;
+  border-color: rgba(225, 29, 72, 0.4) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+

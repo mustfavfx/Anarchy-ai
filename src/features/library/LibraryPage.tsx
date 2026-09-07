@@ -1,391 +1,556 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '../../utils/logger';
 import { 
-  Search, FolderOpen, Loader2, X, 
-  Trash2, Edit3, Copy, FileDown,
-  Calendar, Clock, Image as ImageIcon
+  Search, LayoutGrid, LayoutList, Image as ImageIcon,
+  Clock, Download, Copy, Trash2, Star, Send, Eye,
+  ArrowUpDown, FileDown, Check, X, Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { 
-  listProjects, 
-  deleteProject, 
-  duplicateProject, 
-  renameProject, 
-  type ProjectMeta 
-} from '../../services/projects/ProjectService';
+  loadEntries, 
+  deleteHistoryEntry, 
+  toggleStar, 
+  type HistoryEntry 
+} from '../../services/history/HistoryService';
+import { listProjects } from '../../services/projects/ProjectService';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import { exportImagesToPDFWithDialog } from '../../services/export';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { invoke } from '@tauri-apps/api/core';
 import { useResolvedImage } from '../../hooks/useResolvedImage';
-import { VirtualLibraryGrid } from './components/VirtualLibraryGrid';
+import { useTranslation } from '../../services/i18n';
 import './LibraryPage.css';
 
-type FilterType = 'all' | 'active' | 'draft';
+const LIBRARY_VIEW_MODE_KEY = 'anarchy_library_view_mode';
+const LIBRARY_FILTER_KEY = 'anarchy_library_filter';
+const LIBRARY_SORT_KEY = 'anarchy_library_sort';
 
-interface ProjectThumbnailProps {
-  url: string | undefined;
-  alt: string;
-  className?: string;
-  large?: boolean;
+type FilterType = 'all' | 'renders' | 'starred';
+
+export interface LibraryAsset {
+  id: string;
+  url: string;
+  prompt: string;
+  timestamp: number;
+  starred: boolean;
+  model?: string;
+  source: 'history' | 'project';
+  sourceName?: string;
 }
 
-export const ProjectThumbnail: React.FC<ProjectThumbnailProps> = ({ url, alt, className, large }) => {
-  const resolvedUrl = useResolvedImage(url);
-
-  if (!resolvedUrl) {
+export const LibraryThumbnail: React.FC<{ url: string; alt: string; className?: string }> = ({ url, alt, className }) => {
+  const resolved = useResolvedImage(url);
+  if (!url || !resolved) {
     return (
-      <div className={`project-placeholder ${large ? 'large' : ''}`}>
-        <FolderOpen size={large ? 64 : 32} />
+      <div className={`project-placeholder ${className || ''}`}>
+        <ImageIcon size={32} />
       </div>
     );
   }
-
-  return (
-    <img 
-      src={resolvedUrl} 
-      alt={alt} 
-      loading="lazy"
-      className={className}
-    />
-  );
+  return <img src={resolved} alt={alt} className={className} loading="lazy" />;
 };
 
 export const LibraryPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const addNotification = useNotificationStore(state => state.addNotification);
-  const [projects, setProjects] = useState<ProjectMeta[]>([]);
+
+  const [assets, setAssets] = useState<LibraryAsset[]>([]);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
-  const [selectedProject, setSelectedProject] = useState<ProjectMeta | null>(null);
-  
-  // Dialog/Modal states
-  const [renamingProject, setRenamingProject] = useState<ProjectMeta | null>(null);
-  const [newName, setNewName] = useState('');
-  const [confirmDeletePath, setConfirmDeletePath] = useState<string | null>(null);
-  const [confirmDeleteName, setConfirmDeleteName] = useState<string>('');
+  const [selectedAsset, setSelectedAsset] = useState<LibraryAsset | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [confirmDeleteAsset, setConfirmDeleteAsset] = useState<LibraryAsset | null>(null);
 
-  const loadProjects = useCallback(async () => {
-    setLoading(true);
+  // Persistent preferences
+  const [viewMode, setViewModeState] = useState<'grid' | 'list'>(() => {
     try {
-      const list = await listProjects();
-      setProjects(list);
-      
-      // Update selected project metadata if it is open
-      if (selectedProject) {
-        const updated = list.find(p => p.filePath === selectedProject.filePath);
-        if (updated) {
-          setSelectedProject(updated);
-        } else {
-          setSelectedProject(null);
-        }
-      }
-    } catch (err) {
-      logger.error('[Library] Failed to load projects:', err);
-    }
-    setLoading(false);
-  }, [selectedProject]);
-
-  useEffect(() => {
-    loadProjects();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: runs once on mount; loadProjects not wrapped in useCallback to avoid dep churn
-  }, []);
-
-  // Filter projects by search query and category tab
-  const filteredProjects = projects.filter(p => {
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === 'active' && p.status !== 'active') return false;
-    if (filter === 'draft' && p.status !== 'draft') return false;
-    return true;
+      const saved = localStorage.getItem(LIBRARY_VIEW_MODE_KEY);
+      if (saved === 'grid' || saved === 'list') return saved;
+    } catch {}
+    return 'grid';
   });
 
-  // Action handlers
-  const handleOpenProject = async (filePath: string) => {
+  const [filter, setFilterState] = useState<FilterType>(() => {
     try {
-      sessionStorage.setItem(SESSION_KEYS.OPEN_PROJECT_PATH, filePath);
-      navigate('/builder');
-    } catch (err) {
-      logger.error('[Library] Open project failed:', err);
-    }
-  };
+      const saved = localStorage.getItem(LIBRARY_FILTER_KEY) as FilterType;
+      if (saved === 'all' || saved === 'renders' || saved === 'starred') return saved;
+    } catch {}
+    return 'all';
+  });
 
-  const handleDuplicate = async (e: React.MouseEvent, filePath: string) => {
-    e.stopPropagation();
+  const [sortOrder, setSortOrderState] = useState<'newest' | 'oldest' | 'prompt'>(() => {
     try {
-      await duplicateProject(filePath);
-      loadProjects();
-    } catch (err) {
-      logger.error('[Library] Duplicate project failed:', err);
-    }
+      const saved = localStorage.getItem(LIBRARY_SORT_KEY) as 'newest' | 'oldest' | 'prompt';
+      if (saved === 'newest' || saved === 'oldest' || saved === 'prompt') return saved;
+    } catch {}
+    return 'newest';
+  });
+
+  const setViewMode = (mode: 'grid' | 'list') => {
+    setViewModeState(mode);
+    try { localStorage.setItem(LIBRARY_VIEW_MODE_KEY, mode); } catch {}
   };
 
-  const handleRenameClick = (e: React.MouseEvent, project: ProjectMeta) => {
-    e.stopPropagation();
-    setRenamingProject(project);
-    setNewName(project.name);
+  const setFilter = (nextFilter: FilterType) => {
+    setFilterState(nextFilter);
+    try { localStorage.setItem(LIBRARY_FILTER_KEY, nextFilter); } catch {}
   };
 
-  const handleRenameConfirm = async () => {
-    if (renamingProject && newName.trim()) {
+  const setSortOrder = (updater: 'newest' | 'oldest' | 'prompt' | ((prev: 'newest' | 'oldest' | 'prompt') => 'newest' | 'oldest' | 'prompt')) => {
+    setSortOrderState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem(LIBRARY_SORT_KEY, next); } catch {}
+      return next;
+    });
+  };
+
+  // Load all media assets from History & saved project outputs
+  const loadAssets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items: LibraryAsset[] = [];
+
+      // 1. History generation entries
+      const historyEntries = loadEntries();
+      historyEntries.forEach(entry => {
+        const imageUrl = entry.outputImage || entry.inputImage;
+        if (imageUrl) {
+          items.push({
+            id: entry.id,
+            url: imageUrl,
+            prompt: entry.prompt || 'Generated Render',
+            timestamp: entry.timestamp || Date.now(),
+            starred: !!entry.starred,
+            model: entry.model,
+            source: 'history',
+          });
+        }
+      });
+
+      // 2. Project thumbnail outputs
       try {
-        await renameProject(renamingProject.filePath, newName.trim());
-        setRenamingProject(null);
-        setNewName('');
-        loadProjects();
+        const projects = await listProjects();
+        projects.forEach(p => {
+          if (p.thumbnailUrl) {
+            items.push({
+              id: `proj-thumb-${p.filePath}`,
+              url: p.thumbnailUrl,
+              prompt: p.promptSnippet || p.name,
+              timestamp: p.updatedAt || p.createdAt,
+              starred: false,
+              model: p.modelTag || 'Project Workflow',
+              source: 'project',
+              sourceName: p.name,
+            });
+          }
+        });
+      } catch {}
+
+      setAssets(items);
+    } catch (err) {
+      logger.error('[Library] Failed to load assets:', err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
+
+  // Filter & sort
+  const filteredAssets = useMemo(() => {
+    let list = assets.filter(item => {
+      if (search && !item.prompt.toLowerCase().includes(search.toLowerCase())) return false;
+      if (filter === 'starred' && !item.starred) return false;
+      if (filter === 'renders' && item.source !== 'history') return false;
+      return true;
+    });
+
+    return list.sort((a, b) => {
+      if (sortOrder === 'prompt') return a.prompt.localeCompare(b.prompt);
+      if (sortOrder === 'oldest') return a.timestamp - b.timestamp;
+      return b.timestamp - a.timestamp;
+    });
+  }, [assets, search, filter, sortOrder]);
+
+  // Action handlers
+  const handleToggleStar = async (e: React.MouseEvent, asset: LibraryAsset) => {
+    e.stopPropagation();
+    if (asset.source === 'history') {
+      try {
+        await toggleStar(asset.id);
+        setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, starred: !a.starred } : a));
+        if (selectedAsset?.id === asset.id) {
+          setSelectedAsset(prev => prev ? { ...prev, starred: !prev.starred } : null);
+        }
       } catch (err) {
-        logger.error('[Library] Rename project failed:', err);
+        logger.error('[Library] Toggle star failed:', err);
       }
     }
   };
 
-  const handleDeleteClick = (e: React.MouseEvent, project: ProjectMeta) => {
+  const handleOpenInBuilder = (asset: LibraryAsset) => {
+    if (asset.prompt) {
+      sessionStorage.setItem(SESSION_KEYS.PRESET_PROMPT, asset.prompt);
+    }
+    navigate('/builder');
+  };
+
+  const handleCopyImage = async (e: React.MouseEvent, asset: LibraryAsset) => {
     e.stopPropagation();
-    setConfirmDeletePath(project.filePath);
-    setConfirmDeleteName(project.name);
+    try {
+      if (asset.url.startsWith('data:image')) {
+        const res = await fetch(asset.url);
+        const blob = await res.blob();
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      } else {
+        await navigator.clipboard.writeText(asset.url);
+      }
+      setCopiedId(asset.id);
+      setTimeout(() => setCopiedId(null), 1500);
+      addNotification({ type: 'success', title: 'Copied', message: 'Asset copied to clipboard' });
+    } catch {
+      await navigator.clipboard.writeText(asset.prompt);
+      addNotification({ type: 'info', title: 'Prompt Copied', message: 'Image prompt copied to clipboard' });
+    }
+  };
+
+  const handleDownloadImage = (e: React.MouseEvent, asset: LibraryAsset) => {
+    e.stopPropagation();
+    const a = document.createElement('a');
+    a.href = asset.url;
+    a.download = `anarchy-asset-${asset.id.slice(0, 8)}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const handleDeleteConfirm = async () => {
-    if (confirmDeletePath) {
+    if (!confirmDeleteAsset) return;
+    const target = confirmDeleteAsset;
+    setConfirmDeleteAsset(null);
+
+    if (target.source === 'history') {
       try {
-        await deleteProject(confirmDeletePath);
-        setConfirmDeletePath(null);
-        setSelectedProject(null);
-        loadProjects();
+        await deleteHistoryEntry(target.id);
+        setAssets(prev => prev.filter(a => a.id !== target.id));
+        if (selectedAsset?.id === target.id) setSelectedAsset(null);
+        addNotification({ type: 'success', title: 'Asset Deleted', message: 'Image removed from library' });
       } catch (err) {
-        logger.error('[Library] Delete project failed:', err);
+        logger.error('[Library] Delete failed:', err);
       }
+    } else {
+      setAssets(prev => prev.filter(a => a.id !== target.id));
+      if (selectedAsset?.id === target.id) setSelectedAsset(null);
     }
   };
 
-  const handleExportPDF = async (e: React.MouseEvent, project: ProjectMeta) => {
-    e.stopPropagation();
-    try {
-      const contents = await invoke<string>('load_file', { path: project.filePath });
-      const wf = JSON.parse(contents);
-      const outputNodes = wf.nodes.filter((n: any) => n.data?.image || n.data?.outputData?.image);
-      const images = outputNodes
-        .map((n: any) => {
-          const img = n.data?.image || n.data?.outputData?.image;
-          return { url: img, name: n.data?.label || 'Render', prompt: n.data?.prompt };
-        })
-        .filter((img: any) => !!img.url);
+  const handleExportAllToPDF = async () => {
+    const renderItems = filteredAssets.map(a => ({
+      url: a.url,
+      name: a.sourceName || a.model || 'Asset',
+      prompt: a.prompt,
+    }));
 
-      if (images.length > 0) {
-        const filePath = await exportImagesToPDFWithDialog(images, { 
-          title: `Anarchy AI — Project Export: ${project.name}`,
-          author: 'Anarchy AI',
-          subject: 'AI Generated Images from Library'
-        });
-        if (filePath) {
-          addNotification({ 
-            type: 'success', 
-            title: 'PDF Exported', 
-            message: `Saved to: ${filePath.split(/[\\/]/).pop()}` 
-          });
-        }
-      } else {
-        addNotification({
-          type: 'warning',
-          title: 'Export Failed',
-          message: 'No render outputs found in this project to export.'
-        });
-      }
-    } catch (err: any) {
-      logger.error('[Library] PDF export failed:', err);
-      addNotification({ 
-        type: 'error', 
-        title: 'PDF Export Failed', 
-        message: err?.message || 'Failed to export PDF' 
-      });
+    if (renderItems.length === 0) {
+      addNotification({ type: 'warning', title: 'Export Empty', message: 'No assets selected to export' });
+      return;
+    }
+
+    const path = await exportImagesToPDFWithDialog(renderItems, {
+      title: 'Anarchy AI — Library Assets Export',
+      author: 'Anarchy AI',
+      subject: 'Library Media & Render Outputs'
+    });
+
+    if (path) {
+      addNotification({ type: 'success', title: 'PDF Exported', message: `Saved to: ${path.split(/[\\/]/).pop()}` });
     }
   };
 
   return (
     <div className="library-page">
-      {/* Control bar */}
+      {/* Top Header & Search Bar */}
       <div className="library-controls">
         <div className="header-left-group">
-          <h1 className="page-title">Library</h1>
+          <div>
+            <h1 className="page-title">Library</h1>
+            <span className="stats-text" style={{ fontSize: '12px' }}>
+              Image Assets & Render Outputs ({assets.length})
+            </span>
+          </div>
+
           <div className="library-search">
             <Search size={14} />
             <input
               type="text"
-              placeholder="Search projects..."
+              placeholder="Search assets by prompt or model..."
               value={search}
               onChange={e => setSearch(e.target.value)}
+              aria-label="Search image assets"
             />
+          </div>
+
+          <div className="library-view-toggle">
+            <button
+              type="button"
+              className={`library-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              title="Grid view"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              type="button"
+              className={`library-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              aria-label="List view"
+              title="List view"
+            >
+              <LayoutList size={15} />
+            </button>
           </div>
         </div>
 
-        {/* Filter chips */}
+        {/* Filters & Actions */}
         <div className="library-filter-group">
           <button 
+            type="button"
             className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
             onClick={() => setFilter('all')}
           >
-            All ({projects.length})
+            All ({assets.length})
           </button>
           <button 
-            className={`filter-chip ${filter === 'active' ? 'active' : ''}`}
-            onClick={() => setFilter('active')}
+            type="button"
+            className={`filter-chip ${filter === 'renders' ? 'active' : ''}`}
+            onClick={() => setFilter('renders')}
           >
-            Active ({projects.filter(p => p.status === 'active').length})
+            Renders ({assets.filter(a => a.source === 'history').length})
           </button>
           <button 
-            className={`filter-chip ${filter === 'draft' ? 'active' : ''}`}
-            onClick={() => setFilter('draft')}
+            type="button"
+            className={`filter-chip ${filter === 'starred' ? 'active' : ''}`}
+            onClick={() => setFilter('starred')}
           >
-            Drafts ({projects.filter(p => p.status === 'draft').length})
+            Starred ({assets.filter(a => a.starred).length})
+          </button>
+
+          <button
+            type="button"
+            className="filter-chip"
+            title="Toggle sort order"
+            onClick={() => setSortOrder(o => o === 'newest' ? 'oldest' : o === 'oldest' ? 'prompt' : 'newest')}
+            style={{ marginLeft: 8 }}
+          >
+            <ArrowUpDown size={12} />
+            <span>{sortOrder === 'newest' ? 'Newest' : sortOrder === 'oldest' ? 'Oldest' : 'Prompt'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="filter-chip"
+            onClick={handleExportAllToPDF}
+            title="Export filtered assets to PDF"
+          >
+            <FileDown size={13} />
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
 
+      {/* Main Content */}
       {loading ? (
         <div className="library-loading">
-          <Loader2 size={24} className="spin" />
-          <span>Scanning saved projects...</span>
+          <Sparkles size={24} className="spin" />
+          <span>Loading media assets...</span>
         </div>
-      ) : filteredProjects.length === 0 ? (
+      ) : filteredAssets.length === 0 ? (
         <div className="library-empty">
           <ImageIcon size={40} />
-          <h3>{search || filter !== 'all' ? 'No matching projects' : 'No saved projects yet'}</h3>
+          <h3>{search || filter !== 'all' ? 'No matching image assets' : 'Your asset library is empty'}</h3>
           <p>
             {search || filter !== 'all'
-              ? 'Try adjusting your search or filters'
-              : 'Create a design on the Builder Canvas and save it to see your projects here'}
+              ? 'Try changing your search keywords or active filter.'
+              : 'Generated renders and saved workflow images will appear here.'}
           </p>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => navigate('/builder')}
+            style={{ marginTop: 16 }}
+          >
+            Create in Builder
+          </button>
         </div>
       ) : (
-        <VirtualLibraryGrid
-          projects={filteredProjects}
-          onSelectProject={setSelectedProject}
-          onOpenProject={handleOpenProject}
-          onRenameClick={handleRenameClick}
-          onDuplicate={handleDuplicate}
-          onDeleteClick={handleDeleteClick}
-        />
-      )}
-
-      {/* Project Details Modal */}
-      {selectedProject && (
-        <div className="library-preview-overlay" onClick={() => setSelectedProject(null)}>
-          <div className="library-preview-modal results-modal" onClick={e => e.stopPropagation()}>
-            <button className="preview-close" onClick={() => setSelectedProject(null)}>
-              <X size={18} />
-            </button>
-            
-            {/* Modal Left: Preview Image */}
-            <div className="source-section">
-              <h3 className="section-title">Project Thumbnail</h3>
-              <div className="source-image-wrap project-preview-img-wrap">
-                <ProjectThumbnail url={selectedProject.thumbnailUrl} alt={selectedProject.name} large />
-              </div>
-              <div className="source-actions flex-wrap" style={{ gap: 8 }}>
-                <button className="preview-download-btn w-full" onClick={() => handleOpenProject(selectedProject.filePath)}>
-                  <FolderOpen size={14} />
-                  <span>Open in Builder</span>
-                </button>
-                <button className="preview-download-btn secondary flex-1" onClick={(e) => handleRenameClick(e, selectedProject)}>
-                  <Edit3 size={14} />
-                  <span>Rename</span>
-                </button>
-                <button className="preview-download-btn secondary flex-1" onClick={(e) => handleDuplicate(e, selectedProject.filePath)}>
-                  <Copy size={14} />
-                  <span>Duplicate</span>
-                </button>
-                {selectedProject.outputCount > 0 && (
-                  <button className="preview-download-btn secondary w-full" onClick={(e) => handleExportPDF(e, selectedProject)} title="Export all renders to PDF">
-                    <FileDown size={14} />
-                    <span>Export Project to PDF</span>
-                  </button>
-                )}
-                <button className="preview-download-btn danger w-full" onClick={(e) => handleDeleteClick(e, selectedProject)}>
-                  <Trash2 size={14} />
-                  <span>Delete Project</span>
-                </button>
-              </div>
-            </div>
-            
-            {/* Modal Right: Details / Specs */}
-            <div className="results-section project-details-section">
-              <h3 className="section-title">Project Details</h3>
-              
-              <div className="project-spec-card">
-                <h2 className="project-spec-title">{selectedProject.name}</h2>
-                <span className={`project-status-tag ${selectedProject.status}`}>{selectedProject.status}</span>
+        <div className={`assets-grid ${viewMode === 'list' ? 'assets-list' : ''}`}>
+          {filteredAssets.map(asset => (
+            <div
+              key={asset.id}
+              className="asset-card"
+              onClick={() => setSelectedAsset(asset)}
+              tabIndex={0}
+              role="button"
+              onKeyDown={e => e.key === 'Enter' && setSelectedAsset(asset)}
+            >
+              <div className="asset-image-box">
+                <LibraryThumbnail url={asset.url} alt={asset.prompt} />
                 
-                <div className="project-stats-grid">
-                  <div className="stat-box">
-                    <span className="stat-label">Source Images</span>
-                    <span className="stat-value">{selectedProject.sourceCount}</span>
-                  </div>
-                  <div className="stat-box">
-                    <span className="stat-label">Render Outputs</span>
-                    <span className="stat-value">{selectedProject.outputCount}</span>
-                  </div>
-                  <div className="stat-box">
-                    <span className="stat-label">Workflow Connections</span>
-                    <span className="stat-value">{selectedProject.refCount}</span>
-                  </div>
-                </div>
+                {asset.starred && (
+                  <span className="project-status-badge active" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Star size={10} fill="currentColor" /> Starred
+                  </span>
+                )}
 
-                <div className="project-spec-list">
-                  <div className="spec-item">
-                    <Calendar size={13} />
-                    <span className="spec-label">Created:</span>
-                    <span className="spec-value">{new Date(selectedProject.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                  </div>
-                  <div className="spec-item">
-                    <Clock size={13} />
-                    <span className="spec-label">Modified:</span>
-                    <span className="spec-value">{new Date(selectedProject.updatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                  </div>
-                  <div className="spec-item file-path-item" title={selectedProject.filePath}>
-                    <FolderOpen size={13} />
-                    <span className="spec-label">Location:</span>
-                    <span className="spec-value file-path-text">{selectedProject.filePath}</span>
-                  </div>
+                <div className="asset-hover-actions">
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleStar(e, asset)}
+                    title={asset.starred ? 'Unstar' : 'Star'}
+                    aria-label="Star asset"
+                  >
+                    <Star size={14} fill={asset.starred ? '#fbbf24' : 'none'} color={asset.starred ? '#fbbf24' : '#fff'} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleCopyImage(e, asset)}
+                    title="Copy image"
+                    aria-label="Copy image"
+                  >
+                    {copiedId === asset.id ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDownloadImage(e, asset)}
+                    title="Download"
+                    aria-label="Download image"
+                  >
+                    <Download size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="asset-info" style={{ padding: '10px 14px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#f3f4f6', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {asset.prompt}
+                </h4>
+                <div className="project-meta-row" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
+                  <span>{asset.model || (asset.source === 'project' ? 'Project Asset' : 'AI Render')}</span>
+                  <span>{new Date(asset.timestamp).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
-          </div>
+          ))}
         </div>
       )}
 
-      {/* Rename Dialog Modal */}
-      {renamingProject && (
-        <div className="library-preview-overlay rename-overlay" onClick={() => setRenamingProject(null)}>
-          <div className="library-preview-modal rename-modal" onClick={e => e.stopPropagation()}>
-            <h3>Rename Project</h3>
-            <p className="modal-subtext">Enter a new name for your project file.</p>
-            <input
-              className="col-new-input"
-              style={{ width: '100%', marginBottom: 20 }}
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder="Project name..."
-              onKeyDown={e => { if (e.key === 'Enter') handleRenameConfirm(); }}
-              autoFocus
-            />
-            <div className="rename-dialog-actions">
-              <button className="send-option-cancel" onClick={() => setRenamingProject(null)}>Cancel</button>
-              <button className="col-create-btn" onClick={handleRenameConfirm} disabled={!newName.trim()}>Rename</button>
+      {/* Asset Details Preview Modal */}
+      {selectedAsset && (
+        <div className="library-preview-overlay" onClick={() => setSelectedAsset(null)}>
+          <div className="library-preview-modal results-modal" onClick={e => e.stopPropagation()}>
+            <button
+              type="button"
+              className="preview-close"
+              onClick={() => setSelectedAsset(null)}
+              aria-label="Close preview"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Modal Left: Image Preview */}
+            <div className="source-section">
+              <h3 className="section-title">Asset Preview</h3>
+              <div className="source-image-wrap project-preview-img-wrap">
+                <LibraryThumbnail url={selectedAsset.url} alt={selectedAsset.prompt} className="large" />
+              </div>
+              <div className="source-actions flex-wrap" style={{ gap: 8, marginTop: 16 }}>
+                <button
+                  type="button"
+                  className="preview-download-btn w-full"
+                  onClick={() => handleOpenInBuilder(selectedAsset)}
+                >
+                  <Send size={14} />
+                  <span>Open in Builder</span>
+                </button>
+                <button
+                  type="button"
+                  className="preview-download-btn secondary flex-1"
+                  onClick={(e) => handleCopyImage(e, selectedAsset)}
+                >
+                  <Copy size={14} />
+                  <span>{copiedId === selectedAsset.id ? 'Copied!' : 'Copy Image'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="preview-download-btn secondary flex-1"
+                  onClick={(e) => handleDownloadImage(e, selectedAsset)}
+                >
+                  <Download size={14} />
+                  <span>Download</span>
+                </button>
+                <button
+                  type="button"
+                  className="preview-download-btn danger w-full"
+                  onClick={() => setConfirmDeleteAsset(selectedAsset)}
+                >
+                  <Trash2 size={14} />
+                  <span>Delete Asset</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Right: Metadata */}
+            <div className="results-section project-details-section">
+              <h3 className="section-title">Asset Details</h3>
+              <div className="project-spec-card">
+                <h2 className="project-spec-title" style={{ fontSize: '15px', lineHeight: 1.4 }}>
+                  {selectedAsset.prompt}
+                </h2>
+                <span className="project-status-tag active" style={{ marginTop: 8 }}>
+                  {selectedAsset.source === 'history' ? 'Generation Output' : 'Project Media'}
+                </span>
+
+                <div className="project-spec-list" style={{ marginTop: 20 }}>
+                  <div className="spec-item">
+                    <Clock size={13} />
+                    <span className="spec-label">Generated:</span>
+                    <span className="spec-value">
+                      {new Date(selectedAsset.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedAsset.model && (
+                    <div className="spec-item">
+                      <Sparkles size={13} />
+                      <span className="spec-label">Engine / Model:</span>
+                      <span className="spec-value">{selectedAsset.model}</span>
+                    </div>
+                  )}
+                  {selectedAsset.sourceName && (
+                    <div className="spec-item">
+                      <ImageIcon size={13} />
+                      <span className="spec-label">Source Project:</span>
+                      <span className="spec-value">{selectedAsset.sourceName}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* Delete Confirmation Modal */}
-      {confirmDeletePath && (
+      {confirmDeleteAsset && (
         <ConfirmModal
-          title="Delete Project"
-          message={`Delete project "${confirmDeleteName}"? This will permanently delete the project file from disk.`}
+          title="Delete Asset"
+          message="Are you sure you want to delete this asset from your library? This action cannot be undone."
           confirmLabel="Delete"
           danger
           onConfirm={handleDeleteConfirm}
-          onCancel={() => setConfirmDeletePath(null)}
+          onCancel={() => setConfirmDeleteAsset(null)}
         />
       )}
     </div>

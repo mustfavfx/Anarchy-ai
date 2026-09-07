@@ -105,7 +105,7 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
               <span>{project.sourceCount} inputs</span>
               <span>{project.outputCount} outputs</span>
               <span>{project.refCount} links</span>
-              <span>{project.totalNodes || 1} nodes</span>
+              <span>{project.totalNodes} nodes</span>
             </div>
           </div>
           <div className={`status-tag ${project.status}`}>{project.status}</div>
@@ -226,7 +226,7 @@ export const VirtualProjectsView: React.FC<VirtualProjectsViewProps> = ({
                 <span title="Input Sources">📷 {project.sourceCount} inputs</span>
                 <span title="Generated Outputs">🎨 {project.outputCount} outputs</span>
                 <span title="Node Connections">🔗 {project.refCount} links</span>
-                <span title="Total Nodes">📦 {project.totalNodes || 1} nodes</span>
+                <span title="Total Nodes">📦 {project.totalNodes} nodes</span>
               </div>
               <div className="project-footer">
                 <span className="updated-text">Updated {timeAgo(project.updatedAt)}</span>

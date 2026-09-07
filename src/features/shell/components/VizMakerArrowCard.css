@@ -1,5 +1,9 @@
-/* VizMaker Target Pin on Canvas Image */
-.vizmaker-target-pin {
+/* ==========================================================================
+   Smart AI Pin & Annotation Card Styles (Apple & Figma Quality)
+   ========================================================================== */
+
+/* Target Pin Group on Canvas Image */
+.vizmaker-target-pin-group {
   position: absolute;
   z-index: 45;
   transform: translate(-50%, -50%);
@@ -8,46 +12,71 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  transition: transform 0.15s ease;
 }
 
-.vizmaker-target-pin:active {
+.vizmaker-target-pin-group:active {
   cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.15);
 }
 
-.vizmaker-target-pin-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #e11d48;
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 10px #e11d48, 0 0 20px rgba(225, 29, 72, 0.6);
-}
-
-.vizmaker-target-pin-pulse {
+/* Glowing Soft Mask Edit Zone (Visualizes the exact region AI will replace) */
+.vizmaker-target-aura {
   position: absolute;
-  width: 20px;
-  height: 20px;
   border-radius: 50%;
-  background: rgba(225, 29, 72, 0.4);
-  animation: vizmaker-pulse 1.8s infinite ease-out;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.28) 0%, rgba(244, 63, 94, 0.08) 60%, transparent 100%);
+  border: 1.5px dashed rgba(244, 63, 94, 0.7);
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.35), inset 0 0 16px rgba(244, 63, 94, 0.15);
+  animation: vizmaker-aura-glow 3s ease-in-out infinite alternate;
+  transform: translate(-50%, -50%);
+  left: 50%;
+  top: 50%;
 }
 
-@keyframes vizmaker-pulse {
+@keyframes vizmaker-aura-glow {
   0% {
-    transform: scale(0.6);
-    opacity: 1;
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.25), inset 0 0 12px rgba(244, 63, 94, 0.1);
   }
   100% {
-    transform: scale(2.2);
-    opacity: 0;
+    box-shadow: 0 0 24px rgba(244, 63, 94, 0.5), inset 0 0 24px rgba(244, 63, 94, 0.25);
   }
 }
 
-/* Wrapper & Card */
+/* Modern Glass Pin Badge */
+.vizmaker-target-pin-badge {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #f43f5e 0%, #a855f7 100%);
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.6), 0 0 0 2px rgba(244, 63, 94, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.vizmaker-target-pin-group:hover .vizmaker-target-pin-badge {
+  transform: scale(1.15);
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.8), 0 0 0 4px rgba(244, 63, 94, 0.4);
+}
+
+.vizmaker-pin-sparkle {
+  font-size: 10px;
+}
+
+.vizmaker-pin-num {
+  line-height: 1;
+}
+
+/* Wrapper & Connector */
 .vizmaker-arrow-card-wrapper {
   position: absolute;
   z-index: 50;
@@ -62,27 +91,87 @@
   z-index: 10;
 }
 
+/* Collapsible Floating Pill Chip Mode */
+.vizmaker-arrow-card-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(13, 16, 26, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 16px rgba(244, 63, 94, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.vizmaker-arrow-card-pill:hover {
+  background: rgba(20, 24, 38, 0.95);
+  border-color: #f43f5e;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75), 0 0 22px rgba(244, 63, 94, 0.35);
+}
+
+.vizmaker-pill-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #f43f5e;
+}
+
+.vizmaker-pill-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #e2e8f0;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vizmaker-pill-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vizmaker-pill-delete:hover {
+  background: rgba(244, 63, 94, 0.3);
+  color: #ffffff;
+}
+
+/* Full Floating Card UI */
 .vizmaker-arrow-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: rgba(14, 16, 24, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
+  gap: 9px;
+  background: rgba(14, 17, 27, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 16px;
   padding: 12px 14px;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(225, 29, 72, 0.15);
-  min-width: 220px;
-  max-width: 260px;
-  transition: all 0.25s ease;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.75), 0 0 28px rgba(244, 63, 94, 0.18);
+  min-width: 250px;
+  max-width: 280px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
   z-index: 20;
 }
 
 .vizmaker-arrow-card:hover {
-  border-color: rgba(225, 29, 72, 0.45);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 28px rgba(225, 29, 72, 0.28);
+  border-color: rgba(244, 63, 94, 0.5);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 32px rgba(244, 63, 94, 0.28);
 }
 
 /* Header */
@@ -90,7 +179,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 8px;
+  padding-bottom: 7px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -105,53 +194,166 @@
 
 .vizmaker-grip-icon {
   color: rgba(255, 255, 255, 0.35);
-  margin-right: 2px;
+  margin-right: 3px;
 }
 
 .vizmaker-arrow-card-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+}
+
+.vizmaker-pin-chip {
+  font-size: 11.5px;
   font-weight: 700;
   color: #ffffff;
+  background: rgba(244, 63, 94, 0.16);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  padding: 2px 8px;
+  border-radius: 12px;
   letter-spacing: 0.2px;
 }
 
-.vizmaker-header-icon {
-  color: #e11d48;
-  filter: drop-shadow(0 0 6px rgba(225, 29, 72, 0.6));
+.vizmaker-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.vizmaker-arrow-close {
+.vizmaker-arrow-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vizmaker-arrow-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.vizmaker-arrow-btn.danger:hover {
+  background: rgba(244, 63, 94, 0.35);
+  color: #ffffff;
+  border-color: rgba(244, 63, 94, 0.6);
+}
+
+/* Prompt Input */
+.vizmaker-input-wrapper {
+  width: 100%;
+}
+
+.vizmaker-arrow-text-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 11px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.vizmaker-arrow-text-input:focus {
+  border-color: #f43f5e;
+  background: rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+}
+
+.vizmaker-arrow-text-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+}
+
+/* Target Area Size Row */
+.vizmaker-radius-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.vizmaker-radius-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
+.vizmaker-radius-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vizmaker-radius-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vizmaker-radius-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.vizmaker-radius-pill.active {
+  background: #f43f5e;
+  border-color: #f43f5e;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+}
+
+/* Reference Image Compact Button */
+.vizmaker-ref-compact-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.vizmaker-arrow-close:hover {
-  background: rgba(225, 29, 72, 0.25);
-  color: #ffffff;
-  border-color: rgba(225, 29, 72, 0.5);
+.vizmaker-ref-compact-btn:hover {
+  background: rgba(244, 63, 94, 0.08);
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #fb7185;
 }
 
-/* Upload & Reference Image */
+/* Reference Image Preview */
 .vizmaker-ref-container {
   position: relative;
   width: 100%;
-  height: 96px;
-  border-radius: 10px;
+  height: 64px;
+  border-radius: 9px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .vizmaker-ref-img {
@@ -162,75 +364,19 @@
 
 .vizmaker-ref-remove {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  background: rgba(9, 10, 15, 0.85);
+  top: 5px;
+  right: 5px;
+  background: rgba(10, 12, 18, 0.85);
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: 6px;
-  padding: 4px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 5px;
+  padding: 3px;
   cursor: pointer;
   backdrop-filter: blur(6px);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .vizmaker-ref-remove:hover {
   background: #ef4444;
   color: #ffffff;
 }
-
-.vizmaker-ref-upload-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 82px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.vizmaker-ref-upload-btn:hover {
-  background: rgba(225, 29, 72, 0.1);
-  border-color: rgba(225, 29, 72, 0.45);
-  color: #fb7185;
-}
-
-/* Input */
-.vizmaker-input-wrapper {
-  width: 100%;
-}
-
-.vizmaker-arrow-text-input {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 11.5px;
-  font-weight: 500;
-  padding: 8px 12px;
-  outline: none;
-  transition: all 0.2s ease;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-
-.vizmaker-arrow-text-input:focus {
-  border-color: #e11d48;
-  background: rgba(0, 0, 0, 0.65);
-  box-shadow: 0 0 12px rgba(225, 29, 72, 0.3);
-}
-
-.vizmaker-arrow-text-input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 11px;
-}
-
-

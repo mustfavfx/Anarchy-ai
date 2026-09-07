@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { logger } from '../../utils/logger';
 import { 
   Download, Check, AlertCircle, 
-  ExternalLink, Settings, Plug, Trash2, RefreshCw
+  ExternalLink, Settings, Plug, Trash2, RefreshCw, FolderOpen
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { ANARCHY_3DSMAX_SCRIPT } from './threeDsMaxPlugin';
@@ -242,6 +242,36 @@ export const IntegrationsPage: React.FC = () => {
       setDetectedInstalls(versions.map(v => ({ version: v, path: 'Custom / Standard Drive' })));
       setSelectedVersions(['2024', '2025']);
       setInstallMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const handleBrowseCustomPath = async (plugin: Plugin) => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selectedPath = await open({
+        directory: true,
+        multiple: false,
+        title: `Select ${plugin.name} Installation Folder`,
+      });
+
+      if (selectedPath && typeof selectedPath === 'string') {
+        const customInstall = await invoke<AutodeskInstall>('validate_custom_autodesk_path', {
+          target: plugin.id,
+          path: selectedPath,
+        });
+
+        if (customInstall && customInstall.version) {
+          setDetectedInstalls(prev => {
+            const filtered = prev.filter(i => i.version !== customInstall.version);
+            return [...filtered, customInstall];
+          });
+          setSelectedVersions(prev => Array.from(new Set([...prev, customInstall.version])));
+          setInstallMessage(`Added ${plugin.name} ${customInstall.version} from: ${customInstall.path}`);
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to pick custom folder:', err);
+      setInstallMessage(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -551,7 +581,7 @@ export const IntegrationsPage: React.FC = () => {
                 <div className="int-doc-panel">
                   <h4>How to use inside 3ds Max</h4>
                   <ol>
-                    <li>Restart 3ds Max after installation.</li>
+                    <li>Restart 3ds Max after installation (or launch it if it was closed).</li>
                     <li>A floating toolbar <strong>"Anarchy AI"</strong> and a top menu bar <strong>"Anarchy AI"</strong> will automatically appear on your screen!</li>
                     <li>You can also find it under <em>Customize → Customize User Interface → Toolbars → Category: Anarchy</em>.</li>
                     <li>Open Anarchy AI Builder, then click <strong>"⚡ Send to Anarchy"</strong> in 3ds Max.</li>
@@ -566,14 +596,13 @@ export const IntegrationsPage: React.FC = () => {
                 <div className="int-doc-panel">
                   <h4>Revit installation & usage</h4>
                   <ol>
-                    <li>Close Revit before installing.</li>
-                    <li>Select the detected Revit version(s) above and click Install Plugin.</li>
-                    <li>The plugin is compiled against your Revit API and installed to %APPDATA%\Autodesk\Revit\Addins.</li>
+                    <li>Close Revit completely before installing (to ensure files are not locked).</li>
+                    <li>Select your Revit version(s) below and click <strong>Install</strong>.</li>
+                    <li>Installation is instant and 100% offline (prebuilt native DLLs deployed directly to Revit Addins).</li>
                     <li>Open Revit — a new <strong>Anarchy</strong> tab will appear in the ribbon.</li>
-                    <li>Open any project, set the desired view, then click <strong>Send to Anarchy</strong>.</li>
-                    <li>The current view image is sent to the Builder canvas as a Source Node.</li>
+                    <li>Open any 3D view or sheet, then click <strong>Send to Anarchy</strong>.</li>
                   </ol>
-                  <p><strong>Requirements:</strong> Revit 2020-2027 installed under Program Files\Autodesk (Revit 2025+ requires .NET 8 SDK).</p>
+                  <p><strong>Supported:</strong> Revit 2020 through 2028. Works on all drives (C:, D:, E:, etc.) with zero SDK setup needed.</p>
                 </div>
               </div>
             )}
@@ -594,20 +623,31 @@ export const IntegrationsPage: React.FC = () => {
 
             {(selected.id === '3dsmax' || selected.id === 'revit') && (() => {
               const allVersions = SUPPORTED_VERSIONS[selected.id] || [];
-              const detectedSet = new Set(detectedInstalls.map(i => i.version));
-              // Keep natural ascending order (2022 → 2027); detected versions highlighted in place
+              const detectedMap = new Map(detectedInstalls.map(i => [i.version, i.path]));
 
               return (
                 <div className="int-modal-section">
-                  <h4>
-                    Select Versions to Install
-                    {detectedInstalls.length > 0 && (
-                      <span className="int-section-hint"> — {detectedInstalls.length} detected on this machine</span>
-                    )}
-                  </h4>
+                  <div className="int-section-header-row">
+                    <h4>
+                      Select Versions to Install
+                      {detectedInstalls.length > 0 && (
+                        <span className="int-section-hint"> — {detectedInstalls.length} detected</span>
+                      )}
+                    </h4>
+                    <button
+                      type="button"
+                      className="int-browse-btn"
+                      onClick={() => handleBrowseCustomPath(selected)}
+                      title="Browse custom installation folder"
+                    >
+                      <FolderOpen size={13} />
+                      <span>Browse Custom Folder...</span>
+                    </button>
+                  </div>
                   <div className="int-version-grid">
                     {allVersions.map(ver => {
-                      const isDetected = detectedSet.has(ver);
+                      const installPath = detectedMap.get(ver);
+                      const isDetected = !!installPath;
                       const isSelected = selectedVersions.includes(ver);
                       return (
                         <label
@@ -621,18 +661,27 @@ export const IntegrationsPage: React.FC = () => {
                             onChange={() => toggleSelectedVersion(ver)}
                             aria-label={`Select ${selected.name} ${ver}`}
                           />
-                          <strong className="int-version-name">{selected.name} {ver}</strong>
-                          {isDetected && (
-                            <span className="int-version-detected">
-                              <Check size={10} />
-                            </span>
-                          )}
+                          <div className="int-version-info">
+                            <div className="int-version-title-row">
+                              <strong className="int-version-name">{selected.name} {ver}</strong>
+                              {isDetected && (
+                                <span className="int-version-detected" title={`Detected at: ${installPath}`}>
+                                  <Check size={10} />
+                                </span>
+                              )}
+                            </div>
+                            {installPath && installPath !== 'Custom / Standard Drive' && (
+                              <span className="int-version-path" title={installPath}>
+                                {installPath.length > 32 ? '...' + installPath.slice(-28) : installPath}
+                              </span>
+                            )}
+                          </div>
                         </label>
                       );
                     })}
                   </div>
                   {detectedInstalls.length === 0 && (
-                    <p className="int-compat-hint">No versions detected. Select manually to install.</p>
+                    <p className="int-compat-hint">No versions auto-detected. Select checkboxes or click "Browse Custom Folder" above.</p>
                   )}
                 </div>
               );

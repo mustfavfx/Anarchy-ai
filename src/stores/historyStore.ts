@@ -166,8 +166,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     await deleteHistoryEntry(id);
     // Sync with HistoryEngine v3.1 (removes from Trie search index too)
     try {
-      const { HistoryEngine } = await import('../engine/history');
-      await HistoryEngine.getInstance().removeEntry(id);
+      const { historyEngine } = await import('@/services/history/engine');
+      await historyEngine.removeEntry(id);
     } catch {}
     get().invalidateCache();
     get().refreshHistory();

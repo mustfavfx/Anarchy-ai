@@ -485,19 +485,17 @@ export const RightSidebar: React.FC = () => {
               {previewMode === 'layout' && (
                 <div className="layout-mode-stage">
                   <LayoutEditor
-                    image={resolvedSelectedImage || selectedNode?.data?.image || selectedNode?.image || null}
-                    initialLayout={selectedNode?.data?.extractedLayout || selectedNode?.data?.layout || (selectedNode as any)?.extractedLayout || (selectedNode as any)?.layout}
+                    image={resolvedSelectedImage || selectedNode?.image || null}
+                    initialLayout={(selectedNode as any)?.extractedLayout || (selectedNode as any)?.layout}
                     onApplyResult={(newImg) => {
                       if (!selectedNode?.id) return;
-                      const updatedData = { ...selectedNode.data, image: newImg };
-                      setSelectedNode({ ...selectedNode, data: updatedData, image: newImg } as any);
+                      setSelectedNode({ ...selectedNode, image: newImg } as any);
                       nodeImageUpdateFn?.(selectedNode.id, newImg);
                       setPreviewMode('preview');
                     }}
                     onLayoutExtracted={(layoutData) => {
                       if (!selectedNode?.id) return;
-                      const updatedData = { ...selectedNode.data, extractedLayout: layoutData, layout: layoutData };
-                      setSelectedNode({ ...selectedNode, data: updatedData, extractedLayout: layoutData, layout: layoutData } as any);
+                      setSelectedNode({ ...selectedNode, extractedLayout: layoutData, layout: layoutData } as any);
                       nodeImageUpdateFn?.(selectedNode.id, undefined, layoutData);
                     }}
                   />

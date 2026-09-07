@@ -55,7 +55,7 @@ export class CompressionEngine {
     }
     const ds = new DecompressionStream(GZIP);
     const writer = ds.writable.getWriter();
-    writer.write(data);
+    writer.write(data as any);
     writer.close();
     const bytes = await streamToUint8Array(ds.readable);
     return new TextDecoder().decode(bytes);

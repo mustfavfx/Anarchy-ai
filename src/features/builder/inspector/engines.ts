@@ -9,8 +9,28 @@
 
 import type { AIModelEngine, DetectedElement } from './types';
 
-// ── Inpaint Engines (real model IDs from ReplicateService) ──────────────────
 export const INPAINT_ENGINE_REGISTRY: AIModelEngine[] = [
+  {
+    id: 'black-forest-labs/flux-fill-pro',
+    name: 'Flux Fill Pro',
+    role: 'inpaint',
+    creditCost: 4,
+    maskCapability: 'binary_mask',
+  },
+  {
+    id: 'black-forest-labs/flux-fill-dev',
+    name: 'Flux Fill Dev',
+    role: 'inpaint',
+    creditCost: 2,
+    maskCapability: 'binary_mask',
+  },
+  {
+    id: 'stabilityai/stable-diffusion-xl-inpaint',
+    name: 'SDXL Inpaint',
+    role: 'inpaint',
+    creditCost: 2,
+    maskCapability: 'binary_mask',
+  },
   {
     id: 'google/nano-banana-2',
     name: 'Nano Banana 2',
@@ -30,7 +50,7 @@ export const INPAINT_ENGINE_REGISTRY: AIModelEngine[] = [
     name: 'Reve Edit Fast',
     role: 'inpaint',
     creditCost: 2,
-    maskCapability: 'semantic_text',
+    maskCapability: 'binary_mask',
   },
 ];
 

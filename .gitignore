@@ -41,14 +41,22 @@ src-tauri/keygen.log
 .env
 .env.local
 
-# Installer executables
+# Installer executables & binaries
 *.exe
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
 
 # Audit outputs
 eslint-report.json
 
 # Signatures
 *.sig
+*.txt.sig
+
 # Added by code-review-graph
 .code-review-graph/
 
@@ -65,5 +73,4 @@ setup_dist/
 anarchy_audit/
 playwright-report/
 test-results/
-*.txt.sig
 tauri-dev-utf8.txt

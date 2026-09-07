@@ -114,14 +114,15 @@ export const EnlargedPreview: React.FC = () => {
     const handleInPlaceGen = (e: Event) => {
       const customEv = e as CustomEvent<{ imageUrl: string; sourceNodeId?: string }>;
       if (customEv.detail?.imageUrl) {
-        if (selectedNode?.id) {
-          setSelectedNode(prev => prev ? { ...prev, image: customEv.detail.imageUrl } : null);
+        const current = useAIConfigStore.getState().selectedNode;
+        if (current && current.id) {
+          setSelectedNode({ ...current, image: customEv.detail.imageUrl });
         }
       }
     };
     window.addEventListener('anarchy:mask-generated-in-place', handleInPlaceGen);
     return () => window.removeEventListener('anarchy:mask-generated-in-place', handleInPlaceGen);
-  }, [selectedNode?.id]);
+  }, [selectedNode?.id, setSelectedNode]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -341,17 +342,18 @@ export const EnlargedPreview: React.FC = () => {
                 originalImage={getSafeSrc(resolvedOriginalImage, originalImage) || null}
                 showGenerateButton={true}
                 isGenerating={
-                  selectedNode?.data?.state === 'generating' ||
-                  selectedNode?.data?.state === 'processing' ||
-                  selectedNode?.data?.state === 'connecting'
+                  selectedNode?.state === 'generating' ||
+                  selectedNode?.state === 'processing' ||
+                  selectedNode?.state === 'connecting'
                 }
-                onGenerate={(composite, mask, prompt, refImages) => {
+                onGenerate={(composite, mask, prompt, refImages, model) => {
                   window.dispatchEvent(new CustomEvent('anarchy:mask-generate', {
                     detail: {
                       compositeImage: composite,
                       maskDataUrl: mask,
                       prompt: prompt,
                       refImages: refImages,
+                      model: model || config.model,
                       sourceNodeId: selectedNode?.id
                     }
                   }));
@@ -365,7 +367,7 @@ export const EnlargedPreview: React.FC = () => {
             ) : (
               <div className="ep-empty">
                 <span>No image selected</span>
-                <small>Select an image to start masking</small>
+                <small>Select a node to inspect and enhance</small>
               </div>
             )}
           </div>
@@ -400,21 +402,19 @@ export const EnlargedPreview: React.FC = () => {
         {tab === 'layout' && (
           <div className="ep-layout-stage" style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden', padding: '8px' }}>
             <LayoutEditor
-              image={resolvedImage || selectedNode?.data?.image || image || null}
-              initialLayout={selectedNode?.data?.extractedLayout || selectedNode?.data?.layout || (selectedNode as any)?.extractedLayout || (selectedNode as any)?.layout}
+              image={resolvedImage || (selectedNode as any)?.image || image || null}
+              initialLayout={(selectedNode as any)?.extractedLayout || (selectedNode as any)?.layout}
               isEnlargedView={true}
               onApplyResult={(newImg) => {
                 if (selectedNode?.id && nodeImageUpdateFn) {
                   nodeImageUpdateFn(selectedNode.id, newImg);
-                  const updatedData = { ...selectedNode.data, image: newImg };
-                  setSelectedNode({ ...selectedNode, data: updatedData, image: newImg } as any);
+                  setSelectedNode({ ...selectedNode, image: newImg } as any);
                 }
                 handleCloseEnlargedView();
               }}
               onLayoutExtracted={(extractedLayout) => {
                 if (selectedNode?.id && nodeImageUpdateFn) {
-                  const updatedData = { ...selectedNode.data, extractedLayout: extractedLayout, layout: extractedLayout };
-                  setSelectedNode({ ...selectedNode, data: updatedData, extractedLayout: extractedLayout, layout: extractedLayout } as any);
+                  setSelectedNode({ ...selectedNode, extractedLayout: extractedLayout, layout: extractedLayout } as any);
                   nodeImageUpdateFn(selectedNode.id, undefined, extractedLayout);
                 }
               }}

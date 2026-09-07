@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { logger } from '../../../utils/logger';
 import { saveWorkflow, saveWorkflowAs, loadWorkflow, resetFilePath } from '../../../services/workflow';
 import { sanitizeEdges } from '../types';
@@ -78,13 +79,63 @@ export function useBuilderPersistence({
   }, [nodes, edges, isRestored]);
 
   const applyWorkflow = useCallback((wf: any, fallbackName: string) => {
-    if (!wf.nodes) return;
-    const mappedNodes = wf.nodes.map((n: any) => ({
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: n.data,
-    }));
+    if (!wf) return;
+    let rawNodes = Array.isArray(wf.nodes) ? wf.nodes : [];
+
+    // If workflow has 0 nodes, create a default clean source node so canvas is never blank
+    if (rawNodes.length === 0) {
+      const sourceNodeId = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      rawNodes = [{
+        id: sourceNodeId,
+        type: 'baseNode',
+        position: { x: 200, y: 200 },
+        width: 260,
+        data: {
+          label: 'Source',
+          type: 'source',
+          processingType: 'source',
+          state: 'idle',
+          image: undefined,
+          createdAt: Date.now(),
+          lineage: {
+            parentId: null,
+            rootSourceId: sourceNodeId,
+            generation: 0,
+            branchIndex: 0,
+            processingType: 'source',
+            ancestry: []
+          },
+          config: {}
+        }
+      }];
+    }
+
+    const mappedNodes: BuilderNode[] = rawNodes.map((n: any) => {
+      // Normalize React Flow node type
+      let nodeType: string = n.type || 'baseNode';
+      if (nodeType === 'ghost' || nodeType === 'ghostNode') nodeType = 'ghostNode';
+      else if (nodeType === 'dummy' || nodeType === 'dummyNode') nodeType = 'dummyNode';
+      else if (nodeType === 'group' || nodeType === 'groupNode') nodeType = 'groupNode';
+      else nodeType = 'baseNode';
+
+      const data = { ...(n.data || {}) };
+      // Clean up interrupted session states
+      if (data.state === 'connecting' || data.state === 'processing' || data.state === 'queued') {
+        data.state = 'idle';
+      }
+
+      return {
+        id: String(n.id || `node-${Date.now()}`),
+        type: nodeType,
+        position: {
+          x: typeof n.position?.x === 'number' && !isNaN(n.position.x) ? n.position.x : 200,
+          y: typeof n.position?.y === 'number' && !isNaN(n.position.y) ? n.position.y : 200,
+        },
+        width: typeof n.width === 'number' && n.width > 0 ? n.width : 260,
+        data,
+      } as BuilderNode;
+    });
+
     setNodes(mappedNodes);
     const mappedEdges = (wf.edges ?? []).map((e: any) => ({
       id: e.id,
@@ -92,7 +143,7 @@ export function useBuilderPersistence({
       target: e.target,
       sourceHandle: e.sourceHandle || 'source',
       targetHandle: e.targetHandle,
-      type: e.type,
+      type: e.type || 'default',
       animated: e.animated,
       style: e.style,
       data: e.data,
@@ -109,9 +160,11 @@ export function useBuilderPersistence({
     }
 
     addNotification({ type: 'success', title: 'Project Loaded', message: name });
-    // Force a real GPU repaint after nodes settle — fixes WebView2 black canvas bug.
-    // Wait 300ms so React has time to commit the new nodes to the DOM before repaint.
-    setTimeout(() => forceCanvasRepaint?.(), 300);
+    // Force center viewport and real GPU repaint after DOM commits new nodes
+    setTimeout(() => {
+      try { fitView?.({ padding: 0.3, duration: 300 }); } catch {}
+      forceCanvasRepaint?.();
+    }, 150);
   }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef, forceCanvasRepaint]);
 
   const handleSave = useCallback(async (): Promise<string | null> => {
@@ -214,25 +267,37 @@ export function useBuilderPersistence({
     }
   }, [doNewCanvas]);
 
-  // Background autosave (saves nodes, edges, and input images to projects directory)
+  // Helper to detect if the canvas is just the initial untouched empty template
+  const isDefaultBlankCanvas = (nodeList: BuilderNode[]): boolean => {
+    if (nodeList.length === 0) return true;
+    if (nodeList.length === 1) {
+      const d = nodeList[0].data as any;
+      const isSource = d?.type === 'source' || nodeList[0].type === 'baseNode';
+      const hasNoImage = !d?.image && !d?.inputData?.image && !d?.outputData?.image;
+      const hasNoPrompt = !d?.prompt && !d?.config?.prompt;
+      return isSource && hasNoImage && hasNoPrompt;
+    }
+    return false;
+  };
+
+  // Background autosave (saves to disk ONLY when dirty and has substantive changes or an existing file)
   useEffect(() => {
     if (!isRestored) return;
-    if (nodes.length === 0) return;
+    if (!isDirtyRef.current) return;
+    if (isDefaultBlankCanvas(nodes)) return;
+
+    // Only autosave to disk if the project has a known filePath.
+    // Unsaved untitled projects stay safely in localStorage autosave to avoid overwriting untitled.ana on disk.
+    if (!currentFilePath) return;
 
     const timeoutId = setTimeout(async () => {
       try {
-        const appData: string = await invoke('get_app_data_dir');
-        const projectsDir = `${appData}\\projects`;
-        await invoke('ensure_dir', { path: projectsDir });
-
-        const name = (currentFilePath ? currentFilePath.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') : 'untitled') || 'untitled';
-        const targetPath = currentFilePath || `${projectsDir}\\${name}.ana`;
-
-        await saveWorkflow(nodes, edges, { filePath: targetPath, name });
+        const name = currentFilePath.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'untitled';
+        await saveWorkflow(nodes, edges, { filePath: currentFilePath, name });
       } catch (err) {
         logger.warn('[Autosave] Background disk save failed:', err);
       }
-    }, 2500); // Debounce 2.5s
+    }, 3000); // Debounce 3s
 
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, isRestored, currentFilePath]);

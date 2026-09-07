@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../auth/AuthContext';
-import { checkCreditBalance, deductCredits, getModelCost, DEV_MODE, refundCredits, getUserCredit } from '../../../services/credit/creditService';
+import { checkCreditBalance, deductCredits, getModelCost, getUnifiedCost, DEV_MODE, refundCredits, getUserCredit } from '../../../services/credit/creditService';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { logger } from '../../../utils/logger';
@@ -233,16 +233,7 @@ export function useBuilderGeneration({
         }
       }
 
-      const cost = getModelCost(aiConfig.model, {
-        resolution: aiConfig.resolution,
-        qualityVariant: (aiConfig as any).qualityVariant ?? 'auto',
-        prunaTarget: aiConfig.prunaTarget,
-        upscaleFactor: resolvedUpscaleFactor,
-        isTrial,
-        width: (aiConfig as any).width,
-        height: (aiConfig as any).height,
-        videoDuration: aiConfig.videoDuration,
-      });
+      const cost = getUnifiedCost(aiConfig, isTrial);
 
       const totalCost = cost * (idleGhosts.length > 0 ? idleGhosts.length : 1);
 

@@ -19,6 +19,7 @@ export interface AIModelEngine {
 export const ENGINE_REGISTRY: AIModelEngine[] = [
   { id: 'black-forest-labs/flux-fill-pro', name: 'Flux Fill Pro', role: 'inpaint', creditCost: 4, maskCapability: 'binary_mask' },
   { id: 'black-forest-labs/flux-fill-dev', name: 'Flux Fill Dev', role: 'inpaint', creditCost: 2, maskCapability: 'binary_mask' },
+  { id: 'reve/edit-fast', name: 'Reve Edit Fast', role: 'inpaint', creditCost: 2, maskCapability: 'binary_mask' },
   { id: 'google/nano-banana-2', name: 'Nano Banana 2', role: 'inpaint', creditCost: 1, maskCapability: 'semantic_text' },
   { id: 'google/nano-banana-pro', name: 'Nano Banana Pro', role: 'inpaint', creditCost: 3, maskCapability: 'hybrid' },
   { id: 'black-forest-labs/flux-1.1-pro', name: 'Flux Pro Facade Precision', role: 'upscale', creditCost: 3, maskCapability: 'binary_mask' },

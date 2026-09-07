@@ -2034,7 +2034,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                         navigator.clipboard.writeText(tag);
                       } catch {}
                     }}
-                    title="انقر لنسخ الوسم | Click to copy frame reference"
+                    title="Click to copy frame reference"
+                    aria-label="Click to copy frame reference"
                     style={{
                       background: 'rgba(139, 92, 246, 0.15)',
                       border: '1px solid rgba(139, 92, 246, 0.4)',

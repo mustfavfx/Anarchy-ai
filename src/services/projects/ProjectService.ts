@@ -234,7 +234,7 @@ export async function saveProjectToDir(
   workflow: WorkflowFile
 ): Promise<string> {
   const dir = await getProjectsDir();
-  const safeName = name.replaceAll(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled';
+  const safeName = name.replace(/[^\p{L}\p{N}_\-\s]/gu, '').trim() || 'untitled';
   const filePath = `${dir}\\${safeName}.ana`;
   const json = JSON.stringify(workflow, null, 2);
   await invoke('save_file', { path: filePath, contents: json });
@@ -249,7 +249,7 @@ export async function renameProject(filePath: string, newName: string): Promise<
   const wf = JSON.parse(contents);
   wf.name = newName;
   const dir = await getProjectsDir();
-  const safeName = newName.replaceAll(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'untitled';
+  const safeName = newName.replace(/[^\p{L}\p{N}_\-\s]/gu, '').trim() || 'untitled';
   const newPath = `${dir}\\${safeName}.ana`;
   await invoke('save_file', { path: newPath, contents: JSON.stringify(wf, null, 2) });
   if (newPath !== filePath) {

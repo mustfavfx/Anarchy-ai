@@ -67,7 +67,7 @@ import {
   edgeTypes,
   CustomConnectionLine,
   isVideoNode,
-} from './utils/builderHelpers.tsx';
+} from './utils/builderHelpers';
 
 import './BuilderPage.css';
 
@@ -158,8 +158,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   // Sync credits into store so EnlargedPreview / ConnectedNodeInspectorPanel can read it
   const setUserCreditsInStore = useAIConfigStore((s) => s.setUserCreditsInStore);
   useEffect(() => {
-    if (userCredits !== null) setUserCreditsInStore(userCredits);
-  }, [userCredits, setUserCreditsInStore]);
+    if (userCredits !== null) setUserCreditsInStore(userCredits, isTrial);
+  }, [userCredits, isTrial, setUserCreditsInStore]);
 
   const studioMode = useAIConfigStore(state => state.config.studioMode || 'edit');
 
@@ -191,7 +191,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     canRedo,
     restoreWorkflow,
     spawnBenchmarkLayout
-  } = useBuilderWorkflow(tabId, !!initialWorkflow || !!initialImage);
+  } = useBuilderWorkflow(tabId, !!initialWorkflow || !!initialImage || !!initialProjectPath);
 
   // Hook 2: Generation, retry & credit validation operations
   const {
@@ -612,6 +612,35 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setSelectedNode,
     addNotification
   ]);
+
+  // Listen for project reload requests (e.g. user re-opens project from Projects page)
+  useEffect(() => {
+    const handleReload = async (e: Event) => {
+      const detail = (e as CustomEvent<{ tabId?: string; projectPath?: string }>)?.detail;
+      if (!detail) return;
+      const normalizeP = (p?: string | null) => p ? p.replace(/\\/g, '/').toLowerCase() : '';
+      const isTargetTab = detail.tabId === tabId;
+      const isTargetPath = detail.projectPath && initialProjectPath && normalizeP(detail.projectPath) === normalizeP(initialProjectPath);
+      if (isTargetTab || isTargetPath) {
+        const pathToLoad = detail.projectPath || initialProjectPath;
+        if (pathToLoad) {
+          try {
+            const result = await loadWorkflowFromPath(pathToLoad);
+            if (result) {
+              setCurrentFilePathState(result.filePath);
+              onProjectPathChange?.(result.filePath);
+              applyWorkflow(result, result.name);
+            }
+          } catch (err: any) {
+            logger.error('[Builder] Reload failed:', err);
+            addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
+          }
+        }
+      }
+    };
+    window.addEventListener('anarchy:reload-project', handleReload);
+    return () => window.removeEventListener('anarchy:reload-project', handleReload);
+  }, [tabId, initialProjectPath, applyWorkflow, onProjectPathChange, setCurrentFilePathState, addNotification]);
 
   // FIX 2: Debounce snapshot updates — syncing on every drag frame causes a
   // Zustand store write on every animation frame, triggering downstream re-renders.
@@ -1632,8 +1661,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
               type="button"
               className="builder-canvas-quick-btn"
               onClick={() => runContextAction('rearrange')}
-              title="ترتيب النودات تلقائياً (Rearrange Graph)"
-              aria-label="ترتيب النودات تلقائياً"
+              title="Rearrange Graph"
+              aria-label="Rearrange Graph"
             >
               <LayoutGrid size={15} />
             </button>

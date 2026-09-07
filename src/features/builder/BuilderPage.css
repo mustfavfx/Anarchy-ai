@@ -847,7 +847,8 @@
   transform: none;
 }
 
-.prompt-presets-btn {
+.prompt-presets-btn,
+.builder-prompt-container .auto-prompt-wrapper {
   margin-bottom: 2px;
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import type { ReactFlowInstance } from 'reactflow';
+import type { ReactFlowInstance, Node, Edge } from '@xyflow/react';
 import type { NodeTreeData } from '@/types/history';
 
 interface CanvasSnapshotOptions {
@@ -32,11 +32,11 @@ export function useCanvasSnapshot() {
     const { reactFlowInstance, activeNodeId, prompt, model } = options;
     const rf = reactFlowInstance || instanceRef.current;
 
-    const rawNodes = rf ? rf.getNodes() : [];
-    const rawEdges = rf ? rf.getEdges() : [];
+    const rawNodes: Node<any>[] = rf ? rf.getNodes() : [];
+    const rawEdges: Edge<any>[] = rf ? rf.getEdges() : [];
     const viewport = rf ? rf.getViewport() : { x: 0, y: 0, zoom: 1 };
 
-    const snapshotNodes = rawNodes.map(n => ({
+    const snapshotNodes = rawNodes.map((n: any) => ({
       id: n.id,
       type: (n.data?.type || n.type || 'source') as any,
       position: { x: n.position.x, y: n.position.y },
@@ -53,7 +53,7 @@ export function useCanvasSnapshot() {
       model: n.data?.model || model || '',
     }));
 
-    const snapshotEdges = rawEdges.map(e => ({
+    const snapshotEdges = rawEdges.map((e: any) => ({
       id: e.id,
       source: e.source,
       target: e.target,
@@ -63,7 +63,7 @@ export function useCanvasSnapshot() {
     }));
 
     // Find source node (root of the tree)
-    const sourceNode = rawNodes.find(n => n.data?.type === 'source') || rawNodes[0];
+    const sourceNode = rawNodes.find((n: any) => n.data?.type === 'source') || rawNodes[0];
     const sourceNodeId = sourceNode?.id || 'root';
 
     return {

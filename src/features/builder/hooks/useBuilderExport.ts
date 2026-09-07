@@ -10,7 +10,7 @@ import {
   exportImagesToPDFWithDialog,
 } from '../../../services/export';
 import type { DxfCalibration } from '../../../services/export';
-import { resolveImageUrl } from '../utils/builderHelpers.tsx';
+import { resolveImageUrl } from '../utils/builderHelpers';
 import type { BuilderNode } from '../types';
 import { IMAGE2CAD_BASE_URL } from '../../../config/image2cad';
 

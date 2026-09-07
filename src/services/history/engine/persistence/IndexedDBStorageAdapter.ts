@@ -105,4 +105,39 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
       }
     });
   }
+
+  async list(prefix?: string): Promise<string[]> {
+    const all = await this.keys();
+    return prefix ? all.filter(k => k.startsWith(prefix)) : all;
+  }
+
+  async setMany(entries: Array<[string, string]>): Promise<void> {
+    for (const [k, v] of entries) {
+      await this.set(k, v);
+    }
+  }
+
+  async getMany(keys: string[]): Promise<Map<string, string | null>> {
+    const map = new Map<string, string | null>();
+    for (const k of keys) {
+      map.set(k, await this.get(k));
+    }
+    return map;
+  }
+
+  async deleteMany(keys: string[]): Promise<void> {
+    for (const k of keys) {
+      await this.delete(k);
+    }
+  }
+
+  async iterateEntries(prefix?: string): Promise<Array<[string, string]>> {
+    const keys = await this.list(prefix);
+    const result: Array<[string, string]> = [];
+    for (const k of keys) {
+      const v = await this.get(k);
+      if (v !== null) result.push([k, v]);
+    }
+    return result;
+  }
 }

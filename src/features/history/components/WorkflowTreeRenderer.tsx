@@ -12,7 +12,7 @@ export interface HistoryTreeNode {
   id: string;
   entry: HistoryEntry;
   parentId?: string;
-  nodeType: 'source' | 'variation' | 'upscale' | 'edit' | 'canvas';
+  nodeType: string;
   children: HistoryTreeNode[];
 }
 
@@ -87,7 +87,7 @@ export function buildWorkflowTreeForEntry(preview: HistoryEntry, allEntries: His
   }
   
   // Link parents and children
-  let rootNode = nodesMap.get(rootId);
+  let rootNode: HistoryTreeNode | undefined = nodesMap.get(rootId);
   if (!rootNode) {
     rootNode = {
       id: rootId,
@@ -97,6 +97,7 @@ export function buildWorkflowTreeForEntry(preview: HistoryEntry, allEntries: His
     };
     nodesMap.set(rootId, rootNode);
   }
+  const mainRoot: HistoryTreeNode = rootNode;
   
   for (const node of nodesMap.values()) {
     if (node.id === rootId) continue;
@@ -117,14 +118,14 @@ export function buildWorkflowTreeForEntry(preview: HistoryEntry, allEntries: His
         };
         nodesMap.set(parentEntry.id, parentNode);
         if (parentEntry.id !== rootId) {
-          rootNode.children.push(parentNode);
+          mainRoot.children.push(parentNode);
         }
       }
     }
     
     // Default fallback to connect to root
     if (!parentNode) {
-      parentNode = rootNode;
+      parentNode = mainRoot;
     }
     
     parentNode.children.push(node);
@@ -148,7 +149,7 @@ export function buildWorkflowTreeForEntry(preview: HistoryEntry, allEntries: His
     currId = currNode?.parentId;
   }
   
-  return { root: rootNode, activePath };
+  return { root: mainRoot, activePath };
 }
 
 /**

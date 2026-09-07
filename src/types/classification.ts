@@ -1,25 +1,10 @@
 /**
  * Canonical classification types for the History / Canvas system.
  *
- * Consolidates 4 previously-overlapping, independently-defined string
- * unions that lived scattered across the codebase:
- *
- *   - HistoryEntry.type                    ('render'|'upscale'|'variation'|'edit'|'generate')
- *   - HistoryEntry.nodeType                ('source'|'variation'|'upscale'|'edit'|'canvas')
- *   - NodeTreeData.nodes[].type             ('source'|'ghost'|'result'|'dummy'|'group')
- *   - NodeTreeData.nodes[].processingType   (free string, no type at all)
- *
- * These collapse into two real concepts:
+ * Consolidates previously-overlapping string unions:
  *   - OperationType: what AI/processing operation produced something
  *   - NodeRole:      what structural role a node plays inside a canvas graph
- * (`NodeState` is included too since it was the 3rd loosely-typed field
- * on tree nodes and belongs in the same file.)
- *
- * Implemented as `const` objects + derived literal-union types rather
- * than TypeScript `enum`. This keeps them 100% assignment-compatible
- * with plain string values already sitting in persisted JSON / other
- * files in the app — existing code doing `entry.type === 'render'`
- * keeps working with zero casts.
+ *   - NodeState:     lifecycle state of a node
  */
 
 export const OperationType = {
@@ -28,6 +13,20 @@ export const OperationType = {
   Upscale: 'upscale',
   Variation: 'variation',
   Edit: 'edit',
+  Source: 'source',
+  Inpaint: 'inpaint',
+  Local: 'local',
+  Video: 'video',
+  Detail: 'detail',
+  People: 'people',
+  Daynight: 'daynight',
+  Lighting: 'lighting',
+  Material: 'material',
+  Canvas: 'canvas',
+  Pinboard: 'pinboard',
+  Variations: 'variations',
+  Upscales: 'upscales',
+  Edits: 'edits',
 } as const;
 export type OperationType = (typeof OperationType)[keyof typeof OperationType];
 
@@ -37,6 +36,10 @@ export const NodeRole = {
   Result: 'result',
   Dummy: 'dummy',
   Group: 'group',
+  Canvas: 'canvas',
+  Edit: 'edit',
+  Upscale: 'upscale',
+  Variation: 'variation',
 } as const;
 export type NodeRole = (typeof NodeRole)[keyof typeof NodeRole];
 

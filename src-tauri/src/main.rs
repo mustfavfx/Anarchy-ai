@@ -432,52 +432,103 @@ async fn ensure_dir(path: String) -> Result<(), String> {
     std::fs::create_dir_all(&path).map_err(|e| format!("Failed to create dir: {}", e))
 }
 
+fn get_autodesk_search_roots() -> Vec<std::path::PathBuf> {
+    let mut roots = Vec::new();
+    let drives = ["C", "D", "E", "F", "G"];
+    for d in drives {
+        let pf = format!("{}:\\Program Files\\Autodesk", d);
+        let p = std::path::PathBuf::from(&pf);
+        if p.exists() {
+            roots.push(p);
+        }
+        let direct = format!("{}:\\Autodesk", d);
+        let p2 = std::path::PathBuf::from(&direct);
+        if p2.exists() {
+            roots.push(p2);
+        }
+    }
+    roots
+}
+
+fn is_process_running(proc_name: &str) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let mut cmd = std::process::Command::new("tasklist");
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd.args(["/FI", &format!("IMAGENAME eq {}", proc_name), "/NH"]);
+        if let Ok(output) = cmd.output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let target = proc_name.to_lowercase();
+            return stdout.lines().any(|line| {
+                let l = line.to_lowercase();
+                l.starts_with(&target) || l.contains(&format!(" {}", target))
+            });
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = proc_name;
+    }
+    false
+}
+
 #[tauri::command]
 fn detect_3dsmax_installs() -> Vec<AutodeskInstall> {
-    let local_app_data = std::env::var("LOCALAPPDATA")
-        .unwrap_or_default();
+    let mut installs = Vec::new();
+    let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
     let max_root = std::path::Path::new(&local_app_data).join("Autodesk").join("3dsMax");
 
-    if !max_root.exists() {
-        return Vec::new();
+    let autodesk_roots = get_autodesk_search_roots();
+
+    // 1. Check all installed 3ds Max directories across drives
+    for root in &autodesk_roots {
+        if let Ok(entries) = std::fs::read_dir(root) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() { continue; }
+                let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue; };
+                if name.starts_with("3ds Max ") || name == "3ds Max" || name.starts_with("3dsMax") {
+                    if path.join("3dsmax.exe").exists() {
+                        let version = name
+                            .chars()
+                            .filter(|c| c.is_ascii_digit())
+                            .collect::<String>();
+                        if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "2028") {
+                            installs.push(AutodeskInstall {
+                                version,
+                                path: path.to_string_lossy().to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
-    let autodesk_root = std::path::Path::new(&program_files).join("Autodesk");
-
-    let mut installs = Vec::new();
-    let Ok(entries) = std::fs::read_dir(&max_root) else {
-        return installs;
-    };
-
-    for entry in entries.flatten() {
-        let profile = entry.path();
-        if !profile.is_dir() {
-            continue;
-        }
-
-        let Some(name) = profile.file_name().and_then(|n| n.to_str()) else {
-            continue;
-        };
-
-        if !name.chars().any(|c| c.is_ascii_digit()) {
-            continue;
-        }
-
-        let version = name
-            .split_whitespace()
-            .next()
-            .unwrap_or(name)
-            .to_string();
-
-        if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027") {
-            // Verify that the actual 3dsmax.exe exists under Program Files\Autodesk\3ds Max <version>\3dsmax.exe
-            let max_exe = autodesk_root.join(format!("3ds Max {}", version)).join("3dsmax.exe");
-            if max_exe.exists() {
-                installs.push(AutodeskInstall {
-                    version,
-                    path: profile.to_string_lossy().to_string(),
-                });
+    // 2. Check local app data profiles (e.g. 2024 - 64bit, 2027 - 64bit)
+    if max_root.exists() {
+        if let Ok(entries) = std::fs::read_dir(&max_root) {
+            for entry in entries.flatten() {
+                let profile = entry.path();
+                if !profile.is_dir() { continue; }
+                let Some(name) = profile.file_name().and_then(|n| n.to_str()) else { continue; };
+                let version = name
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or(name)
+                    .chars()
+                    .filter(|c| c.is_ascii_digit())
+                    .collect::<String>();
+                if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "2028") {
+                    if !installs.iter().any(|i| i.version == version) {
+                        installs.push(AutodeskInstall {
+                            version,
+                            path: profile.to_string_lossy().to_string(),
+                        });
+                    }
+                }
             }
         }
     }
@@ -489,29 +540,54 @@ fn detect_3dsmax_installs() -> Vec<AutodeskInstall> {
 
 fn detect_revit_installs() -> Vec<AutodeskInstall> {
     let mut installs = Vec::new();
-    let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
-    let autodesk_root = std::path::Path::new(&program_files).join("Autodesk");
+    let autodesk_roots = get_autodesk_search_roots();
 
-    if let Ok(entries) = std::fs::read_dir(&autodesk_root) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
+    // 1. Scan Autodesk root folders across drives for Revit installations
+    for root in &autodesk_roots {
+        if let Ok(entries) = std::fs::read_dir(root) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() { continue; }
+                let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue; };
+                if name.starts_with("Revit ") || name == "Revit" {
+                    let version = name
+                        .chars()
+                        .filter(|c| c.is_ascii_digit())
+                        .collect::<String>();
+                    if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "2028") {
+                        if path.join("RevitAPI.dll").exists() || path.join("Revit.exe").exists() {
+                            installs.push(AutodeskInstall {
+                                version,
+                                path: path.to_string_lossy().to_string(),
+                            });
+                        }
+                    }
+                }
             }
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            if !name.starts_with("Revit ") {
-                continue;
-            }
-            let version = name.trim_start_matches("Revit ").to_string();
-            if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027") {
-                let api_dll = path.join("RevitAPI.dll");
-                if api_dll.exists() {
-                    installs.push(AutodeskInstall {
-                        version,
-                        path: path.to_string_lossy().to_string(),
-                    });
+        }
+    }
+
+    // 2. Scan Addins directories in APPDATA and PROGRAMDATA
+    let app_data = std::env::var("APPDATA").unwrap_or_default();
+    let prog_data = std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string());
+    for base in [&app_data, &prog_data] {
+        let addins_dir = std::path::PathBuf::from(base).join("Autodesk").join("Revit").join("Addins");
+        if addins_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&addins_dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if !p.is_dir() { continue; }
+                    if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
+                        let version = name.trim().to_string();
+                        if matches!(version.as_str(), "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "2028") {
+                            if !installs.iter().any(|i| i.version == version) {
+                                installs.push(AutodeskInstall {
+                                    version,
+                                    path: p.to_string_lossy().to_string(),
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -635,6 +711,61 @@ async fn detect_autodesk_installs(target: String) -> Result<Vec<AutodeskInstall>
 }
 
 #[tauri::command]
+async fn validate_custom_autodesk_path(target: String, path: String) -> Result<AutodeskInstall, String> {
+    is_path_safe(&path)?;
+    let p = std::path::PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("The selected path does not exist: {}", path));
+    }
+
+    match target.as_str() {
+        "3dsmax" => {
+            let full_str = path.to_lowercase();
+            let mut detected_ver = "2024".to_string();
+            for v in ["2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028"] {
+                if full_str.contains(v) {
+                    detected_ver = v.to_string();
+                    break;
+                }
+            }
+
+            let install_dir = if p.is_file() {
+                p.parent().unwrap_or(&p).to_path_buf()
+            } else {
+                p
+            };
+
+            Ok(AutodeskInstall {
+                version: detected_ver,
+                path: install_dir.to_string_lossy().to_string(),
+            })
+        }
+        "revit" => {
+            let full_str = path.to_lowercase();
+            let mut detected_ver = "2024".to_string();
+            for v in ["2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028"] {
+                if full_str.contains(v) {
+                    detected_ver = v.to_string();
+                    break;
+                }
+            }
+
+            let install_dir = if p.is_file() {
+                p.parent().unwrap_or(&p).to_path_buf()
+            } else {
+                p
+            };
+
+            Ok(AutodeskInstall {
+                version: detected_ver,
+                path: install_dir.to_string_lossy().to_string(),
+            })
+        }
+        _ => Err("Unsupported target".to_string()),
+    }
+}
+
+#[tauri::command]
 async fn install_3dsmax_plugin(_script: String, versions: Option<Vec<String>>) -> Result<Vec<String>, String> {
     let script = include_str!("../resources/AnarchyConnector.ms");
     let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
@@ -654,107 +785,101 @@ async fn install_3dsmax_plugin(_script: String, versions: Option<Vec<String>>) -
 
     let mut installed_paths = Vec::new();
 
-    for version in &selected_versions {
-        // Prefer detected path, otherwise try common profile folder patterns
-        let profile_path = if let Some(p) = detected_map.get(version) {
-            std::path::PathBuf::from(p)
-        } else {
-            // Try standard profile folder name patterns
-            let candidates = [
-                format!("{} - 64bit", version),
-                format!("{}", version),
-                format!("{} - 64-bit", version),
-            ];
-            let mut found = None;
-            for candidate in &candidates {
-                let p = max_root.join(candidate);
-                if p.exists() {
-                    found = Some(p);
-                    break;
-                }
-            }
-            match found {
-                Some(p) => p,
-                None => {
-                    // Create profile directory so user can run 3ds Max and it will be used
-                    let default_name = format!("{} - 64bit", version);
-                    let p = max_root.join(&default_name);
-                    if std::fs::create_dir_all(&p).is_ok() { p } else { continue; }
-                }
-            }
-        };
+    const ICON_24I: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24i.bmp");
+    const ICON_24A: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24a.bmp");
+    const ICON_16I: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_16i.bmp");
+    const ICON_16A: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_16a.bmp");
 
-        // Detect all active language folders (e.g. ENU, DEU, FRA, JPN, CHS, KOR, PTB)
-        let mut languages = Vec::new();
-        if let Ok(entries) = std::fs::read_dir(&profile_path) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        // 3ds Max language folder names are 3 letters and uppercase
-                        if name.len() == 3 && name.chars().all(|c| c.is_ascii_uppercase()) {
-                            languages.push(name.to_string());
+    for version in &selected_versions {
+        let candidate_names = [
+            format!("{} - 64bit", version),
+            format!("{}", version),
+            format!("{} - 64-bit", version),
+        ];
+
+        let mut target_profile_paths = Vec::new();
+        for name in &candidate_names {
+            let p = max_root.join(name);
+            if p.exists() {
+                target_profile_paths.push(p);
+            }
+        }
+
+        // If none exist yet, create the standard default profile in LocalAppData
+        if target_profile_paths.is_empty() {
+            let p = max_root.join(format!("{} - 64bit", version));
+            if std::fs::create_dir_all(&p).is_ok() {
+                target_profile_paths.push(p);
+            }
+        }
+
+        for profile_path in target_profile_paths {
+            // Detect all active language folders (e.g. ENU, DEU, FRA, JPN, CHS, KOR, PTB)
+            let mut languages = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(&profile_path) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                            if name.len() == 3 && name.chars().all(|c| c.is_ascii_uppercase()) {
+                                languages.push(name.to_string());
+                            }
                         }
+                    }
+                }
+            }
+            if languages.is_empty() {
+                languages.push("ENU".to_string());
+            }
+
+            for lang in &languages {
+                let startup_dir = profile_path.join(lang).join("scripts").join("startup");
+                let usermacros_dir = profile_path.join(lang).join("usermacros");
+                let usericons_dir = profile_path.join(lang).join("usericons");
+
+                let _ = std::fs::create_dir_all(&startup_dir);
+                let _ = std::fs::create_dir_all(&usermacros_dir);
+                let _ = std::fs::create_dir_all(&usericons_dir);
+
+                let script_path = startup_dir.join("AnarchyConnector.ms");
+                if std::fs::write(&script_path, script).is_ok() {
+                    installed_paths.push(script_path.to_string_lossy().to_string());
+                }
+
+                let macro_path = usermacros_dir.join("Anarchy-AnarchySync.mcr");
+                if std::fs::write(&macro_path, script).is_ok() {
+                    installed_paths.push(macro_path.to_string_lossy().to_string());
+                }
+
+                for (name, bytes) in [
+                    ("AnarchyLogo_24i.bmp", ICON_24I),
+                    ("AnarchyLogo_24a.bmp", ICON_24A),
+                    ("AnarchyLogo_16i.bmp", ICON_16I),
+                    ("AnarchyLogo_16a.bmp", ICON_16A),
+                ] {
+                    let icon_path = usericons_dir.join(name);
+                    if std::fs::write(&icon_path, bytes).is_ok() {
+                        installed_paths.push(icon_path.to_string_lossy().to_string());
                     }
                 }
             }
         }
 
-        // Fallback to ENU if no language folders exist yet
-        if languages.is_empty() {
-            languages.push("ENU".to_string());
-        }
-
-        const ICON_24I: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24i.bmp");
-        const ICON_24A: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_24a.bmp");
-        const ICON_16I: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_16i.bmp");
-        const ICON_16A: &[u8] = include_bytes!("../resources/maxicons/AnarchyLogo_16a.bmp");
-
-        for lang in &languages {
-            let startup_dir = profile_path.join(lang).join("scripts").join("startup");
-            let usermacros_dir = profile_path.join(lang).join("usermacros");
-            let usericons_dir = profile_path.join(lang).join("usericons");
-
-            if let Err(e) = std::fs::create_dir_all(&startup_dir) {
-                eprintln!("Warning: Failed to create startup folder for {}: {}", lang, e);
-                continue;
-            }
-            if let Err(e) = std::fs::create_dir_all(&usermacros_dir) {
-                eprintln!("Warning: Failed to create usermacros folder for {}: {}", lang, e);
-                continue;
-            }
-            let _ = std::fs::create_dir_all(&usericons_dir);
-
-            let script_path = startup_dir.join("AnarchyConnector.ms");
-            if let Err(e) = std::fs::write(&script_path, &script) {
-                eprintln!("Warning: Failed to write plugin script for {}: {}", lang, e);
-                continue;
-            }
-            installed_paths.push(script_path.to_string_lossy().to_string());
-
-            let macro_path = usermacros_dir.join("Anarchy-AnarchySync.mcr");
-            if let Err(e) = std::fs::write(&macro_path, &script) {
-                eprintln!("Warning: Failed to write plugin macro for {}: {}", lang, e);
-                continue;
-            }
-            installed_paths.push(macro_path.to_string_lossy().to_string());
-
-            for (name, bytes) in [
-                ("AnarchyLogo_24i.bmp", ICON_24I),
-                ("AnarchyLogo_24a.bmp", ICON_24A),
-                ("AnarchyLogo_16i.bmp", ICON_16I),
-                ("AnarchyLogo_16a.bmp", ICON_16A),
-            ] {
-                let icon_path = usericons_dir.join(name);
-                if std::fs::write(&icon_path, bytes).is_ok() {
-                    installed_paths.push(icon_path.to_string_lossy().to_string());
+        // Also attempt writing to program installation directory if known
+        if let Some(install_dir_str) = detected_map.get(version) {
+            let install_dir = std::path::PathBuf::from(install_dir_str);
+            if install_dir.join("3dsmax.exe").exists() {
+                let sys_startup = install_dir.join("scripts").join("startup");
+                if std::fs::create_dir_all(&sys_startup).is_ok() {
+                    let sys_script = sys_startup.join("AnarchyConnector.ms");
+                    let _ = std::fs::write(&sys_script, script);
                 }
             }
         }
     }
 
     if installed_paths.is_empty() {
-        return Err("No 3ds Max profiles could be written. Ensure the selected versions are installed and run at least once.".to_string());
+        return Err("No 3ds Max profiles could be written. Ensure 3ds Max is installed.".to_string());
     }
 
     Ok(installed_paths)
@@ -806,6 +931,7 @@ fn find_wpf_assembly(name: &str) -> Option<std::path::PathBuf> {
     None
 }
 
+#[allow(dead_code)]
 fn format_dotnet_build_error(version: &str, stdout: &str, stderr: &str) -> String {
     let combined = format!("{}\n{}", stdout, stderr);
 
@@ -838,12 +964,20 @@ fn format_dotnet_build_error(version: &str, stdout: &str, stderr: &str) -> Strin
     format!("Revit {} build failed:\n{}", version, tail)
 }
 
+const REVIT_NET10_DLL: &[u8] = include_bytes!("../resources/revit-plugin/prebuilt/AnarchyRevit_net10.dll");
+const REVIT_NET8_DLL: &[u8] = include_bytes!("../resources/revit-plugin/prebuilt/AnarchyRevit_net8.dll");
+const REVIT_NET48_DLL: &[u8] = include_bytes!("../resources/revit-plugin/prebuilt/AnarchyRevit_net48.dll");
+
 fn is_revit_net8(version: &str) -> bool {
-    matches!(version, "2025" | "2026" | "2027")
+    matches!(version, "2025" | "2026" | "2027" | "2028")
 }
 
 #[tauri::command]
 async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<String>, String> {
+    if is_process_running("Revit.exe") {
+        return Err("Revit is currently running. Please save your work and close Revit completely before installing the plugin, then try again.".to_string());
+    }
+
     let detected = detect_revit_installs();
     let selected = versions.unwrap_or_else(|| detected.iter().map(|i| i.version.clone()).collect());
 
@@ -854,9 +988,6 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
     let detected_map: std::collections::HashMap<String, std::path::PathBuf> =
         detected.into_iter().map(|i| (i.version, std::path::PathBuf::from(i.path))).collect();
 
-    let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
-    let autodesk_root = std::path::Path::new(&program_files).join("Autodesk");
-
     const CS_SOURCE: &str = include_str!("../resources/revit-plugin/AnarchyRevit.cs");
     const ADDIN_TEMPLATE: &str = include_str!("../resources/revit-plugin/Anarchy.addin.template");
     const CSPROJ_TEMPLATE: &str = include_str!("../resources/revit-plugin/AnarchyRevit2025.csproj.template");
@@ -865,29 +996,13 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
 
     let app_data = std::env::var("APPDATA")
         .map_err(|_| "APPDATA env var not found".to_string())?;
+    let prog_data = std::env::var("PROGRAMDATA")
+        .unwrap_or_else(|_| "C:\\ProgramData".to_string());
 
     let mut installed = Vec::new();
     let mut errors = Vec::new();
 
     for version in &selected {
-        let revit_dir = if let Some(p) = detected_map.get(version) {
-            p.clone()
-        } else {
-            let p = autodesk_root.join(format!("Revit {}", version));
-            if !p.exists() {
-                errors.push(format!("Revit {} installation folder not found under {}\\Autodesk\\Revit {}.", version, program_files, version));
-                continue;
-            }
-            p
-        };
-
-        let api_dll = revit_dir.join("RevitAPI.dll");
-        let api_ui_dll = revit_dir.join("RevitAPIUI.dll");
-        if !api_dll.exists() || !api_ui_dll.exists() {
-            errors.push(format!("RevitAPI.dll / RevitAPIUI.dll not found in {}.", revit_dir.display()));
-            continue;
-        }
-
         let addins_dir = std::path::PathBuf::from(&app_data)
             .join("Autodesk").join("Revit").join("Addins").join(version);
         if let Err(e) = std::fs::create_dir_all(&addins_dir) {
@@ -908,176 +1023,118 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
 
         let dll_path = plugin_dir.join("AnarchyRevit.dll");
 
-        if is_revit_net8(version) {
-            let dotnet = match find_dotnet_sdk() {
-                Some(d) => d,
-                None => {
-                    let req_sdks = if version == "2027" { ".NET 10 SDK" } else { ".NET 8 SDK" };
-                    let dl_ver = if version == "2027" { "10.0" } else { "8.0" };
-                    errors.push(format!("{} not found. Revit {} requires the {} to build the plugin.\nDownload from: https://dotnet.microsoft.com/download/dotnet/{}", req_sdks, version, req_sdks, dl_ver));
-                    continue;
-                }
-            };
+        // Primary deployment: Instant, offline installation via prebuilt assemblies
+        let prebuilt_bytes: Option<&[u8]> = match version.as_str() {
+            "2027" | "2028" => Some(REVIT_NET10_DLL),
+            "2025" | "2026" => Some(REVIT_NET8_DLL),
+            "2020" | "2021" | "2022" | "2023" | "2024" => Some(REVIT_NET48_DLL),
+            _ => None,
+        };
 
-            let build_dir = std::env::temp_dir().join(format!("AnarchyRevit{}Build", version));
-            let _ = std::fs::remove_dir_all(&build_dir);
-            if let Err(e) = std::fs::create_dir_all(&build_dir) {
-                errors.push(format!("Failed to create build dir: {}", e));
-                continue;
-            }
-
-            if let Err(e) = std::fs::write(build_dir.join("AnarchyRevit.cs"), CS_SOURCE) {
-                errors.push(format!("Failed to write C# source: {}", e));
-                let _ = std::fs::remove_dir_all(&build_dir);
-                continue;
-            }
-
-            let target_framework = match version.as_str() {
-                "2027" => "net10.0-windows",
-                _ => "net8.0-windows",
-            };
-
-            let csproj = CSPROJ_TEMPLATE
-                .replace("{{REVIT_DIR}}", &revit_dir.to_string_lossy())
-                .replace("{{TARGET_FRAMEWORK}}", target_framework);
-
-            if let Err(e) = std::fs::write(build_dir.join("AnarchyRevit.csproj"), csproj) {
-                errors.push(format!("Failed to write csproj: {}", e));
-                let _ = std::fs::remove_dir_all(&build_dir);
-                continue;
-            }
-
-            let build_out_dir = std::env::temp_dir().join(format!("AnarchyRevit{}Out", version));
-            let _ = std::fs::remove_dir_all(&build_out_dir);
-            if let Err(e) = std::fs::create_dir_all(&build_out_dir) {
-                errors.push(format!("Failed to create build output dir: {}", e));
-                let _ = std::fs::remove_dir_all(&build_dir);
-                continue;
-            }
-
-            let output = match std::process::Command::new(&dotnet)
-                .args(["publish", "--nologo", "-c", "Release", "-r", "win-x64", "--self-contained", "false", "-o"])
-                .arg(&build_out_dir)
-                .current_dir(&build_dir)
-                .output()
-            {
-                Ok(out) => out,
-                Err(e) => {
-                    let _ = std::fs::remove_dir_all(&build_dir);
-                    let _ = std::fs::remove_dir_all(&build_out_dir);
-                    errors.push(format!("Failed to invoke dotnet publish for Revit {}: {}", version, e));
-                    continue;
-                }
-            };
-
-            let _ = std::fs::remove_dir_all(&build_dir);
-
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let _ = std::fs::remove_dir_all(&build_out_dir);
-                errors.push(format_dotnet_build_error(version, &stdout, &stderr));
-                continue;
-            }
-
-            let built_dll = build_out_dir.join("AnarchyRevit.dll");
-            if built_dll.exists() {
-                if dll_path.exists() {
-                    let _ = std::fs::remove_file(&dll_path);
-                }
-                if let Err(e) = std::fs::copy(&built_dll, &dll_path) {
-                    let _ = std::fs::remove_dir_all(&build_out_dir);
-                    if e.to_string().contains("being used by another process") {
-                        errors.push(format!("Revit {} is currently running. Please close Revit completely and try again.", version));
-                    } else {
-                        errors.push(format!("Failed to copy plugin DLL for Revit {}: {}", version, e));
-                    }
-                    continue;
-                }
-            }
-            let _ = std::fs::remove_dir_all(&build_out_dir);
-        } else {
-            // Revit 2020-2024: compile with csc.exe (.NET Framework 4.x)
-            let csc = match find_csc_exe() {
-                Some(c) => c,
-                None => {
-                    errors.push("csc.exe (.NET Framework 4.x compiler) not found. Please install .NET Framework 4.x.".to_string());
-                    break;
-                }
-            };
-
-            let cs_path = plugin_dir.join("AnarchyRevit.cs");
-            if let Err(e) = std::fs::write(&cs_path, CS_SOURCE) {
-                errors.push(format!("Failed to write C# source: {}", e));
-                continue;
-            }
-
+        let mut dll_written = false;
+        if let Some(bytes) = prebuilt_bytes {
             if dll_path.exists() {
                 let _ = std::fs::remove_file(&dll_path);
             }
-
-            let presentation_core = match find_wpf_assembly("PresentationCore.dll") {
-                Some(p) => p,
-                None => {
-                    errors.push(format!("PresentationCore.dll not found for Revit {}", version));
-                    continue;
-                }
-            };
-            let windows_base = match find_wpf_assembly("WindowsBase.dll") {
-                Some(p) => p,
-                None => {
-                    errors.push(format!("WindowsBase.dll not found for Revit {}", version));
-                    continue;
-                }
-            };
-            let system_xaml = match find_wpf_assembly("System.Xaml.dll") {
-                Some(p) => p,
-                None => {
-                    errors.push(format!("System.Xaml.dll not found for Revit {}", version));
-                    continue;
-                }
-            };
-
-            let output = match std::process::Command::new(&csc)
-                .arg("/target:library")
-                .arg("/nologo")
-                .arg("/platform:x64")
-                .arg(format!("/out:{}", dll_path.display()))
-                .arg(format!("/reference:{}", api_dll.display()))
-                .arg(format!("/reference:{}", api_ui_dll.display()))
-                .arg(format!("/reference:{}", presentation_core.display()))
-                .arg(format!("/reference:{}", windows_base.display()))
-                .arg(format!("/reference:{}", system_xaml.display()))
-                .arg("/reference:System.dll")
-                .arg("/reference:System.Core.dll")
-                .arg("/reference:System.Drawing.dll")
-                .arg(&cs_path)
-                .output()
-            {
-                Ok(out) => out,
-                Err(e) => {
-                    errors.push(format!("Failed to invoke csc.exe for Revit {}: {}", version, e));
-                    continue;
-                }
-            };
-
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let combined = format!("{}\n{}", stdout, stderr);
-                errors.push(format!("Compilation failed for Revit {}:\n{}", version, combined));
-                continue;
+            if std::fs::write(&dll_path, bytes).is_ok() {
+                dll_written = true;
             }
+        }
+
+        // Secondary fallback: On-the-fly compilation if prebuilt was somehow not written
+        if !dll_written {
+            let revit_dir = detected_map.get(version).cloned().unwrap_or_else(|| {
+                std::path::PathBuf::from(format!("C:\\Program Files\\Autodesk\\Revit {}", version))
+            });
+            let api_dll = revit_dir.join("RevitAPI.dll");
+            let api_ui_dll = revit_dir.join("RevitAPIUI.dll");
+
+            if is_revit_net8(version) {
+                if let Some(dotnet) = find_dotnet_sdk() {
+                    let build_dir = std::env::temp_dir().join(format!("AnarchyRevit{}Build", version));
+                    let _ = std::fs::remove_dir_all(&build_dir);
+                    let _ = std::fs::create_dir_all(&build_dir);
+                    let _ = std::fs::write(build_dir.join("AnarchyRevit.cs"), CS_SOURCE);
+                    let target_framework = match version.as_str() {
+                        "2027" | "2028" => "net10.0-windows",
+                        _ => "net8.0-windows",
+                    };
+                    let csproj = CSPROJ_TEMPLATE
+                        .replace("{{REVIT_DIR}}", &revit_dir.to_string_lossy())
+                        .replace("{{TARGET_FRAMEWORK}}", target_framework);
+                    let _ = std::fs::write(build_dir.join("AnarchyRevit.csproj"), csproj);
+                    let build_out_dir = std::env::temp_dir().join(format!("AnarchyRevit{}Out", version));
+                    let _ = std::fs::remove_dir_all(&build_out_dir);
+                    let _ = std::fs::create_dir_all(&build_out_dir);
+
+                    if let Ok(out) = std::process::Command::new(&dotnet)
+                        .args(["publish", "--nologo", "-c", "Release", "-r", "win-x64", "--self-contained", "false", "-o"])
+                        .arg(&build_out_dir)
+                        .current_dir(&build_dir)
+                        .output()
+                    {
+                        if out.status.success() {
+                            let built_dll = build_out_dir.join("AnarchyRevit.dll");
+                            if built_dll.exists() {
+                                let _ = std::fs::copy(&built_dll, &dll_path);
+                                dll_written = true;
+                            }
+                        }
+                    }
+                    let _ = std::fs::remove_dir_all(&build_dir);
+                    let _ = std::fs::remove_dir_all(&build_out_dir);
+                }
+            } else if let Some(csc) = find_csc_exe() {
+                let cs_path = plugin_dir.join("AnarchyRevit.cs");
+                let _ = std::fs::write(&cs_path, CS_SOURCE);
+                let presentation_core = find_wpf_assembly("PresentationCore.dll");
+                let windows_base = find_wpf_assembly("WindowsBase.dll");
+                let system_xaml = find_wpf_assembly("System.Xaml.dll");
+
+                if let (Some(pc), Some(wb), Some(sx)) = (presentation_core, windows_base, system_xaml) {
+                    let out = std::process::Command::new(&csc)
+                        .arg("/target:library")
+                        .arg("/nologo")
+                        .arg("/platform:x64")
+                        .arg(format!("/out:{}", dll_path.display()))
+                        .arg(format!("/reference:{}", api_dll.display()))
+                        .arg(format!("/reference:{}", api_ui_dll.display()))
+                        .arg(format!("/reference:{}", pc.display()))
+                        .arg(format!("/reference:{}", wb.display()))
+                        .arg(format!("/reference:{}", sx.display()))
+                        .arg("/reference:System.dll")
+                        .arg("/reference:System.Core.dll")
+                        .arg(&cs_path)
+                        .output();
+                    if let Ok(o) = out {
+                        if o.status.success() {
+                            dll_written = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !dll_written && !dll_path.exists() {
+            errors.push(format!("Could not install AnarchyRevit.dll for Revit {}.", version));
+            continue;
         }
 
         let addin_content = ADDIN_TEMPLATE.replace(
             "{{ASSEMBLY_PATH}}",
-            &dll_path.to_string_lossy().replace('\\', "\\"),
+            &dll_path.to_string_lossy(),
         );
         let addin_path = addins_dir.join("Anarchy.addin");
-        if let Err(e) = std::fs::write(&addin_path, addin_content) {
+        if let Err(e) = std::fs::write(&addin_path, &addin_content) {
             errors.push(format!("Failed to write .addin manifest for Revit {}: {}", version, e));
             continue;
+        }
+
+        // Also deploy to ProgramData for all-user visibility if accessible
+        let machine_addins_dir = std::path::PathBuf::from(&prog_data)
+            .join("Autodesk").join("Revit").join("Addins").join(version);
+        if std::fs::create_dir_all(&machine_addins_dir).is_ok() {
+            let _ = std::fs::write(machine_addins_dir.join("Anarchy.addin"), &addin_content);
         }
 
         installed.push(dll_path.to_string_lossy().to_string());
@@ -1088,10 +1145,7 @@ async fn install_revit_plugin(versions: Option<Vec<String>>) -> Result<Vec<Strin
         if !errors.is_empty() {
             return Err(errors.join("\n\n"));
         }
-        return Err(format!(
-            "No selected Revit versions could be found under {}\\Autodesk\\Revit <version>. Ensure Revit is installed and try again.",
-            program_files
-        ));
+        return Err("No selected Revit versions could be installed. Ensure Revit is installed or browse for the installation folder.".to_string());
     }
 
     Ok(installed)
@@ -1355,40 +1409,45 @@ async fn is_plugin_installed(target: String) -> bool {
     let prog_data = std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string());
     match target.as_str() {
         "3dsmax" => {
-            let installs = detect_3dsmax_installs();
-            if installs.is_empty() {
-                return false;
-            }
+            let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
+            let max_root = std::path::Path::new(&local_app_data).join("Autodesk").join("3dsMax");
             let languages = ["ENU", "DEU", "FRA", "JPN", "CHS", "KOR", "PTB"];
-            for install in installs {
-                let profile = std::path::PathBuf::from(&install.path);
-                // Check all language subfolders
-                for lang in &languages {
-                    let script_path = profile.join(lang).join("scripts").join("startup").join("AnarchyConnector.ms");
-                    let macro_path = profile.join(lang).join("usermacros").join("Anarchy-AnarchySync.mcr");
-                    if script_path.exists() || macro_path.exists() {
-                        return true;
+            if max_root.exists() {
+                if let Ok(entries) = std::fs::read_dir(&max_root) {
+                    for entry in entries.flatten() {
+                        let profile = entry.path();
+                        if !profile.is_dir() { continue; }
+                        for lang in &languages {
+                            let script_path = profile.join(lang).join("scripts").join("startup").join("AnarchyConnector.ms");
+                            let macro_path = profile.join(lang).join("usermacros").join("Anarchy-AnarchySync.mcr");
+                            if script_path.exists() || macro_path.exists() {
+                                return true;
+                            }
+                        }
+                        if profile.join("scripts").join("startup").join("AnarchyConnector.ms").exists() {
+                            return true;
+                        }
                     }
-                }
-                // Check direct scripts folder
-                if profile.join("scripts").join("startup").join("AnarchyConnector.ms").exists() {
-                    return true;
                 }
             }
             false
         }
         "revit" => {
-            let installs = detect_revit_installs();
-            if installs.is_empty() {
-                return false;
-            }
-            for install in installs {
-                let addin1 = std::path::PathBuf::from(&app_data)
-                    .join("Autodesk").join("Revit").join("Addins").join(&install.version).join("Anarchy.addin");
-                let addin2 = std::path::PathBuf::from(&prog_data)
-                    .join("Autodesk").join("Revit").join("Addins").join(&install.version).join("Anarchy.addin");
-                if addin1.exists() || addin2.exists() {
-                    return true;
+            for base in [&app_data, &prog_data] {
+                let addins_dir = std::path::PathBuf::from(base).join("Autodesk").join("Revit").join("Addins");
+                if addins_dir.exists() {
+                    if let Ok(entries) = std::fs::read_dir(&addins_dir) {
+                        for entry in entries.flatten() {
+                            let p = entry.path();
+                            if p.is_dir() {
+                                let addin = p.join("Anarchy.addin");
+                                let dll = p.join("AnarchyRevit").join("AnarchyRevit.dll");
+                                if addin.exists() && dll.exists() {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
                 }
             }
             false
@@ -2159,7 +2218,7 @@ fn main() {
             http_post, http_get, upload_image, upload_to_replicate, url_to_base64,
             save_file, load_file, list_dir, delete_file, ensure_dir,
             detect_autodesk_installs, install_3dsmax_plugin, install_revit_plugin, install_autocad_plugin,
-            remove_old_autodesk_plugins, get_app_data_dir, is_plugin_installed,
+            remove_old_autodesk_plugins, get_app_data_dir, is_plugin_installed, validate_custom_autodesk_path,
             save_image_to_documents, save_image_to_path, read_local_image, read_clipboard_image,
             check_update, install_update, restart_app,
             open_url, open_checkout_window, get_startup_file, get_deep_link, exit_app, analyze_floor_plan, open_images_folder, show_in_explorer,

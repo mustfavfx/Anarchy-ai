@@ -97,8 +97,9 @@ export const ConnectedNodeInspectorPanel: React.FC<ConnectedNodeInspectorPanelPr
       addHistoryEntry({
         prompt: args.prompt ?? '',
         model: args.engineId as any,
-        outputData: { image: args.imageUrl },
-        processingType: args.maskUrl ? 'local' : 'upscale',
+        outputImage: args.imageUrl,
+        type: args.maskUrl ? 'edit' : 'upscale',
+        label: args.prompt || 'Child Generation',
         parentId: nodeId,
         rootId: nodeId,
       }).catch(console.error);

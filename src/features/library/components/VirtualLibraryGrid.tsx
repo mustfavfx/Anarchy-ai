@@ -4,7 +4,10 @@ const AnyList = List as React.ComponentType<any>;
 import { Layers, FolderOpen, Edit3, Copy, Trash2 } from 'lucide-react';
 import type { ProjectMeta } from '../../../services/projects/ProjectService';
 import { timeAgo } from '../../../services/projects/ProjectService';
-import { ProjectThumbnail } from '../LibraryPage';
+const ProjectThumbnail: React.FC<{ url?: string; alt: string }> = ({ url, alt }) => {
+  if (!url) return <div className="project-thumb-placeholder"><Layers size={24} /></div>;
+  return <img src={url} alt={alt} className="project-thumb-img" />;
+};
 
 interface VirtualLibraryGridProps {
   projects: ProjectMeta[];

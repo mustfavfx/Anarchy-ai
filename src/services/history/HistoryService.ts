@@ -1,5 +1,6 @@
 import { SettingsService } from '@/services/settings';
 import { logger } from '@/utils/logger';
+export type { HistoryEntry, NodeTreeData, HistoryGroup } from '@/types/history';
 import type { HistoryEntry, NodeTreeData, HistoryGroup } from '@/types/history';
 import { groupHistoryEntries } from './HistoryGroupingService';
 

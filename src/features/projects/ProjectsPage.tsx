@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
-import { Search, Grid, List as ListIcon, Plus, FolderOpen, Image as ImageIcon, Loader2, ArrowUpDown } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList, Plus, FolderOpen, Image as ImageIcon, Loader2, ArrowUpDown } from 'lucide-react';
 import { listProjects, deleteProject, renameProject, duplicateProject, type ProjectMeta } from '../../services/projects/ProjectService';
 import { loadWorkflow } from '../../services/workflow';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
@@ -22,17 +22,45 @@ export const ProjectImage: React.FC<{ url?: string; alt: string; className?: str
   return <img src={resolved} alt={alt} className={className} />;
 };
 
+const PROJECTS_VIEW_MODE_KEY = 'anarchy_projects_view_mode';
+const PROJECTS_SORT_KEY = 'anarchy_projects_sort';
+
 export const ProjectsPage: React.FC = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewModeState] = useState<'grid' | 'list'>(() => {
+    try {
+      const saved = localStorage.getItem(PROJECTS_VIEW_MODE_KEY);
+      if (saved === 'grid' || saved === 'list') return saved;
+    } catch {}
+    return 'grid';
+  });
   const [loading, setLoading] = useState(true);
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ProjectMeta | null>(null);
   const [renameTarget, setRenameTarget] = useState<ProjectMeta | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
+  const [sortOrder, setSortOrderState] = useState<'newest' | 'oldest' | 'name'>(() => {
+    try {
+      const saved = localStorage.getItem(PROJECTS_SORT_KEY);
+      if (saved === 'newest' || saved === 'oldest' || saved === 'name') return saved;
+    } catch {}
+    return 'newest';
+  });
+
+  const setViewMode = (mode: 'grid' | 'list') => {
+    setViewModeState(mode);
+    try { localStorage.setItem(PROJECTS_VIEW_MODE_KEY, mode); } catch {}
+  };
+
+  const setSortOrder = (updater: 'newest' | 'oldest' | 'name' | ((prev: 'newest' | 'oldest' | 'name') => 'newest' | 'oldest' | 'name')) => {
+    setSortOrderState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem(PROJECTS_SORT_KEY, next); } catch {}
+      return next;
+    });
+  };
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -144,16 +172,22 @@ export const ProjectsPage: React.FC = () => {
           </div>
           <div className="view-toggle">
             <button
+              type="button"
               className={`toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+              title="Grid view"
             >
-              <Grid size={14} />
+              <LayoutGrid size={15} />
             </button>
             <button
+              type="button"
               className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
               onClick={() => setViewMode('list')}
+              aria-label="List view"
+              title="List view"
             >
-              <ListIcon size={14} />
+              <LayoutList size={15} />
             </button>
           </div>
         </div>

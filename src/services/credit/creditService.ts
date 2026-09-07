@@ -213,7 +213,10 @@ function costClarityUpscale(upscaleFactor: number = 2, isTrial: boolean): number
   }
 }
 
-export function costTopazUpscale(upscaleFactor?: string | number, isTrial: boolean = true, px: number = 1048576): number {
+export function costTopazUpscale(upscaleFactor?: string | number, isTrial: boolean = true, _px: number = 1048576): number {
+  if (isTrial) {
+    return 2.0;
+  }
   let factor = 2;
   if (typeof upscaleFactor === 'number') {
     factor = upscaleFactor;
@@ -228,32 +231,8 @@ export function costTopazUpscale(upscaleFactor?: string | number, isTrial: boole
     }
   }
 
-  // Calculate estimated output Megapixels (MP)
-  const outputPixels = px * (factor * factor);
-  const outputMP = outputPixels / 1000000;
-
-  // Replicate Official Pricing Table for Topaz Labs (topazlabs/image-upscale):
-  // MP <= 24  => $0.05 (0.5 Credits)
-  // MP <= 48  => $0.10 (1.0 Credit)
-  // MP <= 60  => $0.15 (1.5 Credits)
-  // MP <= 96  => $0.20 (2.0 Credits)
-  // MP <= 132 => $0.24 (2.4 Credits)
-  // MP <= 168 => $0.29 (2.9 Credits)
-  // MP <= 336 => $0.53 (5.3 Credits)
-  // MP <= 512 => $0.82 (8.2 Credits)
-  let costUSD = 0.05;
-  if (outputMP <= 24) costUSD = 0.05;
-  else if (outputMP <= 48) costUSD = 0.10;
-  else if (outputMP <= 60) costUSD = 0.15;
-  else if (outputMP <= 96) costUSD = 0.20;
-  else if (outputMP <= 132) costUSD = 0.24;
-  else if (outputMP <= 168) costUSD = 0.29;
-  else if (outputMP <= 336) costUSD = 0.53;
-  else costUSD = 0.82;
-
-  // 1 Credit = $0.10 USD
-  const creditCost = costUSD * 10;
-  return Math.round(creditCost * 10) / 10;
+  if (factor >= 6) return 1.8;
+  return 1.45;
 }
 
 // ── Flat cost table for simple models ────────────────────────────────────────
@@ -391,6 +370,39 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
   }
 }
 
+export function resolveUpscaleFactor(model: string, config: any): number | undefined {
+  if (model === 'topazlabs/image-upscale') {
+    const factorStr = config?.topazUpscaleFactor ?? '4x';
+    if (factorStr === '2x') return 2;
+    if (factorStr === '4x') return 4;
+    if (factorStr === '6x') return 6;
+    return 4;
+  }
+  if (model === 'philz1337x/clarity-upscaler') {
+    return config?.clarityScale ?? 2;
+  }
+  return undefined;
+}
+
+/**
+ * getUnifiedCost — Single source of truth for calculating cost across Canvas, Mask, and Execution engines.
+ */
+export function getUnifiedCost(config: any, isTrial: boolean = true, overrideModel?: string): number {
+  if (!config) return isTrial ? TRIAL_GENERATION_COST.standard : PAID_GENERATION_COST.standard;
+  const model = overrideModel || config.model || 'google/nano-banana-2';
+  const upscaleFactor = resolveUpscaleFactor(model, config);
+  return getModelCost(model, {
+    resolution: config.resolution,
+    qualityVariant: config.qualityVariant ?? 'auto',
+    prunaTarget: config.prunaTarget,
+    upscaleFactor,
+    isTrial,
+    width: config.width,
+    height: config.height,
+    videoDuration: config.videoDuration,
+  });
+}
+
 // Credit value: $1 = 100 credits
 // $5 package = 500 credits
 // $10 package = 1000 credits
@@ -526,10 +538,10 @@ export async function deductCredits(
       }
     }
 
-    return { success: true, remaining: 0 };
+    return { success: false, remaining: 0, error: rpcError?.message || getErr?.message || 'Failed to deduct credits' };
   } catch (err: any) {
     logger.warn('[Credit] Deduct credits fallback caught error:', err);
-    return { success: true, remaining: 0 };
+    return { success: false, remaining: 0, error: err?.message || 'Failed to deduct credits' };
   }
 }
 

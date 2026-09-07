@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronRight, ChevronLeft, Sparkles, ImagePlus, MousePointerClick } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import './OnboardingModal.css';
 
 interface OnboardingStep {
@@ -69,26 +70,45 @@ export const OnboardingModal: React.FC = () => {
     handleClose();
   };
 
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isActive: isOpen,
+    onEscape: handleClose,
+  });
+
   if (!isOpen) return null;
 
   const step = STEPS[currentStep];
 
   return (
-    <div className="onboarding-overlay" onClick={handleClose}>
-      <div className="onboarding-modal" onClick={e => e.stopPropagation()}>
-        <button className="onboarding-close" onClick={handleClose}>
+    <div className="onboarding-overlay" onClick={handleClose} aria-hidden="false">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-modal-title"
+        aria-describedby="onboarding-modal-desc"
+        tabIndex={-1}
+        className="onboarding-modal"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="onboarding-close"
+          onClick={handleClose}
+          aria-label="Close tour"
+        >
           <X size={20} />
         </button>
 
         <div className="onboarding-header">
-          <div className="onboarding-icon">{step.icon}</div>
-          <h2 className="onboarding-title">{step.title}</h2>
+          <div className="onboarding-icon" aria-hidden="true">{step.icon}</div>
+          <h2 id="onboarding-modal-title" className="onboarding-title">{step.title}</h2>
         </div>
 
         <div className="onboarding-content">
-          <p className="onboarding-description">{step.description}</p>
+          <p id="onboarding-modal-desc" className="onboarding-description">{step.description}</p>
           <div className="onboarding-tip">
-            <Sparkles size={14} />
+            <Sparkles size={14} aria-hidden="true" />
             <span>{step.tip}</span>
           </div>
         </div>

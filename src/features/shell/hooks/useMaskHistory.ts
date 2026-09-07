@@ -98,14 +98,31 @@ export function useMaskHistory(
     updateHistoryButtons();
   }, [updateHistoryButtons]);
 
-  /** Seeds the history stack with a single baseline snapshot. */
+  /** Seeds the history stack with a single baseline snapshot (or captures current canvas if omitted). */
   const initHistory = useCallback(
-    (imageData: ImageData) => {
-      historyRef.current = [imageData];
-      historyIndexRef.current = 0;
+    (imageData?: ImageData) => {
+      if (imageData) {
+        historyRef.current = [imageData];
+        historyIndexRef.current = 0;
+      } else {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (canvas && ctx && canvas.width > 0 && canvas.height > 0) {
+          try {
+            historyRef.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+            historyIndexRef.current = 0;
+          } catch {
+            historyRef.current = [];
+            historyIndexRef.current = -1;
+          }
+        } else {
+          historyRef.current = [];
+          historyIndexRef.current = -1;
+        }
+      }
       updateHistoryButtons();
     },
-    [updateHistoryButtons]
+    [canvasRef, updateHistoryButtons]
   );
 
   return { canUndo, canRedo, pushHistory, undo, redo, resetHistory, initHistory };

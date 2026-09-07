@@ -1,0 +1,113 @@
+/* ── Clean Minimalist AutoPrompt Button ── */
+.auto-prompt-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.auto-prompt-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+  user-select: none;
+}
+
+.auto-prompt-btn:hover:not(:disabled) {
+  background: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #e11d48;
+}
+
+.auto-prompt-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.auto-prompt-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.auto-prompt-btn.enhancing {
+  background: rgba(225, 29, 72, 0.15);
+  border-color: rgba(225, 29, 72, 0.6);
+  color: #e11d48;
+}
+
+.auto-prompt-icon {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.auto-prompt-btn:hover:not(:disabled) .auto-prompt-icon {
+  transform: rotate(12deg) scale(1.1);
+}
+
+/* Compact version for MaskCanvas prompt bar */
+.auto-prompt-btn.compact {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.auto-prompt-btn.compact:hover:not(:disabled) {
+  background: rgba(225, 29, 72, 0.1);
+  border-color: rgba(225, 29, 72, 0.4);
+  color: #e11d48;
+}
+
+/* Undo button that appears right beside it after enhancing */
+.auto-prompt-undo-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.auto-prompt-undo-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.auto-prompt-undo-btn:active {
+  transform: scale(0.95);
+}
+
+.auto-prompt-undo-btn.compact {
+  width: 26px;
+  height: 26px;
+}
+
+/* Spinner rotation */
+@keyframes autoPromptSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.auto-prompt-spinner {
+  animation: autoPromptSpin 0.8s linear infinite;
+  color: #e11d48;
+}

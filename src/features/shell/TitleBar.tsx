@@ -5,6 +5,7 @@ import './TitleBar.css';
 
 interface TitleBarProps {
   onCloseRequest?: () => void;
+  onOpenSearch?: () => void;
 }
 
 // Check if running in Tauri environment
@@ -59,15 +60,32 @@ export const TitleBar: React.FC<TitleBarProps> = ({ onCloseRequest }) => {
       <div className="title-bar-left" data-tauri-drag-region>
         <div className="window-title">Anarchy AI</div>
       </div>
-      <div className="title-bar-center" />
       <div className="title-bar-right">
-        <button className="window-btn minimize" onClick={handleMinimize} title="Minimize">
+        <button
+          type="button"
+          className="window-btn minimize"
+          onClick={handleMinimize}
+          title="Minimize"
+          aria-label="Minimize window"
+        >
           <Minus size={14} />
         </button>
-        <button className="window-btn maximize" onClick={handleMaximize} title={isMaximized ? "Restore" : "Maximize"}>
+        <button
+          type="button"
+          className="window-btn maximize"
+          onClick={handleMaximize}
+          title={isMaximized ? "Restore" : "Maximize"}
+          aria-label={isMaximized ? "Restore window" : "Maximize window"}
+        >
           <Square size={12} />
         </button>
-        <button className="window-btn close" onClick={handleClose} title="Close">
+        <button
+          type="button"
+          className="window-btn close"
+          onClick={handleClose}
+          title="Close"
+          aria-label="Close window"
+        >
           <X size={14} />
         </button>
       </div>

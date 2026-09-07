@@ -2,13 +2,15 @@ import React, { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Loader2, XCircle, Wand2, Sparkles } from 'lucide-react';
 import type { BuilderNodeData } from './types';
+import { useTranslation } from '../../services/i18n';
 import './DummyNode.css';
 
 export const DummyNode: React.FC<NodeProps> = memo(({ data, selected }) => {
+  const { t } = useTranslation();
   const nodeData = data as unknown as BuilderNodeData;
   const progress = nodeData.progressPercentage ?? 45;
-  const statusMsg = nodeData.statusMessage || 'جارِ المعالجة بالذكاء الاصطناعي...';
-  const prompt = nodeData.prompt || nodeData.inputData?.prompt || 'توليد رندر معماري...';
+  const statusMsg = nodeData.statusMessage || t('builder.aiProcessing', 'AI Processing...');
+  const prompt = nodeData.prompt || nodeData.inputData?.prompt || t('builder.genRenderPrompt', 'Generating architectural render...');
 
   return (
     <div className={`dummy-node-container ${selected ? 'selected' : ''}`}>
@@ -24,11 +26,11 @@ export const DummyNode: React.FC<NodeProps> = memo(({ data, selected }) => {
       <div className="dummy-node-header">
         <div className="dummy-node-title">
           <Sparkles className="dummy-sparkle-icon" size={14} />
-          <span>{nodeData.label || 'نود التوليد المؤقتة'}</span>
+          <span>{nodeData.label || t('builder.tempNode', 'Temporary generation node')}</span>
         </div>
         <div className="dummy-node-status-badge">
           <Loader2 className="spin" size={13} />
-          <span>توليد سحابي</span>
+          <span>{t('builder.cloudGen', 'Cloud Gen')}</span>
         </div>
       </div>
 
@@ -41,12 +43,12 @@ export const DummyNode: React.FC<NodeProps> = memo(({ data, selected }) => {
         </div>
       </div>
 
-      {/* Progress Bar & Status Footer */}
+      {/* Progress Footer */}
       <div className="dummy-node-footer">
-        <div className="dummy-progress-bar-track">
+        <div className="dummy-node-progress-bar">
           <div
-            className="dummy-progress-bar-fill"
-            style={{ width: `${Math.min(100, Math.max(5, progress))}%` }}
+            className="dummy-node-progress-fill"
+            style={{ width: `${progress}%` }}
           />
         </div>
         <div className="dummy-node-status-row">
@@ -61,10 +63,11 @@ export const DummyNode: React.FC<NodeProps> = memo(({ data, selected }) => {
               e.stopPropagation();
               nodeData.onCancel?.();
             }}
-            title="إلغاء المعالجة"
+            title={t('builder.cancelProcessing', 'Cancel Processing')}
+            aria-label={t('builder.cancelProcessing', 'Cancel Processing')}
           >
             <XCircle size={13} />
-            <span>إلغاء</span>
+            <span>{t('common.cancel', 'Cancel')}</span>
           </button>
         )}
       </div>

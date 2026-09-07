@@ -39,11 +39,23 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({ cropCssRect: cr, onApp
 
       {/* Action buttons */}
       <div className="crop-actions" style={{ left: cr.x + cr.w, top: Math.max(cr.y - 40, 4) }}>
-        <button className="crop-btn crop-btn-apply" onClick={onApply} title="تأكيد القص | Apply Crop">
-          <Check size={13} /> تطبيق
+        <button
+          type="button"
+          className="crop-btn crop-btn-apply"
+          onClick={onApply}
+          title="Apply Crop"
+          aria-label="Apply Crop"
+        >
+          <Check size={13} /> Apply
         </button>
-        <button className="crop-btn crop-btn-cancel" onClick={onCancel} title="إلغاء | Cancel Crop">
-          <X size={13} /> إلغاء
+        <button
+          type="button"
+          className="crop-btn crop-btn-cancel"
+          onClick={onCancel}
+          title="Cancel Crop"
+          aria-label="Cancel Crop"
+        >
+          <X size={13} /> Cancel
         </button>
       </div>
     </>

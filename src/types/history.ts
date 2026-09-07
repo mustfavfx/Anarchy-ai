@@ -1,6 +1,18 @@
 import type { ReactNode } from 'react';
 import { OperationType, NodeRole, NodeState } from './classification';
 
+export interface CanvasViewportState {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export interface NodeTreeConnection {
+  sourceId: string;
+  targetId: string;
+  [key: string]: any;
+}
+
 export interface HistoryEntry {
   id: string;
   timestamp: number;
@@ -22,6 +34,13 @@ export interface HistoryEntry {
   maskImageKey?: string;
   maskImageUrl?: string;
   unscaledRegion?: { x: number; y: number; width: number; height: number };
+  url?: string;
+  thumbnailUrl?: string;
+  layout?: any;
+  extractedLayout?: any;
+  tags?: string[];
+  sourceImageKey?: string;
+  outputImageKey?: string;
   /**
    * @deprecated Mostly redundant with `type` (OperationType).
    */
@@ -40,10 +59,17 @@ export interface NodeTreeData {
     children?: string[];
     parentId?: string;
     historyEntryId?: string;
+    isPresentationSource?: boolean;
+    [key: string]: any;
   }>;
   sourceNodeId: string;
   activeNodeId?: string;
   createdAt: number;
+  connections?: NodeTreeConnection[];
+  viewport?: CanvasViewportState;
+  selectedNodeIds?: string[];
+  collapsedGroupIds?: string[];
+  [key: string]: any;
 }
 
 export interface HistoryGroup {
@@ -56,6 +82,8 @@ export interface HistoryGroup {
   totalUpscales: number;
   totalVariations: number;
   lastModified: number;
+  sourceImageLabel?: string;
+  timestamp?: number;
 }
 
 export interface SmartCollection {
@@ -66,7 +94,7 @@ export interface SmartCollection {
   icon?: ReactNode;
 }
 
-export type FilterType = 'all' | 'render' | 'upscale' | 'variation' | 'edit' | 'generate' | 'starred' | 'pinboard';
+export type FilterType = 'all' | 'render' | 'upscale' | 'upscales' | 'variation' | 'variations' | 'edit' | 'edits' | 'generate' | 'starred' | 'pinboard';
 
 export interface HistoryStats {
   total: number;

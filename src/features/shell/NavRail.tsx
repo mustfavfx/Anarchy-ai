@@ -108,9 +108,11 @@ export const NavRail: React.FC = () => {
 
       {/* Collapse Toggle Button */}
       <button
+        type="button"
         className="nav-collapse-btn"
         onClick={() => setIsCollapsed(!isCollapsed)}
         title={isCollapsed ? 'Expand' : 'Collapse'}
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>

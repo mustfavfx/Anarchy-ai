@@ -96,6 +96,22 @@ export class HistoryEngine {
   endSession(sessionId: string): void {
     CanvasSessionManager.endSession(sessionId);
   }
+
+  async addEntry(entry: any): Promise<void> {
+    await this.repository.saveEntry(entry);
+  }
+
+  async getById(id: string): Promise<any | null> {
+    return this.repository.getEntry(id);
+  }
+
+  async removeEntry(id: string): Promise<void> {
+    await this.repository.deleteEntries([id]);
+  }
+
+  async clear(): Promise<void> {
+    await this.repository.clear();
+  }
 }
 
 export const historyEngine = new HistoryEngine();

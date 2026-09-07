@@ -76,9 +76,12 @@ export function useHistoryFilters() {
       setTrieResults(null);
       return;
     }
-    const results = historyEngine.search(searchQuery.trim());
-    setTrieResults(results.length > 0 ? results : []);
-  }, [searchQuery, useSemanticSearch]);
+    const searchResults = historyEngine.search.search(searchQuery.trim());
+    const matchedEntries = searchResults
+      .map(r => entries.find(e => e.id === r.id))
+      .filter((e): e is HistoryEntry => Boolean(e));
+    setTrieResults(matchedEntries.length > 0 ? matchedEntries : []);
+  }, [searchQuery, useSemanticSearch, entries]);
 
   // Debounce searchQuery into semanticQuery when useSemanticSearch is active
   useEffect(() => {
@@ -110,7 +113,7 @@ export function useHistoryFilters() {
     semanticSearch(semanticQuery.trim(), entries)
       .then(results => {
         if (isMounted) {
-          setSemanticResults(results);
+          setSemanticResults(results.map(r => r.entry));
           setIsSemanticSearching(false);
         }
       })
@@ -164,7 +167,7 @@ export function useHistoryFilters() {
       } else if (selectedFilter === 'upscales') {
         list = list.filter(e => e.type === 'upscale' || e.nodeType === 'upscale');
       } else if (selectedFilter === 'edits') {
-        list = list.filter(e => e.type === 'edit' || e.type === 'canvas' || e.nodeType === 'edit');
+        list = list.filter(e => e.type === 'edit' || (e.type as string) === 'canvas' || e.nodeType === 'edit');
       }
     }
 

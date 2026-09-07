@@ -8,7 +8,7 @@
     <Optimize>true</Optimize>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <NoWarn>$(NoWarn);MSB3277;MSB3247;MSB3243;MSB3245;CS1705</NoWarn>
+    <NoWarn>$(NoWarn);MSB3277;MSB3247;MSB3243;MSB3245;CS1705;SYSLIB0014</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="RevitAPI">
@@ -19,8 +19,5 @@
       <HintPath>{{REVIT_DIR}}\RevitAPIUI.dll</HintPath>
       <Private>false</Private>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
   </ItemGroup>
 </Project>
