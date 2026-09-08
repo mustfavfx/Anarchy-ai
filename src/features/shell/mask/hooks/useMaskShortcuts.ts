@@ -8,14 +8,16 @@ export interface UseMaskShortcutsOptions {
   setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
 
   // Brush & Tools
-  maskTool: 'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand';
-  setMaskTool: React.Dispatch<React.SetStateAction<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand'>>;
+  maskTool: 'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand' | 'smart_select';
+  setMaskTool: React.Dispatch<React.SetStateAction<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand' | 'smart_select'>>;
   shapeSubTool: 'polygon' | 'rectangle' | 'circle' | 'freehand';
   setShapeSubTool: React.Dispatch<React.SetStateAction<'polygon' | 'rectangle' | 'circle' | 'freehand'>>;
   setDrawSubTool: React.Dispatch<React.SetStateAction<'brush' | 'arrow' | 'line' | 'rect' | 'circle'>>;
   setBrushSize: React.Dispatch<React.SetStateAction<number>>;
   setBrushHardness: React.Dispatch<React.SetStateAction<number>>;
   setIsAltKeyDown: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsOrthoMode?: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowRulers?: React.Dispatch<React.SetStateAction<boolean>>;
 
   // Inspection modes
   setIsSoloAlphaMode: React.Dispatch<React.SetStateAction<boolean>>;
@@ -69,6 +71,8 @@ export function useMaskShortcuts(options: UseMaskShortcutsOptions) {
     setBrushSize,
     setBrushHardness,
     setIsAltKeyDown,
+    setIsOrthoMode,
+    setShowRulers,
     setIsSoloAlphaMode,
     setIsComparing,
     setSplitCompareMode,
@@ -168,7 +172,29 @@ export function useMaskShortcuts(options: UseMaskShortcutsOptions) {
       if (e.key === 'g' || e.key === 'G') {
         fillEntireMask();
       }
-      if (e.key === 'w' || e.key === 'W') setMaskTool('wand');
+      if (e.key === 'w' || e.key === 'W') {
+        if (e.shiftKey) {
+          setMaskTool('smart_select');
+        } else {
+          setMaskTool('wand');
+        }
+      }
+      if (e.key === 's' || e.key === 'S') {
+        if (!e.ctrlKey && !e.metaKey) {
+          setMaskTool('smart_select');
+        }
+      }
+      if (e.key === 'o' || e.key === 'O') {
+        if (!e.ctrlKey && !e.metaKey && setIsOrthoMode) {
+          setIsOrthoMode((prev) => !prev);
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        if (setShowRulers) {
+          setShowRulers((prev) => !prev);
+        }
+      }
       if (e.key === 'c' || e.key === 'C') {
         if (!e.ctrlKey && !e.metaKey) {
           setMaskTool('crop');

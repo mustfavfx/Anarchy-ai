@@ -17,6 +17,9 @@ import { MaskTopToolbar } from './mask/components/MaskTopToolbar';
 import { MaskCompareView } from './mask/components/MaskCompareView';
 import { useMaskShortcuts } from './mask/hooks/useMaskShortcuts';
 import { useMaskTransform } from './mask/hooks/useMaskTransform';
+import { SmartSegmentationEngine } from '../../services/mask/SmartSegmentationEngine';
+import { RulerGuidesOverlay, type Guide, snapToGuides, snapToOrthoAngle } from './components/RulerGuidesOverlay';
+import { ColorRangeModal } from './components/ColorRangeModal';
 import './MaskCanvas.css';
 
 export type LayerId = 'image' | 'arrows' | 'selection';
@@ -88,17 +91,94 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const [localIsGenerating, setLocalIsGenerating] = useState(false);
   const isGenActive = isGenerating || localIsGenerating;
   const [isDrawing, setIsDrawing] = useState(false);
-  const [maskTool, setMaskTool] = useState<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand'>('brush');
+  const [maskTool, setMaskTool] = useState<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand' | 'smart_select'>('brush');
   const [shapeSubTool, setShapeSubTool] = useState<'polygon' | 'rectangle' | 'circle' | 'freehand'>('rectangle');
   const [drawSubTool, setDrawSubTool] = useState<'brush' | 'arrow' | 'line' | 'rect' | 'circle'>('brush');
   const [arrowNodes, setArrowNodes] = useState<ArrowNodeItem[]>([]);
 
+  // Architectural Studio State: Ortho Angle Constraints & Snap Guides
+  const [isOrthoMode, setIsOrthoMode] = useState<boolean>(false);
+  const [showRulers, setShowRulers] = useState<boolean>(true);
+  const [guides, setGuides] = useState<Guide[]>([]);
+  const [showColorRangeModal, setShowColorRangeModal] = useState<boolean>(false);
+
+  // Smart Auto-Segmentation (SAM) State
+  const baseImgDataRef = useRef<ImageData | null>(null);
+  const [smartHoverContour, setSmartHoverContour] = useState<{ x: number; y: number }[] | null>(null);
+  const [smartHoverMask, setSmartHoverMask] = useState<Uint8Array | null>(null);
+  const [wandTolerance, setWandTolerance] = useState<number>(40);
+  const hoverThrottlerRef = useRef<number | null>(null);
+
+  // Preload and cache ImageData for instantaneous Smart Auto-Segmentation (SAM)
+  useEffect(() => {
+    if (!resolvedImage) {
+      baseImgDataRef.current = null;
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = resolvedImage;
+    img.onload = () => {
+      const offscreen = document.createElement('canvas');
+      offscreen.width = img.naturalWidth || img.width;
+      offscreen.height = img.naturalHeight || img.height;
+      const ctx = offscreen.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        try {
+          const idata = ctx.getImageData(0, 0, offscreen.width, offscreen.height);
+          baseImgDataRef.current = idata;
+          SmartSegmentationEngine.prepareImage(idata, resolvedImage);
+        } catch (err) {
+          logger.warn('Could not extract imageData for smart segmentation', err);
+        }
+      }
+    };
+  }, [resolvedImage]);
+
+  // Real-time 60fps edge-guided hover segmentation
+  const handleSmartHover = useCallback(
+    (canvasX: number, canvasY: number) => {
+      if (hoverThrottlerRef.current) return;
+      hoverThrottlerRef.current = window.requestAnimationFrame(() => {
+        hoverThrottlerRef.current = null;
+        const imgData = baseImgDataRef.current;
+        const canvas = canvasRef.current;
+        if (!imgData || !resolvedImage || !canvas) return;
+
+        const naturalScaleX = imgData.width / (canvas.width || imgData.width);
+        const naturalScaleY = imgData.height / (canvas.height || imgData.height);
+        const startX = canvasX * naturalScaleX;
+        const startY = canvasY * naturalScaleY;
+
+        const result = SmartSegmentationEngine.segment(
+          imgData,
+          resolvedImage,
+          startX,
+          startY,
+          wandTolerance,
+          45
+        );
+
+        if (result && result.contourPoints.length > 2) {
+          const mappedContour = result.contourPoints.map((p) => ({
+            x: p.x / naturalScaleX,
+            y: p.y / naturalScaleY,
+          }));
+          setSmartHoverContour(mappedContour);
+          setSmartHoverMask(result.mask);
+        } else {
+          setSmartHoverContour(null);
+          setSmartHoverMask(null);
+        }
+      });
+    },
+    [resolvedImage, wandTolerance]
+  );
+
   // Polygonal Click-by-Click Drafting State
   const [polygonPoints, setPolygonPoints] = useState<{ x: number; y: number }[]>([]);
   const [polygonCursor, setPolygonCursor] = useState<{ x: number; y: number } | null>(null);
-
-  // Wand Sensitivity / Tolerance State
-  const [wandTolerance, setWandTolerance] = useState<number>(40);
 
   // Keyboard Shortcuts HUD Toggle
   const [showShortcutHelp, setShowShortcutHelp] = useState<boolean>(false);
@@ -660,9 +740,18 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
     const rawX = (clientX - rect.left) * scaleX;
     const rawY = (clientY - rect.top) * scaleY;
+    let finalX = Math.max(0, Math.min(canvas.width, rawX));
+    let finalY = Math.max(0, Math.min(canvas.height, rawY));
+
+    if (guides.length > 0) {
+      const snapped = snapToGuides(finalX, finalY, guides, 8);
+      finalX = snapped.x;
+      finalY = snapped.y;
+    }
+
     return {
-      x: Math.max(0, Math.min(canvas.width, rawX)),
-      y: Math.max(0, Math.min(canvas.height, rawY)),
+      x: finalX,
+      y: finalY,
     };
   };
 
@@ -692,7 +781,64 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         return;
       }
 
-      // Polygonal Click-by-Click Vertex Drafting
+      // Smart Auto-Segmentation (SAM) Click-to-Select
+      if (maskTool === 'smart_select') {
+        const canvas = canvasRef.current;
+        const imgData = baseImgDataRef.current;
+        if (!canvas || !imgData || !resolvedImage) return;
+
+        const isErase = isAltKeyDown || ('altKey' in e && e.altKey);
+
+        let maskToApply = smartHoverMask;
+        if (!maskToApply) {
+          const naturalScaleX = imgData.width / (canvas.width || imgData.width);
+          const naturalScaleY = imgData.height / (canvas.height || imgData.height);
+          const res = SmartSegmentationEngine.segment(
+            imgData,
+            resolvedImage,
+            pt.x * naturalScaleX,
+            pt.y * naturalScaleY,
+            wandTolerance,
+            45
+          );
+          if (res) maskToApply = res.mask;
+        }
+
+        if (maskToApply) {
+          if (canvas.width === imgData.width && canvas.height === imgData.height) {
+            SmartSegmentationEngine.applyMaskToCanvas(
+              canvas,
+              maskToApply,
+              brushColor,
+              maskOpacity,
+              isErase ? 'subtract' : 'add'
+            );
+          } else {
+            const off = document.createElement('canvas');
+            off.width = imgData.width;
+            off.height = imgData.height;
+            SmartSegmentationEngine.applyMaskToCanvas(off, maskToApply, brushColor, maskOpacity, 'replace');
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.globalCompositeOperation = isErase ? 'destination-out' : 'source-over';
+              ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+            }
+          }
+
+          setHasSelectionContent(true);
+          pushHistory();
+          updateMaskPreview();
+          useNotificationStore.getState().addNotification({
+            type: 'info',
+            title: 'Object Segmented',
+            message: `Isolated object via SAM auto-segmentation (${isErase ? 'subtracted' : 'added'}).`,
+            duration: 2000,
+          });
+        }
+        return;
+      }
+
+      // Polygonal Click-by-Click Vertex Drafting (with Ortho Snapping)
       if (maskTool === 'lasso' && shapeSubTool === 'polygon') {
         if (polygonPoints.length === 0) {
           setPolygonPoints([pt]);
@@ -700,17 +846,24 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           return;
         }
 
+        let vertexPt = pt;
+        if (isOrthoMode || ('shiftKey' in e && e.shiftKey)) {
+          const lastPt = polygonPoints[polygonPoints.length - 1];
+          const ortho = snapToOrthoAngle(lastPt.x, lastPt.y, pt.x, pt.y, 45);
+          vertexPt = { x: ortho.x, y: ortho.y };
+        }
+
         // If clicked close to the first point, close and fill polygon!
         const startPt = polygonPoints[0];
-        const dist = Math.hypot(pt.x - startPt.x, pt.y - startPt.y);
+        const dist = Math.hypot(vertexPt.x - startPt.x, vertexPt.y - startPt.y);
         if (polygonPoints.length >= 3 && dist < 18) {
           completePolygon();
           return;
         }
 
         // Otherwise append point to polygon
-        setPolygonPoints(prev => [...prev, pt]);
-        setPolygonCursor(pt);
+        setPolygonPoints(prev => [...prev, vertexPt]);
+        setPolygonCursor(vertexPt);
         return;
       }
 
@@ -735,8 +888,13 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
       const isErase = maskTool === 'eraser' || isAltKeyDown || ('altKey' in e && e.altKey) || (activeLayerId !== 'base' && psMaskColor === 'black');
 
-      // Shift + Click straight line connection (Architectural precision drafting)
-      if ('shiftKey' in e && e.shiftKey && lastPointRef.current && (maskTool === 'brush' || maskTool === 'eraser')) {
+      // Shift + Click or Ortho straight line connection (Architectural precision drafting)
+      if ((('shiftKey' in e && e.shiftKey) || isOrthoMode) && lastPointRef.current && (maskTool === 'brush' || maskTool === 'eraser')) {
+        let lineTarget = pt;
+        if (isOrthoMode || ('shiftKey' in e && e.shiftKey)) {
+          const ortho = snapToOrthoAngle(lastPointRef.current.x, lastPointRef.current.y, pt.x, pt.y, 45);
+          lineTarget = { x: ortho.x, y: ortho.y };
+        }
         const targetCanvas = workspaceMode === 'draw' ? drawingCanvasRef.current : canvasRef.current;
         const ctx = targetCanvas?.getContext('2d');
         if (ctx) {
@@ -755,9 +913,9 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
           ctx.beginPath();
           ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
-          ctx.lineTo(pt.x, pt.y);
+          ctx.lineTo(lineTarget.x, lineTarget.y);
           ctx.stroke();
-          lastPointRef.current = pt;
+          lastPointRef.current = lineTarget;
           if (workspaceMode === 'mask') {
             setHasSelectionContent(true);
           }
@@ -798,8 +956,21 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       if (pt) {
         setCursorPos(pt);
         if (maskTool === 'lasso' && shapeSubTool === 'polygon' && polygonPoints.length > 0) {
-          setPolygonCursor(pt);
+          if (isOrthoMode || ('shiftKey' in e && (e as any).shiftKey)) {
+            const lastPt = polygonPoints[polygonPoints.length - 1];
+            const ortho = snapToOrthoAngle(lastPt.x, lastPt.y, pt.x, pt.y, 45);
+            setPolygonCursor({ x: ortho.x, y: ortho.y });
+          } else {
+            setPolygonCursor(pt);
+          }
         }
+      }
+
+      if (maskTool === 'smart_select') {
+        if (pt) {
+          handleSmartHover(pt.x, pt.y);
+        }
+        return;
       }
 
       if (isSpacebarDown || isPanning || maskTool === 'hand') return;
@@ -815,9 +986,22 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         return;
       }
 
-      // Dedicated Shape Draw Sub-Tools: Line, Rectangle, Circle
+      // Dedicated Shape Draw Sub-Tools: Line, Rectangle, Circle (with Ortho Angle Snapping)
       if (maskTool === 'brush' && (drawSubTool === 'rect' || drawSubTool === 'circle' || drawSubTool === 'line')) {
-        setShapeCurrent(pt);
+        let currentPt = pt;
+        if (shapeStart && (isOrthoMode || ('shiftKey' in e && (e as any).shiftKey))) {
+          if (drawSubTool === 'line') {
+            const ortho = snapToOrthoAngle(shapeStart.x, shapeStart.y, pt.x, pt.y, 45);
+            currentPt = { x: ortho.x, y: ortho.y };
+          } else {
+            const side = Math.max(Math.abs(pt.x - shapeStart.x), Math.abs(pt.y - shapeStart.y));
+            currentPt = {
+              x: shapeStart.x + Math.sign(pt.x - shapeStart.x || 1) * side,
+              y: shapeStart.y + Math.sign(pt.y - shapeStart.y || 1) * side,
+            };
+          }
+        }
+        setShapeCurrent(currentPt);
         return;
       }
 
@@ -1373,6 +1557,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     setBrushSize,
     setBrushHardness,
     setIsAltKeyDown,
+    setIsOrthoMode,
+    setShowRulers,
     setIsSoloAlphaMode,
     setIsComparing,
     setSplitCompareMode,
@@ -1546,6 +1732,12 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           redo();
           updateMaskPreview();
         }}
+        isOrthoMode={isOrthoMode}
+        onToggleOrtho={() => setIsOrthoMode((prev) => !prev)}
+        showRulers={showRulers}
+        onToggleRulers={() => setShowRulers((prev) => !prev)}
+        onOpenColorRange={() => setShowColorRangeModal(true)}
+        onClearGuides={() => setGuides([])}
       />
 
       {showLayerStack && (
@@ -1815,6 +2007,35 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             />
           )}
 
+          {/* Smart Auto-Segmentation (SAM) Hover Contour Laser Outline */}
+          {maskTool === 'smart_select' && smartHoverContour && smartHoverContour.length > 2 && (
+            <svg
+              className="mask-smart-contour-overlay"
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 23,
+              }}
+              viewBox={`0 0 ${canvasRef.current?.width ?? 100} ${canvasRef.current?.height ?? 100}`}
+            >
+              <polygon
+                points={smartHoverContour.map((p) => `${p.x},${p.y}`).join(' ')}
+                fill="rgba(16, 185, 129, 0.22)"
+                stroke="#10b981"
+                strokeWidth="2"
+                strokeDasharray="4 3"
+                style={{
+                  filter: 'drop-shadow(0 0 6px #10b981)',
+                  animation: 'dashMove 1s linear infinite',
+                }}
+              />
+            </svg>
+          )}
+
           {/* Active Polygonal Lasso Laser Drafting Preview Overlay */}
           {maskTool === 'lasso' && shapeSubTool === 'polygon' && polygonPoints.length > 0 && (
             <svg
@@ -2018,6 +2239,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>P</kbd> Poly</span>
           <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>M</kbd> Box</span>
           <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>W</kbd> Wand</span>
+          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>S</kbd> SAM</span>
+          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>O</kbd> Ortho 45°</span>
           <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>Space</kbd> Pan</span>
           <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>Alt</kbd> Erase</span>
           <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>Shift+Click</kbd> Line</span>
@@ -2044,7 +2267,49 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         {maskTool === 'crop' && cropCssRect && (
           <CropOverlay cropCssRect={cropCssRect} onApply={crop.applyCrop} onCancel={crop.clearCropRect} />
         )}
+
+        {/* Architectural Rulers & Magnetic Snap Guides Overlay */}
+        <RulerGuidesOverlay
+          visible={showRulers}
+          canvasRef={canvasRef}
+          wrapperRef={wrapperRef}
+          zoomScale={zoomScale}
+          panOffset={panOffset}
+          guides={guides}
+          onGuidesChange={setGuides}
+          cursorPos={cursorPos}
+          onClearGuides={() => {
+            setGuides([]);
+            useNotificationStore.getState().addNotification({
+              type: 'info',
+              title: 'Guides Cleared',
+              message: 'All magnetic guide lines removed.',
+              duration: 1500,
+            });
+          }}
+        />
       </div>
+
+      {/* Smart Color Range & Luma Mask Isolation Studio Modal */}
+      <ColorRangeModal
+        isOpen={showColorRangeModal}
+        onClose={() => setShowColorRangeModal(false)}
+        canvasRef={canvasRef}
+        baseImageSrc={resolvedBaseImage || baseOriginalImage || resolvedImage || null}
+        brushColor={brushColor}
+        maskOpacity={maskOverlayOpacity}
+        onMaskApplied={() => {
+          setHasSelectionContent(true);
+          pushHistory();
+          updateMaskPreview();
+          useNotificationStore.getState().addNotification({
+            type: 'info',
+            title: 'Color Range Mask Applied',
+            message: 'Luma / color range isolated to inpaint mask.',
+            duration: 2000,
+          });
+        }}
+      />
 
       {showGenerateButton && (
         <MaskPromptBar

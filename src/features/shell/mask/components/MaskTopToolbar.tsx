@@ -4,7 +4,7 @@ import {
   Crop, CornerDownRight, Paintbrush2, Eraser, Trash2, SlidersHorizontal,
   Contrast, Sparkles, Maximize2, Minimize2, PaintBucket, Columns, Eye,
   FolderPlus, FileDown, Download, Check, Copy, Share2, Minus, Plus,
-  Layers, RotateCcw, RotateCw, FileCode,
+  Layers, RotateCcw, RotateCw, FileCode, Ruler, Compass, SunMedium,
 } from 'lucide-react';
 
 export const MASK_COLOR_PRESETS = [
@@ -17,8 +17,8 @@ export const MASK_COLOR_PRESETS = [
 ];
 
 export interface MaskTopToolbarProps {
-  maskTool: 'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand';
-  setMaskTool: React.Dispatch<React.SetStateAction<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand'>>;
+  maskTool: 'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand' | 'smart_select';
+  setMaskTool: React.Dispatch<React.SetStateAction<'select' | 'brush' | 'eraser' | 'lasso' | 'crop' | 'wand' | 'arrow' | 'hand' | 'smart_select'>>;
   isSpacebarDown: boolean;
   shapeSubTool: 'polygon' | 'rectangle' | 'circle' | 'freehand';
   setShapeSubTool: React.Dispatch<React.SetStateAction<'polygon' | 'rectangle' | 'circle' | 'freehand'>>;
@@ -62,6 +62,12 @@ export interface MaskTopToolbarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  isOrthoMode?: boolean;
+  onToggleOrtho?: () => void;
+  showRulers?: boolean;
+  onToggleRulers?: () => void;
+  onOpenColorRange?: () => void;
+  onClearGuides?: () => void;
 }
 
 export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
@@ -110,6 +116,12 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
   canRedo,
   onUndo,
   onRedo,
+  isOrthoMode = false,
+  onToggleOrtho,
+  showRulers = true,
+  onToggleRulers,
+  onOpenColorRange,
+  onClearGuides,
 }) => {
   const [openDropdown, setOpenDropdown] = useState<'lasso' | 'pen' | 'size' | null>(null);
   const [showMaskSettings, setShowMaskSettings] = useState(false);
@@ -261,9 +273,32 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 <MousePointer2 size={15} />
                 <span className="mask-dropdown-label">Pointer / Move (V)</span>
               </button>
+
+              <button
+                type="button"
+                className={`mask-dropdown-item ${maskTool === 'smart_select' ? 'active' : ''}`}
+                onClick={() => {
+                  setMaskTool('smart_select');
+                  setOpenDropdown(null);
+                }}
+                title="Smart Auto-Segmentation (SAM) — Hover & Click to Select (S)"
+              >
+                <Sparkles size={15} style={{ color: '#10b981' }} />
+                <span className="mask-dropdown-label">Smart Auto-Select (SAM)</span>
+              </button>
             </div>
           )}
         </div>
+
+        {/* Smart Auto-Select (SAM 2 - Hover & Click to Select) */}
+        <button
+          type="button"
+          className={`mask-toolbar-btn ${maskTool === 'smart_select' ? 'active' : ''}`}
+          onClick={() => setMaskTool((prev) => (prev === 'smart_select' ? 'brush' : 'smart_select'))}
+          title="Smart Auto-Select / SAM (Hover & Click to Select Object) — Shortcut: S or Shift+W"
+        >
+          <Sparkles size={16} style={{ color: maskTool === 'smart_select' ? '#10b981' : '#34d399' }} />
+        </button>
 
         {/* Crop Tool (C) */}
         <button
@@ -692,6 +727,40 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             </div>
           )}
         </div>
+
+        {/* Architectural Rulers & Snap Guides */}
+        <button
+          type="button"
+          className={`mask-toolbar-btn ${showRulers ? 'active' : ''}`}
+          onClick={onToggleRulers}
+          title="Architectural Rulers & Snap Guides (Ctrl+R)"
+        >
+          <Ruler size={16} style={{ color: showRulers ? '#38bdf8' : undefined }} />
+        </button>
+
+        {/* Ortho Angle Snap Mode (45° / 90°) */}
+        <button
+          type="button"
+          className={`mask-toolbar-btn ${isOrthoMode ? 'active' : ''}`}
+          onClick={onToggleOrtho}
+          title="Ortho Mode: Constrain lines & polygons to 90° and 45° angles (O)"
+          style={{ display: 'flex', alignItems: 'center', gap: '2px' }}
+        >
+          <Compass size={16} style={{ color: isOrthoMode ? '#a855f7' : undefined }} />
+          <span style={{ fontSize: '9px', fontWeight: 800, color: isOrthoMode ? '#c084fc' : '#64748b' }}>
+            45°
+          </span>
+        </button>
+
+        {/* Smart Color Range & Luma Mask Modal Launcher */}
+        <button
+          type="button"
+          className="mask-toolbar-btn"
+          onClick={onOpenColorRange}
+          title="Smart Color Range & Luma Mask (Highlights / Midtones / Shadows / Eyedropper)"
+        >
+          <SunMedium size={16} style={{ color: '#f59e0b' }} />
+        </button>
 
         <div className="mask-canvas-divider-vertical" />
 

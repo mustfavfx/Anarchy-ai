@@ -1613,3 +1613,18 @@
   transform: translateY(-1px);
 }
 
+/* ── Smart Auto-Segmentation (SAM) Laser Contour Overlay ─────────────────── */
+
+.mask-smart-contour-overlay {
+  pointer-events: none;
+}
+
+@keyframes dashMove {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 14;
+  }
+}
+
