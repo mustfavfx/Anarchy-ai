@@ -47,7 +47,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   height: 52px;
   padding: 0 16px;
   background: rgba(12, 14, 22, 0.96);
@@ -55,9 +55,18 @@
   -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   width: 100%;
+  box-sizing: border-box;
   flex-shrink: 0;
   z-index: 35;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  gap: 12px;
+}
+
+.mask-canvas-top-left {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 /* Left Mode Tabs (Preview | Compare | Draw) */
@@ -97,22 +106,24 @@
 
 /* Center Floating Island Dock Toolbar */
 .mask-canvas-tools-toolbar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   background: rgba(18, 20, 32, 0.95);
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 18px rgba(225, 29, 72, 0.12);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  max-width: 100%;
 }
 
 .mask-canvas-tools-toolbar:hover {
-  border-color: rgba(225, 29, 72, 0.35);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.85), 0 0 24px rgba(225, 29, 72, 0.2);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
 }
 
 /* Sleek Rectangle Tool Buttons */
@@ -123,35 +134,54 @@
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.75);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
 }
 
 .mask-toolbar-btn:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  transform: translateY(-1px) scale(1.03);
 }
 
 .mask-toolbar-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .mask-toolbar-btn.active {
-  background: linear-gradient(135deg, rgba(225, 29, 72, 0.35), rgba(190, 18, 60, 0.2));
-  border: 1.5px solid #e11d48;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   color: #ffffff;
-  box-shadow: 0 0 16px rgba(225, 29, 72, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.25);
-  transform: scale(1.03);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.mask-toolbar-btn.mask-ortho-btn {
+  width: auto;
+  min-width: 52px;
+  padding: 0 8px;
+  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mask-ortho-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+  letter-spacing: 0.2px;
 }
 
 .mask-dropdown-container {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
 }
 
 .mask-dropdown-caret {
@@ -159,13 +189,13 @@
   bottom: 3px;
   right: 3px;
   font-size: 7px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.65);
   pointer-events: none;
   line-height: 1;
 }
 
 .mask-toolbar-btn.active .mask-dropdown-caret {
-  color: #fb7185;
+  color: #ffffff;
 }
 
 /* Floating Vertical Subtool Dropdown Popover */
@@ -223,8 +253,8 @@
 }
 
 .mask-dropdown-item.active {
-  background: rgba(225, 29, 72, 0.22);
-  border-color: rgba(225, 29, 72, 0.4);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
   font-weight: 600;
 }
@@ -236,8 +266,8 @@
 /* Gradient Vertical Divider */
 .mask-canvas-divider-vertical {
   width: 1px;
-  height: 22px;
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  height: 20px;
+  background: rgba(255, 255, 255, 0.14);
   margin: 0 4px;
   flex-shrink: 0;
 }
@@ -251,12 +281,13 @@
   border-radius: 8px;
   padding: 2px;
   gap: 2px;
+  flex-shrink: 0;
 }
 
 .mask-segmented-btn {
   background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.65);
+  border: 1px solid transparent;
+  color: #ffffff;
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -274,43 +305,46 @@
 
 .mask-segmented-btn.active {
   color: #ffffff;
-  background: linear-gradient(135deg, rgba(225, 29, 72, 0.5), rgba(190, 18, 60, 0.35));
-  border: 1px solid rgba(225, 29, 72, 0.6);
-  box-shadow: 0 0 8px rgba(225, 29, 72, 0.4);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 1px 4px rgba(255, 255, 255, 0.15);
 }
 
 /* Compact Brush Size Pill Button */
 .mask-size-badge-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   padding: 0 8px;
   height: 36px;
-  color: #f1f5f9;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .mask-size-badge-pill:hover,
 .mask-size-badge-pill.active {
-  border-color: rgba(225, 29, 72, 0.45);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
 }
 
 .mask-size-num {
-  color: #fda4af;
+  color: #ffffff;
   font-weight: 700;
   font-size: 12px;
 }
 
 .mask-size-unit {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.65);
   font-size: 10px;
 }
 
@@ -329,13 +363,13 @@
 }
 
 .mask-brush-size-stepper:hover {
-  border-color: rgba(225, 29, 72, 0.35);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .mask-brush-size-stepper button {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.55);
+  color: #ffffff;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -356,7 +390,7 @@
 .mask-size-text {
   font-size: 11.5px;
   font-weight: 700;
-  color: #fb7185;
+  color: #ffffff;
   letter-spacing: 0.2px;
   padding: 0 4px;
   min-width: 36px;
@@ -369,31 +403,93 @@
   opacity: 0.7;
 }
 
+.mask-toolbar-btn.danger {
+  color: #ffffff;
+}
+
 .mask-toolbar-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #ef4444;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .mask-toolbar-btn.primary {
-  color: #c084fc;
+  background: transparent;
+  border-color: transparent;
+  color: #ffffff;
 }
 
 .mask-toolbar-btn.primary:hover {
-  background: rgba(168, 85, 247, 0.2);
-  border-color: rgba(168, 85, 247, 0.4);
-  color: #e9d5ff;
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.mask-toolbar-btn.primary.active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
 }
 
 /* Right Section Actions */
 .mask-canvas-top-actions {
-  position: absolute;
-  right: 16px;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
+  position: static;
+}
+
+.mask-zoom-hud {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 4px;
+  height: 36px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.mask-zoom-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 2px 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+}
+
+.mask-zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mask-zoom-text {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 4px;
+  min-width: 42px;
+  text-align: center;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.mask-zoom-text:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* ── VizMaker Floating Layers Overlay (Top Right over Canvas) ────────────────── */

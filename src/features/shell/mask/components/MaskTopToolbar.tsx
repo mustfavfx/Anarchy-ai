@@ -146,6 +146,8 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
 
   return (
     <div className="mask-canvas-top-bar">
+      <div className="mask-canvas-top-left" />
+
       <div className="mask-canvas-tools-toolbar">
         {/* ── Cluster 1: Navigation & Selection ── */}
         <button
@@ -154,7 +156,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={() => setMaskTool((prev) => (prev === 'hand' ? 'brush' : 'hand'))}
           title="Hand Pan Tool (H or hold Spacebar + Drag)"
         >
-          <Hand size={16} style={{ color: maskTool === 'hand' || isSpacebarDown ? '#38bdf8' : undefined }} />
+          <Hand size={16} />
         </button>
 
         {/* Unified Selection Tools Dropdown (Marquee, Polygon, Freehand, Circle, Wand, Select) */}
@@ -171,17 +173,17 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             title="Selection Tools - Marquee (M), Polygon (P), Freehand (L), Wand (W), Pointer (V)"
           >
             {maskTool === 'wand' ? (
-              <Wand2 size={16} style={{ color: '#a855f7' }} />
+              <Wand2 size={16} />
             ) : maskTool === 'select' ? (
-              <MousePointer2 size={16} style={{ color: '#06b6d4' }} />
+              <MousePointer2 size={16} />
             ) : shapeSubTool === 'polygon' ? (
-              <PenTool size={16} style={{ color: '#10b981' }} />
+              <PenTool size={16} />
             ) : shapeSubTool === 'circle' ? (
-              <Circle size={16} style={{ color: '#10b981' }} />
+              <Circle size={16} />
             ) : shapeSubTool === 'freehand' ? (
-              <LassoSelect size={16} style={{ color: '#10b981' }} />
+              <LassoSelect size={16} />
             ) : (
-              <SquareDashed size={16} style={{ color: '#10b981' }} />
+              <SquareDashed size={16} />
             )}
             <span className="mask-dropdown-caret">
               <svg width="5" height="5" viewBox="0 0 6 6" fill="currentColor">
@@ -283,7 +285,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 }}
                 title="Smart Auto-Segmentation (SAM) — Hover & Click to Select (S)"
               >
-                <Sparkles size={15} style={{ color: '#10b981' }} />
+                <Sparkles size={15} />
                 <span className="mask-dropdown-label">Smart Auto-Select (SAM)</span>
               </button>
             </div>
@@ -297,7 +299,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={() => setMaskTool((prev) => (prev === 'smart_select' ? 'brush' : 'smart_select'))}
           title="Smart Auto-Select / SAM (Hover & Click to Select Object) — Shortcut: S or Shift+W"
         >
-          <Sparkles size={16} style={{ color: maskTool === 'smart_select' ? '#10b981' : '#34d399' }} />
+          <Sparkles size={16} />
         </button>
 
         {/* Crop Tool (C) */}
@@ -307,7 +309,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={() => setMaskTool((prev) => (prev === 'crop' ? 'brush' : 'crop'))}
           title="Crop Image (C)"
         >
-          <Crop size={16} style={{ color: maskTool === 'crop' ? '#eab308' : undefined }} />
+          <Crop size={16} />
         </button>
 
         <div className="mask-canvas-divider-vertical" />
@@ -331,9 +333,9 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             }
           >
             {drawSubTool === 'arrow' || maskTool === 'arrow' ? (
-              <CornerDownRight size={16} style={{ color: '#f43f5e' }} />
+              <CornerDownRight size={16} />
             ) : (
-              <Paintbrush2 size={16} style={{ color: maskTool === 'brush' ? '#f43f5e' : undefined }} />
+              <Paintbrush2 size={16} />
             )}
             <span className="mask-dropdown-caret">
               <svg width="5" height="5" viewBox="0 0 6 6" fill="currentColor">
@@ -414,7 +416,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Brush Size</span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#f43f5e' }}>{brushSize} px</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff' }}>{brushSize} px</span>
               </div>
               <div style={{ display: 'flex', gap: '4px' }}>
                 {[8, 16, 34, 64, 100].map((sz) => (
@@ -427,9 +429,9 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                       padding: '3px 0',
                       fontSize: '10px',
                       fontWeight: brushSize === sz ? 700 : 500,
-                      background: brushSize === sz ? '#e11d48' : 'rgba(255,255,255,0.06)',
+                      background: brushSize === sz ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.06)',
                       color: '#ffffff',
-                      border: '1px solid rgba(255,255,255,0.12)',
+                      border: brushSize === sz ? '1px solid rgba(255,255,255,0.45)' : '1px solid rgba(255,255,255,0.12)',
                       borderRadius: '4px',
                       cursor: 'pointer',
                     }}
@@ -444,12 +446,12 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 max="200"
                 value={brushSize}
                 onChange={(e) => setBrushSize(Number(e.target.value))}
-                style={{ width: '100%', accentColor: '#e11d48', cursor: 'pointer' }}
+                style={{ width: '100%', accentColor: '#ffffff', cursor: 'pointer' }}
               />
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Hardness</span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8' }}>{brushHardness}%</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff' }}>{brushHardness}%</span>
               </div>
               <input
                 type="range"
@@ -458,7 +460,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 step="5"
                 value={brushHardness}
                 onChange={(e) => setBrushHardness(Number(e.target.value))}
-                style={{ width: '100%', accentColor: '#38bdf8', cursor: 'pointer' }}
+                style={{ width: '100%', accentColor: '#ffffff', cursor: 'pointer' }}
               />
             </div>
           )}
@@ -471,7 +473,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={() => setMaskTool('eraser')}
           title="Eraser Tool (E) - Hold Alt to quick-erase"
         >
-          <Eraser size={16} style={{ color: maskTool === 'eraser' ? '#f59e0b' : undefined }} />
+          <Eraser size={16} />
         </button>
 
         {/* Clear Mask Quick Button */}
@@ -486,7 +488,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
 
         <div className="mask-canvas-divider-vertical" />
 
-        {/* ── Cluster 3: Mask Actions & Geometry ── */}
+        {/* ── Cluster 3: Mask Actions & Architectural Studio ── */}
         <div className="mask-dropdown-container">
           <button
             type="button"
@@ -494,7 +496,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             onClick={() => setShowMaskSettings((prev) => !prev)}
             title="Mask Actions & Adjustments (Invert, Feather, Grow, Shrink, Fill, Tint)"
           >
-            <SlidersHorizontal size={16} style={{ color: showMaskSettings ? '#fb7185' : undefined }} />
+            <SlidersHorizontal size={16} />
           </button>
 
           {showMaskSettings && (
@@ -572,7 +574,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                     cursor: 'pointer',
                   }}
                 >
-                  <Sparkles size={12} style={{ color: '#38bdf8' }} />
+                  <Sparkles size={12} />
                   Feather
                 </button>
 
@@ -595,7 +597,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                     cursor: 'pointer',
                   }}
                 >
-                  <Maximize2 size={12} style={{ color: '#10b981' }} />
+                  <Maximize2 size={12} />
                   Grow (+4px)
                 </button>
 
@@ -618,7 +620,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                     cursor: 'pointer',
                   }}
                 >
-                  <Minimize2 size={12} style={{ color: '#f59e0b' }} />
+                  <Minimize2 size={12} />
                   Shrink (-4px)
                 </button>
               </div>
@@ -637,11 +639,11 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  background: 'rgba(16,185,129,0.15)',
-                  border: '1px solid rgba(16,185,129,0.3)',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
                   borderRadius: '5px',
                   padding: '5px 8px',
-                  color: '#6ee7b7',
+                  color: '#ffffff',
                   fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -655,7 +657,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: 'rgba(255,255,255,0.7)' }}>
                   <span>Wand Tolerance</span>
-                  <span style={{ fontWeight: 600, color: '#a855f7' }}>{wandTolerance}</span>
+                  <span style={{ fontWeight: 600, color: '#ffffff' }}>{wandTolerance}</span>
                 </div>
                 <input
                   type="range"
@@ -664,7 +666,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                   step="5"
                   value={wandTolerance}
                   onChange={(e) => setWandTolerance(parseInt(e.target.value, 10))}
-                  style={{ width: '100%', accentColor: '#a855f7', cursor: 'pointer' }}
+                  style={{ width: '100%', accentColor: '#ffffff', cursor: 'pointer' }}
                 />
               </div>
 
@@ -672,7 +674,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: 'rgba(255,255,255,0.7)' }}>
                   <span>Overlay Opacity</span>
-                  <span style={{ fontWeight: 600, color: '#fb7185' }}>{Math.round(maskOverlayOpacity * 100)}%</span>
+                  <span style={{ fontWeight: 600, color: '#ffffff' }}>{Math.round(maskOverlayOpacity * 100)}%</span>
                 </div>
                 <input
                   type="range"
@@ -681,7 +683,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                   step="0.05"
                   value={maskOverlayOpacity}
                   onChange={(e) => setMaskOverlayOpacity(parseFloat(e.target.value))}
-                  style={{ width: '100%', accentColor: '#e11d48', cursor: 'pointer' }}
+                  style={{ width: '100%', accentColor: '#ffffff', cursor: 'pointer' }}
                 />
               </div>
 
@@ -735,21 +737,18 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={onToggleRulers}
           title="Architectural Rulers & Snap Guides (Ctrl+R)"
         >
-          <Ruler size={16} style={{ color: showRulers ? '#38bdf8' : undefined }} />
+          <Ruler size={16} />
         </button>
 
         {/* Ortho Angle Snap Mode (45° / 90°) */}
         <button
           type="button"
-          className={`mask-toolbar-btn ${isOrthoMode ? 'active' : ''}`}
+          className={`mask-toolbar-btn mask-ortho-btn ${isOrthoMode ? 'active' : ''}`}
           onClick={onToggleOrtho}
           title="Ortho Mode: Constrain lines & polygons to 90° and 45° angles (O)"
-          style={{ display: 'flex', alignItems: 'center', gap: '2px' }}
         >
-          <Compass size={16} style={{ color: isOrthoMode ? '#a855f7' : undefined }} />
-          <span style={{ fontSize: '9px', fontWeight: 800, color: isOrthoMode ? '#c084fc' : '#64748b' }}>
-            45°
-          </span>
+          <Compass size={15} />
+          <span className="mask-ortho-badge">45°</span>
         </button>
 
         {/* Smart Color Range & Luma Mask Modal Launcher */}
@@ -759,7 +758,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={onOpenColorRange}
           title="Smart Color Range & Luma Mask (Highlights / Midtones / Shadows / Eyedropper)"
         >
-          <SunMedium size={16} style={{ color: '#f59e0b' }} />
+          <SunMedium size={16} />
         </button>
 
         <div className="mask-canvas-divider-vertical" />
@@ -775,7 +774,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             }}
             title="Split Screen Curtain Wipe"
           >
-            <Columns size={15} style={{ color: splitCompareMode ? '#ffffff' : '#38bdf8' }} />
+            <Columns size={15} />
           </button>
 
           <button
@@ -787,7 +786,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             }}
             title="Instant Peek Original (\)"
           >
-            <Eye size={15} style={{ color: isComparing ? '#ffffff' : '#38bdf8' }} />
+            <Eye size={15} />
           </button>
 
           <button
@@ -796,12 +795,13 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             onClick={() => setIsSoloAlphaMode((prev) => !prev)}
             title="Quick Mask Solo Alpha Stencil View (Q)"
           >
-            <Contrast size={15} style={{ color: isSoloAlphaMode ? '#ffffff' : '#facc15' }} />
+            <Contrast size={15} />
           </button>
         </div>
 
         <div className="mask-canvas-divider-vertical" />
 
+        {/* ── Cluster 5: Reference Card & Export ── */}
         {/* Add Card */}
         <button
           type="button"
@@ -809,7 +809,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={onAddArrowCard}
           title="Add Reference Image / Card"
         >
-          <FolderPlus size={17} style={{ color: '#a855f7' }} />
+          <FolderPlus size={16} />
         </button>
 
         {/* Export Dropdown Popover */}
@@ -820,7 +820,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             onClick={() => setShowExportMenu((prev) => !prev)}
             title="Export & Share Options"
           >
-            <FileDown size={17} />
+            <FileDown size={16} />
           </button>
 
           {showExportMenu && (
@@ -852,7 +852,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 }}
                 title="Export 1:1 Black & White Binary PNG mask"
               >
-                <Download size={14} style={{ color: '#a855f7' }} />
+                <Download size={14} />
                 <span>Download Binary Mask (PNG)</span>
               </button>
 
@@ -865,7 +865,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 }}
                 title="Download complete high-res composite image"
               >
-                <Download size={14} style={{ color: '#38bdf8' }} />
+                <Download size={14} />
                 <span>Download Full Composite (PNG)</span>
               </button>
 
@@ -878,7 +878,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 }}
                 title="Copy binary mask PNG to clipboard"
               >
-                {hasCopiedMask ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} style={{ color: '#f59e0b' }} />}
+                {hasCopiedMask ? <Check size={14} /> : <Copy size={14} />}
                 <span>{hasCopiedMask ? 'Copied to Clipboard!' : 'Copy Mask to Clipboard'}</span>
               </button>
 
@@ -892,7 +892,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                   }}
                   title="Export layered Photoshop PSD with inpaint masks, blend modes, and opacity"
                 >
-                  <FileCode size={14} style={{ color: '#38bdf8' }} />
+                  <FileCode size={14} />
                   <span>Export Photoshop (.PSD)</span>
                 </button>
               )}
@@ -908,7 +908,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 }}
                 title="Create output node directly in the workflow canvas"
               >
-                <Share2 size={14} style={{ color: '#e11d48' }} />
+                <Share2 size={14} />
                 <span>Send As New Node to Graph</span>
               </button>
             </div>
@@ -919,24 +919,12 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
       {/* Right Section: Zoom & Undo/Redo & Layers */}
       <div className="mask-canvas-top-actions">
         {/* Zoom HUD */}
-        <div
-          className="mask-zoom-hud"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '2px',
-            background: 'rgba(0,0,0,0.4)',
-            borderRadius: '6px',
-            border: '1px solid rgba(255,255,255,0.1)',
-            padding: '1px 3px',
-          }}
-        >
+        <div className="mask-zoom-hud">
           <button
             type="button"
             className="mask-zoom-btn"
             onClick={() => setZoomScale((z) => Math.max(0.2, z * 0.85))}
             title="Zoom Out"
-            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '2px 4px', display: 'flex', alignItems: 'center' }}
           >
             <Minus size={12} />
           </button>
@@ -948,7 +936,6 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
               setPanOffset({ x: 0, y: 0 });
             }}
             title="Reset Zoom & Pan (Ctrl+0)"
-            style={{ background: 'transparent', border: 'none', color: '#f4f4f5', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: '0 4px', minWidth: '42px', textAlign: 'center' }}
           >
             {Math.round(zoomScale * 100)}%
           </button>
@@ -957,7 +944,6 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             className="mask-zoom-btn"
             onClick={() => setZoomScale((z) => Math.min(6, z * 1.18))}
             title="Zoom In"
-            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '2px 4px', display: 'flex', alignItems: 'center' }}
           >
             <Plus size={12} />
           </button>
@@ -978,7 +964,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={onUndo}
           disabled={!canUndo}
           title="Undo (Ctrl+Z)"
-          style={{ opacity: canUndo ? 1 : 0.4 }}
+          style={{ opacity: canUndo ? 1 : 0.35 }}
         >
           <RotateCcw size={15} />
         </button>
@@ -989,7 +975,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           onClick={onRedo}
           disabled={!canRedo}
           title="Redo (Ctrl+Y)"
-          style={{ opacity: canRedo ? 1 : 0.4 }}
+          style={{ opacity: canRedo ? 1 : 0.35 }}
         >
           <RotateCw size={15} />
         </button>
