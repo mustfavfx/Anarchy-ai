@@ -70,7 +70,7 @@ export class AutoRecoveryService {
         const content = JSON.stringify(
           {
             ...snapshot,
-            version: '0.3.75',
+            version: '0.3.80',
             recoveryNotice: 'Anarchy AI Auto-Recovery Snapshot',
           },
           null,

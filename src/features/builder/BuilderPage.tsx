@@ -156,6 +156,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   }, [userCredits, isTrial, setUserCreditsInStore]);
 
   const studioMode = useAIConfigStore(state => state.config.studioMode || 'edit');
+  const selectedTool = useAIConfigStore(state => state.config.selectedTool || 'image-editor');
+  const isGenerateMode = (selectedTool === 'image-editor' && studioMode === 'generate') || selectedTool === 'image-creator' || selectedTool === 'anarchy-creator';
 
   const {
     nodes,
@@ -207,15 +209,21 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setCreditError,
   });
 
-  // Ensure an idle Standalone Ghost Node is present on canvas when in Generate mode
+  // Ensure an idle Standalone Ghost Node is present on canvas ONLY when in Generate mode,
+  // and remove it when leaving Generate mode so it never appears in Upscale or Edit mode
   useEffect(() => {
-    if (studioMode === 'generate' && isRestored) {
-      const hasIdleGhost = nodes.some(n => n.data?.type === 'ghost' && n.data?.state === 'idle');
+    if (isGenerateMode && isRestored) {
+      const hasIdleGhost = nodes.some(n => n.data?.type === 'ghost' && !n.data?.lineage?.parentId && n.data?.state === 'idle');
       if (!hasIdleGhost) {
         createStandaloneGhostNode();
       }
+    } else if (!isGenerateMode && isRestored) {
+      const idleStandaloneGhost = nodes.find(n => n.data?.type === 'ghost' && !n.data?.lineage?.parentId && n.data?.state === 'idle');
+      if (idleStandaloneGhost) {
+        setNodes(nds => nds.filter(n => n.id !== idleStandaloneGhost.id));
+      }
     }
-  }, [studioMode, isRestored, nodes, createStandaloneGhostNode]);
+  }, [isGenerateMode, isRestored, nodes, createStandaloneGhostNode, setNodes]);
 
   // Sanitize onNodesChange to prevent NaN position errors
   const handleNodesChange = useCallback((changes: any[]) => {
@@ -239,7 +247,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const getConfig = useAIConfigStore((state) => state.getConfig);
   const liveModel = useAIConfigStore((state) => state.config.model);
   const liveResolution = useAIConfigStore((state) => state.config.resolution);
-  const liveQuality = useAIConfigStore((state) => (state.config as any).qualityVariant ?? 'auto');
+  const liveQuality = useAIConfigStore((state) => state.config.qualityVariant ?? (state.config.model === 'openai/gpt-image-2' ? state.config.resolution : undefined) ?? 'auto');
   const livePruna = useAIConfigStore((state) => state.config.prunaTarget);
   const liveUpscaleFactor = useAIConfigStore((state) => {
     const model = state.config.model;
@@ -992,8 +1000,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const stableHandlers = useMemo(() => ({
     onAddChild: (id: string, type: ProcessingType) => {
+      const tool = useAIConfigStore.getState().config.selectedTool || 'image-editor';
       const mode = useAIConfigStore.getState().config.studioMode || 'edit';
-      if (mode === 'generate') return;
+      if (tool === 'image-editor' && mode === 'generate') return;
       addChildNode(id, type);
     },
     onImageUpload: (id: string, url: string) => {
@@ -1026,11 +1035,12 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     const nextCache = new Map<string, BuilderNode>();
     const result = nodes
       .filter(node => {
-        if (studioMode === 'generate') {
+        if (isGenerateMode) {
           if (node.data.type === 'source' && !node.data.image && node.data.state === 'idle') {
             return false;
           }
-        } else if (studioMode === 'edit') {
+        } else {
+          // In Edit, Upscale, and all non-generate modes, hide idle standalone ghost nodes
           if (node.data.type === 'ghost' && !node.data.lineage?.parentId && node.data.state === 'idle') {
             return false;
           }
@@ -1078,7 +1088,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     mappedNodesCache.current = nextCache;
     return result;
      
-  }, [nodes, stableHandlers, enableWatermark, studioMode]);
+  }, [nodes, stableHandlers, enableWatermark, isGenerateMode]);
 
   // Fit view when nodes are measured to center them perfectly on initial load
   useEffect(() => {
@@ -1271,6 +1281,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
       ...prev,
       selectedTool: tool,
       model: model as any,
+      ...(tool !== 'image-editor' ? { studioMode: 'edit' } : {})
     }));
 
     // 2. Spawn the child node
@@ -1546,19 +1557,16 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const aiConfig = getConfig();
   const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
   const hasUpscaleFactor = !!(aiConfig.upscaleFactor && aiConfig.upscaleFactor > 1);
-  // Check for any ghost node (upscaler needs a target node to process)
-  const hasGhostNode = nodes.some(n => (n.data as any)?.type === 'ghost');
-  // Check if there's a source node with an image (for upscaler input)
+  // Check if there's a source or result node with an image (for upscaler input)
   const hasSourceWithImage = nodes.some(n => {
     const data = n.data as any;
-    return data?.type === 'source' && !!data?.image;
+    return (data?.type === 'source' || data?.type === 'result') && !!(data?.image || data?.outputData?.image);
   });
 
-
   // Enable generate if:
-  // - For upscaler: has upscale factor selected AND there's a ghost node AND source has image
+  // - For upscaler: has upscale factor selected AND there is an image to upscale
   // - For other tools: always enabled (prompt check is separate)
-  const canGenerate = isUpscaler ? (hasUpscaleFactor && hasGhostNode && hasSourceWithImage) : true;
+  const canGenerate = isUpscaler ? (hasUpscaleFactor && hasSourceWithImage) : true;
 
   return (
     <div className={`builder-page ${isZoomedOut ? 'lod-zoomed-out' : ''}`}>

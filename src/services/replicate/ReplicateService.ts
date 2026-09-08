@@ -195,7 +195,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     maxReferenceImages: 14,
     resolutions: ['1K', '2K', '4K'],
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
-    pricePerImage: 0.003,
+    pricePerImage: 0.067,
   },
   'google/nano-banana-2-lite': {
     supportsImg2Img: true,
@@ -211,7 +211,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     maxReferenceImages: 14,
     resolutions: ['1K'],
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
-    pricePerImage: 0.001,
+    pricePerImage: 0.034,
   },
   // ── 2.1. Seedream 5 Pro ─────────────────────────────────────────────────────
   'bytedance/seedream-5-pro': {
@@ -228,7 +228,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     maxReferenceImages: 14,
     resolutions: ['1K', '2K'],
     aspectRatios: ['match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
-    pricePerImage: 0.024,
+    pricePerImage: 0.045,
   },
   // ── 3. FLUX 2 Pro ────────────────────────────────────────────────────────────
   'black-forest-labs/flux-2-pro': {
@@ -245,7 +245,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     maxReferenceImages: 8,
     resolutions: ['0.5K', '1K', '2K', '4K'],
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
-    pricePerImage: 0.05,
+    pricePerImage: 0.015,
   },
   // ── 4. GPT Image 2 ──────────────────────────────────────────────────────────
   'openai/gpt-image-2': {
@@ -262,7 +262,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     maxReferenceImages: 10,
     resolutions: ['auto', 'low', 'medium', 'high'],
     aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
-    pricePerImage: 0.04,
+    pricePerImage: 0.128,
   },
   // ── 5. Nano Banana Pro (Gemini 3 Pro Image) ──────────────────────────────────
   'google/nano-banana-pro': {
@@ -279,7 +279,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     maxReferenceImages: 14,
     resolutions: ['1K', '2K', '4K'],
     aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
-    pricePerImage: 0.015,
+    pricePerImage: 0.15,
   },
 
   // ── Pruna AI P-Image ────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     maxReferenceImages: 1,
     resolutions: ['1K', '2K'],
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
-    pricePerImage: 0.02,
+    pricePerImage: 0.005,
   },
   // ── Krea 2 Large ────────────────────────────────────────────────────────────
   'krea/krea-2-large': {

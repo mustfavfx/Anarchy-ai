@@ -23,6 +23,7 @@ export interface AIConfig {
   disableSafetyChecker: boolean;
   upscaleFactor: number;
   resolution: string;
+  qualityVariant?: string;
   aspectRatio: string;
   studioMode: 'edit' | 'generate';
   selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator' | 'anarchy-creator';
@@ -155,6 +156,7 @@ const DEFAULT_CONFIG: AIConfig = {
   disableSafetyChecker: false,
   upscaleFactor: 2,
   resolution: 'Auto',
+  qualityVariant: 'auto',
   aspectRatio: '1:1',
   studioMode: 'edit',
   selectedTool: 'image-editor',

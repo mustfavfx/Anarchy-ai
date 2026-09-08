@@ -126,6 +126,7 @@ export function useBuilderGeneration({
     }
 
     const isUpscaler = aiConfig.selectedTool === 'image-upscaler';
+    const isGenerateMode = !isUpscaler && aiConfig.selectedTool === 'image-editor' && aiConfig.studioMode === 'generate';
     const promptText = prompt.trim();
 
     let resolvedUpscaleFactor: number | undefined = undefined;
@@ -143,13 +144,17 @@ export function useBuilderGeneration({
 
     const genConfig = buildGenConfig(aiConfig);
     const currentNodes = getNodes ? getNodes() : nodes;
-    const idleGhosts = currentNodes.filter(n => n.data.type === 'ghost' && n.data.state === 'idle');
+    const idleGhosts = currentNodes.filter(n => 
+      n.data.type === 'ghost' && 
+      n.data.state === 'idle' && 
+      (isGenerateMode ? !n.data.lineage?.parentId : !!n.data.lineage?.parentId)
+    );
 
     // 1. Optimistically identify or spawn nodes and transition them to 'connecting' state SYNCHRONOUSLY
     let targetNodeIds: string[] = [];
-    if (aiConfig.studioMode === 'generate') {
+    if (isGenerateMode) {
       // Find an existing idle Ghost Node or create a new Standalone Ghost Node in empty canvas space!
-      const targetNode = currentNodes.find(n => n.data.type === 'ghost' && n.data.state === 'idle');
+      const targetNode = currentNodes.find(n => n.data.type === 'ghost' && !n.data.lineage?.parentId && n.data.state === 'idle');
 
       let targetId = targetNode?.id;
       if (!targetId) {
@@ -191,9 +196,11 @@ export function useBuilderGeneration({
         useBuilderQueueStore.getState().addJob(g.id, { state: 'connecting' });
       });
     } else {
+      const selectedWithImage = selectedNodeId ? currentNodes.find(n => n.id === selectedNodeId && !!(n.data?.image || (n.data as any)?.outputData?.image)) : null;
       const existingParent =
-        nodes.find(n => (n.data?.type === 'source' || n.data?.type === 'result') && !!n.data?.image) ??
-        nodes.find(n => n.data?.type === 'source');
+        selectedWithImage ??
+        currentNodes.find(n => (n.data?.type === 'source' || n.data?.type === 'result') && !!(n.data?.image || (n.data as any)?.outputData?.image)) ??
+        currentNodes.find(n => n.data?.type === 'source');
       const parentId = existingParent ? existingParent.id : createSourceNode();
       const isVideo = [
         'bytedance/seedance-2.0',
@@ -206,7 +213,7 @@ export function useBuilderGeneration({
         'wavespeedai/wan-2.1-i2v-480p',
         'wavespeedai/wan-2.1-i2v-720p',
       ].some(m => aiConfig.model?.startsWith(m) || m.startsWith(aiConfig.model));
-      const processingType = isVideo ? 'video' : 'render';
+      const processingType = isVideo ? 'video' : (isUpscaler ? 'upscale' : 'render');
       const ghostId = spawnGhostNode(parentId, processingType);
       if (ghostId) {
         targetNodeIds = [ghostId];

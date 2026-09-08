@@ -54,18 +54,18 @@ export const CREDIT_PACKAGES: CreditPackage[] = [
 // Formula: credits = ceil(actual_cost_usd / 0.10 * 1.5)
 //
 // Per-model costs (credits):
-//   Nano Banana 2  1K → 2  |  2K → 2  |  4K → 3
-//   Nano Banana Pro 1K/2K → 3  |  4K → 5  |  fallback → 1
-//   Seedream 4.5        → 1
-//   FLUX 2 Pro          → 1
-//   FLUX Kontext Pro    → 1
-//   GPT Image 2 low → 1  |  medium → 1  |  auto/high → 2
-//   Grok Imagine        → 1
-//   Stable Diffusion 3.5 → 1  ($0.065 actual, $0.10 charged = 54% margin)
-//   Topaz Upscale       → 2
-//   Real-ESRGAN         → 1
-//   Clarity Upscaler    → 1
-//   P Image Upscale 1-4MP → 1 | 4-8MP → 1 | 8-16MP → 1 | 16-32MP → 1 | 32-64MP → 1 | 64-128MP → 2
+//   Nano Banana 2    1K → 1.1 | 2K → 1.2 | 4K → 2.2
+//   Seedream 5 Pro   1K → 0.8 | 2K → 1.3
+//   Nano Banana 2 Lite        → 0.7
+//   Nano Banana Pro  1K/2K → 2.2 | 4K → 4.2 | fallback → 1
+//   GPT Image 2      low → 0.5 | medium → 0.8 | auto/high → 1.8
+//   FLUX 2 Pro                → 0.5
+//   Pruna P-Image             → 0.5
+//   Krea 2 Large              → 1
+//   FLUX Kontext Pro          → 1
+//   Grok Imagine              → 1
+//   Topaz Upscale             → 2
+//   Clarity Upscaler          → 1
 
 // Old costs (Trial)
 export const TRIAL_GENERATION_COST = {
@@ -119,30 +119,16 @@ function resolveResPixels(resolution: string, width?: number, height?: number): 
   return (w && h) ? w * h : 0;
 }
 
-function costNanaBanana2(resolution: string, px: number, isTrial: boolean): number {
-  if (isTrial) {
-    if (px >= 4096 * 4096 || resolution.includes('4K')) return 3;
-    if (px >= 2048 * 2048 || resolution.includes('2K')) return 2;
-    return 2;
-  } else {
-    // Paid rates: 1K = 1.4, 2K = 1.5, 4K = 2.5
-    if (px >= 4096 * 4096 || resolution.includes('4K')) return 2.5;
-    if (px >= 2048 * 2048 || resolution.includes('2K')) return 1.5;
-    return 1.4;
-  }
+function costNanaBanana2(resolution: string, px: number, _isTrial?: boolean): number {
+  if (px >= 4096 * 4096 || resolution.toLowerCase().includes('4k')) return 2.2;
+  if (px >= 2048 * 2048 || resolution.toLowerCase().includes('2k')) return 1.2;
+  return 1.1;
 }
 
-function costNanaBananaPro(resolution: string, px: number, isTrial: boolean): number {
-  if (isTrial) {
-    if (px >= 4096 * 4096 || resolution.includes('4K')) return 5;
-    if (px >= 1024 * 1024 || resolution.includes('1K') || resolution.includes('2K')) return 3;
-    return 1;
-  } else {
-    // Paid rates: 1K = 2.2, 2K = 2.5, 4K = 3.5
-    if (px >= 4096 * 4096 || resolution.includes('4K')) return 3.5;
-    if (px >= 2048 * 2048 || resolution.includes('2K')) return 2.5;
-    return 2.2;
-  }
+function costNanaBananaPro(resolution: string, px: number, _isTrial?: boolean): number {
+  if (px >= 4096 * 4096 || resolution.toLowerCase().includes('4k')) return 4.2;
+  if (px >= 1024 * 1024 || resolution.toLowerCase().includes('1k') || resolution.toLowerCase().includes('2k')) return 2.2;
+  return 1.0;
 }
 
 function costSeedream4_5(resolution: string, px: number, isTrial: boolean): number {
@@ -155,34 +141,21 @@ function costSeedream4_5(resolution: string, px: number, isTrial: boolean): numb
   }
 }
 
-function costSeedream5Pro(resolution: string, px: number, _isTrial: boolean): number {
-  // 1K = 1.5 CREDIT, 2K = 2.2 CREDIT
-  if (px >= 2048 * 2048 || resolution.toLowerCase().includes('2k')) return 2.2;
-  return 1.5;
+function costSeedream5Pro(resolution: string, px: number, _isTrial?: boolean): number {
+  if (px >= 2048 * 2048 || resolution.toLowerCase().includes('2k') || px >= 4096 * 4096 || resolution.toLowerCase().includes('4k')) return 1.3;
+  return 0.8;
 }
 
-function costFlux2Pro(resolution: string, px: number, isTrial: boolean): number {
-  if (isTrial) {
-    return 1;
-  } else {
-    // Paid rates: 0.5K = 0.5, 1K = 1.2, 2K = 1.6, 4K = 2.0
-    if (px >= 4096 * 4096 || resolution.includes('4K')) return 2.0;
-    if (px >= 2048 * 2048 || resolution.includes('2K')) return 1.6;
-    if (px >= 1024 * 1024 || resolution.includes('1K')) return 1.2;
-    if (px <= 512 * 512 || resolution.includes('512') || resolution.includes('0.5K')) return 0.5;
-    return 1.0; // standard 1K fallback
-  }
+function costFlux2Pro(_resolution?: string, _px?: number, _isTrial?: boolean): number {
+  return 0.5;
 }
 
-function costGptImage2(qualityVariant: string, isTrial: boolean): number {
-  if (isTrial) {
-    if (qualityVariant === 'low')    return 1;
-    if (qualityVariant === 'medium') return 1;
-    return 2; // auto / high
-  } else {
-    // Paid rates: auto = 2.0, low/medium/high = 2.0
-    return 2.0;
-  }
+function costGptImage2(qualityVariant: string, _isTrial?: boolean): number {
+  const variant = (qualityVariant || 'auto').toLowerCase();
+  if (variant === 'low') return 0.5;
+  if (variant === 'medium') return 0.8;
+  if (variant === 'high') return 1.8;
+  return 1.8; // auto / default
 }
 
 function costPrunaUpscale(prunaTarget: number = 4, isTrial: boolean): number {
@@ -238,13 +211,14 @@ export function costTopazUpscale(upscaleFactor?: string | number, isTrial: boole
 // ── Flat cost table for simple models ────────────────────────────────────────
 const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'bytedance/seedream-4.5':                        1,
-  'bytedance/seedream-5-pro':                      1.5,
-  'black-forest-labs/flux-2-pro':                  1,
+  'bytedance/seedream-5-pro':                      0.8,
+  'black-forest-labs/flux-2-pro':                  0.5,
   'black-forest-labs/flux-kontext-pro':            1,
   'xai/grok-imagine-image':                        1,
-  'prunaai/p-image':                                0.8,
-  'krea/krea-2-large':                             1.2,
+  'prunaai/p-image':                               0.5,
+  'krea/krea-2-large':                             1,
   'stability-ai/stable-diffusion-3.5-large':       1,
+  'google/nano-banana-2-lite':                     0.7,
   'reve/edit-fast':                                0.4,
   'reve/create':                                   3,
   'reve/extract-layout':                           1.6,
@@ -258,15 +232,17 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'xai/grok-imagine-video-1.5':                    30,
   'prunaai/p-video':                               20,
   'google/veo-3.1-fast':                           35,
-  'pixverse/pixverse-v6':                           25,
+  'pixverse/pixverse-v6':                          25,
   'openai/sora-2-pro':                             40,
 };
 
 const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
+  'black-forest-labs/flux-2-pro':                  0.5,
   'black-forest-labs/flux-kontext-pro':            1.0,
   'xai/grok-imagine-image':                        1.0,
-  'prunaai/p-image':                                0.7,
-  'krea/krea-2-large':                             1.2,
+  'prunaai/p-image':                               0.5,
+  'krea/krea-2-large':                             1,
+  'google/nano-banana-2-lite':                     0.7,
   'stability-ai/stable-diffusion-3.5-large':       1.18, // $0.065 / 0.055
   'reve/edit-fast':                                0.4,
   'reve/create':                                   3,
@@ -352,13 +328,20 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
   if (model === 'reve/render-layout')     return 1.6;
   if (model === 'reve/reconcile-layouts') return 1.6;
   if (model === 'reve/edit-fast')         return 0.4;
-  if (model === 'google/nano-banana-2-lite') return 0.8;
+  if (model === 'google/nano-banana-2-lite') return 0.7;
   if (model === 'google/nano-banana-2')   return costNanaBanana2(resolution, px, isTrial);
   if (model === 'google/nano-banana-pro') return costNanaBananaPro(resolution, px, isTrial);
-  if (model === 'openai/gpt-image-2')     return costGptImage2(qualityVariant, isTrial);
+  if (model === 'openai/gpt-image-2') {
+    const q = (qualityVariant && qualityVariant !== 'auto')
+      ? qualityVariant
+      : (resolution || qualityVariant || 'auto');
+    return costGptImage2(q, isTrial);
+  }
   if (model === 'bytedance/seedream-4.5')   return costSeedream4_5(resolution, px, isTrial);
   if (model === 'bytedance/seedream-5-pro') return costSeedream5Pro(resolution, px, isTrial);
   if (model === 'black-forest-labs/flux-2-pro') return costFlux2Pro(resolution, px, isTrial);
+  if (model === 'prunaai/p-image')        return 0.5;
+  if (model === 'krea/krea-2-large')      return 1;
   if (model === 'prunaai/p-image-upscale') return costPrunaUpscale(prunaTarget, isTrial);
   if (model === 'topazlabs/image-upscale') return costTopazUpscale(upscaleFactor, isTrial, px);
   if (model === 'philz1337x/clarity-upscaler') return costClarityUpscale(upscaleFactor, isTrial);
@@ -391,9 +374,10 @@ export function getUnifiedCost(config: any, isTrial: boolean = true, overrideMod
   if (!config) return isTrial ? TRIAL_GENERATION_COST.standard : PAID_GENERATION_COST.standard;
   const model = overrideModel || config.model || 'google/nano-banana-2';
   const upscaleFactor = resolveUpscaleFactor(model, config);
+  const qualityVariant = config.qualityVariant ?? (model === 'openai/gpt-image-2' ? config.resolution : undefined) ?? 'auto';
   return getModelCost(model, {
     resolution: config.resolution,
-    qualityVariant: config.qualityVariant ?? 'auto',
+    qualityVariant,
     prunaTarget: config.prunaTarget,
     upscaleFactor,
     isTrial,

@@ -236,10 +236,10 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
   const selectedTool = useAIConfigStore((s) => s.config.selectedTool);
 
   const isStandaloneGenerator = !data.lineage?.parentId && connectedCount === 0;
-  const isGeneratorTab = studioMode === 'generate' || selectedTool === 'image-creator' || selectedTool === 'anarchy-creator' || selectedTool === 'video-creator' || selectedTool === '3d-creator';
+  const isGenerateMode = (selectedTool === 'image-editor' && studioMode === 'generate') || selectedTool === 'image-creator' || selectedTool === 'anarchy-creator';
 
-  // Standalone generator node should only appear in Generation section of Image Studio
-  if (isStandaloneGenerator && !isGeneratorTab && !isProcessing && !isConnecting && !isQueued) {
+  // Standalone generator node should ONLY appear in Generation mode (and NEVER in image-upscaler or edit mode)
+  if (isStandaloneGenerator && !isGenerateMode && !isProcessing && !isConnecting && !isQueued) {
     return null;
   }
 

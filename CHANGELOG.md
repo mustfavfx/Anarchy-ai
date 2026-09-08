@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.80] - 2026-09-08
+
+### Changed & Improved
+- **AI Model Credit Pricing Alignment**:
+  - Updated credit calculations and per-image pricing for 8 major AI models:
+    - **Nano Banana 2** (`google/nano-banana-2`): 1K = 1.1 cr, 2K = 1.2 cr, 4K = 2.2 cr.
+    - **Seedream 5 Pro** (`bytedance/seedream-5-pro`): 1K = 0.8 cr, 2K = 1.3 cr.
+    - **Nano-Banana-2-Lite** (`google/nano-banana-2-lite`): 0.7 cr.
+    - **Nano Banana Pro** (`google/nano-banana-pro`): 1K/2K = 2.2 cr, 4K = 4.2 cr, fallback = 1.0 cr.
+    - **GPT Image 2** (`openai/gpt-image-2`): auto = 1.8 cr, low = 0.5 cr, medium = 0.8 cr, high = 1.8 cr.
+    - **FLUX 2 Pro** (`black-forest-labs/flux-2-pro`): flat 0.5 cr per run.
+    - **P-Image** (`prunaai/p-image`): flat 0.5 cr ($5 / 1000 images).
+    - **Krea 2 Large** (`krea/krea-2-large`): flat 1.0 cr.
+
+### Fixed
+- **GPT Image 2 Dynamic Quality Pricing**:
+  - Fixed an issue where changing GPT Image 2 quality (`auto`, `low`, `medium`, `high`) in the UI dropdown did not update the prompt bar cost badge or the deducted credit amount.
+  - Linked `resolution` and `qualityVariant` in `AIControlPanel`, `RightSidebar`, `aiConfigStore`, and `creditService` so selecting `low` immediately reflects 0.5 cr, `medium` reflects 0.8 cr, and `high`/`auto` reflect 1.8 cr.
+  - Added live credit cost labels directly inside the quality/resolution dropdown menu items.
+- **Ghost Node Visibility in Upscale Mode**:
+  - Fixed the standalone generator ghost node ("Ready for Prompt" / "Text-to-Image Creator") incorrectly showing when in Upscale tool mode.
+
 ## [0.3.75] - 2026-09-08
 
 ### Fixed

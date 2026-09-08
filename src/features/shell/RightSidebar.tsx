@@ -309,12 +309,17 @@ export const RightSidebar: React.FC = () => {
   }, [setConfig]);
 
   const handleParamsChange = useCallback((params: any) => {
-    setConfig(prev => ({
-      ...prev,
-      ...params,
-      resolution: params.resolution ?? prev.resolution,
-      aspectRatio: params.aspectRatio ?? prev.aspectRatio,
-    }));
+    setConfig(prev => {
+      const isGpt = (params.model ?? prev.model) === 'openai/gpt-image-2';
+      const resolvedQuality = params.qualityVariant ?? (isGpt ? params.resolution : undefined) ?? prev.qualityVariant;
+      return {
+        ...prev,
+        ...params,
+        resolution: params.resolution ?? prev.resolution,
+        aspectRatio: params.aspectRatio ?? prev.aspectRatio,
+        qualityVariant: resolvedQuality,
+      };
+    });
   }, [setConfig]);
 
   // Keyboard shortcuts for preview zoom (only active in preview mode)
@@ -549,6 +554,7 @@ export const RightSidebar: React.FC = () => {
             disableSafetyChecker: config.disableSafetyChecker,
             upscaleFactor: config.upscaleFactor,
             resolution: config.resolution,
+            qualityVariant: config.qualityVariant ?? (config.model === 'openai/gpt-image-2' ? config.resolution : undefined) ?? 'auto',
             aspectRatio: config.aspectRatio,
             // Watermark settings
             enableWatermark: config.enableWatermark,

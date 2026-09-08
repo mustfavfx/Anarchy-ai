@@ -15,6 +15,7 @@ import {
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel, type ReplicateVideoModel } from '../../services/replicate';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import type { WatermarkPosition } from '../../stores/aiConfigStore';
+import { getModelCost } from '../../services/credit/creditService';
 import './AIControlPanel.css';
 
 interface AIControlPanelProps {
@@ -31,6 +32,7 @@ interface AIControlPanelProps {
     disableSafetyChecker: boolean;
     upscaleFactor?: number;
     resolution?: string;
+    qualityVariant?: string;
     aspectRatio?: string;
     width?: number;
     height?: number;
@@ -601,7 +603,11 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   useEffect(() => {
     if (prevSelectedToolRef.current !== selectedTool) {
       prevSelectedToolRef.current = selectedTool;
-      setConfig(prev => ({ ...prev, selectedTool }));
+      setConfig(prev => ({ 
+        ...prev, 
+        selectedTool,
+        ...(selectedTool !== 'image-editor' ? { studioMode: 'edit' } : {})
+      }));
     }
   }, [selectedTool, setConfig]);
 
@@ -777,6 +783,9 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                 onClick={() => {
                   if (tool.disabled) return;
                   setSelectedTool(tool.id);
+                  if (tool.id !== 'image-editor') {
+                    setConfig(prev => ({ ...prev, studioMode: 'edit' }));
+                  }
                   const enginesForTool = ENGINES.filter(e => e.tool === tool.id);
                   if (enginesForTool.length > 0 && !enginesForTool.some(e => e.id === selectedModel)) {
                     onModelChange(enginesForTool[0].id);
@@ -1425,18 +1434,32 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
             </div>
             {showResDropdown && (
               <div className="dropdown-menu small-menu">
-                {availableResolutions.map(res => (
-                  <div 
-                    key={res}
-                    className={`dropdown-item ${params.resolution === res ? 'active' : ''}`}
-                    onClick={() => {
-                      updateParam('resolution', res);
-                      setShowResDropdown(false);
-                    }}
-                  >
-                    {res}
-                  </div>
-                ))}
+                {availableResolutions.map(res => {
+                  const itemCost = getModelCost(selectedModel, {
+                    resolution: res,
+                    qualityVariant: res,
+                  });
+                  return (
+                    <div 
+                      key={res}
+                      className={`dropdown-item ${params.resolution === res ? 'active' : ''}`}
+                      onClick={() => {
+                        if (selectedModel === 'openai/gpt-image-2') {
+                          onParamsChange({ ...params, resolution: res, qualityVariant: res });
+                        } else {
+                          updateParam('resolution', res);
+                        }
+                        setShowResDropdown(false);
+                      }}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <span>{res}</span>
+                      <span style={{ fontSize: '11px', opacity: 0.65, marginLeft: '8px', color: '#94a3b8' }}>
+                        {itemCost} cr
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

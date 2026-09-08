@@ -275,13 +275,15 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
   };
 
   const studioMode = useAIConfigStore((s) => s.config.studioMode || 'edit');
+  const selectedTool = useAIConfigStore((s) => s.config.selectedTool || 'image-editor');
 
-  // Handle click on source/result node to spawn ghost node (Edit mode only)
+  // Handle click on source/result node to spawn ghost node (Edit and Upscale mode)
   const handleNodeClick = () => {
-    if (studioMode === 'generate') return; // Do not spawn ghost node in Generate mode
+    if (selectedTool === 'image-editor' && studioMode === 'generate') return; // Do not spawn ghost node in Generate mode
     if ((isSource || isResult) && nodeData.image && nodeData.onAddChild) {
-      // Spawn a ghost node with default processing type
-      nodeData.onAddChild('render');
+      // Spawn a ghost node with appropriate processing type
+      const processingType = selectedTool === 'image-upscaler' ? 'upscale' : (selectedTool === 'video-creator' ? 'video' : 'render');
+      nodeData.onAddChild(processingType);
     }
   };
 

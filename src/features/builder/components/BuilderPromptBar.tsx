@@ -149,9 +149,10 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   ];
   const isVideoModel = VIDEO_MODEL_IDS.some(id => liveModel.startsWith(id) || id.startsWith(liveModel));
   const studioMode = aiConfig.studioMode || 'edit';
+  const isGenerateMode = aiConfig.selectedTool === 'image-editor' && studioMode === 'generate';
   const activePrompts = isVideoModel
     ? VIDEO_PRESET_PROMPTS
-    : studioMode === 'generate'
+    : isGenerateMode
       ? GENERATE_PRESET_PROMPTS
       : PRESET_PROMPTS;
 

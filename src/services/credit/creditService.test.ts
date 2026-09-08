@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   CREDIT_PACKAGES,
   getModelCost,
+  getUnifiedCost,
   GENERATION_COST,
 } from './creditService';
 
@@ -34,32 +35,45 @@ describe('Credit Service', () => {
   describe('getModelCost', () => {
     describe('Trial Mode (isTrial = true or default)', () => {
       it('should return correct cost for FLUX models', () => {
-        expect(getModelCost('black-forest-labs/flux-2-pro')).toBe(1);
+        expect(getModelCost('black-forest-labs/flux-2-pro')).toBe(0.5);
         expect(getModelCost('black-forest-labs/flux-kontext-pro')).toBe(1);
       });
       
       it('should return correct cost for other models', () => {
         expect(getModelCost('bytedance/seedream-4.5')).toBe(1);
-        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '1024x1024' })).toBe(1.5);
-        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '2048x2048' })).toBe(2.2);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '1024x1024' })).toBe(0.8);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '2048x2048' })).toBe(1.3);
+        expect(getModelCost('prunaai/p-image')).toBe(0.5);
+        expect(getModelCost('krea/krea-2-large')).toBe(1);
         expect(getModelCost('xai/grok-imagine-image')).toBe(1);
       });
       
       it('should return correct cost for GPT Image 2 based on quality', () => {
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'low' })).toBe(1);
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'medium' })).toBe(1);
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'high' })).toBe(2);
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'auto' })).toBe(2);
+        // Passed as qualityVariant
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'low' })).toBe(0.5);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'medium' })).toBe(0.8);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'high' })).toBe(1.8);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'auto' })).toBe(1.8);
+        // Passed as resolution (from UI quality dropdown)
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'low' })).toBe(0.5);
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'medium' })).toBe(0.8);
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'high' })).toBe(1.8);
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'auto' })).toBe(1.8);
+        // Tested via getUnifiedCost
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'low' })).toBe(0.5);
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'medium' })).toBe(0.8);
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'high' })).toBe(1.8);
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'auto' })).toBe(1.8);
       });
       
       it('should return correct cost for Nano Banana based on resolution', () => {
-        expect(getModelCost('google/nano-banana-2', { resolution: '1024x1024' })).toBe(2);
-        expect(getModelCost('google/nano-banana-2', { resolution: '2048x2048' })).toBe(2);
-        expect(getModelCost('google/nano-banana-2', { resolution: '4096x4096' })).toBe(3);
+        expect(getModelCost('google/nano-banana-2', { resolution: '1024x1024' })).toBe(1.1);
+        expect(getModelCost('google/nano-banana-2', { resolution: '2048x2048' })).toBe(1.2);
+        expect(getModelCost('google/nano-banana-2', { resolution: '4096x4096' })).toBe(2.2);
       });
 
       it('should return correct cost for Nano Banana Lite', () => {
-        expect(getModelCost('google/nano-banana-2-lite')).toBe(0.8);
+        expect(getModelCost('google/nano-banana-2-lite')).toBe(0.7);
       });
 
       it('should return correct cost for Reve Edit Fast', () => {
@@ -67,9 +81,11 @@ describe('Credit Service', () => {
       });
       
       it('should return correct cost for Nano Banana Pro', () => {
-        expect(getModelCost('google/nano-banana-pro', { resolution: '1024x1024' })).toBe(3);
-        expect(getModelCost('google/nano-banana-pro', { resolution: '2048x2048' })).toBe(3);
-        expect(getModelCost('google/nano-banana-pro', { resolution: '4096x4096' })).toBe(5);
+        expect(getModelCost('google/nano-banana-pro', { resolution: '1024x1024' })).toBe(2.2);
+        expect(getModelCost('google/nano-banana-pro', { resolution: '2048x2048' })).toBe(2.2);
+        expect(getModelCost('google/nano-banana-pro', { resolution: '4096x4096' })).toBe(4.2);
+        expect(getModelCost('google/nano-banana-pro', { resolution: 'fallback' })).toBe(1.0);
+        expect(getModelCost('google/nano-banana-pro')).toBe(1.0);
       });
       
       it('should return default cost for unknown models', () => {
@@ -84,9 +100,9 @@ describe('Credit Service', () => {
     describe('Paid Mode (isTrial = false)', () => {
       it('should return correct cost for FLUX models', () => {
         expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '512x512', isTrial: false })).toBe(0.5);
-        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '1024x1024', isTrial: false })).toBe(1.2);
-        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '2048x2048', isTrial: false })).toBe(1.6);
-        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '4096x4096', isTrial: false })).toBe(2.0);
+        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '1024x1024', isTrial: false })).toBe(0.5);
+        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '2048x2048', isTrial: false })).toBe(0.5);
+        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '4096x4096', isTrial: false })).toBe(0.5);
         expect(getModelCost('black-forest-labs/flux-kontext-pro', { isTrial: false })).toBe(1.0);
       });
       
@@ -95,33 +111,47 @@ describe('Credit Service', () => {
         expect(getModelCost('bytedance/seedream-4.5', { resolution: '4096x4096', isTrial: false })).toBe(1.5);
         expect(getModelCost('bytedance/seedream-4.5', { resolution: 'custom', width: 2048, height: 2048, isTrial: false })).toBe(1.0);
         expect(getModelCost('bytedance/seedream-4.5', { resolution: 'custom', width: 4096, height: 4096, isTrial: false })).toBe(1.5);
-        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '1024x1024', isTrial: false })).toBe(1.5);
-        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '2048x2048', isTrial: false })).toBe(2.2);
-        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '4096x4096', isTrial: false })).toBe(2.2);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '1024x1024', isTrial: false })).toBe(0.8);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '2048x2048', isTrial: false })).toBe(1.3);
+        expect(getModelCost('bytedance/seedream-5-pro', { resolution: '4096x4096', isTrial: false })).toBe(1.3);
+        expect(getModelCost('prunaai/p-image', { isTrial: false })).toBe(0.5);
+        expect(getModelCost('krea/krea-2-large', { isTrial: false })).toBe(1);
         expect(getModelCost('xai/grok-imagine-image', { isTrial: false })).toBe(1.0);
       });
       
       it('should return correct cost for GPT Image 2 based on quality', () => {
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'low', isTrial: false })).toBe(2.0);
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'medium', isTrial: false })).toBe(2.0);
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'high', isTrial: false })).toBe(2.0);
-        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'auto', isTrial: false })).toBe(2.0);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'low', isTrial: false })).toBe(0.5);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'medium', isTrial: false })).toBe(0.8);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'high', isTrial: false })).toBe(1.8);
+        expect(getModelCost('openai/gpt-image-2', { qualityVariant: 'auto', isTrial: false })).toBe(1.8);
+        // Passed as resolution (from UI quality dropdown)
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'low', isTrial: false })).toBe(0.5);
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'medium', isTrial: false })).toBe(0.8);
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'high', isTrial: false })).toBe(1.8);
+        expect(getModelCost('openai/gpt-image-2', { resolution: 'auto', isTrial: false })).toBe(1.8);
+        // Tested via getUnifiedCost
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'low' }, false)).toBe(0.5);
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'medium' }, false)).toBe(0.8);
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'high' }, false)).toBe(1.8);
+        expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'auto' }, false)).toBe(1.8);
       });
       
       it('should return correct cost for Nano Banana based on resolution', () => {
-        expect(getModelCost('google/nano-banana-2', { resolution: '1024x1024', isTrial: false })).toBe(1.4);
-        expect(getModelCost('google/nano-banana-2', { resolution: '2048x2048', isTrial: false })).toBe(1.5);
-        expect(getModelCost('google/nano-banana-2', { resolution: '4096x4096', isTrial: false })).toBe(2.5);
+        expect(getModelCost('google/nano-banana-2', { resolution: '1024x1024', isTrial: false })).toBe(1.1);
+        expect(getModelCost('google/nano-banana-2', { resolution: '2048x2048', isTrial: false })).toBe(1.2);
+        expect(getModelCost('google/nano-banana-2', { resolution: '4096x4096', isTrial: false })).toBe(2.2);
       });
 
       it('should return correct cost for Nano Banana Lite', () => {
-        expect(getModelCost('google/nano-banana-2-lite', { isTrial: false })).toBe(0.8);
+        expect(getModelCost('google/nano-banana-2-lite', { isTrial: false })).toBe(0.7);
       });
       
       it('should return correct cost for Nano Banana Pro', () => {
         expect(getModelCost('google/nano-banana-pro', { resolution: '1024x1024', isTrial: false })).toBe(2.2);
-        expect(getModelCost('google/nano-banana-pro', { resolution: '2048x2048', isTrial: false })).toBe(2.5);
-        expect(getModelCost('google/nano-banana-pro', { resolution: '4096x4096', isTrial: false })).toBe(3.5);
+        expect(getModelCost('google/nano-banana-pro', { resolution: '2048x2048', isTrial: false })).toBe(2.2);
+        expect(getModelCost('google/nano-banana-pro', { resolution: '4096x4096', isTrial: false })).toBe(4.2);
+        expect(getModelCost('google/nano-banana-pro', { resolution: 'fallback', isTrial: false })).toBe(1.0);
+        expect(getModelCost('google/nano-banana-pro', { isTrial: false })).toBe(1.0);
       });
       
       it('should return correct cost for upscale models', () => {
