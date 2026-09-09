@@ -1,6 +1,5 @@
 import React from 'react';
 import { RotateCcw, Sparkles, Coins } from 'lucide-react';
-import { AutoPromptButton } from '../../../builder/components/AutoPromptButton';
 
 export interface MaskPromptBarProps {
   prompt: string;
@@ -39,14 +38,6 @@ export const MaskPromptBar: React.FC<MaskPromptBarProps> = ({
             }}
           />
 
-          <AutoPromptButton
-            prompt={prompt}
-            onApplyPrompt={onPromptChange}
-            mode="inpaint"
-            compact={true}
-            isArabicUI={isArabicUI}
-          />
-
           <button
             type="button"
             className="vizmaker-reset-prompt-btn"
@@ -63,25 +54,22 @@ export const MaskPromptBar: React.FC<MaskPromptBarProps> = ({
             className="vizmaker-make-btn"
             onClick={() => void onGenerate()}
             disabled={isGenerating}
-            title="Generate AI Inpaint (Make)"
+            title="Generate AI Inpaint"
           >
             <Sparkles size={15} className={isGenerating ? 'spin' : ''} />
-            <span>{isGenerating ? 'Generating...' : 'Make'}</span>
+            <span>{isGenerating ? 'Generating...' : 'Generate'}</span>
           </button>
         </div>
       </div>
 
-      <div
-        className="prompt-bottom-badges-container"
-        style={{ marginTop: '8px', display: 'flex', gap: '8px', justifyContent: 'center' }}
-      >
+      <div className="mask-prompt-badges-row">
         <span className="generate-cost-badge" title="Credits required per generation">
-          <Coins size={10} />
+          <Coins size={11} />
           Cost: {cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
         </span>
         {userCredits !== null && (
           <span className="user-balance-badge" title="Your available credits">
-            <Coins size={10} className="balance-icon" />
+            <Coins size={11} className="balance-icon" />
             Balance: {userCredits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </span>
         )}

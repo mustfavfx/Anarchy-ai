@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Minus, Plus, Maximize2 } from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -2212,41 +2212,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           })()}
         </div>
 
-        {/* Floating Quick Shortcut Hints Strip */}
-        <div className="mask-shortcuts-strip" style={{
-          position: 'absolute',
-          bottom: '8px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(15, 17, 26, 0.88)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '20px',
-          padding: '3px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontSize: '10px',
-          color: 'rgba(255, 255, 255, 0.7)',
-          zIndex: 30,
-          pointerEvents: 'none',
-          userSelect: 'none',
-          whiteSpace: 'nowrap',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-        }}>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>B</kbd> Brush</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>E</kbd> Erase</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>P</kbd> Poly</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>M</kbd> Box</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>W</kbd> Wand</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>S</kbd> SAM</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>O</kbd> Ortho 45°</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>Space</kbd> Pan</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>Alt</kbd> Erase</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>Shift+Click</kbd> Line</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>\</kbd> Peek</span>
-          <span><kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 4px', borderRadius: '3px', color: '#fff' }}>Q</kbd> Solo</span>
-        </div>
 
         {layerVisibility.arrows &&
           arrowNodes.map((arrow, idx) => (
@@ -2325,6 +2290,49 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           isArabicUI={false}
         />
       )}
+
+      {/* Floating Canvas Viewport Zoom HUD (Part of Image Area / مساحة الصورة) */}
+      <div className="mask-viewport-zoom-hud">
+        <button
+          type="button"
+          className="mask-viewport-zoom-btn"
+          onClick={() => setZoomScale((z) => Math.max(0.2, z * 0.85))}
+          title="Zoom Out (-)"
+        >
+          <Minus size={13} />
+        </button>
+        <button
+          type="button"
+          className="mask-viewport-zoom-text"
+          onClick={() => {
+            setZoomScale(1);
+            setPanOffset({ x: 0, y: 0 });
+          }}
+          title="Reset Zoom & Pan (Ctrl+0)"
+        >
+          {Math.round(zoomScale * 100)}%
+        </button>
+        <button
+          type="button"
+          className="mask-viewport-zoom-btn"
+          onClick={() => setZoomScale((z) => Math.min(6, z * 1.18))}
+          title="Zoom In (+)"
+        >
+          <Plus size={13} />
+        </button>
+        <button
+          type="button"
+          className="mask-viewport-zoom-btn"
+          onClick={() => {
+            setZoomScale(1);
+            setPanOffset({ x: 0, y: 0 });
+          }}
+          title="Fit to Screen (1:1)"
+          style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.14)', marginLeft: '2px', paddingLeft: '6px' }}
+        >
+          <Maximize2 size={12} />
+        </button>
+      </div>
     </div>
   );
 };

@@ -444,25 +444,33 @@
   position: static;
 }
 
-.mask-zoom-hud {
+/* Floating Viewport Zoom HUD (Bottom Right of Canvas Area / جزء من مساحة الصورة) */
+.mask-viewport-zoom-hud {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
   display: flex;
   align-items: center;
-  gap: 2px;
-  background: rgba(0, 0, 0, 0.45);
+  gap: 3px;
+  background: rgba(14, 16, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 0 4px;
-  height: 36px;
-  box-sizing: border-box;
-  flex-shrink: 0;
+  padding: 2px 6px;
+  height: 34px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 35;
+  user-select: none;
 }
 
-.mask-zoom-btn {
+.mask-viewport-zoom-btn {
   background: transparent;
   border: none;
   color: #ffffff;
   cursor: pointer;
-  padding: 2px 5px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -470,26 +478,26 @@
   transition: background 0.15s ease;
 }
 
-.mask-zoom-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+.mask-viewport-zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
-.mask-zoom-text {
+.mask-viewport-zoom-text {
   background: transparent;
   border: none;
   color: #ffffff;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  padding: 0 4px;
-  min-width: 42px;
+  padding: 0 5px;
+  min-width: 40px;
   text-align: center;
   border-radius: 4px;
   transition: background 0.15s ease;
 }
 
-.mask-zoom-text:hover {
-  background: rgba(255, 255, 255, 0.1);
+.mask-viewport-zoom-text:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* ── VizMaker Floating Layers Overlay (Top Right over Canvas) ────────────────── */
@@ -741,12 +749,17 @@
 
 .vizmaker-bottom-prompt-bar-container {
   position: absolute;
-  bottom: 18px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  max-width: 720px;
+  max-width: 660px;
   z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
 }
 
 .vizmaker-bottom-prompt-bar {
@@ -761,11 +774,45 @@
   -webkit-backdrop-filter: blur(24px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(225, 29, 72, 0.18);
   transition: all 0.25s ease;
+  width: 100%;
+  box-sizing: border-box;
+  pointer-events: all;
 }
 
 .vizmaker-bottom-prompt-bar:focus-within {
   border-color: rgba(225, 29, 72, 0.5);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.9), 0 0 30px rgba(225, 29, 72, 0.3);
+}
+
+.mask-prompt-badges-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: all;
+}
+
+.mask-prompt-badges-row .generate-cost-badge,
+.mask-prompt-badges-row .user-balance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(12, 14, 22, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 3px 10px;
+  border-radius: 6px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.mask-prompt-badges-row .user-balance-badge {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.1);
 }
 
 .vizmaker-prompt-badge {
@@ -1679,19 +1726,7 @@
   animation: maskNodePulse 1.4s infinite ease-in-out;
 }
 
-/* ── Floating Shortcuts Strip ──────────────────────────────────────────────── */
 
-.mask-shortcuts-strip {
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.mask-shortcuts-strip kbd {
-  font-family: inherit;
-  font-weight: 700;
-  font-size: 9.5px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
 
 .mask-hud-btn {
   transition: all 0.15s ease;

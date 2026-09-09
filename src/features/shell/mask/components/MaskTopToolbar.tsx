@@ -3,7 +3,7 @@ import {
   Hand, Wand2, MousePointer2, PenTool, Circle, LassoSelect, SquareDashed,
   Crop, CornerDownRight, Paintbrush2, Eraser, Trash2, SlidersHorizontal,
   Contrast, Sparkles, Maximize2, Minimize2, PaintBucket, Columns, Eye,
-  FolderPlus, FileDown, Download, Check, Copy, Share2, Minus, Plus,
+  FolderPlus, FileDown, Download, Check, Copy, Share2,
   Layers, RotateCcw, RotateCw, FileCode, Ruler, Compass, SunMedium,
 } from 'lucide-react';
 
@@ -916,39 +916,8 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
         </div>
       </div>
 
-      {/* Right Section: Zoom & Undo/Redo & Layers */}
+      {/* Right Section: Layers & Undo/Redo */}
       <div className="mask-canvas-top-actions">
-        {/* Zoom HUD */}
-        <div className="mask-zoom-hud">
-          <button
-            type="button"
-            className="mask-zoom-btn"
-            onClick={() => setZoomScale((z) => Math.max(0.2, z * 0.85))}
-            title="Zoom Out"
-          >
-            <Minus size={12} />
-          </button>
-          <button
-            type="button"
-            className="mask-zoom-text"
-            onClick={() => {
-              setZoomScale(1);
-              setPanOffset({ x: 0, y: 0 });
-            }}
-            title="Reset Zoom & Pan (Ctrl+0)"
-          >
-            {Math.round(zoomScale * 100)}%
-          </button>
-          <button
-            type="button"
-            className="mask-zoom-btn"
-            onClick={() => setZoomScale((z) => Math.min(6, z * 1.18))}
-            title="Zoom In"
-          >
-            <Plus size={12} />
-          </button>
-        </div>
-
         <button
           type="button"
           className={`mask-toolbar-btn ${showLayerStack ? 'active' : ''}`}
