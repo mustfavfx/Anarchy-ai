@@ -526,78 +526,136 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* ── VizMaker Floating Layers Overlay (Top Right over Canvas) ────────────────── */
+/* ── Docked Right Layers Panel (Desktop Studio Layout) ─────────────────────── */
 
-.vizmaker-layers-overlay-panel {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 285px;
+.mask-layers-docked-panel {
+  position: relative;
+  width: 280px;
+  height: 100%;
   box-sizing: border-box;
-  background: #1c1d22;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 8px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
-  z-index: 60;
+  background: #111218;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  flex-shrink: 0;
+  z-index: 30;
   overflow: hidden;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  animation: maskLayersDockSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.vizmaker-layers-header {
+@keyframes maskLayersDockSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.mask-layers-dock-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
-  font-weight: 700;
-  color: #ffffff;
-  padding: 4px 6px 8px 6px;
+  padding: 10px 12px;
+  background: rgba(18, 20, 26, 0.98);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
-.vizmaker-layers-header button {
+.mask-layers-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mask-layers-header-icon {
+  color: #ffffff;
+}
+
+.mask-layers-title-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.mask-layers-close-btn {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.vizmaker-layers-header button:hover {
-  color: #ffffff;
-}
-
-.vizmaker-layers-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.vizmaker-layer-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.vizmaker-layer-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+.mask-layers-close-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.vizmaker-layer-item.active {
+.mask-layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.mask-layers-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mask-layers-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.mask-layers-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mask-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.mask-layer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.mask-layer-item.active {
   background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(6, 182, 212, 0.4);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
+}
+
+.mask-layer-item.active-mask-layer {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.mask-layer-item.active-mask-layer.active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .vizmaker-layer-eye-btn {
@@ -611,83 +669,11 @@
 }
 
 .vizmaker-layer-eye {
-  color: rgba(255, 255, 255, 0.6);
+  color: #ffffff;
 }
 
 .vizmaker-layer-eye.off {
-  color: rgba(255, 255, 255, 0.2);
-}
-
-.vizmaker-layer-thumb-box {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.vizmaker-layer-thumb-box.selected-area {
-  background: #000;
-  border-color: #06b6d4;
-  box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
-}
-
-.vizmaker-selected-area-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  border: 2px solid #06b6d4;
-  box-shadow: inset 0 0 4px rgba(6, 182, 212, 0.5);
-}
-
-.vizmaker-layer-thumb-box-dual {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.vizmaker-layer-thumb-main {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  background: #111;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.vizmaker-layer-thumb-main.active {
-  border-color: #06b6d4;
-  box-shadow: 0 0 6px rgba(6, 182, 212, 0.5);
-}
-
-.vizmaker-layer-thumb-mask {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  background: #333;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.vizmaker-mask-symbol {
-  font-size: 11px;
-  font-weight: bold;
-  color: #ffffff;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 1px 3px;
-  border-radius: 2px;
+  color: rgba(255, 255, 255, 0.25);
 }
 
 .vizmaker-layer-title {
@@ -703,32 +689,53 @@
   margin-left: auto;
 }
 
-.vizmaker-layers-footer {
+.mask-layers-dock-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 6px;
-  margin-top: 4px;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(14, 16, 22, 0.98);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+  width: 100%;
+  flex-shrink: 0;
 }
 
-.vizmaker-layer-footer-btn {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  padding: 4px;
+.mask-layer-action-btn {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s ease;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  padding: 0;
+  flex-shrink: 0;
 }
 
-.vizmaker-layer-footer-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.mask-layer-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
   color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.mask-layer-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.mask-layer-action-btn.delete-btn:hover:not(:disabled) {
+  background: rgba(244, 63, 94, 0.18);
+  border-color: rgba(244, 63, 94, 0.4);
+  color: #fb7185;
 }
 
 /* ── Main Canvas Wrapper & Interactive Surface ───────────────────────────── */
@@ -1314,27 +1321,30 @@
 /* ── Photoshop Layer Mask Styles (Exact Replication) ─────────────────────────── */
 
 .ps-layers-panel {
-  width: 285px;
-  background: #1e1e24;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  width: 280px;
+  height: 100%;
+  background: #111218;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .ps-layer-item {
-  padding: 5px 8px;
-  background: #25262d;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
 }
 
 .ps-layer-item:hover {
-  background: #2c2d36;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .ps-layer-item.active {
-  background: #323440;
-  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
 }
 
 .ps-thumb-group {
@@ -1347,9 +1357,9 @@
 .ps-thumb {
   width: 32px;
   height: 32px;
-  border-radius: 2px;
+  border-radius: 4px;
   background: #000000;
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1360,7 +1370,7 @@
 }
 
 .ps-thumb:hover {
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .ps-thumb.selected-target {
@@ -1379,13 +1389,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
   transition: all 0.15s ease;
 }
 
 .ps-mask-empty-thumb:hover {
   background: #14151f;
-  border-color: #f43f5e;
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .ps-mask-white-fill {
@@ -1398,13 +1408,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
   padding: 0 1px;
 }
 
 .ps-layer-title {
   font-size: 12px;
-  color: #e2e8f0;
+  color: #ffffff;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -1414,29 +1424,34 @@
 
 .ps-layer-rename-input {
   background: #0d0e12;
-  border: 1px solid #3b82f6;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 3px;
   color: #ffffff;
   font-size: 11px;
-  padding: 1px 5px;
+  padding: 2px 6px;
   width: 100%;
   outline: none;
-  box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
 }
 
 .ps-layer-item.active-mask-layer {
-  background: #2a1f26 !important;
-  border-color: #e11d48 !important;
-  box-shadow: 0 0 10px rgba(225, 29, 72, 0.35) !important;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.ps-layer-item.active-mask-layer.active {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35) !important;
 }
 
 .ps-layer-count-badge {
   font-size: 10px;
   font-weight: 700;
   padding: 1px 6px;
-  background: rgba(225, 29, 72, 0.2);
-  color: #f43f5e;
-  border: 1px solid rgba(225, 29, 72, 0.35);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   margin-left: 4px;
 }
@@ -1445,13 +1460,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 4px -8px -8px -8px;
-  padding: 8px 12px;
-  background: rgba(12, 13, 18, 0.98);
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(14, 16, 22, 0.98);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0 0 9px 9px;
+  border-radius: 0;
   box-sizing: border-box;
-  width: calc(100% + 16px);
+  width: 100%;
 }
 
 .ps-layer-color-switch {
@@ -1492,8 +1507,8 @@
 }
 
 .ps-color-chip.white.active {
-  border: 1.5px solid #e11d48;
-  box-shadow: 0 0 6px rgba(225, 29, 72, 0.85);
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
   transform: scale(1.1);
 }
 
@@ -1503,8 +1518,8 @@
 }
 
 .ps-color-chip.black.active {
-  border: 1.5px solid #e11d48;
-  box-shadow: 0 0 6px rgba(225, 29, 72, 0.85);
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
   transform: scale(1.1);
 }
 
@@ -1587,10 +1602,10 @@
 }
 
 .vizmaker-layer-action-btn.delete-btn:hover:not(:disabled) {
-  background: rgba(225, 29, 72, 0.22);
-  border-color: rgba(225, 29, 72, 0.6);
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.5);
   color: #fb7185;
-  box-shadow: 0 0 8px rgba(225, 29, 72, 0.35);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.3);
 }
 
 /* Photoshop Toolbar Color Switcher (Top Toolbar) */
@@ -1636,10 +1651,9 @@
 /* ── Photoshop Advanced Layers Panel Controls ────────────────────────────── */
 
 .ps-layers-top-controls {
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1673,7 +1687,7 @@
 }
 
 .ps-blend-mode-select:hover:not(:disabled) {
-  border-color: rgba(225, 29, 72, 0.5);
+  border-color: rgba(255, 255, 255, 0.35);
   background: #202028;
 }
 
@@ -1684,7 +1698,7 @@
 
 .ps-blend-mode-select optgroup {
   background: #121218;
-  color: #fb7185;
+  color: #94a3b8;
   font-weight: 700;
   font-size: 10px;
   letter-spacing: 0.5px;
@@ -1734,7 +1748,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #e11d48;
+  background: #ffffff;
   cursor: pointer;
 }
 
@@ -1784,14 +1798,14 @@
 }
 
 .ps-mini-btn.active-lock {
-  border-color: rgba(251, 191, 36, 0.6);
-  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .ps-layer-count-badge {
-  background: rgba(225, 29, 72, 0.2);
-  border: 1px solid rgba(225, 29, 72, 0.4);
-  color: #f43f5e;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
   font-size: 10px;
   font-weight: 700;
   padding: 1px 5px;

@@ -1728,42 +1728,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         onClose={onClose}
       />
 
-      {showLayerStack && (
-        <LayersPanel
-          onClose={() => setShowLayerStack(false)}
-          layers={inpaintLayers}
-          activeLayerId={activeLayerId}
-          onSelectLayer={handleSelectLayer}
-          onToggleLayerVisibility={handleToggleLayerVisibility}
-          onDeleteLayer={handleDeleteLayer}
-          onAddLayer={handleAddLayer}
-          onDuplicateLayer={handleDuplicateLayer}
-          onInvertMask={handleInvertMask}
-          onChangeBlendMode={handleChangeBlendMode}
-          onChangeOpacity={handleChangeOpacity}
-          onToggleLock={handleToggleLock}
-          onReorderLayers={handleReorderLayers}
-          onRenameLayer={handleRenameLayer}
-          baseImage={resolvedBaseImage || baseOriginalImage}
-          baseImageVisible={baseImageVisible}
-          onToggleBaseImageVisibility={() => setBaseImageVisible(v => !v)}
-          baseImageOpacity={baseImageOpacity}
-          onChangeBaseOpacity={setBaseImageOpacity}
-          currentMaskPreviewUrl={maskPreviewUrl}
-          hasActiveMask={hasSelectionContent || Boolean(maskPreviewUrl)}
-          maskVisible={layerVisibility.selection}
-          maskOpacity={maskOverlayOpacity}
-          maskBlendMode={maskOverlayBlendMode}
-          onChangeMaskBlendMode={setMaskOverlayBlendMode}
-          onChangeMaskOpacity={(op) => setMaskOverlayOpacity(op / 100)}
-          isGenerating={isGenActive}
-          generatingPrompt={maskPrompt}
-          activeMaskColor={psMaskColor}
-          onToggleMaskColor={() => setPsMaskColor(c => c === 'white' ? 'black' : 'white')}
-          onExportPsd={handleExportPsd}
-        />
-      )}
-
       <div
         className="mask-canvas-wrapper"
         ref={wrapperRef}
@@ -2229,7 +2193,102 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           />
         )}
 
+        {/* Floating Bottom Prompt Bar inside Canvas Viewport */}
+        {showGenerateButton && (
+          <MaskPromptBar
+            prompt={maskPrompt}
+            onPromptChange={(newPrompt) => {
+              setMaskPrompt(newPrompt);
+              setGlobalPrompt(newPrompt);
+            }}
+            onGenerate={() => void handleGenerate()}
+            isGenerating={isGenActive}
+            cost={cost}
+            userCredits={userCredits}
+            isArabicUI={false}
+          />
+        )}
+
+        {/* Floating Canvas Viewport Zoom HUD (Part of Image Area / مساحة الصورة) */}
+        <div className="mask-viewport-zoom-hud">
+          <button
+            type="button"
+            className="mask-viewport-zoom-btn"
+            onClick={() => setZoomScale((z) => Math.max(0.2, z * 0.85))}
+            title="Zoom Out (-)"
+          >
+            <Minus size={13} />
+          </button>
+          <button
+            type="button"
+            className="mask-viewport-zoom-text"
+            onClick={() => {
+              setZoomScale(1);
+              setPanOffset({ x: 0, y: 0 });
+            }}
+            title="Reset Zoom & Pan (Ctrl+0)"
+          >
+            {Math.round(zoomScale * 100)}%
+          </button>
+          <button
+            type="button"
+            className="mask-viewport-zoom-btn"
+            onClick={() => setZoomScale((z) => Math.min(6, z * 1.18))}
+            title="Zoom In (+)"
+          >
+            <Plus size={13} />
+          </button>
+          <button
+            type="button"
+            className="mask-viewport-zoom-btn"
+            onClick={() => {
+              setZoomScale(1);
+              setPanOffset({ x: 0, y: 0 });
+            }}
+            title="Fit to Screen (1:1)"
+            style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.14)', marginLeft: '2px', paddingLeft: '6px' }}
+          >
+            <Maximize2 size={12} />
+          </button>
+        </div>
       </div>
+
+      {/* Docked Right Layers Panel (Desktop Studio Layout) */}
+      {showLayerStack && (
+        <LayersPanel
+          onClose={() => setShowLayerStack(false)}
+          layers={inpaintLayers}
+          activeLayerId={activeLayerId}
+          onSelectLayer={handleSelectLayer}
+          onToggleLayerVisibility={handleToggleLayerVisibility}
+          onDeleteLayer={handleDeleteLayer}
+          onAddLayer={handleAddLayer}
+          onDuplicateLayer={handleDuplicateLayer}
+          onInvertMask={handleInvertMask}
+          onChangeBlendMode={handleChangeBlendMode}
+          onChangeOpacity={handleChangeOpacity}
+          onToggleLock={handleToggleLock}
+          onReorderLayers={handleReorderLayers}
+          onRenameLayer={handleRenameLayer}
+          baseImage={resolvedBaseImage || baseOriginalImage}
+          baseImageVisible={baseImageVisible}
+          onToggleBaseImageVisibility={() => setBaseImageVisible(v => !v)}
+          baseImageOpacity={baseImageOpacity}
+          onChangeBaseOpacity={setBaseImageOpacity}
+          currentMaskPreviewUrl={maskPreviewUrl}
+          hasActiveMask={hasSelectionContent || Boolean(maskPreviewUrl)}
+          maskVisible={layerVisibility.selection}
+          maskOpacity={maskOverlayOpacity}
+          maskBlendMode={maskOverlayBlendMode}
+          onChangeMaskBlendMode={setMaskOverlayBlendMode}
+          onChangeMaskOpacity={(op) => setMaskOverlayOpacity(op / 100)}
+          isGenerating={isGenActive}
+          generatingPrompt={maskPrompt}
+          activeMaskColor={psMaskColor}
+          onToggleMaskColor={() => setPsMaskColor(c => c === 'white' ? 'black' : 'white')}
+          onExportPsd={handleExportPsd}
+        />
+      )}
 
       {/* Smart Color Range & Luma Mask Isolation Studio Modal */}
       <ColorRangeModal
@@ -2251,64 +2310,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           });
         }}
       />
-
-      {showGenerateButton && (
-        <MaskPromptBar
-          prompt={maskPrompt}
-          onPromptChange={(newPrompt) => {
-            setMaskPrompt(newPrompt);
-            setGlobalPrompt(newPrompt);
-          }}
-          onGenerate={() => void handleGenerate()}
-          isGenerating={isGenActive}
-          cost={cost}
-          userCredits={userCredits}
-          isArabicUI={false}
-        />
-      )}
-
-      {/* Floating Canvas Viewport Zoom HUD (Part of Image Area / مساحة الصورة) */}
-      <div className="mask-viewport-zoom-hud">
-        <button
-          type="button"
-          className="mask-viewport-zoom-btn"
-          onClick={() => setZoomScale((z) => Math.max(0.2, z * 0.85))}
-          title="Zoom Out (-)"
-        >
-          <Minus size={13} />
-        </button>
-        <button
-          type="button"
-          className="mask-viewport-zoom-text"
-          onClick={() => {
-            setZoomScale(1);
-            setPanOffset({ x: 0, y: 0 });
-          }}
-          title="Reset Zoom & Pan (Ctrl+0)"
-        >
-          {Math.round(zoomScale * 100)}%
-        </button>
-        <button
-          type="button"
-          className="mask-viewport-zoom-btn"
-          onClick={() => setZoomScale((z) => Math.min(6, z * 1.18))}
-          title="Zoom In (+)"
-        >
-          <Plus size={13} />
-        </button>
-        <button
-          type="button"
-          className="mask-viewport-zoom-btn"
-          onClick={() => {
-            setZoomScale(1);
-            setPanOffset({ x: 0, y: 0 });
-          }}
-          title="Fit to Screen (1:1)"
-          style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.14)', marginLeft: '2px', paddingLeft: '6px' }}
-        >
-          <Maximize2 size={12} />
-        </button>
-      </div>
     </div>
   );
 };

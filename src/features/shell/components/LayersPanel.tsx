@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  ChevronUp, Eye, EyeOff, Lock, Unlock, Plus, Trash2, Loader2, Sparkles, 
+  Layers, X, Eye, EyeOff, Lock, Unlock, Plus, Trash2, Loader2, 
   Link2, Copy, Contrast, ArrowUp, ArrowDown, Paintbrush2, ArrowLeftRight, FileCode
 } from 'lucide-react';
 import { useResolvedImage } from '../../../hooks';
@@ -12,7 +12,7 @@ const LayerThumbnail: React.FC<{ rawSrc?: string | null; alt: string; className?
   if (!safeSrc) {
     return (
       <div className="vizmaker-empty-thumb" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#111' }}>
-        <Loader2 size={10} className="spin" style={{ color: '#e11d48' }} />
+        <Loader2 size={10} className="spin" style={{ color: '#ffffff' }} />
       </div>
     );
   }
@@ -236,18 +236,18 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   );
 
   return (
-    <div className="vizmaker-layers-overlay-panel ps-layers-panel">
-      {/* Header */}
-      <div className="vizmaker-layers-header">
-        <div className="vizmaker-layers-title-row">
-          <Sparkles size={13} style={{ color: '#e11d48' }} />
-          <span>{isAr ? 'الطبقات' : 'Layers'}</span>
+    <div className="mask-layers-docked-panel ps-layers-panel">
+      {/* Docked Layers Header */}
+      <div className="mask-layers-dock-header">
+        <div className="mask-layers-title-row">
+          <Layers size={14} className="mask-layers-header-icon" />
+          <span className="mask-layers-title-text">{isAr ? 'الطبقات' : 'Layers'}</span>
           <span className="ps-layer-count-badge" title={isAr ? `${totalLayerCount} طبقات نشطة` : `${totalLayerCount} Layers Active`}>
             {totalLayerCount}
           </span>
         </div>
-        <button type="button" className="vizmaker-layers-close-btn" onClick={onClose} title={isAr ? 'إغلاق لوحة الطبقات' : 'Close Layers'}>
-          <ChevronUp size={14} />
+        <button type="button" className="mask-layers-close-btn" onClick={onClose} title={isAr ? 'إغلاق لوحة الطبقات' : 'Close Layers'}>
+          <X size={14} />
         </button>
       </div>
 
@@ -335,19 +335,19 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               onClick={() => onToggleLock && onToggleLock(activeLayerId)}
               title={isLayerLocked ? (isAr ? 'إلغاء قفل الطبقة' : 'Unlock Layer') : (isAr ? 'قفل الطبقة' : 'Lock Layer')}
             >
-              {isLayerLocked ? <Lock size={11} style={{ color: '#fbbf24' }} /> : <Unlock size={11} />}
+              {isLayerLocked ? <Lock size={11} style={{ color: '#ffffff' }} /> : <Unlock size={11} />}
             </button>
           </div>
         )}
       </div>
 
       {/* Layers Stack List */}
-      <div className="vizmaker-layers-list ps-layers-list">
+      <div className="mask-layers-list ps-layers-list">
         {/* Active Generating Layer Indicator */}
         {isGenerating && (
-          <div className="vizmaker-layer-item ps-layer-item generating active">
+          <div className="mask-layer-item ps-layer-item generating active">
             <div className="vizmaker-layer-eye-btn">
-              <Loader2 size={13} className="spin" style={{ color: '#e11d48' }} />
+              <Loader2 size={13} className="spin" style={{ color: '#ffffff' }} />
             </div>
             <div className="ps-thumb-group">
               <div className="ps-thumb ps-thumb-image">
@@ -358,7 +358,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                 )}
               </div>
               <div className="ps-thumb-link">
-                <Link2 size={11} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                <Link2 size={11} style={{ color: 'rgba(255,255,255,0.5)' }} />
               </div>
               <div className="ps-thumb ps-thumb-mask active-mask-target">
                 {currentMaskPreviewUrl ? (
@@ -377,12 +377,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         {/* Live Active Drawing / Mask Selection Layer */}
         {showActiveMaskRow && !isGenerating && (
           <div 
-            className={`vizmaker-layer-item ps-layer-item ${isMaskActive ? 'active active-mask-layer' : ''}`}
-            style={{ 
-              borderColor: isMaskActive ? '#e11d48' : 'rgba(225, 29, 72, 0.4)',
-              boxShadow: isMaskActive ? '0 0 10px rgba(225, 29, 72, 0.35)' : undefined,
-              cursor: 'pointer'
-            }}
+            className={`mask-layer-item ps-layer-item active-mask-layer ${isMaskActive ? 'active' : ''}`}
             onClick={() => onSelectLayer('active-mask', 'mask')}
           >
             <button 
@@ -395,7 +390,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               title={maskVisible !== false ? 'Hide Mask Overlay (👁️)' : 'Show Mask Overlay'}
             >
               {maskVisible !== false ? (
-                <Eye size={13} className="vizmaker-layer-eye" style={{ color: '#e11d48' }} />
+                <Eye size={13} className="vizmaker-layer-eye" />
               ) : (
                 <EyeOff size={13} className="vizmaker-layer-eye off" />
               )}
@@ -403,7 +398,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
 
             <div className="ps-thumb-group">
               <div 
-                className="ps-thumb ps-thumb-image"
+                className={`ps-thumb ps-thumb-image ${isMaskActive && !isBaseActive ? '' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectLayer('active-mask', 'image');
@@ -417,11 +412,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                 )}
               </div>
               <div className="ps-thumb-link">
-                <Link2 size={11} style={{ color: '#e11d48' }} />
+                <Link2 size={11} style={{ color: 'rgba(255, 255, 255, 0.6)' }} />
               </div>
               <div 
                 className={`ps-thumb ps-thumb-mask selected-target`} 
-                style={{ borderColor: '#e11d48', boxShadow: '0 0 6px rgba(225,29,72,0.6)' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectLayer('active-mask', 'mask');
@@ -432,17 +426,17 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   <img src={currentMaskPreviewUrl} alt="Live Mask Cutout" className="vizmaker-layer-img-preview" />
                 ) : (
                   <div className="ps-mask-empty-thumb" title="Empty Mask Stencil - Click to paint">
-                    <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                    <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.7)' }} />
                   </div>
                 )}
               </div>
             </div>
 
             <div className="ps-layer-info">
-              <span className="vizmaker-layer-title ps-layer-title" style={{ color: '#fecdd3', fontWeight: 600 }}>
+              <span className="vizmaker-layer-title ps-layer-title">
                 {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : (isAr ? 'قناع الطبقة' : 'Layer Mask')}
               </span>
-              <span className="ps-layer-blend-badge" style={{ background: 'rgba(225,29,72,0.2)', color: '#fda4af' }}>
+              <span className="ps-layer-blend-badge">
                 {maskBlendMode && maskBlendMode !== 'normal' ? maskBlendMode : (isAr ? 'قناع نشط' : 'Active Stencil')}
               </span>
             </div>
@@ -461,7 +455,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           return (
             <div
               key={layer.id}
-              className={`vizmaker-layer-item ps-layer-item ${isLayerActive ? 'active' : ''}`}
+              className={`mask-layer-item ps-layer-item ${isLayerActive ? 'active' : ''}`}
               onClick={() => onSelectLayer(layer.id, isMaskSelected ? 'mask' : 'image')}
             >
               <button
@@ -512,7 +506,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                     <img src={layer.maskPreviewUrl || layer.maskDataUrl || ''} alt="Mask" className="vizmaker-layer-img-preview" />
                   ) : (
                     <div className="ps-mask-empty-thumb" title="Empty Mask - Click to paint">
-                      <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                      <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
                     </div>
                   )}
                 </div>
@@ -561,7 +555,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
 
         {/* Base Image Layer (Locked background layer) */}
         <div
-          className={`vizmaker-layer-item ps-layer-item ${isBaseActive ? 'active' : ''}`}
+          className={`mask-layer-item ps-layer-item ${isBaseActive ? 'active' : ''}`}
           onClick={() => onSelectLayer('base', 'image')}
         >
           <button
@@ -596,7 +590,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       </div>
 
       {/* Footer with Mask Color Quick Switcher and Actions */}
-      <div className="vizmaker-layers-footer ps-layers-footer">
+      <div className="mask-layers-dock-footer ps-layers-footer">
         {onToggleMaskColor && (
           <div
             className="ps-layer-color-switch"
@@ -632,7 +626,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           {onInvertMask && (
             <button
               type="button"
-              className="vizmaker-layer-action-btn"
+              className="mask-layer-action-btn"
               onClick={() => onInvertMask(activeLayerId)}
               title={isAr ? 'عكس قناع الماسك (Ctrl+I)' : 'Invert Layer Mask (Ctrl+I)'}
               disabled={!activeLayerId || activeLayerId === 'base'}
@@ -645,7 +639,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           {onDuplicateLayer && (
             <button
               type="button"
-              className="vizmaker-layer-action-btn"
+              className="mask-layer-action-btn"
               onClick={() => onDuplicateLayer(activeLayerId)}
               title={isAr ? 'مضاعفة الطبقة الحالية (Ctrl+J)' : 'Duplicate Layer (Ctrl+J)'}
               disabled={!activeLayerId}
@@ -658,10 +652,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           {onExportPsd && (
             <button
               type="button"
-              className="vizmaker-layer-action-btn"
+              className="mask-layer-action-btn"
               onClick={onExportPsd}
               title={isAr ? 'تصدير كملف فوتوشوب (Export PSD)' : 'Export Layers as Photoshop PSD'}
-              style={{ color: '#38bdf8' }}
             >
               <FileCode size={13} />
             </button>
@@ -670,7 +663,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           {/* Add New Layer (+) */}
           <button
             type="button"
-            className="vizmaker-layer-action-btn"
+            className="mask-layer-action-btn"
             onClick={onAddLayer}
             title={isAr ? 'إضافة طبقة جديدة (+)' : 'Add New Layer (+)'}
           >
@@ -680,7 +673,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           {/* Delete Layer (Trash) */}
           <button
             type="button"
-            className="vizmaker-layer-action-btn delete-btn"
+            className="mask-layer-action-btn delete-btn"
             onClick={() => {
               if (isDeleteEnabled) {
                 onDeleteLayer(activeLayerId);
