@@ -1,4 +1,4 @@
-import type { HistoryEntry, NodeTreeData } from '../../../types/history';
+import type { HistoryEntry } from '../../../types/history';
 
 export interface BranchNode {
   id: string;

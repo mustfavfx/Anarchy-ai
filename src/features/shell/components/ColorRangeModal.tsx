@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, SunMedium, Pipette, Check, Plus, Minus, RefreshCw } from 'lucide-react';
+import { X, SunMedium, Pipette, Check, Plus, Minus } from 'lucide-react';
 import { ColorRangeEngine, type LumaRangeType } from '../../../services/mask/ColorRangeEngine';
 import './ColorRangeModal.css';
 

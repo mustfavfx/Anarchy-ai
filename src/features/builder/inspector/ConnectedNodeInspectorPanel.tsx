@@ -11,7 +11,7 @@
  * Used in EnlargedPreview.tsx — Enhance tab.
  */
 
-import React, { useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
 import { replicateService } from '../../../services/replicate';
 import { addHistoryEntry } from '../../../services/history/HistoryService';
@@ -45,7 +45,6 @@ export const ConnectedNodeInspectorPanel: React.FC<ConnectedNodeInspectorPanelPr
   onImageCommitted,
 }) => {
   const userCredits = useAIConfigStore((s) => s.userCredits);
-  const selectedNode   = useAIConfigStore((s) => s.selectedNode);
   const nodeImageUpdateFn = useAIConfigStore((s) => s.nodeImageUpdateFn);
 
   // Project memory — persisted in sessionStorage per-tab

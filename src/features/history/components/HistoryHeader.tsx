@@ -42,7 +42,7 @@ interface HistoryHeaderProps {
 
 export const HistoryHeader: React.FC<HistoryHeaderProps> = ({
   onClearClick,
-  onPdfExportClick,
+  onPdfExportClick: _onPdfExportClick,
   onExportAllPdfClick,
   showPinboard,
   setShowPinboard

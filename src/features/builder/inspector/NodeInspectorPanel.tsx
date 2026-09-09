@@ -59,7 +59,7 @@ export function NodeInspectorPanel(props: NodeInspectorPanelProps) {
   const {
     sourceImageUrl,
     allPresets,
-    detectedElements,
+    detectedElements: _detectedElements,
     spatialGrid,
     totalBalance,
     projectMemory,
@@ -70,7 +70,7 @@ export function NodeInspectorPanel(props: NodeInspectorPanelProps) {
 
   const [activeTab, setActiveTab] = useState<Tab>('enhance');
   const [ledger, setLedger] = useState<CreditLedgerEntry[]>([]);
-  const [classification, setClassification] = useState<ClassificationResult | null>(null);
+  const [classification, _setClassification] = useState<ClassificationResult | null>(null);
   const [preserveGeometry, setPreserveGeometry] = useState(true);
   const [maskSource, setMaskSource] = useState<MaskSource | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -100,7 +100,7 @@ export function NodeInspectorPanel(props: NodeInspectorPanelProps) {
     ? getSuggestedEngine(projectMemory, category, activeTab, candidateEngines)
     : null;
 
-  async function handleElementClick(point: { x: number; y: number }) {
+  async function _handleElementClick(point: { x: number; y: number }) {
     const element = pickElementAt(point, spatialGrid);
     if (element) setMaskSource({ kind: 'element', element });
   }

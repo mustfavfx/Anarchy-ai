@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useHistoryStore } from '@/stores/historyStore';
 import type { HistoryEntry } from '../types';
 import { semanticSearch } from '@/services/history/SemanticSearchService';
@@ -59,7 +59,6 @@ export function useHistoryFilters() {
     selectedFilter, 
     selectedModel, 
     sortAsc, 
-    collections, 
     activeSmartCollectionId,
     isGroupedView
   } = useHistoryStore();

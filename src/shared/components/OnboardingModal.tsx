@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Sparkles, ImagePlus, MousePointerClick } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import './OnboardingModal.css';

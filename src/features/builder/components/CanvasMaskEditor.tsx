@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Paintbrush, Eraser, RotateCcw, Trash2, Check, X, Sliders, MousePointerClick, Sparkles, ChevronDown
+  Paintbrush, Eraser, RotateCcw, Trash2, Check, X, Sliders, MousePointerClick, Sparkles
 } from 'lucide-react';
 import { PRESET_PROMPTS } from '../presetPrompts';
 import { PRESETS_TRANSLATIONS_AR } from '../presetPromptsAr';

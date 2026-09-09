@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Loader2, Minus, Plus, Maximize2 } from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
@@ -67,7 +67,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
   // Dual-Engine Workspace Mode: 'mask' (Inpaint Stencil) vs 'draw' (Visual Ink & Sketch)
   const [workspaceMode, setWorkspaceMode] = useState<'mask' | 'draw'>('mask');
-  const [inkColor, setInkColor] = useState<string>('#3b82f6');
+  const [inkColor, _setInkColor] = useState<string>('#3b82f6');
 
   const [baseOriginalImage, setBaseOriginalImage] = useState<string | null>(originalImage || image);
   useEffect(() => {
@@ -181,7 +181,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const [polygonCursor, setPolygonCursor] = useState<{ x: number; y: number } | null>(null);
 
   // Keyboard Shortcuts HUD Toggle
-  const [showShortcutHelp, setShowShortcutHelp] = useState<boolean>(false);
+  const [_showShortcutHelp, _setShowShortcutHelp] = useState<boolean>(false);
 
   const [brushSize, setBrushSize] = useState(34);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
@@ -227,7 +227,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const [hasCopiedMask, setHasCopiedMask] = useState<boolean>(false);
   const [maskOverlayOpacity, setMaskOverlayOpacity] = useState<number>(0.55);
   const maskOpacity = maskOverlayOpacity;
-  const [selectedLayerId, setSelectedLayerId] = useState<LayerId>('image');
+  const [_selectedLayerId, _setSelectedLayerId] = useState<LayerId>('image');
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
     image: true,
     arrows: true,
@@ -236,7 +236,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const [hasSelectionContent, setHasSelectionContent] = useState(false);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
 
-  const { canUndo, canRedo, pushHistory, undo, redo, resetHistory, initHistory } = useMaskHistory(
+  const { canUndo, canRedo, pushHistory, undo, redo, resetHistory: _resetHistory, initHistory } = useMaskHistory(
     canvasRef,
     onMaskChange
   );
@@ -538,8 +538,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     });
   }, [liveModel, maskPrompt]);
 
-  const exportMask = exportBinaryMask;
-
   const invertCurrentMask = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d', { willReadFrequently: true });
@@ -740,8 +738,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
     const rawX = (clientX - rect.left) * scaleX;
     const rawY = (clientY - rect.top) * scaleY;
-    let finalX = Math.max(0, Math.min(canvas.width, rawX));
-    let finalY = Math.max(0, Math.min(canvas.height, rawY));
+    const finalX = Math.max(0, Math.min(canvas.width, rawX));
+    const finalY = Math.max(0, Math.min(canvas.height, rawY));
 
 
     return {
@@ -1658,8 +1656,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   }
 
   const cropCssRect = maskTool === 'crop' && crop.cropRect ? crop.getCropCssRect() : null;
-  const activeModelName = aiConfig.model || 'Nano Banana 2';
-  const activeResolution = aiConfig.resolution || '1K';
 
   return (
     <div className={`mask-canvas-container ${className}`}>
@@ -1793,7 +1789,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             crop.onCropWrapperMove(e);
           }
         }}
-        onMouseUp={(e) => {
+        onMouseUp={() => {
           if (isDraggingSplit) {
             setIsDraggingSplit(false);
             return;
@@ -1803,7 +1799,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
             crop.onCropWrapperUp();
           }
         }}
-        onMouseLeave={(e) => {
+        onMouseLeave={() => {
           if (isDraggingSplit) {
             setIsDraggingSplit(false);
           }

@@ -1,6 +1,6 @@
 import type { IHistoryRepository, PaginatedResult } from './IHistoryRepository';
 import { IndexedDBRepository } from '../storage/IndexedDBRepository';
-import { HistoryEventBus, type TypedHistoryEvent, type HistoryEventType } from './HistoryEventBus';
+import { HistoryEventBus, type TypedHistoryEvent } from './HistoryEventBus';
 import { SearchEngine } from '../timeline/SearchEngine';
 import { CommandEngine, BaseCommand } from '../commands/CommandEngine';
 import { RestorePipeline } from './RestorePipeline';

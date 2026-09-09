@@ -18,7 +18,7 @@ export const MaskPromptBar: React.FC<MaskPromptBarProps> = ({
   isGenerating,
   cost,
   userCredits,
-  isArabicUI = false,
+  isArabicUI: _isArabicUI = false,
 }) => {
   return (
     <div className="vizmaker-bottom-prompt-bar-container">

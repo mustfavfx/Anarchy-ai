@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Folder, Image as ImageIcon, History, Sparkles, 
-  Terminal, X, ChevronRight, Plus, Settings, FolderOpen, Layers
+  Search, Folder, Image as ImageIcon, Sparkles, 
+  Terminal, X, ChevronRight
 } from 'lucide-react';
 import { listProjects, type ProjectMeta } from '../../services/projects/ProjectService';
 import { loadEntries, type HistoryEntry } from '../../services/history/HistoryService';

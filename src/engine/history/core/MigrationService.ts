@@ -1,6 +1,5 @@
 import { IndexedDBAdapter } from '../storage/IndexedDBAdapter';
 import { ValidationService } from './ValidationService';
-import type { HistoryEntry } from '../../../types/history';
 
 export class MigrationService {
   static async migrateLegacyStorage(): Promise<number> {

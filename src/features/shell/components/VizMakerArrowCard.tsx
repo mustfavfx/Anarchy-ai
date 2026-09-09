@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ImagePlus, X, Trash2, Sparkles, GripHorizontal, Minimize2, Maximize2 } from 'lucide-react';
+import { ImagePlus, X, Trash2, GripHorizontal, Minimize2 } from 'lucide-react';
 import './VizMakerArrowCard.css';
 
 export interface ArrowNodeItem {

@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-serve(async (req) => {
+serve(async (_req) => {
   const apiKey = Deno.env.get('REVE_API_KEY');
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'REVE_API_KEY is not set on the server' }), {

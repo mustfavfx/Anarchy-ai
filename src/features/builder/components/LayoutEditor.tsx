@@ -17,7 +17,7 @@ import {
   ChevronDown, ChevronRight, Edit3, MousePointer, SquareDashed, PenTool,
   Box, Type, FileText, Image as ImageIcon, Crop, Check, Trash2, Sliders,
   Shuffle, Upload, Camera, Paperclip, RotateCcw, ZoomIn, ZoomOut, Maximize,
-  Download, Scan, AtSign, ArrowUp, MessageSquare, Key, Coins
+  Download, Scan, AtSign, ArrowUp, Key, Coins
 } from 'lucide-react';
 import { anarchyService } from '../../../services/anarchy/AnarchyService';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
@@ -335,7 +335,7 @@ interface ChatMessage {
   };
   const [askAnarchyPrompt, setAskAnarchyPrompt] = useState<string>('');
   const [showMentionMenu, setShowMentionMenu] = useState<boolean>(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+  const [_chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       sender: 'agent',

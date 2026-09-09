@@ -194,29 +194,34 @@ export function openImageDB(): Promise<IDBDatabase> {
 }
 
 /** Helper to retrieve all keys and values from a given store */
-function getAllKeysAndValues(storeName: string): Promise<Record<string, any>> {
-  return new Promise(async (resolve, reject) => {
+async function getAllKeysAndValues(storeName: string): Promise<Record<string, any>> {
+  const db = await openImageDB();
+  return new Promise((resolve, reject) => {
     try {
-      const db = await openImageDB();
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
       const req = store.openCursor();
       const result: Record<string, any> = {};
 
       req.onsuccess = async (event) => {
-        const cursor = (event.target as any).result;
-        if (cursor) {
-          const key = cursor.key as string;
-          const val = cursor.value;
-          if (val instanceof Blob) {
-            result[key] = await blobToDataURL(val);
+        try {
+          const cursor = (event.target as any).result;
+          if (cursor) {
+            const key = cursor.key as string;
+            const val = cursor.value;
+            if (val instanceof Blob) {
+              result[key] = await blobToDataURL(val);
+            } else {
+              result[key] = val;
+            }
+            cursor.continue();
           } else {
-            result[key] = val;
+            db.close();
+            resolve(result);
           }
-          cursor.continue();
-        } else {
+        } catch (err) {
           db.close();
-          resolve(result);
+          reject(err);
         }
       };
       req.onerror = () => {
@@ -224,6 +229,7 @@ function getAllKeysAndValues(storeName: string): Promise<Record<string, any>> {
         reject(new Error(req.error?.message ?? 'Cursor error'));
       };
     } catch (err) {
+      db.close();
       reject(err);
     }
   });

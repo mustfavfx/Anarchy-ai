@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronUp, Eye, EyeOff, Lock, Unlock, Plus, Trash2, Loader2, Sparkles, 
-  Link2, Copy, Contrast, ArrowUp, ArrowDown, Edit3, Paintbrush2, ArrowLeftRight, FileCode
+  Link2, Copy, Contrast, ArrowUp, ArrowDown, Paintbrush2, ArrowLeftRight, FileCode
 } from 'lucide-react';
 import { useResolvedImage } from '../../../hooks';
 import { useTranslation } from '../../../services/i18n';

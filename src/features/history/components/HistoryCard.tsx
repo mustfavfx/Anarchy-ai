@@ -153,7 +153,7 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
                 <span className="grid-item-model">
                   {mainEntry?.model ? mainEntry.model.split(' ').slice(0, 2).join(' ') : 'Workflow'}
                 </span>
-                <span className="grid-item-date">{getDateLabel(group!.timestamp || group!.createdAt || Date.now())}</span>
+                <span className="grid-item-date">{getDateLabel(group!.timestamp || group!.createdAt || 0)}</span>
               </div>
             </div>
           </>

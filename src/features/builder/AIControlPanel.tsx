@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ChevronDown, Check, Wand2, ImagePlus, Maximize2, 
-  Film, Zap, Sparkles, Lock,
+  Film, Zap, Sparkles,
   Banana,
   Flame, Crown, Star,
   Sprout, Clapperboard, Brain, Layers, Rocket, Globe,

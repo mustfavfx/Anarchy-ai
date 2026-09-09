@@ -25,10 +25,11 @@ export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark
   const [isOpen, setIsOpen] = useState(false);
   
   const frameTimes = useRef<number[]>([]);
-  const lastFrameTime = useRef<number>(performance.now());
+  const lastFrameTime = useRef<number>(0);
 
   useEffect(() => {
     let animId: number;
+    lastFrameTime.current = performance.now();
     
     const tick = () => {
       const now = performance.now();

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { t, setLanguage, getLanguage, LANGUAGE_STORAGE_KEY } from './index';
+import { t, setLanguage, getLanguage } from './index';
 
 describe('i18n Service', () => {
   beforeEach(() => {

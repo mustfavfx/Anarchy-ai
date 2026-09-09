@@ -42,28 +42,27 @@ export interface HistoryMetrics {
  * - Temporal stats (today, this week)
  * - Graph complexity stats (avg/peak node count)
  */
-export function useHistoryMetrics(entries: HistoryEntry[]): HistoryMetrics {
-  return useMemo(() => {
-    if (entries.length === 0) {
-      return {
-        totalGenerations: 0,
-        totalUpscales: 0,
-        totalEdits: 0,
-        avgDurationMs: 0,
-        fastestMs: 0,
-        slowestMs: 0,
-        totalDurationMs: 0,
-        topModel: '',
-        modelUsage: {},
-        todayCount: 0,
-        weekCount: 0,
-        estimatedCreditsUsed: 0,
-        avgNodeCount: 0,
-        peakNodeCount: 0,
-      };
-    }
+function computeHistoryMetrics(entries: HistoryEntry[]): HistoryMetrics {
+  if (entries.length === 0) {
+    return {
+      totalGenerations: 0,
+      totalUpscales: 0,
+      totalEdits: 0,
+      avgDurationMs: 0,
+      fastestMs: 0,
+      slowestMs: 0,
+      totalDurationMs: 0,
+      topModel: '',
+      modelUsage: {},
+      todayCount: 0,
+      weekCount: 0,
+      estimatedCreditsUsed: 0,
+      avgNodeCount: 0,
+      peakNodeCount: 0,
+    };
+  }
 
-    const now = Date.now();
+  const now = Date.now();
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const weekStart = now - 7 * 24 * 60 * 60 * 1000;
@@ -138,5 +137,8 @@ export function useHistoryMetrics(entries: HistoryEntry[]): HistoryMetrics {
       avgNodeCount: nodeCountEntries > 0 ? Math.round(totalNodeCount / nodeCountEntries) : 0,
       peakNodeCount,
     };
-  }, [entries]);
+}
+
+export function useHistoryMetrics(entries: HistoryEntry[]): HistoryMetrics {
+  return useMemo(() => computeHistoryMetrics(entries), [entries]);
 }

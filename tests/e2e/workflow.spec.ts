@@ -107,7 +107,7 @@ test.describe('Anarchy AI Phase B & C E2E Journeys', () => {
     await page.addInitScript(() => {
       // Mock window fetch to intercept Supabase edge functions
       const originalFetch = window.fetch;
-      window.fetch = async function (input: any, init?: any) {
+      window.fetch = async function (input: any, ...args: any[]) {
         const url = typeof input === 'string' ? input : (input && input.url) || '';
         if (url.includes('/functions/v1/replicate-proxy')) {
           return new Response(JSON.stringify({
@@ -128,7 +128,7 @@ test.describe('Anarchy AI Phase B & C E2E Journeys', () => {
             headers: { 'Content-Type': 'application/json' }
           });
         }
-        return originalFetch.apply(this, arguments as any);
+        return originalFetch.apply(this, [input, ...args] as any);
       };
 
       // Set mock Supabase session in localStorage
@@ -160,7 +160,7 @@ test.describe('Anarchy AI Phase B & C E2E Journeys', () => {
       window.localStorage.setItem('anarchy_onboarding_completed', 'true');
 
       const mockFiles: Record<string, string> = {};
-      const listeners: Record<string, Function[]> = {};
+      const _listeners: Record<string, ((...args: any[]) => void)[]> = {};
 
       // 1. Mock Event Plugin Internals to prevent unregisterListener errors
       (window as any).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
@@ -214,7 +214,7 @@ test.describe('Anarchy AI Phase B & C E2E Journeys', () => {
               return null;
           }
         },
-        transformCallback: (callback: Function, once: boolean) => {
+        transformCallback: (callback: (...args: any[]) => any, once: boolean) => {
           const id = Math.floor(Math.random() * 1000000);
           (window as any)[`_${id}`] = (event: any) => {
             if (once) delete (window as any)[`_${id}`];

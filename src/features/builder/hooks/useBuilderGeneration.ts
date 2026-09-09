@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../auth/AuthContext';
-import { checkCreditBalance, deductCredits, getModelCost, getUnifiedCost, DEV_MODE, refundCredits, getUserCredit } from '../../../services/credit/creditService';
+import { checkCreditBalance, deductCredits, getUnifiedCost, DEV_MODE, refundCredits, getUserCredit } from '../../../services/credit/creditService';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { logger } from '../../../utils/logger';

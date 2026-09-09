@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { List } from 'react-window';
 const AnyList = List as React.ComponentType<any>;
-import { Pencil, Copy, Trash2, Loader2, Sparkles, Layers, Image as ImageIcon, Cpu, Network } from 'lucide-react';
+import { Pencil, Copy, Trash2, Loader2, Sparkles, Layers, Cpu } from 'lucide-react';
 import type { ProjectMeta } from '../../../services/projects/ProjectService';
 import { timeAgo } from '../../../services/projects/ProjectService';
 import { ProjectImage } from '../ProjectsPage';

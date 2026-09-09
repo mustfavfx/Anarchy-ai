@@ -11,15 +11,14 @@ import {
   Search, PersonStanding, Layers,
   Clapperboard, BookImage, CircleDashed, PenLine, Paintbrush,
   SwatchBook, PanelTop, Ruler, Scissors, Box, Map,
-  Aperture, BookOpen, Coins, Languages, GitBranch,
+  Aperture, BookOpen, Coins, GitBranch,
   type LucideIcon
 } from 'lucide-react';
 import { PRESET_PROMPTS, VIDEO_PRESET_PROMPTS, GENERATE_PRESET_PROMPTS } from '../presetPrompts';
 import { FillPromptModal } from './FillPromptModal';
 import { AutoPromptButton } from './AutoPromptButton';
-import { getModelCost, getUnifiedCost } from '../../../services/credit/creditService';
+import { getUnifiedCost } from '../../../services/credit/creditService';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
-import { useNotificationStore } from '../../../stores/notificationStore';
 
 const PRESET_ICON_MAP: Record<string, LucideIcon> = {
   Camera, Sparkles, Building2, HardHat, Blend,
@@ -65,10 +64,10 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   hasUpscaleFactor,
   hasSourceWithImage,
   liveModel,
-  liveResolution,
-  liveQuality,
-  livePruna,
-  upscaleFactor,
+  liveResolution: _liveResolution,
+  liveQuality: _liveQuality,
+  livePruna: _livePruna,
+  upscaleFactor: _upscaleFactor,
   userCredits,
   isTrial = true,
   activeRole = 'render',
@@ -79,7 +78,6 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   const [showPresets, setShowPresets] = useState(false);
   const [showFillPromptModal, setShowFillPromptModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const addNotification = useNotificationStore((s) => s.addNotification);
   const aiConfig = useAIConfigStore((s) => s.config);
 
   // ── Recent Prompts History ──────────────────────────────────────────────────

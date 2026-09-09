@@ -8,7 +8,6 @@ import {
   exportImageToDXFWithDialog,
   saveDXFFromServer,
   exportImagesToPDFWithDialog,
-  exportImagesToZipWithDialog,
   exportNodesToZipWithDialog,
 } from '../../../services/export';
 import type { DxfCalibration } from '../../../services/export';

@@ -1,6 +1,6 @@
-// @ts-ignore: Deno ESM import
+// @ts-expect-error: Deno ESM import
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
-// @ts-ignore: Deno ESM import
+// @ts-expect-error: Deno ESM import
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 
 declare const Deno: any;

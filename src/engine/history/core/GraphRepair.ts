@@ -1,5 +1,5 @@
 import type { NodeTreeData } from '../../../types/history';
-import { GraphValidator, type GraphValidationResult } from './GraphValidator';
+import { GraphValidator } from './GraphValidator';
 
 export interface RepairLog {
   repairedAt: number;

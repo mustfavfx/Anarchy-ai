@@ -4,10 +4,7 @@ import { useHistory } from './hooks/useHistory';
 import { useHistorySelection } from './hooks/useHistorySelection';
 import { useHistoryStore } from '@/stores/historyStore';
 import { useHistoryRestore } from './hooks/useHistoryRestore';
-import { buildWorkflowTreeForEntry, type HistoryTreeNode } from './components/WorkflowTreeRenderer';
-import type { NodeTreeData } from '@/types/history';
 import { HistoryHeader } from './components/HistoryHeader';
-import { HistoryFilters } from './components/HistoryFilters';
 import { HistoryGrid } from './components/HistoryGrid';
 import { HistoryMetricsBar } from './components/HistoryMetricsBar';
 import { PreviewModal } from './components/PreviewModal';
@@ -21,7 +18,7 @@ import type { Collection } from '../../services/history/CollectionService';
 import type { HistoryEntry } from './types';
 import { 
   X, Check, FolderHeart, Plus, CheckSquare, 
-  Square, Download, Trash2, Zap, Clock, Star
+  Square, Download, Trash2
 } from 'lucide-react';
 import { getHistoryNodeLabel } from '@/utils/nodeLabel';
 import './HistoryPage.css';

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '../../utils/logger';
 import { 
   Search, LayoutGrid, LayoutList, Image as ImageIcon,
-  Clock, Download, Copy, Trash2, Star, Send, Eye,
+  Clock, Download, Copy, Trash2, Star, Send,
   ArrowUpDown, FileDown, Check, X, Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -10,15 +10,13 @@ import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { 
   loadEntries, 
   deleteHistoryEntry, 
-  toggleStar, 
-  type HistoryEntry 
+  toggleStar
 } from '../../services/history/HistoryService';
 import { listProjects } from '../../services/projects/ProjectService';
 import { SESSION_KEYS } from '../../utils/storageKeys';
 import { exportImagesToPDFWithDialog } from '../../services/export';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useResolvedImage } from '../../hooks/useResolvedImage';
-import { useTranslation } from '../../services/i18n';
 import './LibraryPage.css';
 
 const LIBRARY_VIEW_MODE_KEY = 'anarchy_library_view_mode';
@@ -52,7 +50,6 @@ export const LibraryThumbnail: React.FC<{ url: string; alt: string; className?: 
 
 export const LibraryPage: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
   const addNotification = useNotificationStore(state => state.addNotification);
 
   const [assets, setAssets] = useState<LibraryAsset[]>([]);
@@ -160,7 +157,7 @@ export const LibraryPage: React.FC = () => {
 
   // Filter & sort
   const filteredAssets = useMemo(() => {
-    let list = assets.filter(item => {
+    const list = assets.filter(item => {
       if (search && !item.prompt.toLowerCase().includes(search.toLowerCase())) return false;
       if (filter === 'starred' && !item.starred) return false;
       if (filter === 'renders' && item.source !== 'history') return false;

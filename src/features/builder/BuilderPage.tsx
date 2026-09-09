@@ -31,11 +31,10 @@ import { useAuth } from '../auth/AuthContext';
 import { cacheLocalImage } from '../../services/history/HistoryService';
 import { CanvasHandoffService } from '../../services/canvas/CanvasHandoffService';
 import { getHistoryNodeLabel } from '@/utils/nodeLabel';
-import { restoreNodeTree } from '../../services/canvas/NodeTreeRestoreService';
 import { logger } from '../../utils/logger';
 import { STORAGE_KEYS, SESSION_KEYS } from '../../utils/storageKeys';
 import { invoke } from '@tauri-apps/api/core';
-import { watermarkService, getActiveWatermarkItems } from '../../services/watermark/WatermarkService';
+import { watermarkService } from '../../services/watermark/WatermarkService';
 
 // Hooks
 import { useBuilderCredits } from './hooks/useBuilderCredits';
@@ -70,9 +69,6 @@ import {
 } from './utils/builderHelpers';
 
 import './BuilderPage.css';
-
-// Check if running in a Tauri desktop environment
-const isTauri = (): boolean => typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 
 // Props for multi-tab support
 interface BuilderContentProps {
