@@ -18,7 +18,7 @@ import { MaskCompareView } from './mask/components/MaskCompareView';
 import { useMaskShortcuts } from './mask/hooks/useMaskShortcuts';
 import { useMaskTransform } from './mask/hooks/useMaskTransform';
 import { SmartSegmentationEngine } from '../../services/mask/SmartSegmentationEngine';
-import { RulerGuidesOverlay, type Guide, snapToGuides, snapToOrthoAngle } from './components/RulerGuidesOverlay';
+import { snapToOrthoAngle } from './components/RulerGuidesOverlay';
 import { ColorRangeModal } from './components/ColorRangeModal';
 import './MaskCanvas.css';
 
@@ -47,6 +47,7 @@ export interface MaskCanvasProps {
   showGenerateButton?: boolean;
   className?: string;
   isGenerating?: boolean;
+  onClose?: () => void;
 }
 
 export const MaskCanvas: React.FC<MaskCanvasProps> = ({
@@ -58,6 +59,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   showGenerateButton = true,
   className = '',
   isGenerating = false,
+  onClose,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,10 +98,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const [drawSubTool, setDrawSubTool] = useState<'brush' | 'arrow' | 'line' | 'rect' | 'circle'>('brush');
   const [arrowNodes, setArrowNodes] = useState<ArrowNodeItem[]>([]);
 
-  // Architectural Studio State: Ortho Angle Constraints & Snap Guides
+  // Architectural Studio State: Ortho Angle Constraints
   const [isOrthoMode, setIsOrthoMode] = useState<boolean>(false);
-  const [showRulers, setShowRulers] = useState<boolean>(true);
-  const [guides, setGuides] = useState<Guide[]>([]);
   const [showColorRangeModal, setShowColorRangeModal] = useState<boolean>(false);
 
   // Smart Auto-Segmentation (SAM) State
@@ -161,7 +161,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         );
 
         if (result && result.contourPoints.length > 2) {
-          const mappedContour = result.contourPoints.map((p) => ({
+          const mappedContour = result.contourPoints.map((p: { x: number; y: number }) => ({
             x: p.x / naturalScaleX,
             y: p.y / naturalScaleY,
           }));
@@ -743,11 +743,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     let finalX = Math.max(0, Math.min(canvas.width, rawX));
     let finalY = Math.max(0, Math.min(canvas.height, rawY));
 
-    if (guides.length > 0) {
-      const snapped = snapToGuides(finalX, finalY, guides, 8);
-      finalX = snapped.x;
-      finalY = snapped.y;
-    }
 
     return {
       x: finalX,
@@ -1558,7 +1553,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     setBrushHardness,
     setIsAltKeyDown,
     setIsOrthoMode,
-    setShowRulers,
     setIsSoloAlphaMode,
     setIsComparing,
     setSplitCompareMode,
@@ -1734,10 +1728,8 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         }}
         isOrthoMode={isOrthoMode}
         onToggleOrtho={() => setIsOrthoMode((prev) => !prev)}
-        showRulers={showRulers}
-        onToggleRulers={() => setShowRulers((prev) => !prev)}
         onOpenColorRange={() => setShowColorRangeModal(true)}
-        onClearGuides={() => setGuides([])}
+        onClose={onClose}
       />
 
       {showLayerStack && (
@@ -2233,26 +2225,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           <CropOverlay cropCssRect={cropCssRect} onApply={crop.applyCrop} onCancel={crop.clearCropRect} />
         )}
 
-        {/* Architectural Rulers & Magnetic Snap Guides Overlay */}
-        <RulerGuidesOverlay
-          visible={showRulers}
-          canvasRef={canvasRef}
-          wrapperRef={wrapperRef}
-          zoomScale={zoomScale}
-          panOffset={panOffset}
-          guides={guides}
-          onGuidesChange={setGuides}
-          cursorPos={cursorPos}
-          onClearGuides={() => {
-            setGuides([]);
-            useNotificationStore.getState().addNotification({
-              type: 'info',
-              title: 'Guides Cleared',
-              message: 'All magnetic guide lines removed.',
-              duration: 1500,
-            });
-          }}
-        />
       </div>
 
       {/* Smart Color Range & Luma Mask Isolation Studio Modal */}

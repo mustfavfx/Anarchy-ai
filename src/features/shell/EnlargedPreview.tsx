@@ -147,25 +147,29 @@ export const EnlargedPreview: React.FC = () => {
 
   return (
     <div className="enlarged-preview">
-      {/* ── Top bar ── */}
-      <div className="ep-topbar">
-        <div className="ep-tabs">
-          {(['preview', 'compare', 'draw', 'layout'] as const).map(t => {
-            const isVid = selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage);
-            if ((t === 'draw' || t === 'layout') && isVid) return null;
-            if (t === 'layout' && config.selectedTool !== 'anarchy-creator') return null;
-            if (t === 'draw' && !image) return null;
-            return (
-              <button
-                key={t}
-                className={`ep-tab ${tab === t ? 'active' : ''}`}
-                onClick={() => handleTabChange(t as any)}
-              >
-                {t === 'draw' ? 'Mask' : t === 'compare' ? 'Compare' : t === 'layout' ? 'Layers' : 'Preview'}
-              </button>
-            );
-          })}
-        </div>
+      {/* ── Top bar: Hidden in Mask mode since MaskCanvas has its own top toolbar ── */}
+      {tab !== 'draw' && (
+        <div className="ep-topbar">
+          {/* Tabs: Hidden in expand mode (preview) as requested (وتابات لا حاجة لها للظهور في وضع الاكسباند) */}
+          {tab !== 'preview' && (
+            <div className="ep-tabs">
+              {(['preview', 'compare', 'draw', 'layout'] as const).map(t => {
+                const isVid = selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage);
+                if ((t === 'draw' || t === 'layout') && isVid) return null;
+                if (t === 'layout' && config.selectedTool !== 'anarchy-creator') return null;
+                if (t === 'draw' && !image) return null;
+                return (
+                  <button
+                    key={t}
+                    className={`ep-tab ${tab === t ? 'active' : ''}`}
+                    onClick={() => handleTabChange(t as any)}
+                  >
+                    {t === 'draw' ? 'Mask' : t === 'compare' ? 'Compare' : t === 'layout' ? 'Layers' : 'Preview'}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
         <div className="ep-topbar-center">
           {image && tab === 'preview' && imgMeta && (
@@ -224,6 +228,7 @@ export const EnlargedPreview: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Fullscreen overlay */}
       {isFullscreen && image && (
@@ -341,6 +346,7 @@ export const EnlargedPreview: React.FC = () => {
                 image={getSafeSrc(resolvedImage, image) || null}
                 originalImage={getSafeSrc(resolvedOriginalImage, originalImage) || null}
                 showGenerateButton={true}
+                onClose={handleCloseEnlargedView}
                 isGenerating={
                   selectedNode?.state === 'generating' ||
                   selectedNode?.state === 'processing' ||

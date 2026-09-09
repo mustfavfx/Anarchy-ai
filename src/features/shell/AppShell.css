@@ -59,19 +59,24 @@
 }
 
 /* Hide non-canvas UI inside mini canvas */
+.app-content--mini-canvas .builder-tabs-bar,
+.app-content--mini-canvas .builder-recovery-banner,
 .app-content--mini-canvas .builder-prompt-container,
 .app-content--mini-canvas .builder-watermark,
 .app-content--mini-canvas .builder-stats,
 .app-content--mini-canvas .context-menu,
-.app-content--mini-canvas .builder-topbar {
+.app-content--mini-canvas .builder-topbar,
+.app-content--mini-canvas .builder-floating-toolbar {
   display: none !important;
 }
 
-/* Let ReactFlow fill the mini canvas fully */
+/* Let ReactFlow and MultiBuilder fill the mini canvas fully */
+.app-content--mini-canvas .multi-builder-container,
 .app-content--mini-canvas .builder-page,
 .app-content--mini-canvas .canvas-container {
   width: 100% !important;
   height: 100% !important;
+  overflow: hidden !important;
 }
 
 /* ── Enlarged mode layout: Preview fills left, RightSidebar has canvas+controls ── */

@@ -4,7 +4,7 @@ import {
   Crop, CornerDownRight, Paintbrush2, Eraser, Trash2, SlidersHorizontal,
   Contrast, Sparkles, Maximize2, Minimize2, PaintBucket, Columns, Eye,
   FolderPlus, FileDown, Download, Check, Copy, Share2,
-  Layers, RotateCcw, RotateCw, FileCode, Ruler, Compass, SunMedium,
+  Layers, RotateCcw, RotateCw, FileCode, Compass, SunMedium, X,
 } from 'lucide-react';
 
 export const MASK_COLOR_PRESETS = [
@@ -64,10 +64,8 @@ export interface MaskTopToolbarProps {
   onRedo: () => void;
   isOrthoMode?: boolean;
   onToggleOrtho?: () => void;
-  showRulers?: boolean;
-  onToggleRulers?: () => void;
   onOpenColorRange?: () => void;
-  onClearGuides?: () => void;
+  onClose?: () => void;
 }
 
 export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
@@ -118,10 +116,8 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
   onRedo,
   isOrthoMode = false,
   onToggleOrtho,
-  showRulers = true,
-  onToggleRulers,
   onOpenColorRange,
-  onClearGuides,
+  onClose,
 }) => {
   const [openDropdown, setOpenDropdown] = useState<'lasso' | 'pen' | 'size' | null>(null);
   const [showMaskSettings, setShowMaskSettings] = useState(false);
@@ -730,15 +726,6 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           )}
         </div>
 
-        {/* Architectural Rulers & Snap Guides */}
-        <button
-          type="button"
-          className={`mask-toolbar-btn ${showRulers ? 'active' : ''}`}
-          onClick={onToggleRulers}
-          title="Architectural Rulers & Snap Guides (Ctrl+R)"
-        >
-          <Ruler size={16} />
-        </button>
 
         {/* Ortho Angle Snap Mode (45° / 90°) */}
         <button
@@ -948,6 +935,18 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
         >
           <RotateCw size={15} />
         </button>
+
+        {onClose && (
+          <button
+            type="button"
+            className="mask-toolbar-btn mask-toolbar-close-btn"
+            onClick={onClose}
+            title="Back to canvas (Esc)"
+            style={{ marginLeft: '4px', color: 'rgba(255,255,255,0.75)' }}
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
     </div>
   );

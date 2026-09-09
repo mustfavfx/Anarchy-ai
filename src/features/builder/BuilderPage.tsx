@@ -264,6 +264,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     return undefined;
   });
   const setSelectedNode = useAIConfigStore((state) => state.setSelectedNode);
+  const storeSelectedNode = useAIConfigStore((state) => state.selectedNode);
   const setCompareSlot = useAIConfigStore((state) => state.setCompareSlot);
   const setConfig = useAIConfigStore((state) => state.setConfig);
   const isEnlargedView = useAIConfigStore((state) => state.isEnlargedView);
@@ -432,6 +433,28 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setFocusNodeFn(focusFn);
     return () => setFocusNodeFn(null);
   }, [fitBounds, getRFNode, setFocusNodeFn, setSelectedNodeId]);
+
+  // When in enlarged/expand mode (mini-canvas in sidebar), automatically focus and center
+  // the ReactFlow canvas on the active node being edited in Mask or Expand mode
+  useEffect(() => {
+    if (!isEnlargedView) return;
+    const targetNodeId = selectedNodeId || storeSelectedNode?.id;
+    if (!targetNodeId) return;
+
+    const centerTimer = setTimeout(() => {
+      const node = getRFNode(targetNodeId);
+      if (node) {
+        const w = node.width ?? 280;
+        const h = node.height ?? 220;
+        fitBounds(
+          { x: node.position.x, y: node.position.y, width: w, height: h },
+          { padding: 0.25, duration: 300 }
+        );
+      }
+    }, 120);
+
+    return () => clearTimeout(centerTimer);
+  }, [isEnlargedView, selectedNodeId, storeSelectedNode?.id, getRFNode, fitBounds]);
 
   // Generate thumbnail from canvas for project preview (used by persistence hook)
   const generateThumbnail = useCallback(async (): Promise<string | undefined> => {

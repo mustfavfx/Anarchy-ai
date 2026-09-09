@@ -17,7 +17,6 @@ export interface UseMaskShortcutsOptions {
   setBrushHardness: React.Dispatch<React.SetStateAction<number>>;
   setIsAltKeyDown: React.Dispatch<React.SetStateAction<boolean>>;
   setIsOrthoMode?: React.Dispatch<React.SetStateAction<boolean>>;
-  setShowRulers?: React.Dispatch<React.SetStateAction<boolean>>;
 
   // Inspection modes
   setIsSoloAlphaMode: React.Dispatch<React.SetStateAction<boolean>>;
@@ -72,7 +71,6 @@ export function useMaskShortcuts(options: UseMaskShortcutsOptions) {
     setBrushHardness,
     setIsAltKeyDown,
     setIsOrthoMode,
-    setShowRulers,
     setIsSoloAlphaMode,
     setIsComparing,
     setSplitCompareMode,
@@ -189,12 +187,7 @@ export function useMaskShortcuts(options: UseMaskShortcutsOptions) {
           setIsOrthoMode((prev) => !prev);
         }
       }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R')) {
-        e.preventDefault();
-        if (setShowRulers) {
-          setShowRulers((prev) => !prev);
-        }
-      }
+
       if (e.key === 'c' || e.key === 'C') {
         if (!e.ctrlKey && !e.metaKey) {
           setMaskTool('crop');
