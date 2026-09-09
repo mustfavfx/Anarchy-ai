@@ -92,6 +92,8 @@ const STATIONS: MenuStation[] = [
       { id: 'bytedance/seedream-5-pro', name: 'Seedream 5 Pro', badge: 'Pro' },
       { id: 'black-forest-labs/flux-2-pro', name: 'FLUX 2 Pro', badge: '8 Refs' },
       { id: 'openai/gpt-image-2', name: 'GPT Image 2' },
+      { id: 'openai/gpt-image-2.5-flare', name: 'GPT Image 2.5 (Flare)', badge: '2.5' },
+      { id: 'openai/gpt-image-2.5-sunburst', name: 'GPT Image 2.5 (Sunburst)', badge: '2.5' },
       { id: 'google/nano-banana-pro', name: 'Nano Banana Pro', badge: 'Pro' },
       { id: 'prunaai/p-image', name: 'Pruna P-Image', badge: 'Fast' },
       { id: 'krea/krea-2-large', name: 'Krea 2 Large', badge: 'Pro' }

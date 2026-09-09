@@ -52,6 +52,20 @@ export const INPAINT_ENGINE_REGISTRY: AIModelEngine[] = [
     creditCost: 2,
     maskCapability: 'binary_mask',
   },
+  {
+    id: 'openai/gpt-image-2.5-flare',
+    name: 'GPT Image 2.5 Flare',
+    role: 'inpaint',
+    creditCost: 3,
+    maskCapability: 'hybrid',
+  },
+  {
+    id: 'openai/gpt-image-2.5-sunburst',
+    name: 'GPT Image 2.5 Sunburst',
+    role: 'inpaint',
+    creditCost: 3,
+    maskCapability: 'hybrid',
+  },
 ];
 
 // ── Upscale Engines ──────────────────────────────────────────────────────────

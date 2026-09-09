@@ -17,6 +17,8 @@ export type ReplicateImageModel =
   | 'bytedance/seedream-5-pro'          // Seedream 5 Pro - ByteDance
   | 'black-forest-labs/flux-2-pro'      // FLUX 2 Pro - img2img + 8 ref images
   | 'openai/gpt-image-2'                // GPT Image 2 - OpenAI
+  | 'openai/gpt-image-2.5-flare'        // GPT Image 2.5 Flare - OpenAI
+  | 'openai/gpt-image-2.5-sunburst'     // GPT Image 2.5 Sunburst - OpenAI
   | 'google/nano-banana-pro'            // Nano Banana Pro (Gemini 3 Pro)
   | 'prunaai/p-image'                    // Pruna AI P-Image
   | 'krea/krea-2-large'                  // Krea 2 Large
@@ -263,6 +265,40 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     resolutions: ['auto', 'low', 'medium', 'high'],
     aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
     pricePerImage: 0.128,
+  },
+  // ── 4.1. GPT Image 2.5 Flare ───────────────────────────────────────────────
+  'openai/gpt-image-2.5-flare': {
+    supportsImg2Img: true,
+    supportsMultiImage: true,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 10,
+    resolutions: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
+    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
+    pricePerImage: 0.25,
+  },
+  // ── 4.2. GPT Image 2.5 Sunburst ────────────────────────────────────────────
+  'openai/gpt-image-2.5-sunburst': {
+    supportsImg2Img: true,
+    supportsMultiImage: true,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: false,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 10,
+    resolutions: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
+    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
+    pricePerImage: 0.25,
   },
   // ── 5. Nano Banana Pro (Gemini 3 Pro Image) ──────────────────────────────────
   'google/nano-banana-pro': {
@@ -1366,7 +1402,7 @@ class ReplicateService {
 
 
 
-  // ── Build input for GPT Image 2 ───────────────────────────────────────────
+  // ── Build input for GPT Image 2 / 2.5 ────────────────────────────────────
   private buildGptImageInput(
     params: ReplicateGenerationParams,
     images: string[]
@@ -1377,8 +1413,11 @@ class ReplicateService {
       input.input_images = images;
     }
 
-    if (params.resolution && params.resolution !== 'auto') {
-      input.quality = params.resolution.toLowerCase();
+    const qualityVal = (params as any).gptQuality || (params as any).qualityVariant || params.resolution;
+    if (qualityVal && qualityVal !== 'auto') {
+      input.quality = String(qualityVal).toLowerCase();
+    } else {
+      input.quality = 'auto';
     }
 
     if (params.aspectRatio && params.aspectRatio !== 'Auto') {
@@ -1613,7 +1652,7 @@ class ReplicateService {
     if (m.startsWith('google/nano-banana')) return this.buildNanoBananaInput(params, images);
     if (m.startsWith('black-forest-labs/flux')) return this.buildFluxInput(params, images);
     if (m === 'bytedance/seedream-5-pro') return this.buildSeedreamInput(params, images);
-    if (m === 'openai/gpt-image-2') return this.buildGptImageInput(params, images);
+    if (m === 'openai/gpt-image-2' || m === 'openai/gpt-image-2.5-flare' || m === 'openai/gpt-image-2.5-sunburst') return this.buildGptImageInput(params, images);
     if (m === 'stability-ai/stable-diffusion-3.5-large') return this.buildStableDiffusionInput(params, images);
     // Video models routing
     if (

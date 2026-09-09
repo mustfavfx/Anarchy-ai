@@ -158,6 +158,16 @@ function costGptImage2(qualityVariant: string, _isTrial?: boolean): number {
   return 1.8; // auto / default
 }
 
+function costGptImage2_5(qualityVariant: string, _isTrial?: boolean): number {
+  const variant = (qualityVariant || 'auto').toLowerCase().replace(/[-_]/g, '');
+  if (variant === 'low') return 0.5;
+  if (variant === 'medium') return 0.8;
+  if (variant === 'high') return 1.8;
+  if (variant === 'xhigh') return 3;
+  if (variant === 'max') return 6.5;
+  return 3; // 'auto' or default is 3 credits ($0.25)
+}
+
 function costPrunaUpscale(prunaTarget: number = 4, isTrial: boolean): number {
   if (isTrial) {
     if (prunaTarget <= 32) return 1;
@@ -234,6 +244,8 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'google/veo-3.1-fast':                           35,
   'pixverse/pixverse-v6':                          25,
   'openai/sora-2-pro':                             40,
+  'openai/gpt-image-2.5-flare':                    3,
+  'openai/gpt-image-2.5-sunburst':                 3,
 };
 
 const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
@@ -257,6 +269,8 @@ const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
   'google/veo-3.1-fast':                           4.0,
   'pixverse/pixverse-v6':                           3.0,
   'openai/sora-2-pro':                             4.5,
+  'openai/gpt-image-2.5-flare':                    3,
+  'openai/gpt-image-2.5-sunburst':                 3,
 };
 
 export function getModelCost(model: string, params: ModelCostParams = {}): number {
@@ -337,6 +351,12 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
       : (resolution || qualityVariant || 'auto');
     return costGptImage2(q, isTrial);
   }
+  if (model === 'openai/gpt-image-2.5-flare' || model === 'openai/gpt-image-2.5-sunburst') {
+    const q = (qualityVariant && qualityVariant !== 'auto')
+      ? qualityVariant
+      : (resolution || qualityVariant || 'auto');
+    return costGptImage2_5(q, isTrial);
+  }
   if (model === 'bytedance/seedream-4.5')   return costSeedream4_5(resolution, px, isTrial);
   if (model === 'bytedance/seedream-5-pro') return costSeedream5Pro(resolution, px, isTrial);
   if (model === 'black-forest-labs/flux-2-pro') return costFlux2Pro(resolution, px, isTrial);
@@ -374,7 +394,9 @@ export function getUnifiedCost(config: any, isTrial: boolean = true, overrideMod
   if (!config) return isTrial ? TRIAL_GENERATION_COST.standard : PAID_GENERATION_COST.standard;
   const model = overrideModel || config.model || 'google/nano-banana-2';
   const upscaleFactor = resolveUpscaleFactor(model, config);
-  const qualityVariant = config.qualityVariant ?? (model === 'openai/gpt-image-2' ? config.resolution : undefined) ?? 'auto';
+  const isGpt2 = model === 'openai/gpt-image-2';
+  const isGpt25 = model === 'openai/gpt-image-2.5-flare' || model === 'openai/gpt-image-2.5-sunburst';
+  const qualityVariant = config.qualityVariant ?? config.gptQuality ?? ((isGpt2 || isGpt25) ? config.resolution : undefined) ?? 'auto';
   return getModelCost(model, {
     resolution: config.resolution,
     qualityVariant,

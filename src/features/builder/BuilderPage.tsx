@@ -243,7 +243,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const getConfig = useAIConfigStore((state) => state.getConfig);
   const liveModel = useAIConfigStore((state) => state.config.model);
   const liveResolution = useAIConfigStore((state) => state.config.resolution);
-  const liveQuality = useAIConfigStore((state) => state.config.qualityVariant ?? (state.config.model === 'openai/gpt-image-2' ? state.config.resolution : undefined) ?? 'auto');
+  const liveQuality = useAIConfigStore((state) => state.config.qualityVariant ?? state.config.gptQuality ?? ((state.config.model === 'openai/gpt-image-2' || state.config.model?.startsWith('openai/gpt-image-2.5')) ? state.config.resolution : undefined) ?? 'auto');
   const livePruna = useAIConfigStore((state) => state.config.prunaTarget);
   const liveUpscaleFactor = useAIConfigStore((state) => {
     const model = state.config.model;

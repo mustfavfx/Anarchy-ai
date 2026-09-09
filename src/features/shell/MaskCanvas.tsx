@@ -36,6 +36,8 @@ export const INPAINT_ENGINES = [
   { id: 'reve/edit-fast', name: 'Reve Edit Fast' },
   { id: 'google/nano-banana-2', name: 'Nano Banana 2 (Gemini Fast)' },
   { id: 'google/nano-banana-pro', name: 'Nano Banana Pro' },
+  { id: 'openai/gpt-image-2.5-flare', name: 'GPT Image 2.5 Flare' },
+  { id: 'openai/gpt-image-2.5-sunburst', name: 'GPT Image 2.5 Sunburst' },
 ];
 
 export interface MaskCanvasProps {

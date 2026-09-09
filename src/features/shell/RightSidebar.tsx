@@ -310,8 +310,8 @@ export const RightSidebar: React.FC = () => {
 
   const handleParamsChange = useCallback((params: any) => {
     setConfig(prev => {
-      const isGpt = (params.model ?? prev.model) === 'openai/gpt-image-2';
-      const resolvedQuality = params.qualityVariant ?? (isGpt ? params.resolution : undefined) ?? prev.qualityVariant;
+      const isGpt = (params.model ?? prev.model) === 'openai/gpt-image-2' || (params.model ?? prev.model)?.startsWith('openai/gpt-image-2.5');
+      const resolvedQuality = params.qualityVariant ?? params.gptQuality ?? (isGpt ? params.resolution : undefined) ?? prev.qualityVariant;
       return {
         ...prev,
         ...params,
@@ -554,7 +554,9 @@ export const RightSidebar: React.FC = () => {
             disableSafetyChecker: config.disableSafetyChecker,
             upscaleFactor: config.upscaleFactor,
             resolution: config.resolution,
-            qualityVariant: config.qualityVariant ?? (config.model === 'openai/gpt-image-2' ? config.resolution : undefined) ?? 'auto',
+            qualityVariant: config.qualityVariant ?? config.gptQuality ?? ((config.model === 'openai/gpt-image-2' || config.model?.startsWith('openai/gpt-image-2.5')) ? config.resolution : undefined) ?? 'auto',
+            gptQuality: config.gptQuality,
+            gptVariant: config.gptVariant,
             aspectRatio: config.aspectRatio,
             // Watermark settings
             enableWatermark: config.enableWatermark,

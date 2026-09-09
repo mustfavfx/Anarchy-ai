@@ -12,6 +12,8 @@ const MODEL_NAME_MAP: Record<string, string> = {
   'google/nano-banana': 'Google Nano Banana',
   'krea/krea-2-large': 'Krea 2 Large',
   'openai/gpt-image-2': 'GPT Image 2',
+  'openai/gpt-image-2.5-flare': 'GPT Image 2.5 Flare',
+  'openai/gpt-image-2.5-sunburst': 'GPT Image 2.5 Sunburst',
   'openai/dall-e-3': 'DALL·E 3',
   'prunaai/p-image': 'Pruna AI',
   'topazlabs/image-upscale': 'Topaz Upscale',

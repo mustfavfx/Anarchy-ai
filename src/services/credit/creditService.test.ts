@@ -65,6 +65,43 @@ describe('Credit Service', () => {
         expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'high' })).toBe(1.8);
         expect(getUnifiedCost({ model: 'openai/gpt-image-2', resolution: 'auto' })).toBe(1.8);
       });
+
+      it('should return correct cost for GPT Image 2.5 (Flare & Sunburst) across all 6 quality tiers', () => {
+        const models = ['openai/gpt-image-2.5-flare', 'openai/gpt-image-2.5-sunburst'] as const;
+        for (const model of models) {
+          // Check all 6 quality levels
+          expect(getModelCost(model, { qualityVariant: 'auto' })).toBe(3);
+          expect(getModelCost(model, { qualityVariant: 'low' })).toBe(0.5);
+          expect(getModelCost(model, { qualityVariant: 'medium' })).toBe(0.8);
+          expect(getModelCost(model, { qualityVariant: 'high' })).toBe(1.8);
+          expect(getModelCost(model, { qualityVariant: 'xhigh' })).toBe(3);
+          expect(getModelCost(model, { qualityVariant: 'max' })).toBe(6.5);
+
+          // Via resolution parameter
+          expect(getModelCost(model, { resolution: 'auto' })).toBe(3);
+          expect(getModelCost(model, { resolution: 'low' })).toBe(0.5);
+          expect(getModelCost(model, { resolution: 'medium' })).toBe(0.8);
+          expect(getModelCost(model, { resolution: 'high' })).toBe(1.8);
+          expect(getModelCost(model, { resolution: 'xhigh' })).toBe(3);
+          expect(getModelCost(model, { resolution: 'max' })).toBe(6.5);
+
+          // Via getUnifiedCost
+          expect(getUnifiedCost({ model, resolution: 'auto' })).toBe(3);
+          expect(getUnifiedCost({ model, resolution: 'low' })).toBe(0.5);
+          expect(getUnifiedCost({ model, resolution: 'medium' })).toBe(0.8);
+          expect(getUnifiedCost({ model, resolution: 'high' })).toBe(1.8);
+          expect(getUnifiedCost({ model, resolution: 'xhigh' })).toBe(3);
+          expect(getUnifiedCost({ model, resolution: 'max' })).toBe(6.5);
+
+          // Paid mode
+          expect(getModelCost(model, { qualityVariant: 'low', isTrial: false })).toBe(0.5);
+          expect(getModelCost(model, { qualityVariant: 'medium', isTrial: false })).toBe(0.8);
+          expect(getModelCost(model, { qualityVariant: 'high', isTrial: false })).toBe(1.8);
+          expect(getModelCost(model, { qualityVariant: 'xhigh', isTrial: false })).toBe(3);
+          expect(getModelCost(model, { qualityVariant: 'max', isTrial: false })).toBe(6.5);
+          expect(getModelCost(model, { qualityVariant: 'auto', isTrial: false })).toBe(3);
+        }
+      });
       
       it('should return correct cost for Nano Banana based on resolution', () => {
         expect(getModelCost('google/nano-banana-2', { resolution: '1024x1024' })).toBe(1.1);

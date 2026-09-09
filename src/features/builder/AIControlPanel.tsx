@@ -8,7 +8,7 @@ import {
   ChevronDown, Check, Wand2, ImagePlus, Maximize2, 
   Film, Zap, Sparkles,
   Banana,
-  Flame, Crown, Star,
+  Flame, Crown, Star, Sun,
   Sprout, Clapperboard, Brain, Layers, Rocket, Globe,
   X, FolderOpen, Volume2
 } from 'lucide-react';
@@ -33,6 +33,8 @@ interface AIControlPanelProps {
     upscaleFactor?: number;
     resolution?: string;
     qualityVariant?: string;
+    gptQuality?: string;
+    gptVariant?: string;
     aspectRatio?: string;
     width?: number;
     height?: number;
@@ -511,6 +513,15 @@ const ENGINES: Engine[] = [
     tool: 'image-editor'
   },
   {
+    id: 'openai/gpt-image-2.5-flare',
+    name: 'GPT Image 2.5',
+    provider: 'OpenAI',
+    color: '#10a37f',
+    icon: <Sparkles size={18} />,
+    tool: 'image-editor',
+    badge: '2.5'
+  },
+  {
     id: 'google/nano-banana-pro',
     name: 'Nano Banana Pro',
     provider: 'Google',
@@ -638,7 +649,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
     });
   }, [selectedTool, studioModeForFilter]);
 
-  const selectedEngine = availableEngines.find(e => e.id === selectedModel) || availableEngines[0] || ENGINES[0];
+  const isGpt25 = selectedModel === 'openai/gpt-image-2.5-flare' || selectedModel === 'openai/gpt-image-2.5-sunburst';
+  const selectedEngine = availableEngines.find(e => e.id === selectedModel || (isGpt25 && e.id === 'openai/gpt-image-2.5-flare')) || availableEngines[0] || ENGINES[0];
   
   // Get model-specific settings
   const modelSettings = useMemo(() => replicateService.getModelSettings(selectedModel), [selectedModel]);
@@ -682,7 +694,10 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   
   useEffect(() => {
     // Only change model if current model is not available in current availableEngines list
-    if (availableEngines.length > 0 && !availableEngines.some(engine => engine.id === selectedModelRef.current)) {
+    if (availableEngines.length > 0 && !availableEngines.some(engine => 
+      engine.id === selectedModelRef.current || 
+      (engine.id === 'openai/gpt-image-2.5-flare' && selectedModelRef.current === 'openai/gpt-image-2.5-sunburst')
+    )) {
       onModelChange(availableEngines[0].id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
     }
   }, [selectedTool, availableEngines, onModelChange]);
@@ -838,30 +853,70 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
         {/* Engine Dropdown */}
         {showEngineDropdown && (
           <div className="dropdown-menu engine-menu">
-            {availableEngines.map(engine => (
-              <div 
-                key={engine.id}
-                className={`dropdown-item engine-item ${selectedModel === engine.id ? 'active' : ''}`}
-                onClick={() => {
-                  onModelChange(engine.id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
-                  setShowEngineDropdown(false);
-                }}
-              >
+            {availableEngines.map(engine => {
+              const isEngineActive = selectedModel === engine.id || (isGpt25 && engine.id === 'openai/gpt-image-2.5-flare');
+              return (
                 <div 
-                  className="engine-icon-small" 
-                  style={{ color: engine.color }}
+                  key={engine.id}
+                  className={`dropdown-item engine-item ${isEngineActive ? 'active' : ''}`}
+                  onClick={() => {
+                    if (engine.id === 'openai/gpt-image-2.5-flare') {
+                      const targetModel = config.gptVariant === 'sunburst' ? 'openai/gpt-image-2.5-sunburst' : 'openai/gpt-image-2.5-flare';
+                      onModelChange(targetModel as ReplicateImageModel);
+                    } else {
+                      onModelChange(engine.id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
+                    }
+                    setShowEngineDropdown(false);
+                  }}
                 >
-                  {engine.icon}
+                  <div 
+                    className="engine-icon-small" 
+                    style={{ color: engine.color }}
+                  >
+                    {engine.icon}
+                  </div>
+                  <span className="engine-item-name">{engine.name}</span>
+                  {engine.badge && (
+                    <span className="engine-item-badge">{engine.badge}</span>
+                  )}
+                  {isEngineActive && (
+                    <Check size={14} color="#e11d48" />
+                  )}
                 </div>
-                <span className="engine-item-name">{engine.name}</span>
-                {engine.badge && (
-                  <span className="engine-item-badge">{engine.badge}</span>
-                )}
-                {selectedModel === engine.id && (
-                  <Check size={14} color="#e11d48" />
-                )}
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        )}
+
+        {/* GPT 2.5 Variant Selector (flare / sunburst) */}
+        {isGpt25 && (
+          <div className="gpt-variant-selector-wrapper">
+            <div className="gpt-variant-pill">
+              <button
+                type="button"
+                className={`gpt-variant-btn ${selectedModel === 'openai/gpt-image-2.5-flare' ? 'active' : ''}`}
+                onClick={() => {
+                  onModelChange('openai/gpt-image-2.5-flare');
+                  setConfig(prev => ({ ...prev, gptVariant: 'flare' }));
+                }}
+                title="GPT Image 2.5 Flare"
+              >
+                <Flame size={13} className="gpt-variant-icon" />
+                <span>flare</span>
+              </button>
+              <button
+                type="button"
+                className={`gpt-variant-btn ${selectedModel === 'openai/gpt-image-2.5-sunburst' ? 'active' : ''}`}
+                onClick={() => {
+                  onModelChange('openai/gpt-image-2.5-sunburst');
+                  setConfig(prev => ({ ...prev, gptVariant: 'sunburst' }));
+                }}
+                title="GPT Image 2.5 Sunburst"
+              >
+                <Sun size={13} className="gpt-variant-icon" />
+                <span>sunburst</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1423,7 +1478,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
           {/* Resolution / Quality */}
           <div className="control-half" ref={resDropdownRef}>
             <label className="section-label">
-              {selectedModel === 'openai/gpt-image-2' ? 'Quality' : 'Resolution'}
+              {(selectedModel === 'openai/gpt-image-2' || isGpt25) ? 'Quality' : 'Resolution'}
             </label>
             <div 
               className="dropdown-trigger"
@@ -1444,8 +1499,11 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                       key={res}
                       className={`dropdown-item ${params.resolution === res ? 'active' : ''}`}
                       onClick={() => {
-                        if (selectedModel === 'openai/gpt-image-2') {
-                          onParamsChange({ ...params, resolution: res, qualityVariant: res });
+                        if (selectedModel === 'openai/gpt-image-2' || isGpt25) {
+                          onParamsChange({ ...params, resolution: res, qualityVariant: res, gptQuality: res });
+                          if (isGpt25) {
+                            setConfig(prev => ({ ...prev, gptQuality: res as any }));
+                          }
                         } else {
                           updateParam('resolution', res);
                         }

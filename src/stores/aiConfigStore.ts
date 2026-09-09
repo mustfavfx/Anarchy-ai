@@ -118,6 +118,9 @@ export interface AIConfig {
   pixverseGenerateMultiClipSwitch?: boolean;
   // OpenAI Sora settings
   soraInputReference?: string | null;
+  // OpenAI GPT 2.5 settings
+  gptVariant?: 'flare' | 'sunburst';
+  gptQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
   // Anarchy / Reve postprocessing settings
   anarchyRemoveBackground?: boolean;
   anarchyUpscaleFactor?: 'Off' | '2x' | '3x' | '4x';
@@ -157,6 +160,8 @@ const DEFAULT_CONFIG: AIConfig = {
   upscaleFactor: 2,
   resolution: 'Auto',
   qualityVariant: 'auto',
+  gptVariant: 'flare',
+  gptQuality: 'auto',
   aspectRatio: '1:1',
   studioMode: 'edit',
   selectedTool: 'image-editor',

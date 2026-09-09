@@ -22,6 +22,8 @@ export const ENGINE_REGISTRY: AIModelEngine[] = [
   { id: 'reve/edit-fast', name: 'Reve Edit Fast', role: 'inpaint', creditCost: 2, maskCapability: 'binary_mask' },
   { id: 'google/nano-banana-2', name: 'Nano Banana 2', role: 'inpaint', creditCost: 1, maskCapability: 'semantic_text' },
   { id: 'google/nano-banana-pro', name: 'Nano Banana Pro', role: 'inpaint', creditCost: 3, maskCapability: 'hybrid' },
+  { id: 'openai/gpt-image-2.5-flare', name: 'GPT Image 2.5 Flare', role: 'inpaint', creditCost: 3, maskCapability: 'hybrid' },
+  { id: 'openai/gpt-image-2.5-sunburst', name: 'GPT Image 2.5 Sunburst', role: 'inpaint', creditCost: 3, maskCapability: 'hybrid' },
   { id: 'black-forest-labs/flux-1.1-pro', name: 'Flux Pro Facade Precision', role: 'upscale', creditCost: 3, maskCapability: 'binary_mask' },
   { id: 'stabilityai/sdxl', name: 'SDXL Organic Detail', role: 'upscale', creditCost: 2, maskCapability: 'binary_mask' },
 ];

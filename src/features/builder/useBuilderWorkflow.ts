@@ -228,6 +228,8 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'bytedance/seedream-5-pro':         'Seedream 5 Pro',
   'black-forest-labs/flux-2-pro':     'FLUX 2 Pro',
   'openai/gpt-image-2':               'GPT Image 2',
+  'openai/gpt-image-2.5-flare':       'GPT Image 2.5 (Flare)',
+  'openai/gpt-image-2.5-sunburst':    'GPT Image 2.5 (Sunburst)',
   'bytedance/seedance-2.0':           'Seedance 2',
   'black-forest-labs/flux-kontext-pro':'FLUX Kontext Pro',
   'xai/grok-imagine-image':           'Grok Imagine',
