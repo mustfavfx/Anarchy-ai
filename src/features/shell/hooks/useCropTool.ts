@@ -51,17 +51,20 @@ export function useCropTool(params: {
 
   const getCropCssRect = useCallback((): CropRect | null => {
     const canvas = canvasRef.current;
-    if (!canvas || !cropRect) return null;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = rect.width / canvas.width;
-    const scaleY = rect.height / canvas.height;
+    const wrapper = wrapperRef.current;
+    if (!canvas || !wrapper || !cropRect) return null;
+    const cr = canvas.getBoundingClientRect();
+    const wr = wrapper.getBoundingClientRect();
+    if (cr.width === 0 || cr.height === 0 || canvas.width === 0 || canvas.height === 0) return null;
+    const scaleX = cr.width / canvas.width;
+    const scaleY = cr.height / canvas.height;
     return {
-      x: canvas.offsetLeft + cropRect.x * scaleX,
-      y: canvas.offsetTop + cropRect.y * scaleY,
+      x: cr.left - wr.left + cropRect.x * scaleX,
+      y: cr.top - wr.top + cropRect.y * scaleY,
       w: cropRect.w * scaleX,
       h: cropRect.h * scaleY,
     };
-  }, [canvasRef, cropRect]);
+  }, [canvasRef, wrapperRef, cropRect]);
 
   const hitHandle = useCallback(
     (cssX: number, cssY: number): CropHandle => {
@@ -194,8 +197,8 @@ export function useCropTool(params: {
           });
           return;
         case 'br': {
-          const newW = dx;
-          const newH = dy;
+          const newW = orig.w + dx;
+          const newH = orig.h + dy;
           const newX = newW < 0 ? orig.x + newW : orig.x;
           const newY = newH < 0 ? orig.y + newH : orig.y;
           setCropRect({

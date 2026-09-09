@@ -2222,7 +2222,15 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           ))}
 
         {maskTool === 'crop' && cropCssRect && (
-          <CropOverlay cropCssRect={cropCssRect} onApply={crop.applyCrop} onCancel={crop.clearCropRect} />
+          <CropOverlay
+            cropCssRect={cropCssRect}
+            cropRect={crop.cropRect}
+            onApply={crop.applyCrop}
+            onCancel={() => {
+              crop.clearCropRect();
+              setMaskTool('brush');
+            }}
+          />
         )}
 
       </div>
