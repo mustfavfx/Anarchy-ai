@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.85] - 2026-09-10
+
+### Added
+- **OpenAI GPT Image 2.5 Integration (Flare & Sunburst)**:
+  - Added full support for both OpenAI GPT Image 2.5 models across the platform:
+    - **GPT Image 2.5 Flare** (`openai/gpt-image-2.5-flare`): Optimized for high-speed, everyday image generation and editing.
+    - **GPT Image 2.5 Sunburst** (`openai/gpt-image-2.5-sunburst`): Designed for maximum fidelity and photorealistic instruction following.
+  - Available in both **Edit** and **Generate** tabs in Image Studio.
+  - Interactive **Sub-Variant Selector Pill**: A sleek toggle button (`[ 🔥 flare ]` / `[ ☀️ sunburst ]`) rendered directly beneath the Engine dropdown to switch active variants with a single click.
+  - Complete Replicate OpenAPI schema parity:
+    - **Quality Tiers**: `auto`, `low`, `medium`, `high`, `xhigh`, `max`.
+    - **Aspect Ratios**: `1:1`, `3:2`, `2:3`, `4:3`, `3:4`, `16:9`, `9:16`, and `auto`.
+    - **Multi-image input** support for image editing and inpainting.
+  - Exact Credit Pricing & Billing Tier Calibration:
+    - `auto`: $0.25 ⟵ **3.0 credits**
+    - `low`: $0.012 ⟵ **0.5 credits**
+    - `medium`: $0.047 ⟵ **0.8 credits**
+    - `high`: $0.128 ⟵ **1.8 credits**
+    - `xhigh`: $0.25 ⟵ **3.0 credits**
+    - `max`: $0.50 ⟵ **6.5 credits**
+  - Integrated into Mask Canvas inpainting engines, context menus, workflow runners, history views, and automatic recovery systems.
+
+### Changed & Improved
+- **Mask Canvas & Expand Mode Layout Optimization**:
+  - Removed canvas rulers in MaskCanvas for an unobstructed drawing and inpainting workspace.
+  - In Expand mode: hidden the mini-map and unnecessary tabs, focusing the canvas view exclusively on the active node.
+  - Repositioned mask editing tools to the left sidebar (Photoshop-style layout) for intuitive artist workflows.
+  - Upgraded Layers Panel architecture to a modern, dockable layout with improved hierarchy and clarity.
+  - Cleaned up obsolete files and code across the workspace.
+
 ## [0.3.80] - 2026-09-08
 
 ### Changed & Improved
