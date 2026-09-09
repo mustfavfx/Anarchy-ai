@@ -1701,9 +1701,9 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
               <LayoutGrid size={15} />
             </button>
           </Panel>
-          {/* FIX 4: Hide MiniMap above 50 nodes — it re-renders on every node
+          {/* FIX 4: Hide MiniMap in enlarged view or above 50 nodes — it re-renders on every node
                position change and becomes very expensive at scale. */}
-          {nodesWithCallbacks.length > 0 && nodesWithCallbacks.length <= 50 && (
+          {!isEnlargedView && nodesWithCallbacks.length > 0 && nodesWithCallbacks.length <= 50 && (
             <MiniMap
               position="bottom-right"
               nodeColor={() => 'rgba(225, 29, 72, 0.8)'}

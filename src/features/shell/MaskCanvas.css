@@ -5,7 +5,7 @@
 
 .mask-canvas-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex: 1;
   min-height: 0;
   background: #090a0f;
@@ -41,32 +41,32 @@
   color: rgba(255, 255, 255, 0.35);
 }
 
-/* ── VizMaker Top Fixed Bar Header ────────────────────────────────────────── */
+/* ── Photoshop-Style Vertical Left Toolbar ────────────────────────────────── */
 
+.mask-canvas-left-bar,
 .mask-canvas-top-bar {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  height: 52px;
-  padding: 0 16px;
+  width: 48px;
+  height: 100%;
+  padding: 8px 0;
   background: rgba(12, 14, 22, 0.96);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  width: 100%;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
   box-sizing: border-box;
   flex-shrink: 0;
-  z-index: 35;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  gap: 12px;
+  z-index: 45;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  gap: 6px;
 }
 
 .mask-canvas-top-left {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  align-items: center;
+  display: none;
 }
 
 /* Left Mode Tabs (Preview | Compare | Draw) */
@@ -104,35 +104,35 @@
   font-weight: 600;
 }
 
-/* Center Floating Island Dock Toolbar */
+/* Left Vertical Tool Column */
 .mask-canvas-tools-toolbar {
   flex: 0 0 auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: rgba(18, 20, 32, 0.95);
-  padding: 4px 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  max-width: 100%;
+  gap: 3px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  width: 100%;
 }
 
 .mask-canvas-tools-toolbar:hover {
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 /* Sleek Rectangle Tool Buttons */
 .mask-toolbar-btn {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: #ffffff;
   display: flex;
@@ -160,22 +160,25 @@
 }
 
 .mask-toolbar-btn.mask-ortho-btn {
-  width: auto;
-  min-width: 52px;
-  padding: 0 8px;
-  gap: 4px;
-  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
   flex-shrink: 0;
 }
 
 .mask-ortho-badge {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 700;
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1;
-  letter-spacing: 0.2px;
+  letter-spacing: -0.2px;
+  margin-top: 1px;
 }
 
 .mask-dropdown-container {
@@ -198,13 +201,12 @@
   color: #ffffff;
 }
 
-/* Floating Vertical Subtool Dropdown Popover */
+/* Floating Vertical Subtool Dropdown Popover (Flyout to Right) */
 .mask-vertical-dropdown {
   position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: 8px;
+  top: 0;
+  left: calc(100% + 8px);
+  margin-top: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -216,18 +218,29 @@
   -webkit-backdrop-filter: blur(28px);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.85), 0 0 24px rgba(225, 29, 72, 0.2);
   z-index: 100;
-  min-width: 130px;
-  animation: maskSubmenuFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 140px;
+  animation: maskSubmenuFlyout 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes maskSubmenuFlyout {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 
 @keyframes maskSubmenuFade {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-6px) scale(0.95);
+    transform: translateX(-6px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
+    transform: translateX(0) scale(1);
   }
 }
 
@@ -263,7 +276,15 @@
   font-size: 11.5px;
 }
 
-/* Gradient Vertical Divider */
+/* Dividers */
+.mask-canvas-divider-horizontal {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+
 .mask-canvas-divider-vertical {
   width: 1px;
   height: 20px;
@@ -274,11 +295,12 @@
 
 /* Connected Segmented Inspection & Comparison Cluster */
 .mask-segmented-cluster {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 2px;
   gap: 2px;
   flex-shrink: 0;
@@ -288,9 +310,9 @@
   background: transparent;
   border: 1px solid transparent;
   color: #ffffff;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 30px;
+  height: 26px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -312,18 +334,17 @@
 
 /* Compact Brush Size Pill Button */
 .mask-size-badge-pill {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  width: 34px;
+  height: 30px;
+  padding: 2px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  padding: 0 8px;
-  height: 36px;
+  border-radius: 6px;
   color: #ffffff;
-  font-size: 11px;
-  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
@@ -340,12 +361,15 @@
 .mask-size-num {
   color: #ffffff;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .mask-size-unit {
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 8px;
+  line-height: 1;
+  margin-top: 1px;
 }
 
 /* Compact Rectangle Brush Size Stepper */
@@ -433,15 +457,17 @@
   color: #ffffff;
 }
 
-/* Right Section Actions */
+/* Bottom Section Actions (Photoshop Style) */
+.mask-canvas-left-actions,
 .mask-canvas-top-actions {
-  flex: 1 1 0;
-  min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
   gap: 4px;
-  position: static;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Floating Viewport Zoom HUD (Bottom Right of Canvas Area / جزء من مساحة الصورة) */
@@ -504,7 +530,7 @@
 
 .vizmaker-layers-overlay-panel {
   position: absolute;
-  top: 56px;
+  top: 16px;
   right: 16px;
   width: 285px;
   box-sizing: border-box;

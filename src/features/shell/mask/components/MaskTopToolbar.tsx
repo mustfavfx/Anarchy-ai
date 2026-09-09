@@ -141,9 +141,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
   }, []);
 
   return (
-    <div className="mask-canvas-top-bar">
-      <div className="mask-canvas-top-left" />
-
+    <div className="mask-canvas-left-bar">
       <div className="mask-canvas-tools-toolbar">
         {/* ── Cluster 1: Navigation & Selection ── */}
         <button
@@ -308,7 +306,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           <Crop size={16} />
         </button>
 
-        <div className="mask-canvas-divider-vertical" />
+        <div className="mask-canvas-divider-horizontal" />
 
         {/* ── Cluster 2: Drawing, Sizing & Erasing ── */}
         <div className="mask-dropdown-container">
@@ -392,12 +390,11 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
 
           {openDropdown === 'size' && (
             <div
+              className="mask-brush-size-popover"
               style={{
                 position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                marginTop: '8px',
+                top: 0,
+                left: 'calc(100% + 8px)',
                 background: '#181920',
                 border: '1px solid rgba(255, 255, 255, 0.16)',
                 borderRadius: '8px',
@@ -408,6 +405,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '9px',
+                animation: 'maskSubmenuFlyout 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -482,7 +480,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           <Trash2 size={16} />
         </button>
 
-        <div className="mask-canvas-divider-vertical" />
+        <div className="mask-canvas-divider-horizontal" />
 
         {/* ── Cluster 3: Mask Actions & Architectural Studio ── */}
         <div className="mask-dropdown-container">
@@ -500,10 +498,8 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
               className="mask-settings-popover"
               style={{
                 position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                marginTop: '8px',
+                top: -40,
+                left: 'calc(100% + 8px)',
                 background: '#181920',
                 border: '1px solid rgba(255, 255, 255, 0.16)',
                 borderRadius: '8px',
@@ -514,6 +510,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 flexDirection: 'column',
                 gap: '8px',
                 minWidth: '230px',
+                animation: 'maskSubmenuFlyout 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '4px' }}>
@@ -748,7 +745,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           <SunMedium size={16} />
         </button>
 
-        <div className="mask-canvas-divider-vertical" />
+        <div className="mask-canvas-divider-horizontal" />
 
         {/* ── Cluster 4: Connected Segmented Inspection & Comparison ── */}
         <div className="mask-segmented-cluster" title="Inspection & View Comparison Modes">
@@ -786,7 +783,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
           </button>
         </div>
 
-        <div className="mask-canvas-divider-vertical" />
+        <div className="mask-canvas-divider-horizontal" />
 
         {/* ── Cluster 5: Reference Card & Export ── */}
         {/* Add Card */}
@@ -815,9 +812,8 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
               className="mask-export-popover"
               style={{
                 position: 'absolute',
-                top: '100%',
-                right: '0',
-                marginTop: '8px',
+                top: -80,
+                left: 'calc(100% + 8px)',
                 background: '#181920',
                 border: '1px solid rgba(255, 255, 255, 0.16)',
                 borderRadius: '8px',
@@ -828,6 +824,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 flexDirection: 'column',
                 gap: '3px',
                 minWidth: '200px',
+                animation: 'maskSubmenuFlyout 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               <button
@@ -903,8 +900,8 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
         </div>
       </div>
 
-      {/* Right Section: Layers & Undo/Redo */}
-      <div className="mask-canvas-top-actions">
+      {/* Bottom Section: Layers & Undo/Redo */}
+      <div className="mask-canvas-left-actions">
         <button
           type="button"
           className={`mask-toolbar-btn ${showLayerStack ? 'active' : ''}`}
@@ -942,7 +939,7 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
             className="mask-toolbar-btn mask-toolbar-close-btn"
             onClick={onClose}
             title="Back to canvas (Esc)"
-            style={{ marginLeft: '4px', color: 'rgba(255,255,255,0.75)' }}
+            style={{ color: 'rgba(255,255,255,0.75)' }}
           >
             <X size={15} />
           </button>
