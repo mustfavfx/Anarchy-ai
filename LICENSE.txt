@@ -1,73 +1,74 @@
 END USER LICENSE AGREEMENT & PRIVACY POLICY
 
 Software Name: Anarchy AI
-Application Version: 0.2.1
+Application Version: 0.3.85 (and subsequent versions)
 Developer: Architect Mustafa Hisham
 Effective Date: June 7, 2026
+Last Updated: September 10, 2026
 
 PLEASE READ THIS END USER LICENSE AGREEMENT ("EULA" OR "AGREEMENT") CAREFULLY BEFORE INSTALLING OR USING ANARCHY AI. BY INSTALLING, COPYING, OR OTHERWISE USING THE SOFTWARE, YOU AGREE TO BE BOUND BY THE TERMS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT INSTALL OR USE THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 1. LICENSE GRANT & SCOPE OF USE
 --------------------------------------------------------------------------------
-Anarchy AI is a desktop application designed for AI-powered architectural visualization. The Developer grants you a personal, non-exclusive, non-transferable, revocable license to install and use Anarchy AI on your compatible devices under the following terms:
+Anarchy AI is an advanced desktop ecosystem designed for AI-powered architectural visualization, visual node-based workflow orchestration, CAD/BIM live synchronization, and technical analysis. The Developer grants you a personal, non-exclusive, non-transferable, revocable license to install and use Anarchy AI on your compatible devices under the following terms:
 
-- PERSONAL USE: You may use the software for personal, educational, and non-commercial architectural visualization work.
-- COMMERCIAL USE: You are permitted to use the software for commercial, professional, and client-facing architectural projects.
+- PERSONAL & EDUCATIONAL USE: You may use the software for personal, academic, research, and non-commercial visualization projects.
+- COMMERCIAL USE: You are permitted to utilize the software for professional client visualization, commercial architectural workflows, and production renders.
 - RESTRICTIONS:
-  * You may not redistribute, rent, lease, lend, sell, or sub-license the software.
-  * You may not modify, decompile, disassemble, decrypt, or reverse engineer the software, except and only to the extent that such activity is permitted by applicable law.
-  * You may not bypass or attempt to disable any licensing, security, or update mechanisms built into the software.
+  * You may not redistribute, rent, lease, lend, sell, or sub-license the software binaries or components.
+  * You may not modify, decompile, disassemble, decrypt, or reverse engineer the software, except and only to the extent explicitly permitted by applicable mandatory law.
+  * You may not bypass, circumvent, or attempt to disable licensing mechanisms, telemetry guards, credit quotas, or security integrity checks.
 
 --------------------------------------------------------------------------------
 2. SYSTEM REQUIREMENTS & INTEGRATIONS
 --------------------------------------------------------------------------------
 Anarchy AI requires specific system dependencies and software environments to function properly. By continuing with the installation, you acknowledge and agree to the following requirements:
 
-- EDGE WEBVIEW2 RUNTIME: The application relies on the Microsoft Edge WebView2 Runtime to render its interface. The installer will automatically check for this dependency and install it silently if it is missing from your system.
-- VISUAL C++ REDISTRIBUTABLE: The application backend requires the Visual C++ Redistributable 2015-2022. The installer will automatically check and deploy this prerequisite if necessary.
-- AUTODESK REVISIONS:
-  * Revit Integration: Compatible with Autodesk Revit (Versions 2022 to 2027). The installer compiles the Revit C# plugin on-the-fly linking it to your installed version.
-  * 3ds Max Integration: Compatible with Autodesk 3ds Max (Versions 2022 to 2027). The installer deploys viewport synchronization MaxScripts, macros, and icons.
+- EDGE WEBVIEW2 RUNTIME: The application utilizes the Microsoft Edge WebView2 Runtime to render its interface. The installer will automatically verify and install this dependency silently if absent.
+- VISUAL C++ REDISTRIBUTABLE: Core native components require the Visual C++ Redistributable (2015-2022). The installer automatically provisions this prerequisite when necessary.
+- CAD & BIM ECOSYSTEM INTEGRATIONS:
+  * Autodesk Revit: Compatible with Revit (Versions 2022 to 2027). The installer builds and configures C# plugin add-ins tailored to detected installations.
+  * Autodesk 3ds Max: Compatible with 3ds Max (Versions 2022 to 2027). The installer deploys real-time viewport synchronization MaxScripts, connectors, and macro buttons.
+  * FluidCAD & Technical Analysis: Native technical analysis modules operate directly within local canvas workspaces.
 
 --------------------------------------------------------------------------------
 3. PRIVACY POLICY & DATA STORAGE
 --------------------------------------------------------------------------------
-Anarchy AI is built with a "Privacy First" architecture. All your creative works and architectural data remain under your direct control:
+Anarchy AI is architected under a strict "Local-First / Privacy First" doctrine. Your intellectual property and architectural data remain under your direct control:
 
 - LOCAL-FIRST DATA STORAGE:
-  * App Settings: Your interface preferences, language selection, and themes are stored locally on your device.
-  * Project Data: All architectural projects, canvas nodes, custom workflows, and generated image logs are saved locally using localStorage or dedicated app directories.
-  * We do not host or store your project files, local history, or library assets on our own external servers.
+  * App Settings: UI preferences, themes, language, and localized shortcuts reside exclusively on your local storage.
+  * Project Data: All architectural canvases, custom node graphs, mask layers, and generated assets are stored locally on your device storage (via local databases/directories).
+  * We do not host, store, or inspect your private project geometry, proprietary CAD models, or image histories on our servers.
 - CLOUD & API COMMUNICATIONS:
-  * Supabase Integration: The application integrates with secure Supabase databases to handle cloud backups, library sync, or authentication if configured by the user.
-  * Third-Party AI Services: When generating assets or running node commands, data inputs are processed via external generative AI platforms. These transactions are subject to the respective provider's terms of service and network availability.
-  * Billing & Payments: Any in-app credit top-ups, premium node unlocks, or feature subscriptions are securely processed through Stripe. Financial transactions are governed by Stripe’s service terms and are generally non-refundable.
-  * API Configuration & Responsibility: Each user is fully responsible for setting up their own third-party API keys, managing credits, monitoring usage limits, and maintaining the privacy and security of their configurations.
-- DATA CONTROL: You retain absolute ownership over all images, layout graphs, and visual components generated by the application. You can export or completely delete your local storage data at any time via Settings > Storage.
+  * Supabase Integration: Used for secure user authentication, optional cloud backup synchronization, and account entitlement verification if activated.
+  * Generative AI Processing: When executing AI nodes (e.g., Replicate, OpenAI GPT Image 2.5, Flux, SDXL, Ideogram, Recraft), prompt text, mask layers, and source viewports are transmitted securely over HTTPS directly to the respective model inference endpoints. Such processing is governed by third-party terms of service and availability.
+  * Credits & Billing: Top-ups, subscriptions, and credit balances are handled through Stripe with PCI-DSS compliance. Credits consumed for model executions (based on selected model variant and quality tiers) are deducted in real-time and are non-refundable once generation commences.
+  * User-Provided API Keys: Users configuring custom API tokens are responsible for safeguarding their keys and monitoring quota utilization.
+- USER CONTROL: You retain full copyright and commercial ownership over all generated imagery, workflows, and node layouts. Local caches and data stores can be wiped at any time via Settings > Storage.
 
 --------------------------------------------------------------------------------
 4. DISCLAIMER OF WARRANTIES
 --------------------------------------------------------------------------------
-ANARCHY AI IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. 
+ANARCHY AI IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
 
 The Developer does not warrant that:
-- The software will meet your specific artistic, technical, or BIM compliance requirements.
-- The generation of AI images and node executions will be uninterrupted, as third-party APIs and services are subject to external server availability, hosting stability, and network traffic.
-- The output images or node structural evaluations will be entirely free from inaccuracies, stylistic variations, or artifacts common to generative AI models.
+- The software will satisfy every specific regulatory, engineering calculation, or BIM validation requirement without professional human oversight.
+- Third-party generative AI and inference endpoints will be error-free or uninterrupted, as service reliability depends on third-party cloud infrastructure.
+- Generated outputs will be entirely devoid of hallucinations, artifacts, or stylistic approximations inherent to machine learning models.
 
 --------------------------------------------------------------------------------
 5. LIMITATION OF LIABILITY
 --------------------------------------------------------------------------------
-IN NO EVENT SHALL THE DEVELOPER, ARCHITECT MUSTAFA HISHAM, OR THE ANARCHY AI TEAM BE LIABLE FOR ANY CLAIM, FINANCIAL LOSS FROM API CONSUMPTION, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+IN NO EVENT SHALL THE DEVELOPER, ARCHITECT MUSTAFA HISHAM, OR THE ANARCHY AI TEAM BE LIABLE FOR ANY DAMAGES, REVENUE LOSS, API CHARGES INCURRED THROUGH USER TOKENS, OR BUSINESS INTERRUPTION ARISING OUT OF THE USE OR INABILITY TO USE THE APPLICATION.
 
 --------------------------------------------------------------------------------
 6. SUPPORT & OFFICIAL CHANNELS
 --------------------------------------------------------------------------------
-For support requests, bug reporting, feature suggestions, or inquiries regarding these terms, please refer to our official project channels:
-
+For official updates, technical support, bug reports, and community releases:
 - Official Website: https://anarchy.lat/
 - Instagram: https://www.instagram.com/anarchy.lat/
 - Telegram Support: https://t.me/anarchyforarchitecture
 
-Thank you for choosing Anarchy AI to power your architectural visualization and node-based design workflow.
+Thank you for choosing Anarchy AI to power your architectural visualization and node-based design workflows.
