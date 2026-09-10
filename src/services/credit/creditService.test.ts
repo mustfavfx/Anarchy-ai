@@ -130,7 +130,7 @@ describe('Credit Service', () => {
       });
       
       it('should return correct cost for upscale models', () => {
-        expect(getModelCost('topazlabs/image-upscale')).toBe(2);
+        expect(getModelCost('topazlabs/image-upscale')).toBe(1);
       });
     });
 
@@ -192,16 +192,40 @@ describe('Credit Service', () => {
       });
       
       it('should return correct cost for upscale models', () => {
-        // Topaz Labs Upscale
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 2, isTrial: false })).toBe(1.45);
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 4, isTrial: false })).toBe(1.45);
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 6, isTrial: false })).toBe(1.8);
+        // Topaz Labs Upscale (dynamic Megapixels aligned with Replicate official tiers)
+        // Default base image (1024x1024 = 1 MP):
+        // 2x upscale -> 4.19 MP (<= 24 MP) -> 1 credit
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 2, isTrial: false })).toBe(1);
+        // 4x upscale -> 16.78 MP (<= 24 MP) -> 1 credit
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 4, isTrial: false })).toBe(1);
+        // 6x upscale -> 37.75 MP (<= 48 MP) -> 2 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 6, isTrial: false })).toBe(2);
+
+        // High resolution / 4K input image (3840x2160 ≈ 8.29 MP):
+        // 4K + 2x -> 33.18 MP (<= 48 MP) -> 2 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 2, width: 3840, height: 2160, isTrial: false })).toBe(2);
+        // 4K + 4x -> 132.7 MP (<= 168 MP) -> 6 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 4, width: 3840, height: 2160, isTrial: false })).toBe(6);
+        // 4K + 6x -> 298.6 MP (<= 336 MP) -> 11 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 6, width: 3840, height: 2160, isTrial: false })).toBe(11);
+
+        // Explicit Output Megapixels brackets (Replicate official table):
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 12 })).toBe(1);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 24 })).toBe(1);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 36 })).toBe(2);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 48 })).toBe(2);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 60 })).toBe(3);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 96 })).toBe(4);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 132 })).toBe(5);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 168 })).toBe(6);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 336 })).toBe(11);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 512 })).toBe(17);
         
-        // Clarity Upscaler
-        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 2, isTrial: false })).toBe(1.0);
-        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 4, isTrial: false })).toBe(1.0);
-        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 8, isTrial: false })).toBe(1.25);
-        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 12, isTrial: false })).toBe(2.0);
+        // Clarity Upscaler (A100 GPU compute based: 2x=3, 4x=10, 8x=20, 12x=30)
+        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 2, isTrial: false })).toBe(3);
+        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 4, isTrial: false })).toBe(10);
+        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 8, isTrial: false })).toBe(20);
+        expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 12, isTrial: false })).toBe(30);
         
         // P Image Upscale MP brackets
         expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 2, isTrial: false })).toBe(0.2);
@@ -210,6 +234,23 @@ describe('Credit Service', () => {
         expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 24, isTrial: false })).toBe(0.8);
         expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 48, isTrial: false })).toBe(1.25);
         expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 96, isTrial: false })).toBe(2.5);
+        
+        // P Image Upscale Factor Mode (1024x1024 = 1MP base)
+        expect(getModelCost('prunaai/p-image-upscale', { prunaMode: 'factor', prunaFactor: 2, isTrial: false })).toBe(0.4); // 4.19 MP -> 4-8 MP tier = 0.4
+        expect(getModelCost('prunaai/p-image-upscale', { prunaMode: 'factor', prunaFactor: 4, isTrial: false })).toBe(0.8); // 16.7 MP -> 16-32 MP tier = 0.8
+        expect(getModelCost('prunaai/p-image-upscale', { prunaMode: 'factor', prunaFactor: 8, isTrial: false })).toBe(2.5); // 67.1 MP -> 64-128 MP tier = 2.5
+        
+        // P Image Upscale Trial Mode
+        expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 16, isTrial: true })).toBe(1);
+        expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 64, isTrial: true })).toBe(2);
+        expect(getModelCost('prunaai/p-image-upscale', { prunaTarget: 128, isTrial: true })).toBe(3);
+
+        // Anarchy Upscale (Clarity Pro: philz1337x/clarity-pro-upscaler)
+        // $0.03/MP capped at 64 MP -> credits = Math.max(2, Math.ceil(mp * 0.6))
+        expect(getModelCost('philz1337x/clarity-pro-upscaler', { upscaleFactor: 2, isTrial: false })).toBe(3);
+        expect(getModelCost('philz1337x/clarity-pro-upscaler', { upscaleFactor: 4, isTrial: false })).toBe(11);
+        expect(getModelCost('philz1337x/clarity-pro-upscaler', { upscaleFactor: 8, isTrial: false })).toBe(39);
+        expect(getModelCost('philz1337x/clarity-pro-upscaler', { upscaleFactor: 16, isTrial: false })).toBe(39);
 
         // Kling v3 Omni Video (standard=3.0, pro=5.0, 4k=12.0)
         expect(getModelCost('kwaivgi/kling-v3-omni-video', { resolution: 'standard', videoDuration: '5s' })).toBe(15.0);

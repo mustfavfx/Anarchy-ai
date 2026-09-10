@@ -240,7 +240,19 @@ export function useBuilderGeneration({
         }
       }
 
-      const cost = getUnifiedCost(aiConfig, isTrial);
+      let configForCost = { ...aiConfig };
+      if (aiConfig.model === 'topazlabs/image-upscale') {
+        const parentId = idleGhosts[0]?.data?.lineage?.parentId || useAIConfigStore.getState().selectedNode?.id;
+        const parentNode = currentNodes.find(n => n.id === parentId);
+        const parentData = parentNode?.data as any;
+        const dims = parentData?.outputData?.dimensions ?? parentData?.dimensions ?? (useAIConfigStore.getState().selectedNode as any)?.dimensions;
+        if (dims?.width && dims?.height) {
+          configForCost.width = dims.width;
+          configForCost.height = dims.height;
+        }
+      }
+
+      const cost = getUnifiedCost(configForCost, isTrial);
 
       const totalCost = cost * (idleGhosts.length > 0 ? idleGhosts.length : 1);
 

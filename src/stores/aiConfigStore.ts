@@ -121,10 +121,12 @@ export interface AIConfig {
   // OpenAI GPT 2.5 settings
   gptVariant?: 'flare' | 'sunburst';
   gptQuality?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
-  // Anarchy / Reve postprocessing settings
   anarchyRemoveBackground?: boolean;
   anarchyUpscaleFactor?: 'Off' | '2x' | '3x' | '4x';
+  anarchyUpscaleScale?: number;
+  anarchyUpscaleCreativity?: number;
   anarchyEffect?: string;
+  outputMegapixels?: number;
 }
 
 export interface SelectedNodeInfo {
@@ -138,6 +140,7 @@ export interface SelectedNodeInfo {
   errorMessage?: string;
   extractedLayout?: any;
   layout?: any;
+  dimensions?: { width: number; height: number };
 }
 
 export interface CompareImages {
@@ -215,6 +218,9 @@ const DEFAULT_CONFIG: AIConfig = {
   prunaEnhanceRealism: true,
   prunaQuality: 80,
   prunaOutputFormat: 'png',
+  // Anarchy Upscale (Clarity Pro) defaults
+  anarchyUpscaleScale: 2,
+  anarchyUpscaleCreativity: 4,
   // Krea AI defaults
   kreaCreativity: 'medium',
   // Video defaults

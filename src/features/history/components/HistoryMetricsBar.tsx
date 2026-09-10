@@ -16,6 +16,8 @@ const MODEL_NAME_MAP: Record<string, string> = {
   'openai/gpt-image-2.5-sunburst': 'GPT Image 2.5 Sunburst',
   'openai/dall-e-3': 'DALL·E 3',
   'prunaai/p-image': 'Pruna AI',
+  'prunaai/p-image-upscale': 'Pruna AI Upscale',
+  'philz1337x/clarity-pro-upscaler': 'Anarchy Upscale',
   'topazlabs/image-upscale': 'Topaz Upscale',
   'black-forest-labs/flux-1.1-pro': 'FLUX 1.1 Pro',
   'black-forest-labs/flux-schnell': 'FLUX Schnell',

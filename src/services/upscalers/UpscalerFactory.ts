@@ -2,12 +2,21 @@ import { type BaseUpscaler } from './BaseUpscaler';
 import { TopazUpscaler } from './TopazUpscaler';
 import { ClarityUpscaler } from './ClarityUpscaler';
 import { PrunaUpscaler } from './PrunaUpscaler';
+import { AnarchyUpscaler } from './AnarchyUpscaler';
 import { FluxUpscaler } from './FluxUpscaler';
 
 export class UpscalerFactory {
   static create(model: string): BaseUpscaler {
     const lowerModel = model.toLowerCase();
     
+    if (
+      lowerModel === 'anarchy' || 
+      lowerModel.includes('anarchy-upscale') || 
+      lowerModel.includes('clarity-pro') || 
+      lowerModel.includes('philz1337x/clarity-pro-upscaler')
+    ) {
+      return new AnarchyUpscaler();
+    }
     if (lowerModel === 'topaz' || lowerModel.includes('topazlabs/image-upscale')) {
       return new TopazUpscaler();
     }

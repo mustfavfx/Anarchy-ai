@@ -102,21 +102,27 @@ export interface ModelCostParams {
   resolution?: string;       // e.g. '1024x1024'
   qualityVariant?: string;   // GPT Image 2: 'low' | 'medium' | 'high' | 'auto'
   prunaTarget?: number;      // P Image Upscale target megapixels
+  prunaMode?: 'target' | 'factor'; // P Image Upscale mode
+  prunaFactor?: number;      // P Image Upscale scaling factor
   upscaleFactor?: number;    // upscale factor e.g. 2, 4, 6, 8, 12
   isTrial?: boolean;         // check if user is on trial mode
   width?: number;            // custom width
   height?: number;           // custom height
   videoDuration?: string | number; // video duration in seconds or string (e.g. '5s' or 5)
+  outputMegapixels?: number; // explicit output megapixels (e.g. for Topaz or Pruna)
 }
 
 // ── Per-model helpers (keep each helper ≤ 5 branches) ───────────────────────
 
 function resolveResPixels(resolution: string, width?: number, height?: number): number {
-  if (resolution === 'custom' && width && height) {
+  if (width && height && width > 0 && height > 0) {
     return width * height;
   }
-  const [w, h] = resolution.split('x').map(Number);
-  return (w && h) ? w * h : 0;
+  if (resolution) {
+    const [w, h] = resolution.split('x').map(Number);
+    if (w && h) return w * h;
+  }
+  return 0;
 }
 
 function costNanaBanana2(resolution: string, px: number, _isTrial?: boolean): number {
@@ -168,13 +174,35 @@ function costGptImage2_5(qualityVariant: string, _isTrial?: boolean): number {
   return 3; // 'auto' or default is 3 credits ($0.25)
 }
 
-function costPrunaUpscale(prunaTarget: number = 4, isTrial: boolean): number {
+/**
+ * Pruna AI Upscaler Cost based on official Replicate Megapixel brackets:
+ * - 1-4 MP:   $0.005 Replicate cost -> 0.2 credits (Paid) / 1 credit (Trial)
+ * - 4-8 MP:   $0.010 Replicate cost -> 0.4 credits (Paid) / 1 credit (Trial)
+ * - 8-16 MP:  $0.020 Replicate cost -> 0.6 credits (Paid) / 1 credit (Trial)
+ * - 16-32 MP: $0.040 Replicate cost -> 0.8 credits (Paid) / 1 credit (Trial)
+ * - 32-64 MP: $0.060 Replicate cost -> 1.25 credits (Paid) / 2 credits (Trial)
+ * - 64-128 MP:$0.120 Replicate cost -> 2.5 credits (Paid) / 3 credits (Trial)
+ */
+export function costPrunaUpscale(
+  prunaTarget: number = 4,
+  isTrial: boolean = true,
+  mode: 'target' | 'factor' = 'target',
+  factor: number = 2,
+  px: number = 1048576,
+  outputMegapixels?: number
+): number {
+  let mp = outputMegapixels ?? prunaTarget;
+  if (mode === 'factor' && outputMegapixels == null) {
+    const basePixels = px > 0 ? px : 1048576;
+    mp = (basePixels * (factor * factor)) / 1_000_000;
+  }
+
   if (isTrial) {
-    if (prunaTarget <= 32) return 1;
-    return 2;   // 32-128MP
+    if (mp <= 32) return 1;
+    if (mp <= 64) return 2;
+    return 3;   // 64-128MP
   } else {
-    // Paid rates: 4 MP = 0.2, 8 MP = 0.4, 16 MP = 0.6, 32 MP = 0.8, 64 MP = 1.25, 128 MP = 2.5
-    const mp = prunaTarget;
+    // Paid rates based on official Replicate brackets:
     if (mp <= 4)   return 0.2;
     if (mp <= 8)   return 0.4;
     if (mp <= 16)  return 0.6;
@@ -185,37 +213,94 @@ function costPrunaUpscale(prunaTarget: number = 4, isTrial: boolean): number {
 }
 
 
-function costClarityUpscale(upscaleFactor: number = 2, isTrial: boolean): number {
-  if (isTrial) {
-    return 1.0;
-  } else {
-    // 2x & 4x = 1, 8x = 1.25, 12x = 2
-    if (upscaleFactor >= 12) return 2.0;
-    if (upscaleFactor >= 8)  return 1.25;
-    return 1.0;
-  }
+/**
+ * Clarity Upscaler Cost based on Nvidia A100 GPU Execution Time ($0.00115/sec):
+ * - 2x: ~90-150s (~$0.15 actual cost) -> 3 credits ($0.30 revenue, ~50% margin)
+ * - 4x: ~445s (~$0.51 actual cost)    -> 10 credits ($1.00 revenue, ~49% margin)
+ * - 8x: ~900-1100s (~$1.10 cost)      -> 20 credits ($2.00 revenue, ~45% margin)
+ * - 12x: ~1500-1800s (~$1.80 cost)    -> 30 credits ($3.00 revenue, ~40% margin)
+ */
+export function costClarityUpscale(upscaleFactor: number = 2, _isTrial: boolean = true): number {
+  if (upscaleFactor >= 12) return 30;
+  if (upscaleFactor >= 8)  return 20;
+  if (upscaleFactor >= 4)  return 10;
+  return 3;
 }
 
-export function costTopazUpscale(upscaleFactor?: string | number, isTrial: boolean = true, _px: number = 1048576): number {
-  if (isTrial) {
-    return 2.0;
+/**
+ * Anarchy Upscale (Clarity Pro: philz1337x/clarity-pro-upscaler)
+ * Replicate Official Pricing: $0.03 per million output image pixels (capped at 64 MP).
+ * Minimum 2 credits ($0.20), guaranteed 50%+ profit margin.
+ */
+export function costAnarchyUpscale(
+  scaleFactor: number = 2,
+  _isTrial: boolean = true,
+  px: number = 1048576,
+  outputMegapixels?: number
+): number {
+  let mp = outputMegapixels;
+  if (mp == null || isNaN(mp) || mp <= 0) {
+    const factor = Number(scaleFactor) || 2;
+    const basePixels = px > 0 ? px : 1048576; // default 1024x1024 (1 MP)
+    mp = Math.min(64, (basePixels * (factor * factor)) / 1_000_000);
+  } else {
+    mp = Math.min(64, mp);
   }
-  let factor = 2;
-  if (typeof upscaleFactor === 'number') {
-    factor = upscaleFactor;
-  } else if (typeof upscaleFactor === 'string') {
-    if (upscaleFactor === 'None' || upscaleFactor === '1x') factor = 1;
-    else if (upscaleFactor === '2x') factor = 2;
-    else if (upscaleFactor === '4x') factor = 4;
-    else if (upscaleFactor === '6x') factor = 6;
-    else {
-      const parsed = parseFloat(upscaleFactor);
-      if (!isNaN(parsed) && parsed > 0) factor = parsed;
+  // Cost on Replicate is mp * $0.03. With 1 credit = $0.10:
+  // For 50%+ margin: mp * 0.03 * 2 / 0.10 = mp * 0.6
+  return Math.max(2, Math.ceil(mp * 0.6));
+}
+
+/**
+ * Dynamic Topaz Labs Image Upscale Cost based on official Replicate Megapixel brackets.
+ * 
+ * Replicate Official Tiers:
+ * - <= 24 MP (12 & 24 MP): 1 Unit ($0.05) -> 1 credit ($0.10)
+ * - <= 48 MP (36 & 48 MP): 2 Units ($0.10) -> 2 credits ($0.20)
+ * - <= 60 MP:               3 Units ($0.15) -> 3 credits ($0.30)
+ * - <= 96 MP:               4 Units ($0.20) -> 4 credits ($0.40)
+ * - <= 132 MP:              5 Units ($0.24) -> 5 credits ($0.50)
+ * - <= 168 MP:              6 Units ($0.29) -> 6 credits ($0.60)
+ * - <= 336 MP:              11 Units ($0.53) -> 11 credits ($1.10)
+ * - <= 512 MP:              17 Units ($0.82) -> 17 credits ($1.70)
+ * - > 512 MP:               Math.max(17, Math.ceil(mp / 30))
+ */
+export function costTopazUpscale(
+  upscaleFactor?: string | number,
+  _isTrial: boolean = true,
+  px: number = 1048576,
+  outputMegapixels?: number
+): number {
+  let mp = outputMegapixels;
+  if (mp == null || isNaN(mp) || mp <= 0) {
+    let factor = 4;
+    if (typeof upscaleFactor === 'number') {
+      factor = upscaleFactor;
+    } else if (typeof upscaleFactor === 'string') {
+      if (upscaleFactor === 'None' || upscaleFactor === '1x') factor = 1;
+      else if (upscaleFactor === '2x') factor = 2;
+      else if (upscaleFactor === '4x') factor = 4;
+      else if (upscaleFactor === '6x') factor = 6;
+      else {
+        const parsed = parseFloat(upscaleFactor);
+        if (!isNaN(parsed) && parsed > 0) factor = parsed;
+      }
     }
+
+    const basePixels = px > 0 ? px : 1048576; // default 1024x1024 (1 MP)
+    const totalOutputPixels = basePixels * (factor * factor);
+    mp = totalOutputPixels / 1_000_000;
   }
 
-  if (factor >= 6) return 1.8;
-  return 1.45;
+  if (mp <= 24)  return 1;
+  if (mp <= 48)  return 2;
+  if (mp <= 60)  return 3;
+  if (mp <= 96)  return 4;
+  if (mp <= 132) return 5;
+  if (mp <= 168) return 6;
+  if (mp <= 336) return 11;
+  if (mp <= 512) return 17;
+  return Math.max(17, Math.ceil(mp / 30));
 }
 
 // ── Flat cost table for simple models ────────────────────────────────────────
@@ -235,8 +320,9 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'reve/create-layout':                            1.6,
   'reve/render-layout':                            1.6,
   'reve/reconcile-layouts':                        1.6,
-  'topazlabs/image-upscale':                       2,
-  'philz1337x/clarity-upscaler':                   1,
+  'topazlabs/image-upscale':                       1,
+  'philz1337x/clarity-upscaler':                   3,
+  'philz1337x/clarity-pro-upscaler':               3,
   'bytedance/seedance-2.0':                        20,
   'kwaivgi/kling-v3-omni-video':                   30,
   'xai/grok-imagine-video-1.5':                    30,
@@ -262,6 +348,7 @@ const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
   'reve/create-layout':                            1.6,
   'reve/render-layout':                            1.6,
   'reve/reconcile-layouts':                        1.6,
+  'philz1337x/clarity-pro-upscaler':               3,
   'bytedance/seedance-2.0':                        2.5,
   'kwaivgi/kling-v3-omni-video':                   3.5,
   'xai/grok-imagine-video-1.5':                    3.5,
@@ -274,7 +361,7 @@ const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
 };
 
 export function getModelCost(model: string, params: ModelCostParams = {}): number {
-  const { resolution = '', qualityVariant = 'auto', prunaTarget, upscaleFactor, isTrial = true, width, height, videoDuration } = params;
+  const { resolution = '', qualityVariant = 'auto', prunaTarget, upscaleFactor, isTrial = true, width, height, videoDuration, outputMegapixels } = params;
   const px = resolveResPixels(resolution, width, height);
 
   // Video duration-based pricing
@@ -362,9 +449,14 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
   if (model === 'black-forest-labs/flux-2-pro') return costFlux2Pro(resolution, px, isTrial);
   if (model === 'prunaai/p-image')        return 0.5;
   if (model === 'krea/krea-2-large')      return 1;
-  if (model === 'prunaai/p-image-upscale') return costPrunaUpscale(prunaTarget, isTrial);
-  if (model === 'topazlabs/image-upscale') return costTopazUpscale(upscaleFactor, isTrial, px);
+  if (model === 'prunaai/p-image-upscale') {
+    return costPrunaUpscale(prunaTarget, isTrial, params.prunaMode, params.prunaFactor, px, outputMegapixels);
+  }
+  if (model === 'topazlabs/image-upscale') return costTopazUpscale(upscaleFactor, isTrial, px, outputMegapixels);
   if (model === 'philz1337x/clarity-upscaler') return costClarityUpscale(upscaleFactor, isTrial);
+  if (model === 'philz1337x/clarity-pro-upscaler') {
+    return costAnarchyUpscale(upscaleFactor, isTrial, px, outputMegapixels);
+  }
   
   if (isTrial) {
     return TRIAL_FLAT_MODEL_COSTS[model] ?? TRIAL_GENERATION_COST.standard;
@@ -376,6 +468,7 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
 export function resolveUpscaleFactor(model: string, config: any): number | undefined {
   if (model === 'topazlabs/image-upscale') {
     const factorStr = config?.topazUpscaleFactor ?? '4x';
+    if (factorStr === 'None' || factorStr === '1x') return 1;
     if (factorStr === '2x') return 2;
     if (factorStr === '4x') return 4;
     if (factorStr === '6x') return 6;
@@ -383,6 +476,9 @@ export function resolveUpscaleFactor(model: string, config: any): number | undef
   }
   if (model === 'philz1337x/clarity-upscaler') {
     return config?.clarityScale ?? 2;
+  }
+  if (model === 'philz1337x/clarity-pro-upscaler') {
+    return config?.anarchyUpscaleScale ?? config?.upscaleFactor ?? 2;
   }
   return undefined;
 }
@@ -401,11 +497,14 @@ export function getUnifiedCost(config: any, isTrial: boolean = true, overrideMod
     resolution: config.resolution,
     qualityVariant,
     prunaTarget: config.prunaTarget,
+    prunaMode: config.prunaMode,
+    prunaFactor: config.prunaFactor ?? upscaleFactor,
     upscaleFactor,
     isTrial,
     width: config.width,
     height: config.height,
     videoDuration: config.videoDuration,
+    outputMegapixels: config.outputMegapixels,
   });
 }
 

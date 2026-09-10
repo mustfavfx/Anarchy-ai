@@ -1000,7 +1000,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     // Check if using an upscale model (Replicate upscale models)
     const isUpscaleModel = (model as string) === 'topazlabs/image-upscale'
       || (model as string) === 'philz1337x/clarity-upscaler'
-      || (model as string) === 'prunaai/p-image-upscale';
+      || (model as string) === 'prunaai/p-image-upscale'
+      || (model as string) === 'philz1337x/clarity-pro-upscaler';
     if (isUpscaleModel && !sourceImage) {
       throw new Error('Upscaling engines require a source image. Please upload or connect an image first.');
     }
@@ -1791,7 +1792,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       selectedModel === 'openai/sora-2-pro' ||
       selectedModel === 'topazlabs/image-upscale' ||
       selectedModel === 'philz1337x/clarity-upscaler' ||
-      selectedModel === 'prunaai/p-image-upscale';
+      selectedModel === 'prunaai/p-image-upscale' ||
+      selectedModel === 'philz1337x/clarity-pro-upscaler';
 
     if (isSingleInputModel) {
       const activeNodeIds = new Set(nodesRef.current.map(n => n.id));

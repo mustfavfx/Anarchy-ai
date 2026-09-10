@@ -71,6 +71,18 @@ export const INPAINT_ENGINE_REGISTRY: AIModelEngine[] = [
 // ── Upscale Engines ──────────────────────────────────────────────────────────
 export const UPSCALE_ENGINE_REGISTRY: AIModelEngine[] = [
   {
+    id: 'philz1337x/clarity-pro-upscaler',
+    name: 'Anarchy Upscale',
+    role: 'upscale',
+    creditCost: 3,
+  },
+  {
+    id: 'prunaai/p-image-upscale',
+    name: 'Pruna Upscale',
+    role: 'upscale',
+    creditCost: 2,
+  },
+  {
     id: 'topazlabs/image-upscale',
     name: 'Topaz Upscale',
     role: 'upscale',
@@ -81,12 +93,6 @@ export const UPSCALE_ENGINE_REGISTRY: AIModelEngine[] = [
     name: 'Clarity Upscaler',
     role: 'upscale',
     creditCost: 3,
-  },
-  {
-    id: 'prunaai/p-image-upscale',
-    name: 'Pruna Upscale',
-    role: 'upscale',
-    creditCost: 2,
   },
 ];
 

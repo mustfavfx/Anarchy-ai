@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anarchy AI — Master Admin & Economics Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg-base: #09090b;
+      --bg-surface: #111115;
+      --bg-elevated: #18181d;
+      --bg-hover: #22222a;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --accent-primary: #e11d48;
+      --accent-glow: rgba(225, 29, 72, 0.25);
+      --color-green: #10b981;
+      --color-green-glow: rgba(16, 185, 129, 0.2);
+      --color-blue: #3b82f6;
+      --color-orange: #f97316;
+      --color-amber: #f59e0b;
+      --color-purple: #a855f7;
+      --text-primary: #f4f4f6;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 10%, rgba(225, 29, 72, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 90% 90%, rgba(59, 130, 246, 0.05) 0%, transparent 45%);
+    }
+
+    /* Top Navigation */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 36px;
+      background: rgba(17, 17, 21, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #e11d48, #9f1239);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      color: #fff;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: #fff;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .admin-pill {
+      background: rgba(225, 29, 72, 0.12);
+      border: 1px solid rgba(225, 29, 72, 0.3);
+      color: #fb7185;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-strong);
+    }
+
+    .btn-primary {
+      background: var(--accent-primary);
+      color: #fff;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      background: #f43f5e;
+      transform: translateY(-1px);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 36px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Section Headers */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: -16px;
+    }
+
+    .section-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Cards Grids */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 1100px) {
+      .cards-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 650px) {
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    /* Color Variants */
+    .card-stripe::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .card-replicate::before { background: linear-gradient(90deg, #f97316, #fb923c); }
+    .card-profit::before { background: linear-gradient(90deg, #10b981, #34d399); }
+    .card-wallet::before { background: linear-gradient(90deg, #a855f7, #c084fc); }
+    .card-users::before { background: linear-gradient(90deg, #38bdf8, #0284c7); }
+    .card-paying::before { background: linear-gradient(90deg, #e11d48, #be123c); }
+    .card-credits::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .card-used::before { background: linear-gradient(90deg, #ec4899, #db2777); }
+
+    .card-profit.highlight {
+      background: linear-gradient(160deg, rgba(16, 185, 129, 0.08) 0%, rgba(17, 17, 21, 0.95) 100%);
+      border-color: rgba(16, 185, 129, 0.28);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .card-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .badge-orange { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
+    .badge-green { background: rgba(16, 185, 129, 0.18); color: #34d399; }
+    .badge-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+
+    .card-value {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .card-value.green { color: #10b981; text-shadow: 0 0 16px var(--color-green-glow); }
+    .card-value.orange { color: #fb923c; }
+    .card-value.blue { color: #60a5fa; }
+    .card-value.purple { color: #c084fc; }
+
+    .card-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .mini-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mini-btn:hover {
+      background: var(--bg-hover);
+      color: #fff;
+      border-color: var(--border-strong);
+    }
+
+    /* Revenue Split Bar Card */
+    .revenue-split-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .split-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+
+    .split-title {
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .split-metrics {
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+    }
+
+    .split-track {
+      width: 100%;
+      height: 16px;
+      background: var(--bg-elevated);
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .split-bar {
+      height: 100%;
+      transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .split-bar.profit { background: #10b981; }
+    .split-bar.replicate { background: #f97316; }
+    .split-bar.stripe { background: #3b82f6; }
+
+    .split-legend {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.profit { background: #10b981; }
+    .legend-dot.replicate { background: #f97316; }
+    .legend-dot.stripe { background: #3b82f6; }
+
+    /* Controls Bar */
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .search-wrapper {
+      position: relative;
+      flex: 1;
+      min-width: 280px;
+      max-width: 440px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px 10px 38px;
+      font-size: 13.5px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      color: #fff;
+      border-color: var(--border-strong);
+    }
+
+    .filter-btn.active {
+      background: rgba(225, 29, 72, 0.16);
+      border-color: var(--accent-primary);
+      color: #fff;
+    }
+
+    .sort-select {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .sort-select:focus {
+      border-color: var(--accent-primary);
+    }
+
+    /* Subscribers Table */
+    .table-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      box-shadow: var(--shadow-card);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      min-width: 900px;
+    }
+
+    thead {
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    th {
+      padding: 16px 20px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    td {
+      padding: 16px 20px;
+      font-size: 13.5px;
+      color: var(--text-primary);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    tbody tr {
+      transition: background-color 0.15s;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .user-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: #27272a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #e4e4e7;
+    }
+
+    .user-email-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .user-email-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-email {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .user-id {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-paying {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    .badge-free {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    .amount-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #10b981;
+      font-size: 14px;
+    }
+
+    .amount-zero {
+      color: var(--text-muted);
+      font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .credit-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      display: inline-block;
+    }
+
+    .credit-high { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+    .credit-mid { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+    .credit-zero { background: rgba(225, 29, 72, 0.16); color: #fb7185; }
+
+    .date-text {
+      color: var(--text-secondary);
+      font-size: 12.5px;
+    }
+
+    /* Auth Modal Section */
+    #auth-section {
+      max-width: 440px;
+      margin: 60px auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .auth-header { text-align: center; }
+    .auth-header h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .auth-header p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+    .notice-banner {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 12.5px;
+      color: #93c5fd;
+      line-height: 1.4;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .form-input {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    .live-sync-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #34d399;
+      letter-spacing: 0.03em;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: live-pulse 1.8s infinite;
+    }
+
+    @keyframes live-pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-section">
+      <div class="brand-logo">A</div>
+      <div>
+        <div class="brand-title">Anarchy AI — Master Executive Dashboard</div>
+        <div class="brand-subtitle">Financial Economics, AI Burn Rate &amp; Customer Ledger</div>
+      </div>
+      <span class="admin-pill">Production Portal</span>
+    </div>
+
+    <div class="header-actions" id="header-actions" style="display: none;">
+      <div class="live-sync-indicator" title="Auto-syncing in real-time with Supabase">
+        <span class="pulse-dot"></span>
+        <span>LIVE AUTO-SYNC</span>
+      </div>
+      <button class="btn btn-secondary" id="btn-export">
+        📥 Export CSV
+      </button>
+      <button class="btn btn-primary" id="btn-refresh">
+        <span id="refresh-icon">🔄</span> Refresh
+      </button>
+      <button class="btn btn-secondary" id="btn-logout" title="Sign Out">
+        🚪 Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    
+    <!-- Auth Section (Shown if not authenticated) -->
+    <div id="auth-section">
+      <div class="auth-header">
+        <div class="brand-logo" style="margin: 0 auto 16px; width: 50px; height: 50px; font-size: 24px;">A</div>
+        <h2>Administrator Access</h2>
+        <p>Connect with your Supabase master key to monitor revenue, Replicate costs, and subscriber accounts.</p>
+      </div>
+
+      <div class="notice-banner">
+        🔒 Authorized administrator: <b>mustfahusham979@gmail.com</b>
+      </div>
+
+      <!-- Quick Option 1: Master Service Role Key (Instant Access) -->
+      <div class="form-group" style="background: rgba(255, 255, 255, 0.02); padding: 18px; border-radius: var(--radius-sm); border: 1px dashed rgba(245, 158, 11, 0.3);">
+        <label style="color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+          🔑 Supabase Service Role Key (Instant Access)
+        </label>
+        <span style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4;">
+          Paste your <code>service_role secret</code> key from <b>Project Settings &gt; API</b> in Supabase.
+        </span>
+        <input type="password" id="service-key-input" class="form-input" placeholder="Paste service_role key here..." />
+        <button type="button" class="btn btn-secondary" onclick="handleServiceKeyLogin()" style="width: 100%; justify-content: center; padding: 11px; margin-top: 6px; font-weight: 700; background: rgba(245, 158, 11, 0.12); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3);">
+          ⚡ Connect with Master Key
+        </button>
+      </div>
+
+      <!-- Option 2: Traditional Password (Collapsible) -->
+      <details style="margin-top: 4px;">
+        <summary style="font-size: 12px; color: var(--text-muted); cursor: pointer; user-select: none;">
+          Have an admin account password? Sign in with Email &amp; Password
+        </summary>
+        <form id="auth-form" onsubmit="handleLogin(event)" style="margin-top: 14px;">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label>Admin Email</label>
+            <input type="email" id="login-email" class="form-input" value="mustfahusham979@gmail.com" required />
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label>Password</label>
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••" />
+          </div>
+          <button type="submit" class="btn btn-primary" id="btn-login" style="width: 100%; justify-content: center; padding: 10px;">
+            Sign In with Password
+          </button>
+        </form>
+      </details>
+
+      <div id="login-error" style="color: #fb7185; font-size: 13px; text-align: center; display: none;"></div>
+    </div>
+
+    <!-- Dashboard Content (Shown when logged in) -->
+    <div id="dashboard-section" style="display: none; flex-direction: column; gap: 32px;">
+      
+      <!-- Section 1: Financial Health & Unit Economics -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">
+            <span>💵</span> Financial Economics &amp; P&amp;L Pulse
+          </div>
+        </div>
+
+        <div class="cards-grid" style="margin-top: 24px;">
+          <!-- 1. Stripe Gross Inflow -->
+          <div class="stat-card card-stripe">
+            <div class="card-header">
+              <span class="card-label">إجمالي دخل Stripe</span>
+              <span class="card-badge badge-blue">Stripe Gross</span>
+            </div>
+            <div class="card-value blue" id="f-stripe-gross">$0.00</div>
+            <div class="card-subtext" id="f-stripe-net">صافي بعد رسوم سترايب: $0.00</div>
+          </div>
+
+          <!-- 2. Replicate Outflow Cost -->
+          <div class="stat-card card-replicate">
+            <div class="card-header">
+              <span class="card-label">ما ذهب لـ Replicate</span>
+              <span class="card-badge badge-orange">AI Incurred</span>
+            </div>
+            <div class="card-value orange" id="f-replicate-cost">$0.00</div>
+            <div class="card-subtext" id="f-replicate-info">تكلفة التوليدات المستهلكة</div>
+          </div>
+
+          <!-- 3. Net Profit -->
+          <div class="stat-card card-profit highlight">
+            <div class="card-header">
+              <span class="card-label">صافي الأرباح (Net Profit)</span>
+              <span class="card-badge badge-green" id="f-margin-badge">0% Margin</span>
+            </div>
+            <div class="card-value green" id="f-net-profit">$0.00</div>
+            <div class="card-subtext" id="f-profit-sub">إجمالي الدخل - Replicate - رسوم Stripe</div>
+          </div>
+
+          <!-- 4. Replicate Prepaid Wallet -->
+          <div class="stat-card card-wallet">
+            <div class="card-header">
+              <span class="card-label">رصيد محفظة Replicate</span>
+              <button class="mini-btn" onclick="promptReplicateDeposit()">تعديل الشحن ⚙️</button>
+            </div>
+            <div class="card-value purple" id="f-replicate-remaining">$0.00</div>
+            <div class="card-subtext" id="f-replicate-deposit-info">شحنت $50.00 | استهلك $0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Unit Economics Split Bar -->
+      <div class="revenue-split-card">
+        <div class="split-meta">
+          <div class="split-title">
+            <span>📊</span> مؤشر توزيع الإيرادات والربحية (Unit Economics)
+          </div>
+          <div class="split-metrics" id="split-summary-text">
+            صافي الربح: 0% | تكلفة AI: 0% | عمولة Stripe: 0%
+          </div>
+        </div>
+        <div class="split-track">
+          <div class="split-bar profit" id="split-bar-profit" style="width: 0%;" title="Net Profit"></div>
+          <div class="split-bar replicate" id="split-bar-replicate" style="width: 0%;" title="Replicate Cost"></div>
+          <div class="split-bar stripe" id="split-bar-stripe" style="width: 0%;" title="Stripe Fees"></div>
+        </div>
+        <div class="split-legend">
+          <span class="legend-item"><span class="legend-dot profit"></span> 🟢 صافي أرباحك في جيبك</span>
+          <span class="legend-item"><span class="legend-dot replicate"></span> 🟠 تكلفة استهلاك Replicate AI</span>
+          <span class="legend-item"><span class="legend-dot stripe"></span> 🔵 عمولة بوابة الدفع Stripe (~2.9% + 30¢)</span>
+        </div>
+      </div>
+
+      <!-- Section 3: Platform & Audience Metrics -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">
+            <span>👥</span> Platform &amp; User Engagement Pulse
+          </div>
+        </div>
+
+        <div class="cards-grid" style="margin-top: 24px;">
+          <!-- Users -->
+          <div class="stat-card card-users">
+            <div class="card-header">
+              <span class="card-label">Total Subscribers</span>
+              <span style="font-size: 16px;">👥</span>
+            </div>
+            <div class="card-value" id="kpi-users">0</div>
+            <div class="card-subtext">Registered user accounts</div>
+          </div>
+
+          <!-- Paying Customers -->
+          <div class="stat-card card-paying">
+            <div class="card-header">
+              <span class="card-label">Paying Customers</span>
+              <span style="font-size: 16px;">💎</span>
+            </div>
+            <div class="card-value" id="kpi-paying">0</div>
+            <div class="card-subtext" id="kpi-conversion">0% conversion rate</div>
+          </div>
+
+          <!-- Circulating Credits -->
+          <div class="stat-card card-credits">
+            <div class="card-header">
+              <span class="card-label">Circulating Credits</span>
+              <span style="font-size: 16px;">⚡</span>
+            </div>
+            <div class="card-value" id="kpi-credits">0</div>
+            <div class="card-subtext">Unspent credits in accounts</div>
+          </div>
+
+          <!-- Consumed Credits -->
+          <div class="stat-card card-used">
+            <div class="card-header">
+              <span class="card-label">Total Credits Consumed</span>
+              <span style="font-size: 16px;">🔥</span>
+            </div>
+            <div class="card-value" id="kpi-credits-used">0</div>
+            <div class="card-subtext">All-time generation volume</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Customer Directory & Ledger -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">
+            <span>📋</span> Customer Directory &amp; Credit Ledger
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 24px;">
+          <!-- Controls Bar -->
+          <div class="controls-bar">
+            <div class="search-wrapper">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="search-input" class="search-input" placeholder="Search by email..." oninput="handleFilter()" />
+            </div>
+
+            <div class="filter-group">
+              <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All Subscribers</button>
+              <button class="filter-btn" data-filter="paying" onclick="setFilter('paying')">⭐ Paying Only</button>
+              <button class="filter-btn" data-filter="credits" onclick="setFilter('credits')">⚡ Has Credits</button>
+              <button class="filter-btn" data-filter="zero" onclick="setFilter('zero')">0 Balance</button>
+            </div>
+
+            <select id="sort-select" class="sort-select" onchange="handleFilter()">
+              <option value="paid-desc">Highest Paid ($)</option>
+              <option value="credits-desc">Most Credits</option>
+              <option value="newest">Newest Registered</option>
+              <option value="oldest">Oldest Registered</option>
+            </select>
+          </div>
+
+          <!-- Table Container -->
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 320px;">Subscriber</th>
+                  <th>Total Paid</th>
+                  <th>Current Balance</th>
+                  <th>Purchased</th>
+                  <th>Used</th>
+                  <th>Last Purchase</th>
+                  <th>Registered At</th>
+                </tr>
+              </thead>
+              <tbody id="subscribers-tbody">
+                <tr>
+                  <td colspan="7" class="empty-state">Loading subscribers...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    // Supabase Configuration
+    const SUPABASE_URL = 'https://ejzsbkxpqmhpjuqmszvd.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqenNia3hwcW1ocGp1cW1zenZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjEzNjIsImV4cCI6MjA5MzE5NzM2Mn0.lbKXt_BLTNXjTKpmqdPLvU6vC-mWNjbVRYjfSGFVZcc';
+    
+    let activeClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let rawData = null;
+    let currentFilter = 'all';
+
+    // Initialize Auth state
+    window.addEventListener('DOMContentLoaded', async () => {
+      // 1. Check if saved service role master key exists
+      const savedKey = localStorage.getItem('anarchy_service_key');
+      if (savedKey) {
+        try {
+          activeClient = window.supabase.createClient(SUPABASE_URL, savedKey);
+          onAuthenticated({ email: 'Master Service Key' });
+          return;
+        } catch (e) {
+          console.warn('Invalid saved key', e);
+        }
+      }
+
+      // 2. Check active Supabase session
+      const { data: { session } } = await activeClient.auth.getSession();
+      if (session?.user) {
+        onAuthenticated(session.user);
+      }
+    });
+
+    async function handleServiceKeyLogin() {
+      const key = document.getElementById('service-key-input').value.trim();
+      const errBox = document.getElementById('login-error');
+      errBox.style.display = 'none';
+
+      if (!key) {
+        errBox.textContent = 'Please paste your service_role secret key from Supabase.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      try {
+        localStorage.setItem('anarchy_service_key', key);
+        activeClient = window.supabase.createClient(SUPABASE_URL, key);
+        onAuthenticated({ email: 'Master Service Key' });
+      } catch (err) {
+        errBox.textContent = err.message || 'Failed to initialize service key.';
+        errBox.style.display = 'block';
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const btnLogin = document.getElementById('btn-login');
+      const errBox = document.getElementById('login-error');
+
+      errBox.style.display = 'none';
+      btnLogin.disabled = true;
+      btnLogin.innerHTML = '<span class="spinner"></span> Signing in...';
+
+      try {
+        const { data, error } = await activeClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        onAuthenticated(data.user);
+      } catch (err) {
+        errBox.textContent = err.message || 'Authentication failed. Verify credentials.';
+        errBox.style.display = 'block';
+      } finally {
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Sign In with Password';
+      }
+    }
+
+    let autoSyncInterval = null;
+    let realtimeChannel = null;
+
+    function startAutoSync() {
+      if (autoSyncInterval) clearInterval(autoSyncInterval);
+      // Auto-sync polling every 25 seconds in background
+      autoSyncInterval = setInterval(() => {
+        fetchSubscribersData(true);
+      }, 25000);
+
+      // Realtime push notification on table changes
+      try {
+        if (realtimeChannel) {
+          activeClient.removeChannel(realtimeChannel);
+        }
+        realtimeChannel = activeClient
+          .channel('admin-subscribers-pulse')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'stripe_sessions' }, () => {
+            fetchSubscribersData(true);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'user_credits' }, () => {
+            fetchSubscribersData(true);
+          })
+          .subscribe();
+      } catch (err) {
+        console.warn('Realtime subscription optional fallback:', err);
+      }
+    }
+
+    function onAuthenticated(user) {
+      document.getElementById('auth-section').style.display = 'none';
+      document.getElementById('dashboard-section').style.display = 'flex';
+      document.getElementById('header-actions').style.display = 'flex';
+      fetchSubscribersData();
+      startAutoSync();
+    }
+
+    async function handleLogout() {
+      if (autoSyncInterval) clearInterval(autoSyncInterval);
+      if (realtimeChannel) activeClient.removeChannel(realtimeChannel);
+      localStorage.removeItem('anarchy_service_key');
+      await activeClient.auth.signOut();
+      document.getElementById('auth-section').style.display = 'flex';
+      document.getElementById('dashboard-section').style.display = 'none';
+      document.getElementById('header-actions').style.display = 'none';
+    }
+
+    document.getElementById('btn-logout').addEventListener('click', handleLogout);
+    document.getElementById('btn-refresh').addEventListener('click', () => fetchSubscribersData(false));
+    document.getElementById('btn-export').addEventListener('click', exportToCSV);
+
+    async function fetchSubscribersData(isSilent = false) {
+      const refreshIcon = document.getElementById('refresh-icon');
+      if (!isSilent) {
+        refreshIcon.style.display = 'inline-block';
+        refreshIcon.style.animation = 'spin 0.8s linear infinite';
+      }
+
+      try {
+        const isServiceKey = !!localStorage.getItem('anarchy_service_key');
+
+        if (isServiceKey) {
+          // Direct Admin Fetch via Service Key
+          const [usersRes, creditsRes, sessionsRes] = await Promise.all([
+            activeClient.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+            activeClient.from('user_credits').select('*'),
+            activeClient.from('stripe_sessions').select('*'),
+          ]);
+
+          if (usersRes.error) throw usersRes.error;
+
+          const users = usersRes.data?.users || [];
+          const credits = creditsRes.data || [];
+          const sessions = (sessionsRes.data || []).filter(s => s.status === 'completed');
+
+          // Map credits by user_id
+          const creditsMap = new Map();
+          credits.forEach(c => creditsMap.set(c.user_id, c));
+
+          // Map sessions by user_id
+          const sessionsMap = new Map();
+          sessions.forEach(s => {
+            if (!sessionsMap.has(s.user_id)) sessionsMap.set(s.user_id, []);
+            sessionsMap.get(s.user_id).push(s);
+          });
+
+          // Build subscriber records
+          const subscribers = users.map(u => {
+            const c = creditsMap.get(u.id) || {};
+            const uSessions = sessionsMap.get(u.id) || [];
+            const totalPaid = uSessions.reduce((sum, s) => sum + (Number(s.amount_cents || 0) / 100), 0);
+
+            let lastPurchase = c.last_purchase_at || null;
+            if (uSessions.length > 0) {
+              const sorted = [...uSessions].sort((a, b) => new Date(b.completed_at || b.created_at) - new Date(a.completed_at || a.created_at));
+              lastPurchase = sorted[0].completed_at || sorted[0].created_at || lastPurchase;
+            }
+
+            return {
+              user_id: u.id,
+              email: u.email || 'No email',
+              created_at: u.created_at,
+              last_sign_in_at: u.last_sign_in_at,
+              balance: Number(c.balance || 0),
+              total_purchased: Number(c.total_purchased || 0),
+              total_used: Number(c.total_used || 0),
+              total_paid_usd: Math.round(totalPaid * 100) / 100,
+              payments_count: uSessions.length,
+              last_purchase_at: lastPurchase,
+            };
+          });
+
+          // Calculate aggregate metrics
+          const totalRevenue = sessions.reduce((sum, s) => sum + (Number(s.amount_cents || 0) / 100), 0);
+          const payingCount = new Set(sessions.map(s => s.user_id)).size;
+          const totalCreditsBalance = credits.reduce((sum, c) => sum + Number(c.balance || 0), 0);
+          const totalCreditsPurchased = credits.reduce((sum, c) => sum + Number(c.total_purchased || 0), 0);
+          const totalCreditsUsed = credits.reduce((sum, c) => sum + Number(c.total_used || 0), 0);
+
+          rawData = {
+            stats: {
+              total_users: users.length,
+              paying_users: payingCount,
+              total_revenue_usd: Math.round(totalRevenue * 100) / 100,
+              total_credits_balance: totalCreditsBalance,
+              total_credits_purchased: totalCreditsPurchased,
+              total_credits_used: totalCreditsUsed,
+            },
+            subscribers: subscribers.sort((a, b) => b.total_paid_usd - a.total_paid_usd || new Date(b.created_at) - new Date(a.created_at)),
+          };
+
+          renderKPIs(rawData.stats);
+          handleFilter();
+          return;
+        }
+
+        // Fallback: Execute RPC
+        const { data, error } = await activeClient.rpc('get_admin_subscribers');
+        if (error) throw error;
+
+        rawData = data;
+        renderKPIs(data.stats);
+        handleFilter();
+      } catch (err) {
+        console.error('Failed to load admin subscribers:', err);
+        const tbody = document.getElementById('subscribers-tbody');
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="empty-state" style="color: #fb7185;">
+              ⚠️ Error fetching subscriber data: ${err.message}<br><br>
+              <small style="color: var(--text-muted);">
+                Make sure the service key is valid and has read permissions.
+              </small>
+            </td>
+          </tr>
+        `;
+      } finally {
+        refreshIcon.style.animation = 'none';
+      }
+    }
+
+    function renderKPIs(stats) {
+      if (!stats) return;
+
+      const totalRevenue = Number(stats.total_revenue_usd || 0);
+      const totalCreditsUsed = Number(stats.total_credits_used || 0);
+      const totalCreditsBalance = Number(stats.total_credits_balance || 0);
+
+      // 1. Stripe Inflow & Fees Calculation (Stripe: 2.9% + $0.30)
+      const paymentsCount = rawData?.subscribers?.reduce((acc, s) => acc + (s.payments_count || 0), 0) || 0;
+      const stripeFees = totalRevenue > 0 
+        ? Math.round(((totalRevenue * 0.029) + (paymentsCount * 0.30)) * 100) / 100 
+        : 0;
+      const stripeNet = Math.max(0, Math.round((totalRevenue - stripeFees) * 100) / 100);
+
+      // 2. Replicate Outflow Calculation (Average cost per credit consumed: $0.055)
+      const replicateCost = Math.round((totalCreditsUsed * 0.055) * 100) / 100;
+
+      // 3. Replicate Prepaid Wallet Tracker
+      const replicateDeposit = Number(localStorage.getItem('anarchy_replicate_deposit') || 50);
+      const replicateRemaining = Math.max(0, Math.round((replicateDeposit - replicateCost) * 100) / 100);
+
+      // 4. Net Profit Calculation
+      const netProfit = Math.round((totalRevenue - stripeFees - replicateCost) * 100) / 100;
+      const marginPct = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0;
+
+      // Financial Pulse Cards
+      document.getElementById('f-stripe-gross').textContent = `$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      document.getElementById('f-stripe-net').textContent = `صافي بعد رسوم Stripe ($${stripeFees}): $${stripeNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+      document.getElementById('f-replicate-cost').textContent = `$${replicateCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      document.getElementById('f-replicate-info').textContent = `تكلفة ${totalCreditsUsed.toLocaleString()} كريدت مستهلك في AI`;
+
+      document.getElementById('f-net-profit').textContent = `$${netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      document.getElementById('f-net-profit').className = netProfit >= 0 ? 'card-value green' : 'card-value orange';
+      document.getElementById('f-margin-badge').textContent = `${marginPct}% Margin`;
+      document.getElementById('f-margin-badge').className = netProfit >= 0 ? 'card-badge badge-green' : 'card-badge badge-orange';
+      document.getElementById('f-profit-sub').textContent = `دخل $${totalRevenue} - ربلكيت $${replicateCost} - عمولة $${stripeFees}`;
+
+      document.getElementById('f-replicate-remaining').textContent = `$${replicateRemaining.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      document.getElementById('f-replicate-deposit-info').textContent = `شحنت $${replicateDeposit} | استهلك $${replicateCost}`;
+
+      // Revenue Split Bar
+      if (totalRevenue > 0) {
+        const profitRatio = Math.max(0, (netProfit / totalRevenue) * 100);
+        const repRatio = Math.min(100, (replicateCost / totalRevenue) * 100);
+        const stripeRatio = Math.min(100, (stripeFees / totalRevenue) * 100);
+
+        document.getElementById('split-bar-profit').style.width = `${profitRatio}%`;
+        document.getElementById('split-bar-replicate').style.width = `${repRatio}%`;
+        document.getElementById('split-bar-stripe').style.width = `${stripeRatio}%`;
+
+        document.getElementById('split-summary-text').textContent = 
+          `صافي الربح: ${profitRatio.toFixed(1)}% | تكلفة Replicate: ${repRatio.toFixed(1)}% | عمولة Stripe: ${stripeRatio.toFixed(1)}%`;
+      } else {
+        document.getElementById('split-bar-profit').style.width = '0%';
+        document.getElementById('split-bar-replicate').style.width = '0%';
+        document.getElementById('split-bar-stripe').style.width = '0%';
+        document.getElementById('split-summary-text').textContent = 'لا توجد مبيعات مكتملة بعد لحساب النسب';
+      }
+
+      // Standard Engagement Cards
+      document.getElementById('kpi-users').textContent = Number(stats.total_users || 0).toLocaleString();
+      document.getElementById('kpi-paying').textContent = Number(stats.paying_users || 0).toLocaleString();
+      
+      const convRate = stats.total_users > 0 
+        ? ((stats.paying_users / stats.total_users) * 100).toFixed(1) 
+        : 0;
+      document.getElementById('kpi-conversion').textContent = `${convRate}% conversion rate`;
+
+      document.getElementById('kpi-credits').textContent = totalCreditsBalance.toLocaleString();
+      document.getElementById('kpi-credits-used').textContent = totalCreditsUsed.toLocaleString();
+    }
+
+    function promptReplicateDeposit() {
+      const current = localStorage.getItem('anarchy_replicate_deposit') || 50;
+      const input = prompt('كم المبلغ الكلي الذي شحنته في رصيد Replicate بالدولار؟ ($)', current);
+      if (input !== null && !isNaN(Number(input))) {
+        localStorage.setItem('anarchy_replicate_deposit', Number(input));
+        if (rawData?.stats) renderKPIs(rawData.stats);
+      }
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === filter);
+      });
+      handleFilter();
+    }
+
+    function handleFilter() {
+      if (!rawData?.subscribers) return;
+
+      const query = document.getElementById('search-input').value.toLowerCase().trim();
+      const sortType = document.getElementById('sort-select').value;
+
+      let filtered = [...rawData.subscribers];
+
+      // 1. Search Query
+      if (query) {
+        filtered = filtered.filter(sub => sub.email.toLowerCase().includes(query));
+      }
+
+      // 2. Filter Pills
+      if (currentFilter === 'paying') {
+        filtered = filtered.filter(sub => sub.total_paid_usd > 0);
+      } else if (currentFilter === 'credits') {
+        filtered = filtered.filter(sub => sub.balance > 0);
+      } else if (currentFilter === 'zero') {
+        filtered = filtered.filter(sub => sub.balance === 0);
+      }
+
+      // 3. Sorting
+      filtered.sort((a, b) => {
+        if (sortType === 'paid-desc') return b.total_paid_usd - a.total_paid_usd;
+        if (sortType === 'credits-desc') return b.balance - a.balance;
+        if (sortType === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+        if (sortType === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+        return 0;
+      });
+
+      renderTable(filtered);
+    }
+
+    function renderTable(subscribers) {
+      const tbody = document.getElementById('subscribers-tbody');
+
+      if (!subscribers || subscribers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No matching subscribers found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = subscribers.map(sub => {
+        const isPaying = sub.total_paid_usd > 0;
+        const initial = (sub.email[0] || 'U').toUpperCase();
+        
+        let creditClass = 'credit-mid';
+        if (sub.balance > 20) creditClass = 'credit-high';
+        else if (sub.balance === 0) creditClass = 'credit-zero';
+
+        const lastPurchaseText = sub.last_purchase_at 
+          ? new Date(sub.last_purchase_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+          : '—';
+
+        const regDateText = new Date(sub.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+        return `
+          <tr>
+            <td>
+              <div class="user-cell">
+                <div class="user-avatar">${initial}</div>
+                <div class="user-email-stack">
+                  <div class="user-email-row">
+                    <span class="user-email">${sub.email}</span>
+                    ${isPaying ? '<span class="badge-paying">⭐ Paid</span>' : '<span class="badge-free">Free</span>'}
+                  </div>
+                  <span class="user-id">${sub.user_id.slice(0, 18)}...</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="${isPaying ? 'amount-value' : 'amount-zero'}">
+                $${Number(sub.total_paid_usd).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </td>
+            <td>
+              <span class="credit-badge ${creditClass}">
+                ${Number(sub.balance).toLocaleString()}
+              </span>
+            </td>
+            <td>
+              <span style="color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;">
+                ${Number(sub.total_purchased).toLocaleString()}
+              </span>
+            </td>
+            <td>
+              <span style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
+                ${Number(sub.total_used).toLocaleString()}
+              </span>
+            </td>
+            <td>
+              <span class="date-text">${lastPurchaseText}</span>
+            </td>
+            <td>
+              <span class="date-text">${regDateText}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function exportToCSV() {
+      if (!rawData?.subscribers || rawData.subscribers.length === 0) {
+        alert('No data to export.');
+        return;
+      }
+
+      const headers = ['Email', 'Total Paid (USD)', 'Current Credits', 'Total Purchased', 'Total Used', 'Last Purchase', 'Registered At', 'User ID'];
+      const rows = rawData.subscribers.map(sub => [
+        `"${sub.email}"`,
+        sub.total_paid_usd,
+        sub.balance,
+        sub.total_purchased,
+        sub.total_used,
+        sub.last_purchase_at || '',
+        sub.created_at,
+        `"${sub.user_id}"`
+      ]);
+
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `anarchy_subscribers_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>

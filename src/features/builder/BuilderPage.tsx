@@ -884,6 +884,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           prompt: data?.prompt,
           state: data?.state,
           isVideo: isVideoNode(data),
+          dimensions: data?.dimensions || data?.outputData?.dimensions,
         });
       }
     } else {
@@ -902,6 +903,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           prompt: data?.prompt,
           state: data?.state,
           isVideo: isVideoNode(data),
+          dimensions: data?.dimensions || data?.outputData?.dimensions,
         });
       } else {
         setSelectedNode({ id: null, type: null, image: undefined, originalImage: undefined, prompt: undefined, state: undefined, isVideo: false });

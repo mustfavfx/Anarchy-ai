@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.88] - 2026-09-10
+
+### Added
+- **Anarchy Upscale (Clarity Pro) Flagship Engine**:
+  - Integrated `philz1337x/clarity-pro-upscaler` under the title **Anarchy Upscale** with a Pro badge, positioned as the primary upscaling engine.
+  - Scale factor presets: `2x`, `4x`, `8x`, and `16x`.
+  - Creativity slider control ranging from `-10` to `+10` (default: 4) for balancing original fidelity with generative detail.
+  - Dynamic megapixel-based credit cost calculation with guaranteed 50%+ profit margin ($0.03/MP capped at 64 MP).
+- **Pruna AI Upscale Engine**:
+  - Integrated `prunaai/p-image-upscale` with factor scaling (1x–16x) and target megapixel mode (1–128 MP).
+- **Standalone Admin Subscribers & Revenue Dashboard**:
+  - Created standalone desktop administrative tool (`Anarchy AI Admin Dashboard.bat`) for real-time Stripe revenue, Replicate compute costs, user credit balances, and financial analytics.
+
+### Changed & Improved
+- **Revamped Left Navigation Sidebar Icons**:
+  - Upgraded all navigation icons to modern, sleek Lucide icons: `LayoutDashboard`, `FolderKanban`, `Workflow`, `BrainCircuit`, `Cpu`, `Shapes`, `Images`, `History`, `Blocks`.
+  - Added smooth hover micro-animations (`translateY(-1px) scale(1.08)`) and active neon rose glowing drop-shadow.
+- **Topaz Labs & Clarity Upscaler Pricing Alignment**:
+  - Implemented dynamic megapixel pricing brackets for Topaz Labs Upscale (up to 512 MP).
+  - Aligned Clarity Upscaler credit pricing to Nvidia A100 GPU compute runtime with real-time hardware status indicators.
+
 ## [0.3.85] - 2026-09-10
 
 ### Added

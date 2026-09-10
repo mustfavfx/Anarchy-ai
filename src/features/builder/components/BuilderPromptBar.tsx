@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Camera, Sparkles, Building2, HardHat, Blend,
   Sofa, Factory, Leaf, Wind, Gem, Flame, Crown,
@@ -183,7 +183,19 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
     }
   };
 
-  const cost = getUnifiedCost(aiConfig, isTrial, liveModel);
+  const selectedNode = useAIConfigStore((s) => s.selectedNode);
+  const effectiveConfig = useMemo(() => {
+    if (liveModel === 'topazlabs/image-upscale' && selectedNode?.dimensions?.width && selectedNode?.dimensions?.height) {
+      return {
+        ...aiConfig,
+        width: selectedNode.dimensions.width,
+        height: selectedNode.dimensions.height,
+      };
+    }
+    return aiConfig;
+  }, [aiConfig, liveModel, selectedNode?.dimensions]);
+
+  const cost = getUnifiedCost(effectiveConfig, isTrial, liveModel);
 
   const isUpscaleMode = isUpscaler || activeRole === 'upscale' || aiConfig.selectedTool === 'image-upscaler';
   const isInpaintMode = activeRole === 'inpaint' || Boolean(maskDataUrl);

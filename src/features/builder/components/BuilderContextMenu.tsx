@@ -104,9 +104,10 @@ const STATIONS: MenuStation[] = [
     name: 'Image Upscaling',
     icon: <Maximize2 size={14} className="context-icon" />,
     engines: [
+      { id: 'philz1337x/clarity-pro-upscaler', name: 'Anarchy Upscale', badge: 'Pro' },
+      { id: 'prunaai/p-image-upscale', name: 'Pruna AI Upscale' },
       { id: 'topazlabs/image-upscale', name: 'Topaz Labs Upscale' },
-      { id: 'philz1337x/clarity-upscaler', name: 'Clarity Upscaler' },
-      { id: 'prunaai/p-image-upscale', name: 'Pruna AI Upscale' }
+      { id: 'philz1337x/clarity-upscaler', name: 'Clarity Upscaler' }
     ]
   },
   {

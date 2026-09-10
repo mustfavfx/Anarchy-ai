@@ -1,20 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutGrid, FolderOpen, Hammer, Box, Library, History, Zap, Settings, User, ChevronLeft, ChevronRight, Bot, Wand2 } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  FolderKanban, 
+  Workflow, 
+  BrainCircuit, 
+  Cpu, 
+  Shapes, 
+  Images, 
+  History, 
+  Blocks, 
+  Settings, 
+  User, 
+  ChevronLeft, 
+  ChevronRight 
+} from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import './NavRail.css';
 
 const NAV_ITEMS = [
-  { icon: LayoutGrid, label: 'Dashboard', path: '/' },
-  { icon: FolderOpen, label: 'Projects', path: '/projects' },
-  { icon: Hammer, label: 'Builder', path: '/builder' },
-  { icon: Bot, label: 'AI Agent', path: '/generate', disabled: true },
-  { icon: Wand2, label: 'LoRA Training', path: '/lora', disabled: true },
-  { icon: Box, label: '3D', path: '/3d', disabled: true },
-  { icon: Library, label: 'Library', path: '/library' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: FolderKanban, label: 'Projects', path: '/projects' },
+  { icon: Workflow, label: 'Builder', path: '/builder' },
+  { icon: BrainCircuit, label: 'AI Agent', path: '/generate', disabled: true },
+  { icon: Cpu, label: 'LoRA Training', path: '/lora', disabled: true },
+  { icon: Shapes, label: '3D', path: '/3d', disabled: true },
+  { icon: Images, label: 'Library', path: '/library' },
   { icon: History, label: 'History', path: '/history' },
-  { icon: Zap, label: 'Integrations', path: '/integrations' },
+  { icon: Blocks, label: 'Integrations', path: '/integrations' },
 ];
 
 export const NavRail: React.FC = () => {

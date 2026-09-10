@@ -34,7 +34,8 @@ export type ReplicateImageModel =
 export type ReplicateUpscaleModel =
   | 'topazlabs/image-upscale'              // Topaz Labs Image Upscale
   | 'philz1337x/clarity-upscaler'          // Clarity Upscaler
-  | 'prunaai/p-image-upscale';             // Pruna AI P-Image Upscale
+  | 'prunaai/p-image-upscale'             // Pruna AI P-Image Upscale
+  | 'philz1337x/clarity-pro-upscaler';     // Anarchy Upscale (Clarity Pro)
 
 // ── Video Models ──────────────────────────────────────────────────────────────
 export type ReplicateVideoModel =
@@ -481,9 +482,9 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     defaultSteps: 1,
     stepsRange: [1, 1],
     maxReferenceImages: 0,
-    resolutions: ['2x', '4x'],
+    resolutions: ['2x', '4x', '6x'],
     aspectRatios: [],
-    pricePerImage: 0.005,
+    pricePerImage: 0.05,
   },
   // ── 11. Pruna AI P-Image Upscale ───────────────────────────────────────────
   'prunaai/p-image-upscale': {
@@ -519,6 +520,23 @@ const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     resolutions: ['1x', '2x', '4x'],
     aspectRatios: [],
     pricePerImage: 0.01,
+  },
+  // ── 12.1. Anarchy Upscale (Clarity Pro) ──────────────────────────────────
+  'philz1337x/clarity-pro-upscaler': {
+    supportsImg2Img: false,
+    supportsMultiImage: false,
+    supportsSeed: false,
+    supportsSteps: false,
+    supportsNegativePrompt: false,
+    supportsUpscale: true,
+    supportsLoRA: false,
+    supportsReferenceStrength: false,
+    defaultSteps: 1,
+    stepsRange: [1, 1],
+    maxReferenceImages: 0,
+    resolutions: ['2x', '4x', '8x', '16x'],
+    aspectRatios: [],
+    pricePerImage: 0.03,
   },
   // ── 13. Wan 2.1 i2v 480p ────────────────────────────────────────────────
   'wavespeedai/wan-2.1-i2v-480p': {

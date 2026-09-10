@@ -13,9 +13,8 @@ import {
   X, FolderOpen, Volume2
 } from 'lucide-react';
 import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel, type ReplicateVideoModel } from '../../services/replicate';
-import { useAIConfigStore } from '../../stores/aiConfigStore';
-import type { WatermarkPosition } from '../../stores/aiConfigStore';
-import { getModelCost } from '../../services/credit/creditService';
+import { useAIConfigStore, type WatermarkPosition } from '../../stores/aiConfigStore';
+import { getModelCost, costTopazUpscale, costClarityUpscale, costPrunaUpscale, costAnarchyUpscale } from '../../services/credit/creditService';
 import './AIControlPanel.css';
 
 interface AIControlPanelProps {
@@ -75,6 +74,9 @@ interface AIControlPanelProps {
     prunaEnhanceRealism?: boolean;
     prunaQuality?: number;
     prunaOutputFormat?: string;
+    // Anarchy Upscale (Clarity Pro) settings
+    anarchyUpscaleScale?: number;
+    anarchyUpscaleCreativity?: number;
     // Krea AI settings
     kreaCreativity?: 'raw' | 'low' | 'medium' | 'high';
     // Style settings
@@ -552,21 +554,13 @@ const ENGINES: Engine[] = [
   },
   // ── Image Upscaling ──
   {
-    id: 'topazlabs/image-upscale' as ReplicateImageModel,
-    name: 'Topaz Labs Upscale',
-    provider: 'Replicate',
-    color: '#e11d48',
-    icon: <Maximize2 size={18} />,
-    tool: 'image-upscaler'
-  },
-
-  {
-    id: 'philz1337x/clarity-upscaler' as ReplicateImageModel,
-    name: 'Clarity Upscaler',
+    id: 'philz1337x/clarity-pro-upscaler' as ReplicateImageModel,
+    name: 'Anarchy Upscale',
     provider: 'Replicate',
     color: '#e11d48',
     icon: <Sparkles size={18} />,
-    tool: 'image-upscaler'
+    tool: 'image-upscaler',
+    badge: 'Pro'
   },
   {
     id: 'prunaai/p-image-upscale' as ReplicateImageModel,
@@ -574,6 +568,22 @@ const ENGINES: Engine[] = [
     provider: 'Replicate',
     color: '#e11d48',
     icon: <Maximize2 size={18} />,
+    tool: 'image-upscaler'
+  },
+  {
+    id: 'topazlabs/image-upscale' as ReplicateImageModel,
+    name: 'Topaz Labs Upscale',
+    provider: 'Replicate',
+    color: '#e11d48',
+    icon: <Maximize2 size={18} />,
+    tool: 'image-upscaler'
+  },
+  {
+    id: 'philz1337x/clarity-upscaler' as ReplicateImageModel,
+    name: 'Clarity Upscaler',
+    provider: 'Replicate',
+    color: '#e11d48',
+    icon: <Sparkles size={18} />,
     tool: 'image-upscaler'
   },
 ];
@@ -638,6 +648,62 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   const stylePresetDropdownRef = useRef<HTMLDivElement>(null);
   const seqDropdownRef = useRef<HTMLDivElement>(null);
   const studioModeForFilter = config.studioMode || 'edit';
+  const selectedNode = useAIConfigStore((state) => state.selectedNode);
+  const topazFactorStr = params.topazUpscaleFactor ?? '4x';
+  const topazFactor = useMemo(() => {
+    if (topazFactorStr === 'None' || topazFactorStr === '1x') return 1;
+    if (topazFactorStr === '2x') return 2;
+    if (topazFactorStr === '4x') return 4;
+    if (topazFactorStr === '6x') return 6;
+    return 4;
+  }, [topazFactorStr]);
+
+  const topazDims = useMemo(() => {
+    const w = selectedNode?.dimensions?.width || params.width || 1024;
+    const h = selectedNode?.dimensions?.height || params.height || 1024;
+    const outW = w * topazFactor;
+    const outH = h * topazFactor;
+    const mp = (outW * outH) / 1_000_000;
+    const cost = costTopazUpscale(topazFactor, false, w * h, mp);
+    return { w, h, outW, outH, mp, cost };
+  }, [selectedNode?.dimensions, params.width, params.height, topazFactor]);
+
+  const isTrial = useAIConfigStore((state) => state.isTrial);
+  const prunaMode = params.prunaMode ?? 'target';
+  const prunaFactor = params.prunaFactor ?? params.upscaleFactor ?? 2;
+  const prunaTarget = params.prunaTarget ?? 4;
+  const prunaDims = useMemo(() => {
+    const w = selectedNode?.dimensions?.width || params.width || 1024;
+    const h = selectedNode?.dimensions?.height || params.height || 1024;
+    let outW = w;
+    let outH = h;
+    let mp = prunaTarget;
+    if (prunaMode === 'factor') {
+      outW = w * prunaFactor;
+      outH = h * prunaFactor;
+      mp = (outW * outH) / 1_000_000;
+    } else {
+      const scale = Math.sqrt((prunaTarget * 1_000_000) / (w * h));
+      outW = Math.round(w * scale);
+      outH = Math.round(h * scale);
+      mp = prunaTarget;
+    }
+    const cost = costPrunaUpscale(prunaTarget, isTrial, prunaMode, prunaFactor, w * h, mp);
+    return { w, h, outW, outH, mp, cost };
+  }, [selectedNode?.dimensions, params.width, params.height, prunaMode, prunaFactor, prunaTarget, isTrial]);
+
+  const anarchyScale = params.anarchyUpscaleScale ?? params.upscaleFactor ?? 2;
+  const anarchyDims = useMemo(() => {
+    const w = selectedNode?.dimensions?.width || params.width || 1024;
+    const h = selectedNode?.dimensions?.height || params.height || 1024;
+    const outW = w * anarchyScale;
+    const outH = h * anarchyScale;
+    const rawMp = (outW * outH) / 1_000_000;
+    const mp = Math.min(64, rawMp);
+    const cost = costAnarchyUpscale(anarchyScale, isTrial, w * h, mp);
+    return { w, h, outW, outH, mp, cost };
+  }, [selectedNode?.dimensions, params.width, params.height, anarchyScale, isTrial]);
+
   const availableEngines = useMemo(() => {
     return ENGINES.filter(engine => {
       if (engine.tool !== selectedTool) return false;
@@ -924,40 +990,52 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
       {isUpscalingTool ? (
         <>
           {(selectedModel as string) !== 'topazlabs/image-upscale' &&
-           (selectedModel as string) !== 'philz1337x/clarity-upscaler' && (
+           (selectedModel as string) !== 'philz1337x/clarity-upscaler' &&
+           (selectedModel as string) !== 'philz1337x/clarity-pro-upscaler' && (
             <div className="control-section">
               <label className="section-label">Upscale Factor</label>
               {supportsUpscaleFactor ? (
-                <div className="upscale-factor-row">
-                  {UPSCALE_FACTORS.map(factor => {
-                    // Pruna AI: auto-preset settings per scale factor
-                    const isPruna = (selectedModel as string) === 'prunaai/p-image-upscale';
-                    const prunaPresets: Record<number, Partial<typeof params>> = {
-                      1:  { upscaleFactor: 1,  prunaMode: 'factor', prunaFactor: 1,  prunaEnhanceDetails: false, prunaEnhanceRealism: false, prunaQuality: 80 },
-                      2:  { upscaleFactor: 2,  prunaMode: 'factor', prunaFactor: 2,  prunaEnhanceDetails: false, prunaEnhanceRealism: true,  prunaQuality: 80 },
-                      4:  { upscaleFactor: 4,  prunaMode: 'factor', prunaFactor: 4,  prunaEnhanceDetails: true,  prunaEnhanceRealism: true,  prunaQuality: 85 },
-                      8:  { upscaleFactor: 8,  prunaMode: 'factor', prunaFactor: 8,  prunaEnhanceDetails: true,  prunaEnhanceRealism: true,  prunaQuality: 90 },
-                      16: { upscaleFactor: 16, prunaMode: 'target', prunaTarget: 128, prunaEnhanceDetails: true, prunaEnhanceRealism: true,  prunaQuality: 95 },
-                    };
-                    return (
-                      <button
-                        key={factor}
-                        type="button"
-                        className={`upscale-factor-btn ${(params.upscaleFactor ?? 2) === factor ? 'active' : ''}`}
-                        onClick={() => {
-                          if (isPruna) {
-                            const preset = prunaPresets[factor];
-                            onParamsChange({ ...params, ...preset });
-                          } else {
-                            updateParam('upscaleFactor', factor);
-                          }
-                        }}
-                      >
-                        {factor}x
-                      </button>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="upscale-factor-row">
+                    {UPSCALE_FACTORS.map(factor => {
+                      // Pruna AI: auto-preset settings per scale factor
+                      const isPruna = (selectedModel as string) === 'prunaai/p-image-upscale';
+                      const prunaPresets: Record<number, Partial<typeof params>> = {
+                        1:  { upscaleFactor: 1,  prunaMode: 'factor', prunaFactor: 1,  prunaEnhanceDetails: false, prunaEnhanceRealism: false, prunaQuality: 80 },
+                        2:  { upscaleFactor: 2,  prunaMode: 'factor', prunaFactor: 2,  prunaEnhanceDetails: false, prunaEnhanceRealism: true,  prunaQuality: 80 },
+                        4:  { upscaleFactor: 4,  prunaMode: 'factor', prunaFactor: 4,  prunaEnhanceDetails: true,  prunaEnhanceRealism: true,  prunaQuality: 85 },
+                        8:  { upscaleFactor: 8,  prunaMode: 'factor', prunaFactor: 8,  prunaEnhanceDetails: true,  prunaEnhanceRealism: true,  prunaQuality: 90 },
+                        16: { upscaleFactor: 16, prunaMode: 'target', prunaTarget: 128, prunaEnhanceDetails: true, prunaEnhanceRealism: true,  prunaQuality: 95 },
+                      };
+                      return (
+                        <button
+                          key={factor}
+                          type="button"
+                          className={`upscale-factor-btn ${(params.upscaleFactor ?? 2) === factor ? 'active' : ''}`}
+                          onClick={() => {
+                            if (isPruna) {
+                              const preset = prunaPresets[factor];
+                              onParamsChange({ ...params, ...preset });
+                            } else {
+                              updateParam('upscaleFactor', factor);
+                            }
+                          }}
+                        >
+                          {factor}x
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(selectedModel as string) === 'prunaai/p-image-upscale' && (
+                    <>
+                      <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Output: ~{prunaDims.mp.toFixed(1)} MP ({params.prunaMode === 'target' ? `${params.prunaTarget ?? 4} MP Target` : `${params.prunaFactor ?? params.upscaleFactor ?? 2}x Scale`})</span>
+                        <span style={{ color: '#e11d48', fontWeight: 700 }}>{prunaDims.cost} {prunaDims.cost === 1 ? 'Credit' : 'Credits'}</span>
+                      </div>
+                      <span className="param-hint">Pruna AI tiers: 1-4MP (0.2cr) · 4-8MP (0.4cr) · 8-16MP (0.6cr) · 16-32MP (0.8cr) · 32-64MP (1.25cr) · 64-128MP (2.5cr)</span>
+                    </>
+                  )}
+                </>
               ) : (
                 <div className="upscale-fixed-note">This engine uses a fixed upscale level.</div>
               )}
@@ -990,7 +1068,11 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     );
                   })}
                 </div>
-                <span className="param-hint">Auto-adjusts settings · 8x=8K · 12x=12K</span>
+                <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Clarity Scale: {params.clarityScale ?? 2}x (Nvidia A100)</span>
+                  <span style={{ color: '#e11d48', fontWeight: 700 }}>{costClarityUpscale(params.clarityScale ?? 2)} Credits</span>
+                </div>
+                <span className="param-hint">Nvidia A100 GPU compute: 2x (3cr) · 4x (10cr) · 8x (20cr) · 12x (30cr)</span>
               </div>
               
               {/* Dynamic - HDR */}
@@ -1249,7 +1331,11 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     </button>
                   ))}
                 </div>
-                <span className="param-hint">How much to upscale the image</span>
+                <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Output: ~{topazDims.mp.toFixed(1)} MP ({topazDims.outW}×{topazDims.outH})</span>
+                  <span style={{ color: '#e11d48', fontWeight: 700 }}>{topazDims.cost} {topazDims.cost === 1 ? 'Credit' : 'Credits'}</span>
+                </div>
+                <span className="param-hint">Dynamic pricing aligned with Replicate megapixels</span>
               </div>
 
               {/* Enhance Model */}
@@ -1380,6 +1466,10 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     onChange={(e) => updateParam('prunaTarget', Number.parseInt(e.target.value))}
                     className="param-slider"
                   />
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Target: {params.prunaTarget ?? 4} Megapixels (~{prunaDims.outW}×{prunaDims.outH})</span>
+                    <span style={{ color: '#e11d48', fontWeight: 700 }}>{prunaDims.cost} {prunaDims.cost === 1 ? 'Credit' : 'Credits'}</span>
+                  </div>
                   <span className="param-hint">Target resolution in megapixels (1–128 MP)</span>
                 </div>
               )}
@@ -1399,6 +1489,10 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     onChange={(e) => updateParam('prunaFactor', Number.parseInt(e.target.value))}
                     className="param-slider"
                   />
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Output: ~{prunaDims.mp.toFixed(1)} MP ({prunaDims.outW}×{prunaDims.outH})</span>
+                    <span style={{ color: '#e11d48', fontWeight: 700 }}>{prunaDims.cost} {prunaDims.cost === 1 ? 'Credit' : 'Credits'}</span>
+                  </div>
                   <span className="param-hint">Scaling factor per side</span>
                 </div>
               )}
@@ -1451,23 +1545,52 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                 </div>
                 <span className="param-hint">Improve realism (on by default, recommended for AI images)</span>
               </div>
+            </>
+          )}
 
-              {/* Output Format */}
+          {/* Anarchy Upscale (Clarity Pro) Settings */}
+          {(selectedModel as string) === 'philz1337x/clarity-pro-upscaler' && (
+            <>
+              {/* Scale Factor */}
               <div className="control-section">
-                <label className="section-label">Output Format</label>
+                <label className="section-label">Scale Factor</label>
                 <div className="upscale-factor-row">
-                  {(['png', 'jpg', 'webp'] as const).map(f => (
+                  {[2, 4, 8, 16].map(factor => (
                     <button
-                      key={f}
+                      key={factor}
                       type="button"
-                      className={`upscale-factor-btn ${(params.prunaOutputFormat ?? 'png') === f ? 'active' : ''}`}
-                      onClick={() => updateParam('prunaOutputFormat', f)}
+                      className={`upscale-factor-btn ${(params.anarchyUpscaleScale ?? 2) === factor ? 'active' : ''}`}
+                      onClick={() => updateParam('anarchyUpscaleScale', factor)}
                     >
-                      {f.toUpperCase()}
+                      {factor}x
                     </button>
                   ))}
                 </div>
-                <span className="param-hint">Quality slider applies to JPG/WebP only</span>
+                <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Output: ~{anarchyDims.outW}×{anarchyDims.outH} (~{anarchyDims.mp.toFixed(1)} MP{anarchyDims.mp >= 64 ? ' max' : ''})</span>
+                  <span style={{ color: '#e11d48', fontWeight: 700 }}>{anarchyDims.cost} Credits</span>
+                </div>
+                <span className="param-hint">$0.03 per million output image pixels (capped at 64 MP)</span>
+              </div>
+
+              {/* Creativity Slider */}
+              <div className="control-section">
+                <div className="param-header">
+                  <label className="section-label">Creativity</label>
+                  <span className="param-value">{params.anarchyUpscaleCreativity ?? 4}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-10"
+                  max="10"
+                  step="1"
+                  value={params.anarchyUpscaleCreativity ?? 4}
+                  onChange={(e) => updateParam('anarchyUpscaleCreativity', Number.parseInt(e.target.value))}
+                  className="param-slider"
+                />
+                <span className="param-hint">
+                  Creativity level for upscaling. Negative values stay closer to the original image; positive values let the model add more detail. (Default: 4)
+                </span>
               </div>
             </>
           )}

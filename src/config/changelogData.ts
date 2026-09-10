@@ -13,9 +13,51 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.88',
+    date: 'September 10, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'feature',
+        title: 'Anarchy Upscale (Clarity Pro) — Flagship AI Upscaler',
+        description: 'Added Anarchy Upscale powered by Replicate Clarity Pro (philz1337x/clarity-pro-upscaler) as the #1 primary upscaling engine. Features 2x, 4x, 8x, and 16x scaling presets, a dedicated Creativity slider (-10 to +10) for detail control, live output megapixel preview, and guaranteed 50%+ profit margin credit pricing.'
+      },
+      {
+        type: 'improvement',
+        title: 'Revamped Left Navigation Sidebar Icons & Micro-Animations',
+        description: 'Upgraded sidebar icons with modern, high-tech Lucide icons (LayoutDashboard, FolderKanban, Workflow, BrainCircuit, Cpu, Shapes, Images, History, Blocks) with smooth hover scaling and active neon glow effects.'
+      },
+      {
+        type: 'feature',
+        title: 'Pruna AI Upscale Integration',
+        description: 'Integrated Pruna AI P-Image Upscale (prunaai/p-image-upscale) with dual factor mode (1x–16x) and target megapixel mode (1–128 MP), auto-presets, and live credit cost estimation.'
+      },
+      {
+        type: 'improvement',
+        title: 'Topaz Labs Upscale Pricing Calibration',
+        description: 'Replaced flat credit pricing with official Replicate megapixel brackets (up to 512 MP), preventing revenue leakage on high-resolution inputs and guaranteeing healthy profit margins.'
+      },
+      {
+        type: 'improvement',
+        title: 'Clarity Upscaler Hardware-Aligned Compute Pricing',
+        description: 'Calibrated Nvidia A100 GPU compute runtime tiers for Clarity Upscaler: 2x (3cr), 4x (10cr), 8x (20cr), 12x (30cr) with real-time hardware compute indicators.'
+      },
+      {
+        type: 'feature',
+        title: 'OpenAI GPT Image 2.5 Integration (Flare & Sunburst)',
+        description: 'Added support for GPT Image 2.5 Flare (speed) and Sunburst (fidelity) across Edit and Generate modes, featuring a quick toggle pill, full OpenAPI quality tiers, and multi-image editing support.'
+      },
+      {
+        type: 'feature',
+        title: 'Standalone Admin Revenue & Subscribers Dashboard',
+        description: 'Built a dedicated desktop P&L dashboard for tracking real-time Stripe revenue, Replicate API costs, net profit margins, user credit balances, and one-click CSV export.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.59',
     date: 'July 13, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'feature',
