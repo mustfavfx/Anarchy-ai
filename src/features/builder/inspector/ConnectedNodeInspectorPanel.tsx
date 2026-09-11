@@ -75,14 +75,14 @@ export const ConnectedNodeInspectorPanel: React.FC<ConnectedNodeInspectorPanelPr
       // Strip 'model' from input since runPrediction takes it separately
       const { model: _m, ...input } = payload;
 
-      // Dispatch via replicateService.runPrediction(modelId, input)
-      const result = await replicateService.runPrediction(model, input);
+      // Dispatch via replicateService.runPrediction(modelId, input, nodeId)
+      const result = await replicateService.runPrediction(model, input, nodeId);
 
       if (!result?.output) throw new Error('Engine ' + engine.id + ' returned no output');
       const url = Array.isArray(result.output) ? result.output[0] : result.output as string;
       return { url };
     },
-    []
+    [nodeId]
   );
 
   // onCommitChildNode: saves image to history and updates node on canvas

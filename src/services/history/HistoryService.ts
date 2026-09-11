@@ -1,866 +1,90 @@
-import { SettingsService } from '@/services/settings';
 import { logger } from '@/utils/logger';
 export type { HistoryEntry, NodeTreeData, HistoryGroup } from '@/types/history';
-import type { HistoryEntry, NodeTreeData, HistoryGroup } from '@/types/history';
+import type { HistoryEntry, HistoryGroup } from '@/types/history';
 import { groupHistoryEntries } from './HistoryGroupingService';
 
-import { getCurrentUserId } from '@/services/supabase/supabaseClient';
+// Re-export all storage primitives and helpers for 100% backward compatibility
+export {
+  registerObjectUrl,
+  getObjectUrlRegistrySize,
+  revokeAllObjectUrls,
+  revokeObjectUrl,
+  dataURLtoBlob,
+  blobToDataURL,
+  compressToThumbnail,
+} from './storage/blobRegistry';
 
-export function getHistoryStorageKey(): string {
-  const uid = getCurrentUserId();
-  return uid && uid !== 'default_user' ? `anarchy_history_${uid}` : 'anarchy_history';
-}
+export {
+  getHistoryStorageKey,
+  getIDBName,
+  DEFAULT_MAX_ENTRIES,
+  IDB_STORE,
+  IDB_CACHE_STORE,
+  IDB_EMBEDDINGS_STORE,
+  openImageDB,
+  saveRawData,
+  loadRawData,
+  deleteRawData,
+  resolveUrlToBlob,
+  cacheLocalImage,
+  getLocalImage,
+  getLocalImageAsObjectURL,
+  deleteLocalImage,
+  exportIndexedDBData,
+  importIndexedDBData,
+} from './storage/idbImageStorage';
 
-export function getIDBName(): string {
-  const uid = getCurrentUserId();
-  return uid && uid !== 'default_user' ? `anarchy_history_images_${uid}` : 'anarchy_history_images';
-}
+export {
+  getMaxEntries,
+  loadEntries,
+  saveEntries,
+  getDateLabel,
+  getDateKey,
+  formatTime,
+  formatDuration,
+  saveEmbedding,
+  loadEmbedding,
+  deleteEmbedding,
+} from './storage/historyMetadata';
 
-const DEFAULT_MAX_ENTRIES = 1000; // Increased max entries since localStorage is metadata-only now!
-const IDB_STORE = 'images';
-const IDB_CACHE_STORE = 'local_image_cache';
-const IDB_EMBEDDINGS_STORE = 'embeddings';
+export {
+  saveFullImage,
+  loadFullImage,
+  saveThumbnail,
+  loadThumbnail,
+  deleteFullImages,
+  saveWorkflowTree,
+  loadWorkflowTree,
+  enrichWithFullImages,
+} from './storage/thumbnailEngine';
+export type { ImageSlot } from './storage/thumbnailEngine';
 
-// Track active Object URLs to prevent memory leaks
-const objectUrlRegistry = new Set<string>();
-
-export function registerObjectUrl(url: string): string {
-  objectUrlRegistry.add(url);
-  return url;
-}
-
-export function getObjectUrlRegistrySize(): number {
-  return objectUrlRegistry.size;
-}
-
-export function revokeAllObjectUrls(): void {
-  objectUrlRegistry.forEach(url => {
-    try {
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      logger.warn('[HistoryService] Failed to revoke Object URL:', url, e);
-    }
-  });
-  objectUrlRegistry.clear();
-}
-
-export function revokeObjectUrl(url: string): void {
-  if (objectUrlRegistry.has(url)) {
-    try {
-      URL.revokeObjectURL(url);
-    } catch {}
-    objectUrlRegistry.delete(url);
-  }
-}
+import {
+  openImageDB,
+  IDB_STORE,
+  IDB_CACHE_STORE,
+  IDB_EMBEDDINGS_STORE,
+  deleteRawData,
+  getHistoryStorageKey,
+} from './storage/idbImageStorage';
+import { revokeAllObjectUrls } from './storage/blobRegistry';
+import {
+  loadEntries,
+  saveEntries,
+  getDateKey,
+  deleteEmbedding,
+} from './storage/historyMetadata';
+import {
+  saveFullImage,
+  saveThumbnail,
+  deleteFullImages,
+  saveWorkflowTree,
+} from './storage/thumbnailEngine';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateId(): string {
   return `h_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function dataURLtoBlob(dataUrl: string): Blob {
-  const arr = dataUrl.split(',');
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : 'image/png';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-}
-
-export function blobToDataURL(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/** Resize an image to thumbnail dimensions */
-async function compressToThumbnail(dataUrl: string, maxSize = 384): Promise<string> {
-  if (typeof window === 'undefined' || !window.HTMLCanvasElement || !window.Image) {
-    return dataUrl;
-  }
-  return new Promise((resolve) => {
-    try {
-      const img = new Image();
-      const timeout = setTimeout(() => {
-        resolve(dataUrl);
-      }, 500); // 500ms safety timeout
-
-      img.onload = () => {
-        clearTimeout(timeout);
-        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { resolve(dataUrl); return; }
-        
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, w, h);
-        
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
-      };
-      img.onerror = () => {
-        clearTimeout(timeout);
-        resolve(dataUrl);
-      };
-      img.src = dataUrl;
-    } catch {
-      resolve(dataUrl);
-    }
-  });
-}
-
-// ── IndexedDB Configuration & Structured Migrations ─────────────────────────
-
-const IDB_VERSION = 3;
-
-interface IDBMigration {
-  version: number;
-  up: (db: IDBDatabase, event: IDBVersionChangeEvent) => void;
-}
-
-const idbMigrations: IDBMigration[] = [
-  {
-    version: 1,
-    up: (db) => {
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        db.createObjectStore(IDB_STORE);
-      }
-    }
-  },
-  {
-    version: 2,
-    up: (db) => {
-      if (!db.objectStoreNames.contains(IDB_CACHE_STORE)) {
-        db.createObjectStore(IDB_CACHE_STORE);
-      }
-    }
-  },
-  {
-    version: 3,
-    up: (db) => {
-      if (!db.objectStoreNames.contains(IDB_EMBEDDINGS_STORE)) {
-        db.createObjectStore(IDB_EMBEDDINGS_STORE);
-      }
-    }
-  }
-];
-
-export function openImageDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(getIDBName(), IDB_VERSION);
-    req.onupgradeneeded = (event) => {
-      const db = req.result;
-      const oldVersion = event.oldVersion;
-      logger.log(`[HistoryService] Upgrading IndexedDB from version ${oldVersion} to ${IDB_VERSION}`);
-
-      for (const migration of idbMigrations) {
-        if (oldVersion < migration.version) {
-          try {
-            logger.log(`[HistoryService] Running migration for version ${migration.version}`);
-            migration.up(db, event);
-          } catch (err) {
-            logger.error(`[HistoryService] Migration for version ${migration.version} failed:`, err);
-          }
-        }
-      }
-    };
-    req.onsuccess = () => {
-      const db = req.result;
-      const requiredStores = [IDB_STORE, IDB_CACHE_STORE, IDB_EMBEDDINGS_STORE];
-      const missingStores = requiredStores.filter(name => !db.objectStoreNames.contains(name));
-      
-      if (missingStores.length > 0) {
-        logger.error(`[HistoryService] Schema validation failed. Missing stores: ${missingStores.join(', ')}`);
-        db.close();
-        reject(new Error(`Database validation failed: missing stores ${missingStores.join(', ')}`));
-      } else {
-        resolve(db);
-      }
-    };
-    req.onerror = () => reject(new Error(req.error?.message ?? 'IDB open error'));
-  });
-}
-
-/** Helper to retrieve all keys and values from a given store */
-async function getAllKeysAndValues(storeName: string): Promise<Record<string, any>> {
-  const db = await openImageDB();
-  return new Promise((resolve, reject) => {
-    try {
-      const tx = db.transaction(storeName, 'readonly');
-      const store = tx.objectStore(storeName);
-      const req = store.openCursor();
-      const result: Record<string, any> = {};
-
-      req.onsuccess = async (event) => {
-        try {
-          const cursor = (event.target as any).result;
-          if (cursor) {
-            const key = cursor.key as string;
-            const val = cursor.value;
-            if (val instanceof Blob) {
-              result[key] = await blobToDataURL(val);
-            } else {
-              result[key] = val;
-            }
-            cursor.continue();
-          } else {
-            db.close();
-            resolve(result);
-          }
-        } catch (err) {
-          db.close();
-          reject(err);
-        }
-      };
-      req.onerror = () => {
-        db.close();
-        reject(new Error(req.error?.message ?? 'Cursor error'));
-      };
-    } catch (err) {
-      db.close();
-      reject(err);
-    }
-  });
-}
-
-/** Helper to restore all keys and values to a given store */
-async function restoreStoreData(storeName: string, data: Record<string, any>): Promise<void> {
-  const db = await openImageDB();
-  const tx = db.transaction(storeName, 'readwrite');
-  const store = tx.objectStore(storeName);
-
-  for (const [key, value] of Object.entries(data)) {
-    let valToPut = value;
-    if (typeof value === 'string' && value.startsWith('data:')) {
-      try {
-        valToPut = dataURLtoBlob(value);
-      } catch {}
-    }
-    store.put(valToPut, key);
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(new Error(tx.error?.message ?? 'Transaction error'));
-  });
-  db.close();
-}
-
-/** Export all IndexedDB stores as serialized Base64/JSON objects */
-export async function exportIndexedDBData(): Promise<{
-  images: Record<string, any>;
-  cache: Record<string, any>;
-  embeddings: Record<string, any>;
-}> {
-  const [images, cache, embeddings] = await Promise.all([
-    getAllKeysAndValues(IDB_STORE),
-    getAllKeysAndValues(IDB_CACHE_STORE),
-    getAllKeysAndValues(IDB_EMBEDDINGS_STORE)
-  ]);
-  return { images, cache, embeddings };
-}
-
-/** Import all IndexedDB stores from serialized Base64/JSON objects */
-export async function importIndexedDBData(data: {
-  images?: Record<string, any>;
-  cache?: Record<string, any>;
-  embeddings?: Record<string, any>;
-}): Promise<void> {
-  if (data.images) await restoreStoreData(IDB_STORE, data.images);
-  if (data.cache) await restoreStoreData(IDB_CACHE_STORE, data.cache);
-  if (data.embeddings) await restoreStoreData(IDB_EMBEDDINGS_STORE, data.embeddings);
-  window.dispatchEvent(new CustomEvent('history_imported'));
-}
-
-/** Delete an entire history group (all entries in it) and their media */
-export async function deleteHistoryGroup(rootSourceId: string): Promise<void> {
-  const entries = loadEntries();
-  const toDelete = entries.filter(e => e.rootSourceId === rootSourceId || e.id === rootSourceId);
-  for (const entry of toDelete) {
-    await deleteHistoryEntry(entry.id);
-  }
-}
-
-// ── IndexedDB Storage Methods ───────────────────────────────────────────────
-
-export async function saveRawData(key: string, data: any): Promise<void> {
-  const startTime = Date.now();
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(data, key);
-    await new Promise<void>((res, rej) => {
-      tx.oncomplete = () => res();
-      tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB write error'));
-    });
-    db.close();
-    
-    // Telemetry
-    const { HistoryTelemetry } = await import('./HistoryTelemetry');
-    HistoryTelemetry.recordLatency('imageSave', Date.now() - startTime);
-  } catch (err) {
-    logger.error('[HistoryService] saveRawData failed:', { key, error: err });
-    try {
-      const { HistoryTelemetry } = await import('./HistoryTelemetry');
-      HistoryTelemetry.recordError('idbWrite');
-    } catch {}
-  }
-}
-
-export async function loadRawData(key: string): Promise<any | null> {
-  const startTime = Date.now();
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_STORE, 'readonly');
-    const req = tx.objectStore(IDB_STORE).get(key);
-    const result = await new Promise<any>((res) => {
-      req.onsuccess = () => res(req.result ?? null);
-      req.onerror = () => res(null);
-    });
-    db.close();
-    
-    // Telemetry
-    const { HistoryTelemetry } = await import('./HistoryTelemetry');
-    HistoryTelemetry.recordLatency('imageLoad', Date.now() - startTime);
-    return result;
-  } catch {
-    try {
-      const { HistoryTelemetry } = await import('./HistoryTelemetry');
-      HistoryTelemetry.recordError('idbRead');
-    } catch {}
-    return null;
-  }
-}
-
-export async function deleteRawData(key: string): Promise<void> {
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).delete(key);
-    await new Promise<void>((res) => { tx.oncomplete = () => res(); tx.onerror = () => res(); });
-    db.close();
-  } catch {}
-}
-
-/** Helper to resolve data:, blob:, idb://, or http/https URLs into a Blob object */
-export async function resolveUrlToBlob(urlOrBlob: string | Blob): Promise<Blob | null> {
-  if (urlOrBlob instanceof Blob) {
-    return urlOrBlob;
-  }
-  if (typeof urlOrBlob !== 'string') {
-    return null;
-  }
-
-  if (urlOrBlob.startsWith('data:')) {
-    try {
-      return dataURLtoBlob(urlOrBlob);
-    } catch (err) {
-      logger.error('[HistoryService] resolveUrlToBlob failed dataURLtoBlob:', err);
-      return null;
-    }
-  }
-
-  if (urlOrBlob.startsWith('blob:')) {
-    try {
-      const response = await fetch(urlOrBlob);
-      return await response.blob();
-    } catch (err) {
-      logger.error('[HistoryService] resolveUrlToBlob failed fetching blob URL:', urlOrBlob, err);
-      return null;
-    }
-  }
-
-  if (urlOrBlob.startsWith('idb://')) {
-    try {
-      const db = await openImageDB();
-      const tx = db.transaction(IDB_CACHE_STORE, 'readonly');
-      const req = tx.objectStore(IDB_CACHE_STORE).get(urlOrBlob);
-      let result = await new Promise<any>((res) => {
-        req.onsuccess = () => res(req.result ?? null);
-        req.onerror = () => res(null);
-      });
-      db.close();
-
-      if (!result) {
-        const cleanKey = urlOrBlob.replace('idb://', '');
-        const dbImages = await openImageDB();
-        const txImages = dbImages.transaction(IDB_STORE, 'readonly');
-        const reqImages = txImages.objectStore(IDB_STORE).get(cleanKey);
-        result = await new Promise<any>((res) => {
-          reqImages.onsuccess = () => res(reqImages.result ?? null);
-          reqImages.onerror = () => res(null);
-        });
-        dbImages.close();
-      }
-
-      if (result instanceof Blob) {
-        return result;
-      }
-      if (typeof result === 'string' && result.startsWith('data:')) {
-        return dataURLtoBlob(result);
-      }
-    } catch (err) {
-      logger.error('[HistoryService] resolveUrlToBlob failed resolving idb:// URL:', urlOrBlob, err);
-    }
-    return null;
-  }
-
-  if (urlOrBlob.startsWith('http://') || urlOrBlob.startsWith('https://')) {
-    try {
-      let base64: string | undefined;
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        base64 = await invoke<string>('url_to_base64', { url: urlOrBlob });
-      } catch {
-        // Tauri invoke failed or not available
-      }
-      if (base64 && base64.startsWith('data:')) {
-        return dataURLtoBlob(base64);
-      }
-      const res = await fetch(urlOrBlob);
-      if (res.ok) {
-        return await res.blob();
-      }
-    } catch (err) {
-      logger.error('[HistoryService] resolveUrlToBlob failed fetching remote URL:', urlOrBlob, err);
-    }
-    return null;
-  }
-
-  return null;
-}
-
-/** Store a full resolution image as a Blob in IndexedDB */
-export async function saveFullImage(id: string, slot: 'output' | 'input' | 'root_source', dataUrlOrBlob: string | Blob): Promise<void> {
-  const blob = await resolveUrlToBlob(dataUrlOrBlob);
-  if (blob) {
-    await saveRawData(`${id}_${slot}`, blob);
-  }
-}
-
-/** Load a full resolution image from IndexedDB, returning a revocable Object URL */
-export async function loadFullImage(id: string, slot: 'output' | 'input' | 'root_source'): Promise<string | null> {
-  const result = await loadRawData(`${id}_${slot}`);
-  if (!result) {
-    // Fallback: Check if the legacy HistoryEntry in localStorage contains the image directly
-    try {
-      const entries = loadEntries();
-      const entry = entries.find(e => e.id === id);
-      if (entry) {
-        const legacyImage = slot === 'output' 
-          ? entry.outputImage 
-          : slot === 'input' 
-          ? entry.inputImage 
-          : entry.rootSourceImage;
-            
-        if (legacyImage) {
-          logger.log(`[HistoryService] Found legacy image in localStorage for entry ${id}, slot ${slot}. Migrating to IndexedDB...`);
-          if (legacyImage.startsWith('data:')) {
-            const blob = dataURLtoBlob(legacyImage);
-            await saveFullImage(id, slot, blob);
-            await saveThumbnail(id, slot, blob);
-            return registerObjectUrl(URL.createObjectURL(blob));
-          } else {
-            await saveRawData(`${id}_${slot}`, legacyImage);
-            return legacyImage;
-          }
-        }
-      }
-    } catch (e) {
-      logger.warn(`[HistoryService] Failed to migrate legacy image for ${id}:`, e);
-    }
-    return null;
-  }
-  
-  if (result instanceof Blob) {
-    return registerObjectUrl(URL.createObjectURL(result));
-  } else if (typeof result === 'string' && result.startsWith('data:')) {
-    // Migrate legacy base64 in IndexedDB to Blob
-    try {
-      const blob = dataURLtoBlob(result);
-      await saveFullImage(id, slot, blob);
-      return registerObjectUrl(URL.createObjectURL(blob));
-    } catch {
-      return result;
-    }
-  }
-  return null;
-}
-
-/** Save a compressed thumbnail image as a Blob in IndexedDB */
-export async function saveThumbnail(
-  id: string,
-  slot: 'output' | 'input' | 'root_source',
-  dataUrlOrBlob: string | Blob
-): Promise<void> {
-  try {
-    const blob = await resolveUrlToBlob(dataUrlOrBlob);
-    if (!blob) return;
-    const dataUrl = await blobToDataURL(blob);
-    const compressedUrl = await compressToThumbnail(dataUrl);
-    const compressedBlob = dataURLtoBlob(compressedUrl);
-    await saveRawData(`${id}_thumb_${slot}`, compressedBlob);
-  } catch (err) {
-    logger.error('[HistoryService] saveThumbnail failed:', err);
-  }
-}
-
-/** Load a compressed thumbnail image from IndexedDB, returning a revocable Object URL */
-export async function loadThumbnail(id: string, slot: 'output' | 'input' | 'root_source'): Promise<string | null> {
-  const result = await loadRawData(`${id}_thumb_${slot}`);
-  
-  // Log the thumbnail query result for diagnostic purposes
-  logger.log('[Thumbnail]', id, slot, result ? 'Exists (Blob/String)' : 'null');
-  
-  if (!result) {
-    // Fall back to full-res image if thumbnail not found
-    return loadFullImage(id, slot);
-  }
-  
-  if (result instanceof Blob) {
-    return registerObjectUrl(URL.createObjectURL(result));
-  } else if (typeof result === 'string' && result.startsWith('data:')) {
-    try {
-      const blob = dataURLtoBlob(result);
-      await saveRawData(`${id}_thumb_${slot}`, blob);
-      return registerObjectUrl(URL.createObjectURL(blob));
-    } catch {
-      return result;
-    }
-  }
-  return null;
-}
-
-export async function deleteFullImages(id: string): Promise<void> {
-  await Promise.allSettled([
-    deleteRawData(`${id}_output`),
-    deleteRawData(`${id}_input`),
-    deleteRawData(`${id}_root_source`),
-    deleteRawData(`${id}_thumb_output`),
-    deleteRawData(`${id}_thumb_input`),
-    deleteRawData(`${id}_thumb_root_source`),
-  ]);
-}
-
-/** Save workflow tree to IndexedDB */
-export async function saveWorkflowTree(id: string, nodeTree: NodeTreeData): Promise<void> {
-  await saveRawData(`${id}_workflow`, nodeTree);
-}
-
-/** Load workflow tree from IndexedDB */
-export async function loadWorkflowTree(id: string): Promise<NodeTreeData | null> {
-  return loadRawData(`${id}_workflow`);
-}
-
-// ── Live Canvas Image Cache ──────────────────────────────────────────────────
-
-export async function cacheLocalImage(key: string, dataUrlOrBlob: string | Blob): Promise<void> {
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_CACHE_STORE, 'readwrite');
-    let dataToStore: Blob | string = dataUrlOrBlob;
-
-    if (typeof dataUrlOrBlob === 'string') {
-      if (dataUrlOrBlob.startsWith('data:')) {
-        try {
-          dataToStore = dataURLtoBlob(dataUrlOrBlob);
-        } catch (e) {
-          logger.warn('[HistoryService] Failed to convert dataUrl to Blob, saving as string:', e);
-        }
-      } else if (dataUrlOrBlob.startsWith('http://') || dataUrlOrBlob.startsWith('https://')) {
-        try {
-          const resolvedBlob = await resolveUrlToBlob(dataUrlOrBlob);
-          if (resolvedBlob) {
-            dataToStore = resolvedBlob;
-          }
-        } catch (e) {
-          logger.warn('[HistoryService] Failed to convert remote URL to Blob in cacheLocalImage:', e);
-        }
-      }
-    }
-
-    const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
-    const idbKey = `idb://${cleanKey}`;
-
-    // Store under both raw key and idbKey variants for bulletproof lookup
-    tx.objectStore(IDB_CACHE_STORE).put(dataToStore, key);
-    if (key !== cleanKey) {
-      tx.objectStore(IDB_CACHE_STORE).put(dataToStore, cleanKey);
-    }
-    if (key !== idbKey) {
-      tx.objectStore(IDB_CACHE_STORE).put(dataToStore, idbKey);
-    }
-
-    await new Promise<void>((res, rej) => {
-      tx.oncomplete = () => res();
-      tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB cache write error'));
-    });
-    db.close();
-  } catch (err) {
-    logger.error('[HistoryService] cacheLocalImage failed:', { key, error: err });
-  }
-}
-
-export async function getLocalImage(key: string): Promise<string | null> {
-  try {
-    const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
-    const idbKey = `idb://${cleanKey}`;
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_CACHE_STORE, 'readonly');
-    const store = tx.objectStore(IDB_CACHE_STORE);
-
-    let result = await new Promise<any>((res) => {
-      const r1 = store.get(key);
-      r1.onsuccess = () => {
-        if (r1.result) return res(r1.result);
-        const r2 = store.get(cleanKey);
-        r2.onsuccess = () => {
-          if (r2.result) return res(r2.result);
-          const r3 = store.get(idbKey);
-          r3.onsuccess = () => res(r3.result ?? null);
-          r3.onerror = () => res(null);
-        };
-        r2.onerror = () => res(null);
-      };
-      r1.onerror = () => res(null);
-    });
-    db.close();
-
-    if (!result) {
-      const dbImages = await openImageDB();
-      const txImages = dbImages.transaction(IDB_STORE, 'readonly');
-      const storeImages = txImages.objectStore(IDB_STORE);
-      result = await new Promise<any>((res) => {
-        const r1 = storeImages.get(cleanKey);
-        r1.onsuccess = () => {
-          if (r1.result) return res(r1.result);
-          const r2 = storeImages.get(key);
-          r2.onsuccess = () => res(r2.result ?? null);
-          r2.onerror = () => res(null);
-        };
-        r1.onerror = () => res(null);
-      });
-      dbImages.close();
-    }
-
-    if (!result) return null;
-    if (result instanceof Blob) {
-      return await blobToDataURL(result);
-    }
-    return result;
-  } catch {
-    return null;
-  }
-}
-
-export async function getLocalImageAsObjectURL(key: string): Promise<string | null> {
-  try {
-    const cleanKey = key.startsWith('idb://') ? key.replace('idb://', '') : key;
-    const idbKey = `idb://${cleanKey}`;
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_CACHE_STORE, 'readonly');
-    const store = tx.objectStore(IDB_CACHE_STORE);
-
-    let result = await new Promise<any>((res) => {
-      const r1 = store.get(key);
-      r1.onsuccess = () => {
-        if (r1.result) return res(r1.result);
-        const r2 = store.get(cleanKey);
-        r2.onsuccess = () => {
-          if (r2.result) return res(r2.result);
-          const r3 = store.get(idbKey);
-          r3.onsuccess = () => res(r3.result ?? null);
-          r3.onerror = () => res(null);
-        };
-        r2.onerror = () => res(null);
-      };
-      r1.onerror = () => res(null);
-    });
-    db.close();
-
-    if (!result) {
-      const dbImages = await openImageDB();
-      const txImages = dbImages.transaction(IDB_STORE, 'readonly');
-      const storeImages = txImages.objectStore(IDB_STORE);
-      result = await new Promise<any>((res) => {
-        const r1 = storeImages.get(cleanKey);
-        r1.onsuccess = () => {
-          if (r1.result) return res(r1.result);
-          const r2 = storeImages.get(key);
-          r2.onsuccess = () => res(r2.result ?? null);
-          r2.onerror = () => res(null);
-        };
-        r1.onerror = () => res(null);
-      });
-      dbImages.close();
-    }
-
-    if (!result) return null;
-
-    if (result instanceof Blob) {
-      return registerObjectUrl(URL.createObjectURL(result));
-    }
-
-    if (typeof result === 'string') {
-      if (result.startsWith('data:')) {
-        try {
-          const blob = dataURLtoBlob(result);
-          await cacheLocalImage(key, blob);
-          return registerObjectUrl(URL.createObjectURL(blob));
-        } catch {
-          return result;
-        }
-      }
-      if (result.startsWith('http://') || result.startsWith('https://')) {
-        try {
-          const blob = await resolveUrlToBlob(result);
-          if (blob) {
-            await cacheLocalImage(key, blob);
-            return registerObjectUrl(URL.createObjectURL(blob));
-          }
-        } catch {}
-        return result;
-      }
-      return result;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export async function deleteLocalImage(key: string): Promise<void> {
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_CACHE_STORE, 'readwrite');
-    tx.objectStore(IDB_CACHE_STORE).delete(key);
-    await new Promise<void>((res) => { tx.oncomplete = () => res(); tx.onerror = () => res(); });
-    db.close();
-  } catch {}
-}
-
-// ── Date Formatting Utilities ────────────────────────────────────────────────
-
-export function getDateLabel(ts: number): string {
-  const d = new Date(ts);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today.getTime() - 86400000);
-  const entryDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-  if (entryDay.getTime() === today.getTime()) return 'Today';
-  if (entryDay.getTime() === yesterday.getTime()) return 'Yesterday';
-
-  const diff = today.getTime() - entryDay.getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days < 7) return `${days} days ago`;
-
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
-}
-
-export function getDateKey(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-export function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-}
-
-export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
-}
-
-// ── Embeddings Database Storage ──────────────────────────────────────────────
-
-export async function saveEmbedding(id: string, embedding: number[]): Promise<void> {
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_EMBEDDINGS_STORE, 'readwrite');
-    tx.objectStore(IDB_EMBEDDINGS_STORE).put(embedding, id);
-    await new Promise<void>((res, rej) => {
-      tx.oncomplete = () => res();
-      tx.onerror = () => rej(new Error(tx.error?.message ?? 'IDB embedding write error'));
-    });
-    db.close();
-  } catch (err) {
-    logger.error('[HistoryService] saveEmbedding failed:', { id, error: err });
-  }
-}
-
-export async function loadEmbedding(id: string): Promise<number[] | null> {
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_EMBEDDINGS_STORE, 'readonly');
-    const req = tx.objectStore(IDB_EMBEDDINGS_STORE).get(id);
-    const result = await new Promise<number[] | null>((res) => {
-      req.onsuccess = () => res(req.result ?? null);
-      req.onerror = () => res(null);
-    });
-    db.close();
-    return result;
-  } catch {
-    return null;
-  }
-}
-
-export async function deleteEmbedding(id: string): Promise<void> {
-  try {
-    const db = await openImageDB();
-    const tx = db.transaction(IDB_EMBEDDINGS_STORE, 'readwrite');
-    tx.objectStore(IDB_EMBEDDINGS_STORE).delete(id);
-    await new Promise<void>((res) => { tx.oncomplete = () => res(); tx.onerror = () => res(); });
-    db.close();
-  } catch {}
-}
-
-// ── Metadata Storage ─────────────────────────────────────────────────────────
-
-function getMaxEntries(): number {
-  try {
-    return SettingsService.get('maxHistory') || DEFAULT_MAX_ENTRIES;
-  } catch {
-    return DEFAULT_MAX_ENTRIES;
-  }
-}
-
-export function loadEntries(): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(getHistoryStorageKey());
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveEntries(entries: HistoryEntry[]): void {
-  const max = getMaxEntries();
-  const trimmed = entries.slice(0, max);
-  try {
-    localStorage.setItem(getHistoryStorageKey(), JSON.stringify(trimmed));
-    window.dispatchEvent(new CustomEvent('anarchy:history:updated'));
-    window.dispatchEvent(new CustomEvent('history_updated'));
-    globalThis.dispatchEvent(new CustomEvent('anarchy:history:updated'));
-  } catch (err) {
-    logger.error('[HistoryService] saveEntries failed to write metadata to localStorage:', err);
-  }
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -1008,6 +232,13 @@ export async function deleteHistoryEntry(id: string): Promise<void> {
   await deleteEmbedding(id);
 }
 
+/** Delete an entire history group by its rootSourceId */
+export async function deleteHistoryGroup(rootSourceId: string): Promise<void> {
+  const entries = loadEntries();
+  const toDelete = entries.filter(e => (e.rootSourceId || e.id) === rootSourceId);
+  await Promise.allSettled(toDelete.map(e => deleteHistoryEntry(e.id)));
+}
+
 /** Clear all history metadata and IndexedDB caches */
 export async function clearHistory(): Promise<void> {
   localStorage.removeItem(getHistoryStorageKey());
@@ -1128,19 +359,6 @@ export async function migrateLegacyHistory(): Promise<void> {
   } catch (err) {
     logger.error('[HistoryMigration] Migration failed:', err);
   }
-}
-
-// ── Merged Compatibility Exports from small HistoryService.ts ───────────────
-
-export async function enrichWithFullImages(entry: HistoryEntry): Promise<HistoryEntry> {
-  const enriched = { ...entry };
-  const fullOutput = await loadFullImage(entry.id, 'output');
-  if (fullOutput) enriched.outputImage = fullOutput;
-  const fullInput = await loadFullImage(entry.id, 'input');
-  if (fullInput) enriched.inputImage = fullInput;
-  const fullRoot = await loadFullImage(entry.id, 'root_source');
-  if (fullRoot) enriched.rootSourceImage = fullRoot;
-  return enriched;
 }
 
 export function getHistoryGrouped(): HistoryGroup[] {

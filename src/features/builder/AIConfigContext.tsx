@@ -21,6 +21,8 @@ export interface AIConfig {
   resolution: string;
   aspectRatio: string;
   selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator' | 'anarchy-creator';
+  userId?: string;
+  nodeId?: string;
   // Topaz Labs settings
   enhanceModel?: string;
   faceEnhancement?: boolean;

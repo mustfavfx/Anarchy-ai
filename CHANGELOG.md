@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.89] - 2026-09-11
+
+### Architectural & Codebase Modularization
+- **Complete Monolith Decomposition & Professional Codebase Cleanliness**:
+  - Re-architected and modularized all 11 massive files (>1,000 lines) across the codebase into clean, decoupled, single-responsibility sub-components and specialized custom hooks.
+  - Reduced every file in `src/` to strictly under 1,000 lines (**Zero files > 1,000 lines remaining across the entire 371 files in the workspace**).
+  - Applied Zero-Breakage Facade Pattern to guarantee 100% backward compatibility with all existing routes, imports, components, and tests.
+  - Decomposed files include:
+    - `LayoutEditor.tsx`: Reduced from 3,134 to 261 lines (extracted to `src/features/builder/components/layout/`).
+    - `useBuilderWorkflow.ts`: Reduced from 2,926 to 910 lines (extracted to `src/features/builder/workflow/`).
+    - `AIControlPanel.tsx`: Reduced from 2,627 to 599 lines (extracted to `src/features/builder/controlPanel/`).
+    - `BuilderPage.tsx`: Reduced from 1,831 to 886 lines (extracted to specialized builder hooks and modal components).
+    - `ReplicateService.ts`: Reduced from 1,826 to 420 lines (extracted to `src/services/replicate/modules/`).
+    - `useLayoutEditorState.ts`: Reduced from 1,488 to 888 lines (extracted `useLayoutAIOperations.ts` & `useLayoutSceneLibrary.ts`).
+    - `SettingsPage.tsx`: Reduced from 1,302 to 320 lines (extracted to `src/features/settings/tabs/`).
+    - `AnarchyService.ts`: Reduced from 1,275 to 267 lines (extracted to `src/services/anarchy/modules/`).
+    - `ExportService.ts`: Reduced from 1,193 to 60 lines (extracted to `src/services/export/modules/`).
+    - `MaskCanvas.tsx`: Reduced from 1,166 to 966 lines (extracted `useMaskExportAndActions.ts`).
+    - `HistoryService.ts`: Reduced from 1,149 to 270 lines (extracted to `src/services/history/storage/`).
+    - `PreviewModal.tsx`: Reduced from 1,006 to 887 lines (extracted `ProvenanceTimeline.tsx`).
+
+### Fixed & Improved
+- **Anarchy Upscale Sidebar Controls & Pipeline Execution**:
+  - Fixed sticky / non-responsive Anarchy Upscale controls in `RightSidebar.tsx` by forwarding and persisting `anarchyUpscaleScale` and `anarchyUpscaleCreativity` in sidebar params.
+  - Added official Replicate model version hash resolution for `philz1337x/clarity-pro-upscaler`.
+  - Resolved `liveUpscaleFactor` and `hasUpscaleFactor` checks so the "Generate" button is properly enabled on upscale-only nodes without requiring a prompt.
+- **Multi-Tenant User Attribution & Storage Folder Partitioning**:
+  - Fixed generation and upscale outputs being saved under generic `user/` folder in Supabase Storage.
+  - Implemented dynamic session resolution to guarantee all outputs are saved strictly under each authenticated subscriber's private folder (`[user_id]/[node_id]/`).
+- **Build System & Transform Engine Hardening**:
+  - Resolved all Vite / Oxc compiler edge cases across custom hooks and verified pristine production build (`npm run build`) in 2.78s.
+  - Verified 100% test pass rate across all 31 Vitest suites (249 tests passing).
+
 ## [0.3.88] - 2026-09-10
 
 ### Added

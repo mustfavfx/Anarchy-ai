@@ -248,6 +248,7 @@ if (typeof window !== 'undefined') {
     useHistoryStore.getState().invalidateCache();
   };
   window.addEventListener('history_updated', handleInvalidate);
+  window.addEventListener('anarchy:history:updated', handleInvalidate);
   window.addEventListener('history_deleted', handleInvalidate);
   window.addEventListener('history_imported', handleInvalidate);
 }

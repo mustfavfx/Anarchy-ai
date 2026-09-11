@@ -65,6 +65,9 @@ export const buildGenConfig = (aiConfig: any) => ({
   prunaEnhanceRealism: aiConfig.prunaEnhanceRealism,
   prunaQuality: aiConfig.prunaQuality,
   prunaOutputFormat: aiConfig.prunaOutputFormat,
+  // Anarchy Upscale settings
+  anarchyUpscaleScale: aiConfig.anarchyUpscaleScale,
+  anarchyUpscaleCreativity: aiConfig.anarchyUpscaleCreativity,
   // Video settings
   videoDuration: aiConfig.videoDuration,
   videoQuality: aiConfig.videoQuality,

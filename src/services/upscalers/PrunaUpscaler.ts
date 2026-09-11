@@ -35,7 +35,14 @@ export class PrunaUpscaler implements BaseUpscaler {
     onStatusChange?: (status: 'queued' | 'processing') => void
   ): Promise<UpscaleResult> {
     const payload = this.buildPayload(config, image);
-    const prediction = await replicateService.runPrediction(this.modelId, payload, undefined, undefined, signal, onStatusChange);
+    const prediction = await replicateService.runPrediction(
+      this.modelId,
+      payload,
+      config.nodeId,
+      config.userId,
+      signal,
+      onStatusChange
+    );
     const imageUrl = replicateService.extractImageUrl(prediction.output);
 
     const dims = await getImageDimensions(image);

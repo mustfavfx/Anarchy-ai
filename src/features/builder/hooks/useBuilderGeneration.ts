@@ -138,9 +138,15 @@ export function useBuilderGeneration({
       else resolvedUpscaleFactor = 4;
     } else if (aiConfig.model === 'philz1337x/clarity-upscaler') {
       resolvedUpscaleFactor = (aiConfig as any).clarityScale ?? 2;
+    } else if (aiConfig.model === 'philz1337x/clarity-pro-upscaler') {
+      resolvedUpscaleFactor = (aiConfig as any).anarchyUpscaleScale ?? (aiConfig as any).upscaleFactor ?? 2;
+    } else if (aiConfig.model === 'prunaai/p-image-upscale') {
+      resolvedUpscaleFactor = (aiConfig as any).prunaFactor ?? (aiConfig as any).upscaleFactor ?? 2;
+    } else {
+      resolvedUpscaleFactor = (aiConfig as any).upscaleFactor ?? 2;
     }
 
-    if (!promptText && !(isUpscaler && resolvedUpscaleFactor && resolvedUpscaleFactor > 1)) return;
+    if (!promptText && !(isUpscaler && resolvedUpscaleFactor && resolvedUpscaleFactor >= 1)) return;
 
     const genConfig = buildGenConfig(aiConfig);
     const currentNodes = getNodes ? getNodes() : nodes;
@@ -240,7 +246,7 @@ export function useBuilderGeneration({
         }
       }
 
-      let configForCost = { ...aiConfig };
+      const configForCost = { ...aiConfig };
       if (aiConfig.model === 'topazlabs/image-upscale') {
         const parentId = idleGhosts[0]?.data?.lineage?.parentId || useAIConfigStore.getState().selectedNode?.id;
         const parentNode = currentNodes.find(n => n.id === parentId);

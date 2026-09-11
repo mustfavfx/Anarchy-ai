@@ -1,33 +1,23 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Settings, Shield, Database,
-  Check,
-  Save, RefreshCw, Trash2, Info,
-  Zap, History, FileText,
-  Download, Upload, Activity,
-  Mail, Camera, MessageCircle, Globe
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Settings, Database, Info, Check, Save, RefreshCw } from 'lucide-react';
 import { DataMigrationService } from '../../services/migration';
-import { useAIConfigStore } from '../../stores/aiConfigStore';
-import type { WatermarkPosition } from '../../stores/aiConfigStore';
 import { ConfirmModal } from '../../shared/components/ConfirmModal';
 import { notify } from '../../stores/notificationStore';
 import './SettingsPage.css';
-import { APP_INFO } from '../../config/appInfo';
 import { SettingsService, type AppSettings } from '../../services/settings';
 import { PrivacyPolicyModal, ChangelogModal } from './SettingsModals';
 import { supabase, isSupabaseConfigured, supabaseUrl } from '../../services/supabase/supabaseClient';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
-import { invoke } from '@tauri-apps/api/core';
 import { SupportModal } from '../dashboard/SupportModal';
 import { useTranslation } from '../../services/i18n';
 import { StorageManagerService, type StorageMetrics } from '../../services/storage/StorageManagerService';
-
+import { GeneralSettingsTab } from './tabs/GeneralSettingsTab';
+import { StorageSettingsTab } from './tabs/StorageSettingsTab';
+import { SystemHealthTab } from './tabs/SystemHealthTab';
+import { AboutTab } from './tabs/AboutTab';
 
 export const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
-  const aiConfig = useAIConfigStore((s) => s.config);
-  const setAIConfig = useAIConfigStore((s) => s.setConfig);
   const [settings, setSettings] = useState<AppSettings>(SettingsService.getSettings());
   const [activeTab, setActiveTab] = useState<'general' | 'storage' | 'about' | 'health'>('general');
   const [saved, setSaved] = useState(false);
@@ -43,8 +33,6 @@ export const SettingsPage: React.FC = () => {
   const [storageMetrics, setStorageMetrics] = useState<StorageMetrics | null>(null);
   const [appVersion, setAppVersion] = useState('...');
 
-
-  
   // System Health States
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error' | 'not-configured'>('checking');
   const [replicateStatus, setReplicateStatus] = useState<'checking' | 'active' | 'error' | 'not-configured'>('checking');
@@ -112,10 +100,6 @@ export const SettingsPage: React.FC = () => {
     }
   }, [activeTab, checkSystemHealth]);
 
-  const watermarkFileInputRef = useRef<HTMLInputElement>(null);
-  const watermark2FileInputRef = useRef<HTMLInputElement>(null);
-  const [activeWmSlot, setActiveWmSlot] = useState<'wm1' | 'wm2'>('wm1');
-
   useEffect(() => {
     import('@tauri-apps/api/app')
       .then(m => m.getVersion())
@@ -128,7 +112,7 @@ export const SettingsPage: React.FC = () => {
           setAppVersion(String(v));
         }
       })
-      .catch(() => setAppVersion('0.3.88'));
+      .catch(() => setAppVersion('0.3.89'));
   }, []);
 
   const checkForUpdates = useCallback(async () => {
@@ -164,7 +148,6 @@ export const SettingsPage: React.FC = () => {
   }, [updateStatus]);
 
   const calculateDiskUsage = useCallback(() => {
-    // Calculate estimate from localStorage (UTF-16 uses 2 bytes per character)
     let total = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -266,21 +249,18 @@ export const SettingsPage: React.FC = () => {
     const success = await DataMigrationService.importFromFile(file);
     if (success) {
       notify.success('Data imported successfully!', 'Please reload the app.');
-      // Reload settings
       await SettingsService.init();
       setSettings(SettingsService.getSettings());
       calculateDiskUsage();
     } else {
       notify.error('Failed to import data.', 'Please check the file format.');
     }
-    // Reset input
     e.target.value = '';
   };
 
   const updateSetting = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings(prev => {
       const updated = { ...prev, [key]: value };
-      // Auto-save setting immediately on update
       SettingsService.updateSettings({ [key]: value });
       return updated;
     });
@@ -326,942 +306,56 @@ export const SettingsPage: React.FC = () => {
 
         {/* Content */}
         <div className="settings-content">
-          {/* General */}
           {activeTab === 'general' && (
-            <>
-              {/* Watermark Card */}
-              <div className="settings-card wm-card">
-                <div className="settings-card-header">
-                  <FileText size={18} className="card-icon" />
-                  <div>
-                    <h3>Watermark Settings</h3>
-                    <p className="card-desc">Add up to 2 customizable watermarks (logos or text) with live positioning</p>
-                  </div>
-                  <div className="wm-header-toggle">
-                    <button
-                      className={`toggle-switch ${(aiConfig.enableWatermark || aiConfig.enableWatermark2) ? 'on' : ''}`}
-                      title="Toggle all watermarks"
-                      onClick={() => {
-                        const anyActive = aiConfig.enableWatermark || aiConfig.enableWatermark2;
-                        if (anyActive) {
-                          setAIConfig(prev => ({ ...prev, enableWatermark: false, enableWatermark2: false }));
-                        } else {
-                          setAIConfig(prev => ({ ...prev, enableWatermark: true }));
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {(aiConfig.enableWatermark || aiConfig.enableWatermark2) && (
-                  <div className="wm-body">
-
-                    {/* Top Bar: Dual Watermark Slot Switcher */}
-                    <div className="wm-slot-nav">
-                      <button
-                        type="button"
-                        className={`wm-slot-btn ${activeWmSlot === 'wm1' ? 'active' : ''}`}
-                        onClick={() => setActiveWmSlot('wm1')}
-                      >
-                        <span className="wm-slot-title">Watermark 1 (Primary)</span>
-                        <span className={`wm-slot-status ${aiConfig.enableWatermark ? 'enabled' : 'disabled'}`}>
-                          {aiConfig.enableWatermark ? 'ON' : 'OFF'}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className={`wm-slot-btn ${activeWmSlot === 'wm2' ? 'active' : ''}`}
-                        onClick={() => setActiveWmSlot('wm2')}
-                      >
-                        <span className="wm-slot-title">Watermark 2 (Secondary)</span>
-                        <span className={`wm-slot-status ${aiConfig.enableWatermark2 ? 'enabled' : 'disabled'}`}>
-                          {aiConfig.enableWatermark2 ? 'ON' : 'OFF'}
-                        </span>
-                      </button>
-                    </div>
-
-                    {/* 2-Column Split: Controls (Left) & Live Preview (Right) */}
-                    <div className="wm-grid-layout">
-
-                      {/* LEFT COLUMN: Controls */}
-                      <div className="wm-controls-col">
-
-                        {/* SLOT 1 PANE */}
-                        {activeWmSlot === 'wm1' && (
-                          <div className="wm-slot-pane">
-                            <div className="wm-slot-header-row">
-                              <span className="wm-pane-label">Watermark 1 Settings</span>
-                              <label className="wm-sub-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={aiConfig.enableWatermark}
-                                  onChange={e => setAIConfig(prev => ({ ...prev, enableWatermark: e.target.checked }))}
-                                />
-                                <span>Enable Slot 1</span>
-                              </label>
-                            </div>
-
-                            {aiConfig.enableWatermark && (
-                              <>
-                                {/* Type selector */}
-                                <div className="wm-type-tabs">
-                                  <button
-                                    type="button"
-                                    className={`wm-type-tab ${(aiConfig.watermarkType || 'text') === 'text' ? 'active' : ''}`}
-                                    onClick={() => setAIConfig(prev => ({ ...prev, watermarkType: 'text' }))}
-                                  >
-                                    <span className="wm-tab-icon">T</span> Text
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`wm-type-tab ${aiConfig.watermarkType === 'image' ? 'active' : ''}`}
-                                    onClick={() => setAIConfig(prev => ({ ...prev, watermarkType: 'image' }))}
-                                  >
-                                    <span className="wm-tab-icon">🖼</span> Image Logo (PNG)
-                                  </button>
-                                </div>
-
-                                {/* Text mode */}
-                                {(aiConfig.watermarkType || 'text') === 'text' && (
-                                  <div className="wm-section">
-                                    <label className="wm-label">Text Content (Enter for new line)</label>
-                                    <textarea
-                                      className="wm-input wm-textarea"
-                                      rows={2}
-                                      value={aiConfig.watermarkText || ''}
-                                      onChange={e => setAIConfig(prev => ({ ...prev, watermarkText: e.target.value }))}
-                                      placeholder="e.g. © Mustafa Hisham&#10;+964 781 163 7027"
-                                    />
-                                  </div>
-                                )}
-
-                                {/* Image mode */}
-                                {aiConfig.watermarkType === 'image' && (
-                                  <div className="wm-section">
-                                    <label className="wm-label">PNG Logo / Signature</label>
-                                    <input
-                                      type="file"
-                                      ref={watermarkFileInputRef}
-                                      accept="image/png,image/svg+xml,image/*"
-                                      onChange={(ev) => {
-                                        const f = ev.target.files?.[0];
-                                        if (!f) return;
-                                        const reader = new FileReader();
-                                        reader.onload = (e) => setAIConfig(prev => ({ ...prev, watermarkImage: e.target?.result as string }));
-                                        reader.readAsDataURL(f);
-                                        ev.target.value = '';
-                                      }}
-                                      style={{ display: 'none' }}
-                                    />
-                                    <div className="wm-image-upload" onClick={() => watermarkFileInputRef.current?.click()}>
-                                      {aiConfig.watermarkImage ? (
-                                        <div className="wm-image-preview-wrap">
-                                          <img src={aiConfig.watermarkImage} className="wm-image-preview" alt="watermark 1" />
-                                          <button type="button" className="wm-image-remove" onClick={e => { e.stopPropagation(); setAIConfig(prev => ({ ...prev, watermarkImage: '' })); }}>✕</button>
-                                        </div>
-                                      ) : (
-                                        <div className="wm-image-placeholder">
-                                          <Upload size={18} />
-                                          <span>Click to upload PNG Logo</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Position 9-Grid */}
-                                <div className="wm-section">
-                                  <label className="wm-label">Position</label>
-                                  <div className="wm-position-grid">
-                                    {[
-                                      { v: 'top-left', label: '↖ Top Left' }, { v: 'top-center', label: '↑ Center' }, { v: 'top-right', label: '↗ Top Right' },
-                                      { v: 'center', label: '· Center' },
-                                      { v: 'bottom-left', label: '↙ Bottom Left' }, { v: 'bottom-center', label: '↓ Center' }, { v: 'bottom-right', label: '↘ Bottom Right' },
-                                    ].map(p => (
-                                      <button
-                                        key={p.v}
-                                        type="button"
-                                        className={`wm-pos-btn ${(aiConfig.watermarkPosition || 'bottom-right') === p.v ? 'active' : ''}`}
-                                        onClick={() => setAIConfig(prev => ({ ...prev, watermarkPosition: p.v as WatermarkPosition }))}
-                                      >{p.label}</button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Sliders in a tight row */}
-                                <div className="wm-sliders-compact">
-                                  <div className="wm-slider-item">
-                                    <div className="wm-slider-header">
-                                      <span className="wm-label">Opacity</span>
-                                      <span className="wm-slider-val">{((aiConfig.watermarkOpacity ?? 0.5) * 100).toFixed(0)}%</span>
-                                    </div>
-                                    <input type="range" min="0.05" max="1" step="0.05"
-                                      className="wm-slider"
-                                      value={aiConfig.watermarkOpacity ?? 0.5}
-                                      onChange={e => setAIConfig(prev => ({ ...prev, watermarkOpacity: Number.parseFloat(e.target.value) }))}
-                                    />
-                                  </div>
-
-                                  {(aiConfig.watermarkType || 'text') === 'text' ? (
-                                    <div className="wm-slider-item">
-                                      <div className="wm-slider-header">
-                                        <span className="wm-label">Font Size</span>
-                                        <span className="wm-slider-val">{aiConfig.watermarkFontSize || 24}px</span>
-                                      </div>
-                                      <input type="range" min="12" max="96" step="2"
-                                        className="wm-slider"
-                                        value={aiConfig.watermarkFontSize || 24}
-                                        onChange={e => setAIConfig(prev => ({ ...prev, watermarkFontSize: Number.parseInt(e.target.value) }))}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="wm-slider-item">
-                                      <div className="wm-slider-header">
-                                        <span className="wm-label">Image Size</span>
-                                        <span className="wm-slider-val">{aiConfig.watermarkImageSize || 20}%</span>
-                                      </div>
-                                      <input type="range" min="5" max="80" step="5"
-                                        className="wm-slider"
-                                        value={aiConfig.watermarkImageSize || 20}
-                                        onChange={e => setAIConfig(prev => ({ ...prev, watermarkImageSize: Number.parseInt(e.target.value) }))}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-
-                        {/* SLOT 2 PANE */}
-                        {activeWmSlot === 'wm2' && (
-                          <div className="wm-slot-pane">
-                            <div className="wm-slot-header-row">
-                              <span className="wm-pane-label">Watermark 2 Settings</span>
-                              <label className="wm-sub-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={!!aiConfig.enableWatermark2}
-                                  onChange={e => setAIConfig(prev => ({ ...prev, enableWatermark2: e.target.checked }))}
-                                />
-                                <span>Enable Slot 2</span>
-                              </label>
-                            </div>
-
-                            {aiConfig.enableWatermark2 ? (
-                              <>
-                                {/* Type selector */}
-                                <div className="wm-type-tabs">
-                                  <button
-                                    type="button"
-                                    className={`wm-type-tab ${(aiConfig.watermark2Type || 'text') === 'text' ? 'active' : ''}`}
-                                    onClick={() => setAIConfig(prev => ({ ...prev, watermark2Type: 'text' }))}
-                                  >
-                                    <span className="wm-tab-icon">T</span> Text
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`wm-type-tab ${aiConfig.watermark2Type === 'image' ? 'active' : ''}`}
-                                    onClick={() => setAIConfig(prev => ({ ...prev, watermark2Type: 'image' }))}
-                                  >
-                                    <span className="wm-tab-icon">🖼</span> Image Logo (PNG)
-                                  </button>
-                                </div>
-
-                                {/* Text mode */}
-                                {(aiConfig.watermark2Type || 'text') === 'text' && (
-                                  <div className="wm-section">
-                                    <label className="wm-label">Text Content (Enter for new line)</label>
-                                    <textarea
-                                      className="wm-input wm-textarea"
-                                      rows={2}
-                                      value={aiConfig.watermark2Text || ''}
-                                      onChange={e => setAIConfig(prev => ({ ...prev, watermark2Text: e.target.value }))}
-                                      placeholder="e.g. Architectural Design Studio&#10;Baghdad, Iraq"
-                                    />
-                                  </div>
-                                )}
-
-                                {/* Image mode */}
-                                {aiConfig.watermark2Type === 'image' && (
-                                  <div className="wm-section">
-                                    <label className="wm-label">PNG Logo / Secondary Signature</label>
-                                    <input
-                                      type="file"
-                                      ref={watermark2FileInputRef}
-                                      accept="image/png,image/svg+xml,image/*"
-                                      onChange={(ev) => {
-                                        const f = ev.target.files?.[0];
-                                        if (!f) return;
-                                        const reader = new FileReader();
-                                        reader.onload = (e) => setAIConfig(prev => ({ ...prev, watermark2Image: e.target?.result as string }));
-                                        reader.readAsDataURL(f);
-                                        ev.target.value = '';
-                                      }}
-                                      style={{ display: 'none' }}
-                                    />
-                                    <div className="wm-image-upload" onClick={() => watermark2FileInputRef.current?.click()}>
-                                      {aiConfig.watermark2Image ? (
-                                        <div className="wm-image-preview-wrap">
-                                          <img src={aiConfig.watermark2Image} className="wm-image-preview" alt="watermark 2" />
-                                          <button type="button" className="wm-image-remove" onClick={e => { e.stopPropagation(); setAIConfig(prev => ({ ...prev, watermark2Image: '' })); }}>✕</button>
-                                        </div>
-                                      ) : (
-                                        <div className="wm-image-placeholder">
-                                          <Upload size={18} />
-                                          <span>Click to upload PNG Logo</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Position 9-Grid */}
-                                <div className="wm-section">
-                                  <label className="wm-label">Position</label>
-                                  <div className="wm-position-grid">
-                                    {[
-                                      { v: 'top-left', label: '↖ Top Left' }, { v: 'top-center', label: '↑ Center' }, { v: 'top-right', label: '↗ Top Right' },
-                                      { v: 'center', label: '· Center' },
-                                      { v: 'bottom-left', label: '↙ Bottom Left' }, { v: 'bottom-center', label: '↓ Center' }, { v: 'bottom-right', label: '↘ Bottom Right' },
-                                    ].map(p => (
-                                      <button
-                                        key={p.v}
-                                        type="button"
-                                        className={`wm-pos-btn ${(aiConfig.watermark2Position || 'top-left') === p.v ? 'active' : ''}`}
-                                        onClick={() => setAIConfig(prev => ({ ...prev, watermark2Position: p.v as WatermarkPosition }))}
-                                      >{p.label}</button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Sliders in a tight row */}
-                                <div className="wm-sliders-compact">
-                                  <div className="wm-slider-item">
-                                    <div className="wm-slider-header">
-                                      <span className="wm-label">Opacity</span>
-                                      <span className="wm-slider-val">{((aiConfig.watermark2Opacity ?? 0.5) * 100).toFixed(0)}%</span>
-                                    </div>
-                                    <input type="range" min="0.05" max="1" step="0.05"
-                                      className="wm-slider"
-                                      value={aiConfig.watermark2Opacity ?? 0.5}
-                                      onChange={e => setAIConfig(prev => ({ ...prev, watermark2Opacity: Number.parseFloat(e.target.value) }))}
-                                    />
-                                  </div>
-
-                                  {(aiConfig.watermark2Type || 'text') === 'text' ? (
-                                    <div className="wm-slider-item">
-                                      <div className="wm-slider-header">
-                                        <span className="wm-label">Font Size</span>
-                                        <span className="wm-slider-val">{aiConfig.watermark2FontSize || 24}px</span>
-                                      </div>
-                                      <input type="range" min="12" max="96" step="2"
-                                        className="wm-slider"
-                                        value={aiConfig.watermark2FontSize || 24}
-                                        onChange={e => setAIConfig(prev => ({ ...prev, watermark2FontSize: Number.parseInt(e.target.value) }))}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="wm-slider-item">
-                                      <div className="wm-slider-header">
-                                        <span className="wm-label">Image Size</span>
-                                        <span className="wm-slider-val">{aiConfig.watermark2ImageSize || 20}%</span>
-                                      </div>
-                                      <input type="range" min="5" max="80" step="5"
-                                        className="wm-slider"
-                                        value={aiConfig.watermark2ImageSize || 20}
-                                        onChange={e => setAIConfig(prev => ({ ...prev, watermark2ImageSize: Number.parseInt(e.target.value) }))}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              </>
-                            ) : (
-                              <div className="wm-disabled-placeholder">
-                                <p>Watermark 2 is currently disabled. Check the box above to activate it.</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                      </div>
-
-                      {/* RIGHT COLUMN: Live Output Mockup & Typography Inspector */}
-                      <div className="wm-preview-col">
-                        
-                        {/* Live Canvas Mockup */}
-                        <div className="wm-preview-card">
-                          <div className="wm-preview-header">
-                            <span className="wm-preview-title">Live Canvas Output</span>
-                            <span className="wm-preview-badge">16:9 Composite</span>
-                          </div>
-                          <div className="wm-canvas-mockup">
-                            <div className="wm-mockup-bg">
-                              <div className="wm-mockup-watermarks">
-                                {/* Watermark 1 Layer */}
-                                {aiConfig.enableWatermark && (
-                                  <div className={`wm-mockup-layer pos-${aiConfig.watermarkPosition || 'bottom-right'}`}
-                                    style={{ opacity: aiConfig.watermarkOpacity ?? 0.5 }}
-                                  >
-                                    {(aiConfig.watermarkType || 'text') === 'image' && aiConfig.watermarkImage ? (
-                                      <img src={aiConfig.watermarkImage} alt="wm1" style={{ width: `${Math.max(30, (aiConfig.watermarkImageSize || 20) * 1.5)}px`, maxWidth: '120px' }} />
-                                    ) : (
-                                      <span style={{ fontSize: `${Math.max(11, Math.min(26, (aiConfig.watermarkFontSize || 24) * 0.55))}px`, fontWeight: 700, whiteSpace: 'pre-line', lineHeight: 1.25 }}>
-                                        {aiConfig.watermarkText || 'Anarchy AI'}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Watermark 2 Layer */}
-                                {aiConfig.enableWatermark2 && (
-                                  <div className={`wm-mockup-layer pos-${aiConfig.watermark2Position || 'top-left'}`}
-                                    style={{ opacity: aiConfig.watermark2Opacity ?? 0.5 }}
-                                  >
-                                    {aiConfig.watermark2Type === 'image' && aiConfig.watermark2Image ? (
-                                      <img src={aiConfig.watermark2Image} alt="wm2" style={{ width: `${Math.max(30, (aiConfig.watermark2ImageSize || 20) * 1.5)}px`, maxWidth: '120px' }} />
-                                    ) : (
-                                      <span style={{ fontSize: `${Math.max(11, Math.min(26, (aiConfig.watermark2FontSize || 24) * 0.55))}px`, fontWeight: 700, whiteSpace: 'pre-line', lineHeight: 1.25 }}>
-                                        {aiConfig.watermark2Text || 'Secondary Watermark'}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Full Detail Typography / Logo Inspector Card */}
-                        <div className="wm-inspector-card">
-                          <div className="wm-inspector-header">
-                            <span className="wm-inspector-title">Active Element Detail</span>
-                            <span className="wm-inspector-badge">
-                              {activeWmSlot === 'wm1'
-                                ? ((aiConfig.watermarkType || 'text') === 'text' ? `${aiConfig.watermarkFontSize || 24}px` : `${aiConfig.watermarkImageSize || 20}%`)
-                                : ((aiConfig.watermark2Type || 'text') === 'text' ? `${aiConfig.watermark2FontSize || 24}px` : `${aiConfig.watermark2ImageSize || 20}%`)}
-                            </span>
-                          </div>
-                          <div className="wm-inspector-body">
-                            {activeWmSlot === 'wm1' ? (
-                              (aiConfig.watermarkType || 'text') === 'text' ? (
-                                <span style={{
-                                  fontSize: `${aiConfig.watermarkFontSize || 24}px`,
-                                  opacity: aiConfig.watermarkOpacity ?? 0.5,
-                                  fontWeight: 700,
-                                  letterSpacing: '0.02em',
-                                  whiteSpace: 'pre-line',
-                                  lineHeight: 1.3,
-                                  textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9)'
-                                }}>
-                                  {aiConfig.watermarkText || 'Anarchy AI'}
-                                </span>
-                              ) : (
-                                aiConfig.watermarkImage ? (
-                                  <img src={aiConfig.watermarkImage} alt="logo 1"
-                                    style={{ width: `${aiConfig.watermarkImageSize || 20}%`, maxWidth: 160, opacity: aiConfig.watermarkOpacity ?? 0.5, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.7))' }} />
-                                ) : (
-                                  <span className="wm-inspector-empty">No logo uploaded yet</span>
-                                )
-                              )
-                            ) : (
-                              (aiConfig.watermark2Type || 'text') === 'text' ? (
-                                <span style={{
-                                  fontSize: `${aiConfig.watermark2FontSize || 24}px`,
-                                  opacity: aiConfig.watermark2Opacity ?? 0.5,
-                                  fontWeight: 700,
-                                  letterSpacing: '0.02em',
-                                  whiteSpace: 'pre-line',
-                                  lineHeight: 1.3,
-                                  textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9)'
-                                }}>
-                                  {aiConfig.watermark2Text || 'Secondary Watermark'}
-                                </span>
-                              ) : (
-                                aiConfig.watermark2Image ? (
-                                  <img src={aiConfig.watermark2Image} alt="logo 2"
-                                    style={{ width: `${aiConfig.watermark2ImageSize || 20}%`, maxWidth: 160, opacity: aiConfig.watermark2Opacity ?? 0.5, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.7))' }} />
-                                ) : (
-                                  <span className="wm-inspector-empty">No logo uploaded yet</span>
-                                )
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-                )}
-              </div>
-
-              {/* Workflow Card */}
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <Zap size={18} className="card-icon" />
-                  <h3>Workflow</h3>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content full-width">
-                    <label>Save Location</label>
-                    <span className="setting-desc">Default folder for saving projects</span>
-                    <div className="save-location-input-group">
-                      <input
-                        type="text"
-                        className="setting-input save-location-input"
-                        value={settings.saveLocation}
-                        onChange={e => updateSetting('saveLocation', e.target.value)}
-                        placeholder="Default: App data folder"
-                        readOnly
-                      />
-                      <button 
-                        className="btn-secondary browse-btn"
-                        onClick={async () => {
-                          try {
-                            const { open } = await import('@tauri-apps/plugin-dialog');
-                            const selected = await open({ directory: true, multiple: false });
-                            if (selected && typeof selected === 'string') {
-                              updateSetting('saveLocation', selected);
-                            }
-                          } catch { /* cancelled or unavailable */ }
-                        }}
-                      >
-                        Browse
-                      </button>
-                      {settings.saveLocation && (
-                        <button
-                          className="btn-secondary"
-                          title="Clear"
-                          onClick={() => updateSetting('saveLocation', '')}
-                          style={{ padding: '0 8px' }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Support & Community Card */}
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <Mail size={18} className="card-icon" />
-                  <h3>Support & Community</h3>
-                </div>
-
-                <div className="setting-item" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-                  <div className="setting-item-content full-width">
-                    <span className="setting-desc" style={{ marginBottom: 16 }}>
-                      Get in touch with support, check our website, or join our official community channels.
-                    </span>
-                    
-                    <div className="support-links-grid-horizontal">
-                      <button
-                        className="support-link-card-btn"
-                        onClick={() => setShowSupportModal(true)}
-                      >
-                        <div className="support-icon-circle email">
-                          <Mail size={16} />
-                        </div>
-                        <div className="support-card-text">
-                          <strong>Email Support</strong>
-                        </div>
-                      </button>
-
-                      <button
-                        className="support-link-card-btn"
-                        onClick={() => invoke('open_url', { url: APP_INFO.links.website }).catch(() => {})}
-                      >
-                        <div className="support-icon-circle website">
-                          <Globe size={16} />
-                        </div>
-                        <div className="support-card-text">
-                          <strong>Official Website</strong>
-                        </div>
-                      </button>
-
-                      <button
-                        className="support-link-card-btn"
-                        onClick={() => invoke('open_url', { url: APP_INFO.links.instagram }).catch(() => {})}
-                      >
-                        <div className="support-icon-circle instagram">
-                          <Camera size={16} />
-                        </div>
-                        <div className="support-card-text">
-                          <strong>Instagram</strong>
-                        </div>
-                      </button>
-
-                      <button
-                        className="support-link-card-btn"
-                        onClick={() => invoke('open_url', { url: APP_INFO.links.telegram }).catch(() => {})}
-                      >
-                        <div className="support-icon-circle telegram">
-                          <MessageCircle size={16} />
-                        </div>
-                        <div className="support-card-text">
-                          <strong>Telegram Channel</strong>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
+            <GeneralSettingsTab
+              settings={settings}
+              updateSetting={updateSetting}
+              onOpenSupportModal={() => setShowSupportModal(true)}
+            />
           )}
 
-          {/* Storage */}
           {activeTab === 'storage' && (
-            <>
-              {/* IndexedDB Image Cache & Storage Manager Card */}
-              <div className="settings-card storage-cache-card">
-                <div className="settings-card-header">
-                  <Database size={18} className="card-icon" style={{ color: '#38bdf8' }} />
-                  <div>
-                    <h3>Image Cache & IndexedDB Storage</h3>
-                    <p className="card-desc">Monitor local cached image data and free up disk space</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={loadStorageMetrics}
-                    style={{ marginLeft: 'auto', height: 28, padding: '0 10px', fontSize: 11 }}
-                    title="Refresh storage statistics"
-                  >
-                    <RefreshCw size={12} />
-                    Refresh
-                  </button>
-                </div>
-
-                {/* Live Storage Progress Bar */}
-                <div className="storage-meter-section" style={{ margin: '14px 0 16px' }}>
-                  <div className="storage-meter-labels" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6 }}>
-                    <span>Used: <strong style={{ color: '#fff' }}>{storageMetrics ? storageMetrics.formattedTotalUsage : `${diskUsage.total} KB`}</strong></span>
-                    <span>Quota: <strong style={{ color: '#fff' }}>{storageMetrics?.formattedQuota || 'Unlimited (Disk)'}</strong></span>
-                  </div>
-                  <div className="storage-progress-track" style={{ height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div
-                      className="storage-progress-fill"
-                      style={{
-                        height: '100%',
-                        borderRadius: 4,
-                        width: `${Math.max(2, Math.min(100, storageMetrics?.percentUsed || 10))}%`,
-                        background: (storageMetrics?.percentUsed || 0) > 85 ? '#e11d48' : ((storageMetrics?.percentUsed || 0) > 65 ? '#f59e0b' : '#10b981'),
-                        transition: 'width 0.4s ease',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Storage Metric Grid */}
-                <div className="storage-metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
-                  <div className="storage-metric-box" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px' }}>
-                    <div className="metric-title" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>Temporary Image Cache</div>
-                    <div className="metric-val" style={{ fontSize: 18, fontWeight: 700, color: '#38bdf8' }}>
-                      {storageMetrics ? storageMetrics.formattedImageCache : '0 B'}
-                    </div>
-                    <div className="metric-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                      {storageMetrics?.imageCacheCount || 0} cached preview items
-                    </div>
-                  </div>
-
-                  <div className="storage-metric-box" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px' }}>
-                    <div className="metric-title" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>Stored Project Images</div>
-                    <div className="metric-val" style={{ fontSize: 18, fontWeight: 700, color: '#a855f7' }}>
-                      {storageMetrics ? ((storageMetrics.storedImagesBytes / (1024 * 1024)).toFixed(1) + ' MB') : '0 B'}
-                    </div>
-                    <div className="metric-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                      {storageMetrics?.storedImagesCount || 0} saved assets
-                    </div>
-                  </div>
-
-                  <div className="storage-metric-box" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 14px' }}>
-                    <div className="metric-title" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>Projects & Preferences</div>
-                    <div className="metric-val" style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>
-                      {storageMetrics ? ((storageMetrics.projectsBytes / 1024).toFixed(1) + ' KB') : `${diskUsage.projects} KB`}
-                    </div>
-                    <div className="metric-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                      Workflows & tab states
-                    </div>
-                  </div>
-                </div>
-
-                {/* Cache Purge Action */}
-                <div className="setting-item" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, marginTop: 4 }}>
-                  <div className="setting-item-content">
-                    <label>Clean Image Cache (IndexedDB)</label>
-                    <span className="setting-desc">
-                      Purge temporary downloaded image previews from IndexedDB to reclaim disk space. Your .ana project files and active workflow nodes remain 100% safe.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setConfirmCleanCache(true)}
-                    disabled={isCleaningCache || (storageMetrics?.imageCacheCount === 0 && storageMetrics?.imageCacheBytes === 0)}
-                    style={{ borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8' }}
-                  >
-                    <Trash2 size={14} />
-                    {isCleaningCache ? 'Cleaning...' : 'Clean Image Cache'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Data Transfer Card */}
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <Download size={18} className="card-icon" />
-                  <h3>Data Transfer</h3>
-                </div>
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Export Data</label>
-                    <span className="setting-desc">Download all your data (settings, history, projects) as a JSON file for backup or transfer to another device.</span>
-                  </div>
-                  <button className="btn-secondary" onClick={handleExport}>
-                    <Download size={14} />
-                    Export
-                  </button>
-                </div>
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Import Data</label>
-                    <span className="setting-desc">Restore data from a previously exported JSON file. This will merge with existing data.</span>
-                  </div>
-                  <label className="btn-secondary file-input-label">
-                    <Upload size={14} />
-                    Import
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleImport}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              {/* Data Management Card */}
-              <div className="danger-zone">
-                <div className="danger-zone-header">
-                  <Shield size={16} />
-                  <h4>Data Management</h4>
-                </div>
-                <div className="danger-item">
-                  <div className="setting-item-content">
-                    <label className="danger-label">{t('settings.clearCache', 'Clear Local Cache & Preferences')}</label>
-                    <span className="setting-desc">{t('settings.clearCacheDesc', 'Clears local preferences, session cache, and resets settings to defaults. Project files (.ana) on disk remain untouched.')}</span>
-                  </div>
-                  <button type="button" className="btn-danger" onClick={clearAllData}>
-                    <Trash2 size={14} />
-                    {t('settings.clearCacheBtn', 'Clear Cache')}
-                  </button>
-                </div>
-              </div>
-            </>
+            <StorageSettingsTab
+              storageMetrics={storageMetrics}
+              diskUsage={diskUsage}
+              loadStorageMetrics={loadStorageMetrics}
+              isCleaningCache={isCleaningCache}
+              onCleanCache={() => setConfirmCleanCache(true)}
+              onExportData={handleExport}
+              onImportData={handleImport}
+              onClearAllData={clearAllData}
+              t={t}
+            />
           )}
 
-          {/* System Health */}
           {activeTab === 'health' && (
-            <>
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <Activity size={18} className="card-icon" />
-                  <h3>System Health & Subsystems</h3>
-                  <button 
-                    className="btn-secondary" 
-                    onClick={checkSystemHealth}
-                    style={{ marginLeft: 'auto', height: 30, padding: '0 12px', fontSize: 11, minWidth: 'auto' }}
-                    disabled={dbStatus === 'checking' || replicateStatus === 'checking'}
-                  >
-                    <RefreshCw size={12} className={dbStatus === 'checking' ? 'spin' : ''} />
-                    Refresh Status
-                  </button>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Application Version</label>
-                    <span className="setting-desc">Current release version and build tag</span>
-                  </div>
-                  <span className="setting-value" style={{ fontFamily: 'monospace' }}>v{appVersion}</span>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Build Target</label>
-                    <span className="setting-desc">Vite compiler environment mode</span>
-                  </div>
-                  <span className="setting-value" style={{ textTransform: 'capitalize' }}>
-                    {import.meta.env.MODE} ({import.meta.env.DEV ? 'Dev' : 'Production'})
-                  </span>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Database Connection (Supabase)</label>
-                    <span className="setting-desc">Status of the remote Supabase PostgreSQL database</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {pingTime !== null && dbStatus === 'connected' && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{pingTime}ms ping</span>
-                    )}
-                    <span className={`status-badge ${dbStatus}`}>
-                      {dbStatus === 'checking' && 'Checking...'}
-                      {dbStatus === 'connected' && 'Connected (Healthy)'}
-                      {dbStatus === 'error' && 'Connection Error'}
-                      {dbStatus === 'not-configured' && 'Not Configured (Offline Mode)'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Replicate API Status</label>
-                    <span className="setting-desc">Connectivity to Replicate AI generation endpoints</span>
-                  </div>
-                  <span className={`status-badge ${replicateStatus}`}>
-                    {replicateStatus === 'checking' && 'Checking...'}
-                    {replicateStatus === 'active' && 'Active (Reachable)'}
-                    {replicateStatus === 'error' && 'Service Unreachable'}
-                    {replicateStatus === 'not-configured' && 'Not Configured (Supabase Missing)'}
-                  </span>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Local Storage (IndexedDB)</label>
-                    <span className="setting-desc">Availability of local browser database for workflows and images</span>
-                  </div>
-                  <span className={`status-badge ${storageStatus === 'healthy' ? 'connected' : storageStatus === 'checking' ? 'checking' : 'error'}`}>
-                    {storageStatus === 'checking' && 'Checking...'}
-                    {storageStatus === 'healthy' && 'Healthy'}
-                    {storageStatus === 'error' && 'Unavailable'}
-                  </span>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Generation Background Queue</label>
-                    <span className="setting-desc">Status of the local asynchronous task scheduler</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {queueLength > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{queueLength} job(s) pending</span>
-                    )}
-                    <span className={`status-badge ${isQueueExecuting ? 'connected' : 'idle'}`}>
-                      {isQueueExecuting ? 'Active Execution' : 'Idle (Waiting)'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="setting-item">
-                  <div className="setting-item-content">
-                    <label>Telemetry & Diagnostics</label>
-                    <span className="setting-desc">Export system diagnostic bundles and crash telemetry logs for debugging</span>
-                  </div>
-                  <button 
-                    type="button"
-                    className="btn-secondary"
-                    onClick={async () => {
-                      try {
-                        const { DiagnosticBundleService } = await import('../../services/monitoring/DiagnosticBundleService');
-                        await DiagnosticBundleService.export();
-                        notify.success('Diagnostics Exported', 'Bundle downloaded successfully.');
-                      } catch (err) {
-                        notify.error('Export Failed', err instanceof Error ? err.message : 'Unknown error');
-                      }
-                    }}
-                    style={{ height: 32, padding: '0 16px', fontSize: 12 }}
-                  >
-                    Export Bundle
-                  </button>
-                </div>
-              </div>
-            </>
+            <SystemHealthTab
+              dbStatus={dbStatus}
+              replicateStatus={replicateStatus}
+              storageStatus={storageStatus}
+              pingTime={pingTime}
+              appVersion={appVersion}
+              queueLength={queueLength}
+              isQueueExecuting={isQueueExecuting}
+              onRefreshHealth={checkSystemHealth}
+            />
           )}
 
-          {/* About */}
           {activeTab === 'about' && (
-            <>
-            {/* Application Version Card */}
-            <div className="settings-card version-card">
-              <div className="version-row">
-                <div className="version-info">
-                  <div className="version-icon">
-                    <Info size={18} />
-                  </div>
-                  <div className="version-text">
-                    <span className="version-label">Application Version</span>
-                    <span className="version-number">{appVersion}</span>
-                  </div>
-                </div>
-                <button 
-                  className={`version-check-btn ${updateStatus}`}
-                  onClick={checkForUpdates}
-                  disabled={updateStatus === 'checking'}
-                >
-                  {updateStatus === 'checking' && <RefreshCw size={14} className="spin" />}
-                  {updateStatus === 'idle' && 'Check for Updates'}
-                  {updateStatus === 'checking' && 'Checking...'}
-                  {updateStatus === 'up-to-date' && 'Up to Date ✓'}
-                  {updateStatus === 'available' && 'Install & Restart'}
-                  {updateStatus === 'error' && 'Try Again'}
-                </button>
-              </div>
-            </div>
-
-            <div className="settings-card about-card">
-              <div className="about-logo-large">A</div>
-              <h2>{APP_INFO.name}</h2>
-              <span className="about-version-badge">Version {appVersion}</span>
-
-              <p className="about-description">{APP_INFO.description}</p>
-
-              <div className="about-links-grid">
-                <button className="about-link-card" onClick={() => setShowChangelogModal(true)}>
-                  <History size={20} />
-                  Changelog
-                </button>
-                <button className="about-link-card" onClick={() => setShowPrivacyModal(true)}>
-                  <Shield size={20} />
-                  Privacy Policy
-                </button>
-              </div>
-
-              <div className="about-developer-section">
-                <p className="about-developer-text">
-                  Developed by <span className="about-developer-name">{APP_INFO.developer}</span>
-                  <span className="about-separator"> • </span>
-                  <a href={APP_INFO.links.instagram} target="_blank" rel="noopener noreferrer" className="about-social-link">Instagram</a>
-                  <span className="about-separator"> • </span>
-                  <a href={APP_INFO.links.website} target="_blank" rel="noopener noreferrer" className="about-social-link">Website</a>
-                  <span className="about-separator"> • </span>
-                  <a href={APP_INFO.links.telegram} target="_blank" rel="noopener noreferrer" className="about-social-link">Telegram</a>
-                </p>
-              </div>
-
-              <div className="about-credits-footer">
-                <p>Built with {APP_INFO.builtWith}</p>
-              </div>
-            </div>
-            </>
+            <AboutTab
+              appVersion={appVersion}
+              updateStatus={updateStatus}
+              onCheckForUpdates={checkForUpdates}
+              onOpenChangelogModal={() => setShowChangelogModal(true)}
+              onOpenPrivacyModal={() => setShowPrivacyModal(true)}
+            />
           )}
         </div>
       </div>
 
-      {/* Privacy Policy Modal */}
+      {/* Modals */}
       {showPrivacyModal && <PrivacyPolicyModal onClose={() => setShowPrivacyModal(false)} />}
-
-      {/* Changelog Modal */}
       {showChangelogModal && <ChangelogModal onClose={() => setShowChangelogModal(false)} />}
-
-      {/* Support Form Modal */}
       {showSupportModal && (
         <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} />
       )}
@@ -1299,3 +393,4 @@ export const SettingsPage: React.FC = () => {
     </div>
   );
 };
+export default SettingsPage;

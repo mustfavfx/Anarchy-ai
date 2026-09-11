@@ -720,6 +720,359 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ==========================================================================
+       Section 5: Media Vault & Storage Explorer Styles
+       ========================================================================== */
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .media-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+
+    .media-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    }
+
+    .media-thumb-box {
+      width: 100%;
+      height: 200px;
+      background: #09090c;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .media-thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.35s ease;
+    }
+
+    .media-card:hover .media-thumb-img {
+      transform: scale(1.04);
+    }
+
+    .media-thumb-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .media-type-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(8px);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      z-index: 2;
+    }
+
+    .badge-img {
+      background: rgba(16, 185, 129, 0.85);
+      color: #fff;
+    }
+
+    .badge-vid {
+      background: rgba(168, 85, 247, 0.85);
+      color: #fff;
+    }
+
+    .media-size-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #e4e4e7;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 2;
+    }
+
+    .media-zoom-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 1;
+    }
+
+    .media-zoom-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(17, 17, 21, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #fff;
+    }
+
+    .media-thumb-box:hover .media-zoom-overlay {
+      opacity: 1;
+    }
+
+    .media-card-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .media-user-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .media-user-pill {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 170px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .media-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .media-meta-info {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .media-filename {
+      font-weight: 600;
+      color: #f4f4f6;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+    }
+
+    .media-prompt {
+      font-size: 11px;
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.08);
+      padding: 4px 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      border-left: 2px solid #f59e0b;
+    }
+
+    .media-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-media-action {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+
+    .btn-media-action:hover {
+      background: var(--bg-hover);
+      color: #fff;
+      border-color: var(--border-strong);
+    }
+
+    .btn-media-action.btn-del:hover {
+      background: rgba(225, 29, 72, 0.15);
+      color: #fb7185;
+      border-color: rgba(225, 29, 72, 0.4);
+    }
+
+    /* Modal Windows */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+
+    .modal-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+      max-width: 1100px;
+      width: 100%;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modal-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modal-appear {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-body {
+      padding: 24px 28px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .modal-close-btn:hover {
+      background: var(--bg-hover);
+      color: #fff;
+      border-color: var(--border-strong);
+    }
+
+    /* Lightbox Modal */
+    .lightbox-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(16px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1100;
+      padding: 30px;
+    }
+
+    .lightbox-box {
+      max-width: 90vw;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+    }
+
+    .lightbox-media {
+      max-width: 85vw;
+      max-height: 75vh;
+      object-fit: contain;
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .lightbox-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      width: 100%;
+      background: rgba(17, 17, 21, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 20px;
+    }
   </style>
 </head>
 <body>
@@ -740,6 +1093,9 @@
         <span class="pulse-dot"></span>
         <span>LIVE AUTO-SYNC</span>
       </div>
+      <button class="btn btn-secondary" onclick="scrollToVault()" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">
+        🖼️ Media Vault
+      </button>
       <button class="btn btn-secondary" id="btn-export">
         📥 Export CSV
       </button>
@@ -955,6 +1311,7 @@
             </div>
 
             <select id="sort-select" class="sort-select" onchange="handleFilter()">
+              <option value="active-desc" selected>⚡ Most Recent Activity (آخر من قام بالعمل)</option>
               <option value="paid-desc">Highest Paid ($)</option>
               <option value="credits-desc">Most Credits</option>
               <option value="newest">Newest Registered</option>
@@ -967,18 +1324,19 @@
             <table>
               <thead>
                 <tr>
-                  <th style="width: 320px;">Subscriber</th>
+                  <th style="width: 300px;">Subscriber</th>
                   <th>Total Paid</th>
                   <th>Current Balance</th>
                   <th>Purchased</th>
                   <th>Used</th>
+                  <th>Last Active (آخر نشاط)</th>
                   <th>Last Purchase</th>
                   <th>Registered At</th>
                 </tr>
               </thead>
               <tbody id="subscribers-tbody">
                 <tr>
-                  <td colspan="7" class="empty-state">Loading subscribers...</td>
+                  <td colspan="8" class="empty-state">Loading subscribers...</td>
                 </tr>
               </tbody>
             </table>
@@ -986,9 +1344,146 @@
         </div>
       </div>
 
+      <!-- Section 5: Supabase Storage & AI Productions Vault -->
+      <div id="section-media-vault" style="scroll-margin-top: 90px;">
+        <div class="section-header">
+          <div class="section-title">
+            <span>🖼️</span> Supabase Media Vault &amp; User Productions (مستودع إنتاج الوسائط والتوليدات)
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span class="card-badge badge-purple" id="vault-total-count">0 Files</span>
+            <span class="card-badge badge-blue" id="vault-total-size">0 KB</span>
+            <span class="admin-pill" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
+              Bucket: generated-images
+            </span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 24px;">
+          <!-- Controls Bar -->
+          <div class="controls-bar" style="flex-wrap: wrap;">
+            <!-- User Filter Dropdown -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">المستخدم:</span>
+              <select id="vault-user-select" class="sort-select" onchange="handleVaultFilter()" style="min-width: 250px;">
+                <option value="all">👥 All Users (كل المستخدمين)</option>
+              </select>
+            </div>
+
+            <!-- Media Type Filter Pills -->
+            <div class="filter-group">
+              <button class="filter-btn active" id="btn-vtype-all" onclick="setVaultTypeFilter('all')">All Media (الكل)</button>
+              <button class="filter-btn" id="btn-vtype-image" onclick="setVaultTypeFilter('image')">📷 Photos Only</button>
+              <button class="filter-btn" id="btn-vtype-video" onclick="setVaultTypeFilter('video')">🎥 Videos (MP4)</button>
+            </div>
+
+            <!-- Search input -->
+            <div class="search-wrapper" style="min-width: 240px; max-width: 340px;">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="vault-search-input" class="search-input" placeholder="Search file, user, folder..." oninput="handleVaultFilter()" />
+            </div>
+
+            <!-- Reload Storage Button -->
+            <button class="btn btn-secondary" id="btn-vault-refresh" onclick="loadVaultMedia(true)" style="padding: 8px 14px; gap: 6px;">
+              <span id="vault-refresh-spinner">🔄</span> فحص وتحديث الـ Storage
+            </button>
+          </div>
+
+          <!-- Media Gallery Grid Card -->
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 24px; min-height: 280px; box-shadow: var(--shadow-card);">
+            <!-- Gallery Header / Status -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; font-size: 13px; color: var(--text-secondary); flex-wrap: wrap; gap: 10px;">
+              <div id="vault-status-text">
+                جاري إعداد مستودع الوسائط...
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="mini-btn" onclick="toggleThumbGrid('compact')" title="Compact Grid">عرض مصغر</button>
+                <button class="mini-btn" onclick="toggleThumbGrid('normal')" title="Normal Grid">عرض قياسي</button>
+              </div>
+            </div>
+
+            <div id="vault-loading-state" class="empty-state" style="display: none; padding: 50px 20px;">
+              <span class="spinner" style="width: 28px; height: 28px; margin-bottom: 12px;"></span><br>
+              <span style="font-weight: 600; color: #fff;">جاري قراءة ملفات ومجلدات Supabase Storage...</span><br>
+              <small style="color: var(--text-muted);">يتم فحص دلو <code>generated-images</code> وتجميع إنتاج كل مستخدم</small>
+            </div>
+
+            <div id="vault-empty-state" class="empty-state" style="display: none; padding: 60px 20px;">
+              <div style="font-size: 32px; margin-bottom: 12px;">📂</div>
+              <div style="font-weight: 700; color: #fff; font-size: 15px; margin-bottom: 4px;">لا توجد ملفات وسائط مطابقة</div>
+              <div style="color: var(--text-muted); font-size: 13px;">تأكد من اختيار المستخدم الصحيح أو اضغط على "فحص وتحديث الـ Storage"</div>
+            </div>
+
+            <!-- Active Grid -->
+            <div id="vault-gallery-grid" class="media-grid">
+              <!-- Cards dynamically rendered here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </main>
+
+  <!-- User Dedicated Productions Modal -->
+  <div id="user-media-modal" class="modal-overlay" onclick="handleModalBackdropClick(event)">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title">
+          <div id="modal-user-avatar" class="user-avatar" style="width: 34px; height: 34px; font-size: 14px;">U</div>
+          <div>
+            <div style="font-size: 15px; color: #fff; display: flex; align-items: center; gap: 8px;">
+              <span>إنتاج وتوليدات:</span>
+              <span id="modal-user-email" style="color: #38bdf8;">user@email.com</span>
+            </div>
+            <div id="modal-user-id" style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;"></div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span class="card-badge badge-green" id="modal-user-count">0 ملفات</span>
+          <span class="card-badge badge-blue" id="modal-user-size">0 KB</span>
+          <button class="modal-close-btn" onclick="closeUserMediaModal()" title="إغلاق (Esc)">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="modal-loading-state" class="empty-state" style="display: none;">
+          <span class="spinner" style="width: 24px; height: 24px;"></span><br><br>
+          جاري جلب كل ملفات هذا المستخدم من Storage...
+        </div>
+        <div id="modal-empty-state" class="empty-state" style="display: none;">
+          لم يقم هذا المستخدم بإنتاج أي صور أو فيديوهات بعد في مجلده الخاص.
+        </div>
+        <div id="modal-gallery-grid" class="media-grid">
+          <!-- Injected user media cards -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Lightbox Modal -->
+  <div id="lightbox-modal" class="lightbox-overlay" onclick="handleLightboxBackdropClick(event)">
+    <div class="lightbox-box" onclick="event.stopPropagation()">
+      <div id="lightbox-media-container" style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
+        <!-- Injected img or video -->
+      </div>
+      <div class="lightbox-bar">
+        <div style="display: flex; flex-direction: column; gap: 3px; max-width: 60%;">
+          <span id="lb-filename" style="font-weight: 700; color: #fff; font-size: 13px; font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">filename</span>
+          <span id="lb-meta" style="font-size: 11.5px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">metadata</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn btn-secondary" id="lb-btn-copy" onclick="copyLightboxUrl(this)" style="padding: 7px 14px; font-size: 12px;">
+            🔗 نسخ الرابط
+          </button>
+          <button class="btn btn-primary" id="lb-btn-download" onclick="downloadLightboxFile()" style="padding: 7px 14px; font-size: 12px;">
+            📥 تحميل
+          </button>
+          <button class="modal-close-btn" onclick="closeLightbox()" title="إغلاق">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     // Supabase Configuration
@@ -1100,6 +1595,7 @@
       document.getElementById('header-actions').style.display = 'flex';
       fetchSubscribersData();
       startAutoSync();
+      loadVaultMedia();
     }
 
     async function handleLogout() {
@@ -1113,7 +1609,10 @@
     }
 
     document.getElementById('btn-logout').addEventListener('click', handleLogout);
-    document.getElementById('btn-refresh').addEventListener('click', () => fetchSubscribersData(false));
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      fetchSubscribersData(false);
+      loadVaultMedia(true);
+    });
     document.getElementById('btn-export').addEventListener('click', exportToCSV);
 
     async function fetchSubscribersData(isSilent = false) {
@@ -1163,11 +1662,26 @@
               lastPurchase = sorted[0].completed_at || sorted[0].created_at || lastPurchase;
             }
 
+            // Calculate most recent activity timestamp across:
+            // 1. user_credits.updated_at (updated on every AI generation/upscale/credit debit)
+            // 2. auth.users.last_sign_in_at (last user login)
+            // 3. lastPurchase
+            // 4. created_at
+            const activityDates = [
+              c.updated_at ? new Date(c.updated_at).getTime() : 0,
+              u.last_sign_in_at ? new Date(u.last_sign_in_at).getTime() : 0,
+              lastPurchase ? new Date(lastPurchase).getTime() : 0,
+              u.created_at ? new Date(u.created_at).getTime() : 0,
+            ].filter(t => t > 0 && !isNaN(t));
+
+            const lastActiveAt = activityDates.length > 0 ? new Date(Math.max(...activityDates)).toISOString() : null;
+
             return {
               user_id: u.id,
               email: u.email || 'No email',
               created_at: u.created_at,
               last_sign_in_at: u.last_sign_in_at,
+              last_active_at: lastActiveAt,
               balance: Number(c.balance || 0),
               total_purchased: Number(c.total_purchased || 0),
               total_used: Number(c.total_used || 0),
@@ -1193,7 +1707,11 @@
               total_credits_purchased: totalCreditsPurchased,
               total_credits_used: totalCreditsUsed,
             },
-            subscribers: subscribers.sort((a, b) => b.total_paid_usd - a.total_paid_usd || new Date(b.created_at) - new Date(a.created_at)),
+            subscribers: subscribers.sort((a, b) => {
+              const timeA = a.last_active_at ? new Date(a.last_active_at).getTime() : 0;
+              const timeB = b.last_active_at ? new Date(b.last_active_at).getTime() : 0;
+              return timeB - timeA;
+            }),
           };
 
           renderKPIs(rawData.stats);
@@ -1204,6 +1722,19 @@
         // Fallback: Execute RPC
         const { data, error } = await activeClient.rpc('get_admin_subscribers');
         if (error) throw error;
+
+        if (data?.subscribers) {
+          data.subscribers.forEach(sub => {
+            if (!sub.last_active_at) {
+              const dates = [
+                sub.last_sign_in_at ? new Date(sub.last_sign_in_at).getTime() : 0,
+                sub.last_purchase_at ? new Date(sub.last_purchase_at).getTime() : 0,
+                sub.created_at ? new Date(sub.created_at).getTime() : 0,
+              ].filter(t => t > 0 && !isNaN(t));
+              sub.last_active_at = dates.length > 0 ? new Date(Math.max(...dates)).toISOString() : sub.created_at;
+            }
+          });
+        }
 
         rawData = data;
         renderKPIs(data.stats);
@@ -1340,6 +1871,11 @@
 
       // 3. Sorting
       filtered.sort((a, b) => {
+        if (sortType === 'active-desc') {
+          const timeA = a.last_active_at ? new Date(a.last_active_at).getTime() : 0;
+          const timeB = b.last_active_at ? new Date(b.last_active_at).getTime() : 0;
+          return timeB - timeA;
+        }
         if (sortType === 'paid-desc') return b.total_paid_usd - a.total_paid_usd;
         if (sortType === 'credits-desc') return b.balance - a.balance;
         if (sortType === 'newest') return new Date(b.created_at) - new Date(a.created_at);
@@ -1354,7 +1890,7 @@
       const tbody = document.getElementById('subscribers-tbody');
 
       if (!subscribers || subscribers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No matching subscribers found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No matching subscribers found.</td></tr>`;
         return;
       }
 
@@ -1365,6 +1901,16 @@
         let creditClass = 'credit-mid';
         if (sub.balance > 20) creditClass = 'credit-high';
         else if (sub.balance === 0) creditClass = 'credit-zero';
+
+        const lastActiveText = sub.last_active_at
+          ? new Date(sub.last_active_at).toLocaleString(undefined, { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })
+          : '—';
 
         const lastPurchaseText = sub.last_purchase_at 
           ? new Date(sub.last_purchase_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -1382,7 +1928,12 @@
                     <span class="user-email">${sub.email}</span>
                     ${isPaying ? '<span class="badge-paying">⭐ Paid</span>' : '<span class="badge-free">Free</span>'}
                   </div>
-                  <span class="user-id">${sub.user_id.slice(0, 18)}...</span>
+                  <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px;">
+                    <span class="user-id">${sub.user_id.slice(0, 18)}...</span>
+                    <button class="mini-btn" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); font-size: 10.5px; padding: 2px 8px; display: inline-flex; align-items: center; gap: 4px;" onclick="openUserMediaModal('${sub.user_id}', '${sub.email}')" title="عرض الصور والفيديوهات التي أنتجها هذا المستخدم">
+                      🖼️ إنتاج المستخدم
+                    </button>
+                  </div>
                 </div>
               </div>
             </td>
@@ -1405,6 +1956,9 @@
               <span style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
                 ${Number(sub.total_used).toLocaleString()}
               </span>
+            </td>
+            <td>
+              <span class="date-text" style="color: #38bdf8; font-weight: 600;">${lastActiveText}</span>
             </td>
             <td>
               <span class="date-text">${lastPurchaseText}</span>
@@ -1444,6 +1998,875 @@
       link.click();
       document.body.removeChild(link);
     }
+
+    // ==========================================================================
+    // Section 5: Supabase Storage & AI Productions Media Vault
+    // ==========================================================================
+    let cachedVaultFiles = [];
+    let currentVaultUser = 'all';
+    let currentVaultType = 'all';
+    let currentLightboxItem = null;
+    let isVaultLoading = false;
+
+    function scrollToVault() {
+      const el = document.getElementById('section-media-vault');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function toggleThumbGrid(mode) {
+      const grid = document.getElementById('vault-gallery-grid');
+      const modalGrid = document.getElementById('modal-gallery-grid');
+      const minWidth = mode === 'compact' ? '200px' : '280px';
+      if (grid) grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${minWidth}, 1fr))`;
+      if (modalGrid) modalGrid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${minWidth}, 1fr))`;
+    }
+
+    function formatFileSize(bytes) {
+      if (!bytes || isNaN(bytes) || bytes <= 0) return '0 KB';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function getUserEmail(userId) {
+      if (!userId) return 'Unknown User';
+      if (userId === 'user') return 'Dev / Guest (توليد محلي أثناء التطوير)';
+      if (userId === 'anonymous') return 'Anonymous (زائر بدون تسجيل)';
+      if (userId === 'default_user') return 'Default User (افتراضي)';
+      const sub = rawData?.subscribers?.find(s => s.user_id === userId);
+      return sub ? sub.email : (userId.length > 20 ? userId.slice(0, 16) + '...' : userId);
+    }
+
+    function setVaultTypeFilter(type) {
+      currentVaultType = type;
+      ['all', 'image', 'video'].forEach(t => {
+        const btn = document.getElementById(`btn-vtype-${t}`);
+        if (btn) btn.classList.toggle('active', t === type);
+      });
+      handleVaultFilter();
+    }
+
+    function handleVaultFilter() {
+      const userSelect = document.getElementById('vault-user-select');
+      currentVaultUser = userSelect ? userSelect.value : 'all';
+      const searchVal = (document.getElementById('vault-search-input')?.value || '').toLowerCase().trim();
+
+      let filtered = [...cachedVaultFiles];
+
+      // 1. Filter by user
+      if (currentVaultUser !== 'all') {
+        filtered = filtered.filter(f => f.userId === currentVaultUser);
+      }
+
+      // 2. Filter by media type
+      if (currentVaultType === 'image') {
+        filtered = filtered.filter(f => !f.isVideo);
+      } else if (currentVaultType === 'video') {
+        filtered = filtered.filter(f => f.isVideo);
+      }
+
+      // 3. Filter by search query
+      if (searchVal) {
+        filtered = filtered.filter(f => 
+          f.fileName.toLowerCase().includes(searchVal) ||
+          f.userEmail.toLowerCase().includes(searchVal) ||
+          f.folderName.toLowerCase().includes(searchVal) ||
+          (f.prompt && f.prompt.toLowerCase().includes(searchVal)) ||
+          f.userId.toLowerCase().includes(searchVal)
+        );
+      }
+
+      renderVaultGrid(filtered, 'vault-gallery-grid', 'vault-empty-state');
+
+      const countEl = document.getElementById('vault-total-count');
+      const sizeEl = document.getElementById('vault-total-size');
+      const statusText = document.getElementById('vault-status-text');
+
+      const totalBytes = filtered.reduce((sum, f) => sum + (f.size || 0), 0);
+      const sizeFormatted = formatFileSize(totalBytes);
+
+      if (countEl) countEl.textContent = `${filtered.length} Files`;
+      if (sizeEl) sizeEl.textContent = sizeFormatted;
+      if (statusText) {
+        const userLabel = currentVaultUser === 'all' ? 'كل المستخدمين' : getUserEmail(currentVaultUser);
+        statusText.innerHTML = `عرض <b>${filtered.length}</b> من أصل <b>${cachedVaultFiles.length}</b> عنصر (${userLabel})`;
+      }
+    }
+
+    async function loadVaultMedia(forceRefresh = false) {
+      if (isVaultLoading && !forceRefresh) return;
+      isVaultLoading = true;
+
+      const spinner = document.getElementById('vault-refresh-spinner');
+      const loadingEl = document.getElementById('vault-loading-state');
+      const emptyEl = document.getElementById('vault-empty-state');
+      const gridEl = document.getElementById('vault-gallery-grid');
+      const statusEl = document.getElementById('vault-status-text');
+
+      if (spinner) {
+        spinner.style.display = 'inline-block';
+        spinner.style.animation = 'spin 0.8s linear infinite';
+      }
+      if (loadingEl) loadingEl.style.display = 'block';
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (gridEl) gridEl.innerHTML = '';
+      if (statusEl) statusEl.textContent = 'جاري مسح مجلدات Supabase Storage ومزامنة التوليدات...';
+
+      try {
+        const STORAGE_BUCKET = 'generated-images';
+        let allDiscovered = [];
+
+        // Fetch predictions table for metadata and prompts
+        const predictionsMap = new Map();
+        try {
+          const { data: preds } = await activeClient
+            .from('replicate_predictions')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(300);
+
+          if (preds && preds.length > 0) {
+            preds.forEach(p => {
+              if (p.replicate_id) predictionsMap.set(p.replicate_id, p);
+              if (p.node_id) predictionsMap.set(p.node_id, p);
+            });
+          }
+        } catch (predErr) {
+          console.warn('Predictions table lookup fallback:', predErr);
+        }
+
+        // --- METHOD 1: Direct SQL RPC (Bypasses Storage RLS, instant & complete across all users) ---
+        let rpcLoaded = false;
+        try {
+          const { data: rpcFiles, error: rpcErr } = await activeClient.rpc('get_admin_storage_media', { p_user_id: null });
+          if (!rpcErr && Array.isArray(rpcFiles) && rpcFiles.length > 0) {
+            rpcLoaded = true;
+            for (const item of rpcFiles) {
+              const fullPath = item.name;
+              const parts = fullPath.split('/');
+              const userId = parts[0] || 'unknown';
+              const folderName = parts.length > 2 ? parts[1] : 'root';
+              const fileName = parts[parts.length - 1];
+              const isVid = /\.(mp4|webm|mov)$/i.test(fileName);
+              const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${fullPath}`;
+
+              let timestamp = item.created_at || item.updated_at;
+              const ghostMatch = folderName.match(/ghost-(\d+)/);
+              if (ghostMatch) {
+                const parsedMs = Number(ghostMatch[1]);
+                if (!isNaN(parsedMs) && parsedMs > 1000000000000) {
+                  timestamp = new Date(parsedMs).toISOString();
+                }
+              }
+
+              const pred = predictionsMap.get(folderName) || predictionsMap.get(fileName.replace(/\.[^/.]+$/, ''));
+
+              allDiscovered.push({
+                id: `${userId}_${folderName}_${fileName}`,
+                userId,
+                userEmail: getUserEmail(userId),
+                folderName,
+                fileName,
+                fullPath,
+                publicUrl,
+                size: item.size || 0,
+                createdAt: timestamp || new Date().toISOString(),
+                isVideo: isVid,
+                prompt: pred?.prompt || pred?.input?.prompt || null,
+                model: pred?.model || null,
+              });
+            }
+          }
+        } catch (rpcEx) {
+          console.warn('RPC get_admin_storage_media not available, falling back to API:', rpcEx);
+        }
+
+        // --- METHOD 2: Fallback to Storage API listing if RPC was not available ---
+        if (!rpcLoaded) {
+          const { data: rootItems, error: rootErr } = await activeClient.storage
+            .from(STORAGE_BUCKET)
+            .list('', { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+
+          if (!rootErr && rootItems && rootItems.length > 0) {
+            const userFolders = rootItems.filter(item => !item.id || item.id === null || !item.metadata || item.name.includes('-') || item.name === 'anonymous' || item.name === 'default_user');
+
+            const rootFiles = rootItems.filter(item => item.metadata && item.metadata.size);
+            for (const rf of rootFiles) {
+              const { data: { publicUrl } } = activeClient.storage.from(STORAGE_BUCKET).getPublicUrl(rf.name);
+              const isVid = /\.(mp4|webm|mov)$/i.test(rf.name);
+              allDiscovered.push({
+                id: 'root_' + rf.name,
+                userId: 'root',
+                userEmail: 'Storage Root',
+                folderName: 'root',
+                fileName: rf.name,
+                fullPath: rf.name,
+                publicUrl,
+                size: rf.metadata?.size || 0,
+                createdAt: rf.created_at || rf.updated_at || new Date().toISOString(),
+                isVideo: isVid,
+                prompt: null,
+                model: null
+              });
+            }
+
+            const folderPromises = userFolders.map(async (uf) => {
+              const userId = uf.name;
+              const userEmail = getUserEmail(userId);
+
+              try {
+                const { data: subFolders } = await activeClient.storage
+                  .from(STORAGE_BUCKET)
+                  .list(userId, { limit: 100, sortBy: { column: 'name', order: 'desc' } });
+
+                if (!subFolders) return;
+
+                for (const sub of subFolders) {
+                  if (!sub.id || sub.id === null || !sub.metadata?.size) {
+                    const nodeFolder = sub.name;
+                    const { data: files } = await activeClient.storage
+                      .from(STORAGE_BUCKET)
+                      .list(`${userId}/${nodeFolder}`, { limit: 50 });
+
+                    if (files && files.length > 0) {
+                      for (const f of files) {
+                        const fullPath = `${userId}/${nodeFolder}/${f.name}`;
+                        const { data: { publicUrl } } = activeClient.storage.from(STORAGE_BUCKET).getPublicUrl(fullPath);
+                        const isVid = /\.(mp4|webm|mov)$/i.test(f.name);
+
+                        let timestamp = f.created_at || f.updated_at;
+                        const ghostMatch = nodeFolder.match(/ghost-(\d+)/);
+                        if (ghostMatch) {
+                          const parsedMs = Number(ghostMatch[1]);
+                          if (!isNaN(parsedMs) && parsedMs > 1000000000000) {
+                            timestamp = new Date(parsedMs).toISOString();
+                          }
+                        }
+
+                        const pred = predictionsMap.get(nodeFolder) || predictionsMap.get(f.name.replace(/\.[^/.]+$/, ''));
+
+                        allDiscovered.push({
+                          id: `${userId}_${nodeFolder}_${f.name}`,
+                          userId,
+                          userEmail,
+                          folderName: nodeFolder,
+                          fileName: f.name,
+                          fullPath,
+                          publicUrl,
+                          size: f.metadata?.size || 0,
+                          createdAt: timestamp || new Date().toISOString(),
+                          isVideo: isVid,
+                          prompt: pred?.prompt || pred?.input?.prompt || null,
+                          model: pred?.model || null,
+                        });
+                      }
+                    }
+                  } else {
+                    const fullPath = `${userId}/${sub.name}`;
+                    const { data: { publicUrl } } = activeClient.storage.from(STORAGE_BUCKET).getPublicUrl(fullPath);
+                    const isVid = /\.(mp4|webm|mov)$/i.test(sub.name);
+
+                    allDiscovered.push({
+                      id: `${userId}_${sub.name}`,
+                      userId,
+                      userEmail,
+                      folderName: 'root',
+                      fileName: sub.name,
+                      fullPath,
+                      publicUrl,
+                      size: sub.metadata?.size || 0,
+                      createdAt: sub.created_at || sub.updated_at || new Date().toISOString(),
+                      isVideo: isVid,
+                      prompt: null,
+                      model: null,
+                    });
+                  }
+                }
+              } catch (err) {
+                console.warn(`Error scanning user folder ${userId}:`, err);
+              }
+            });
+
+            await Promise.all(folderPromises);
+          }
+        }
+
+        // Sort descending by created timestamp
+        allDiscovered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        cachedVaultFiles = allDiscovered;
+
+        populateVaultUserSelect();
+        handleVaultFilter();
+      } catch (err) {
+        console.error('Error reading Supabase Storage:', err);
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (statusEl) {
+          statusEl.innerHTML = `
+            <span style="color: #fb7185;">
+              ⚠️ خطأ في قراءة Supabase Storage: ${err.message || err}.
+            </span>
+          `;
+        }
+      } finally {
+        isVaultLoading = false;
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (spinner) {
+          spinner.style.animation = 'none';
+        }
+      }
+    }
+
+    function populateVaultUserSelect() {
+      const select = document.getElementById('vault-user-select');
+      if (!select) return;
+
+      const countsByUser = new Map();
+      cachedVaultFiles.forEach(f => {
+        countsByUser.set(f.userId, (countsByUser.get(f.userId) || 0) + 1);
+      });
+
+      const currentVal = select.value;
+      select.innerHTML = `<option value="all">👥 All Users — كل المستخدمين (${cachedVaultFiles.length} ملف)</option>`;
+
+      const userList = Array.from(countsByUser.entries()).sort((a, b) => b[1] - a[1]);
+      userList.forEach(([uid, count]) => {
+        const email = getUserEmail(uid);
+        const opt = document.createElement('option');
+        opt.value = uid;
+        opt.textContent = `👤 ${email} (${count} ملف)`;
+        select.appendChild(opt);
+      });
+
+      if (rawData?.subscribers) {
+        rawData.subscribers.forEach(sub => {
+          if (!countsByUser.has(sub.user_id)) {
+            const opt = document.createElement('option');
+            opt.value = sub.user_id;
+            opt.textContent = `👤 ${sub.email} (0 ملف)`;
+            select.appendChild(opt);
+          }
+        });
+      }
+
+      if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) {
+        select.value = currentVal;
+      }
+    }
+
+    function renderVaultGrid(items, targetGridId, targetEmptyId) {
+      const grid = document.getElementById(targetGridId);
+      const empty = document.getElementById(targetEmptyId);
+
+      if (!grid) return;
+
+      if (!items || items.length === 0) {
+        grid.innerHTML = '';
+        if (empty) {
+          empty.style.display = 'block';
+          empty.innerHTML = `
+            <div style="font-size: 32px; margin-bottom: 12px;">📂</div>
+            <div style="font-weight: 700; color: #fff; font-size: 15px; margin-bottom: 4px;">لا توجد ملفات وسائط معروضة حالياً</div>
+            <div style="color: var(--text-muted); font-size: 13px; max-width: 580px; margin: 0 auto; line-height: 1.5;">
+              إذا كان لديك ملفات في Supabase Storage ولكن لا تظهر، يمكنك تفعيل استعراض ملفات الـ Storage بضغطة واحدة:
+            </div>
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px; margin: 16px auto 0; max-width: 600px; text-align: right; direction: rtl; color: #fbbf24; font-size: 12.5px;">
+              ⚡ <b>تفعيل القراءة عبر SQL Editor في Supabase:</b><br>
+              انسخ كود الـ SQL المرفق وألصقه في <b>Supabase > SQL Editor</b> واضغط Run:
+              <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-start;">
+                <button class="btn btn-secondary" onclick="copyStorageSqlCode(this)" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); font-weight: 700; font-size: 12px; padding: 7px 14px;">
+                  📋 نسخ كود SQL لـ Supabase
+                </button>
+                <button class="btn btn-secondary" onclick="loadVaultMedia(true)" style="font-size: 12px; padding: 7px 14px;">
+                  🔄 تحديث وفحص
+                </button>
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      if (empty) empty.style.display = 'none';
+      grid.innerHTML = items.map(item => renderMediaCardHtml(item)).join('');
+    }
+
+    function renderMediaCardHtml(item) {
+      const formattedDate = new Date(item.createdAt).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      const sizeText = formatFileSize(item.size);
+      const typeBadgeClass = item.isVideo ? 'badge-vid' : 'badge-img';
+      const typeLabel = item.isVideo ? '🎥 MP4' : '📷 IMG';
+      const ext = item.fileName.split('.').pop()?.toUpperCase() || 'FILE';
+
+      const previewMedia = item.isVideo
+        ? `<video class="media-thumb-video" preload="metadata" muted playsinline src="${item.publicUrl}"></video>`
+        : `<img class="media-thumb-img" src="${item.publicUrl}" loading="lazy" alt="${item.fileName}" onerror="this.src='https://placehold.co/400x300/18181d/71717a?text=Preview+Unavailable'">`;
+
+      return `
+        <div class="media-card" id="card-${item.id}">
+          <div class="media-thumb-box" onclick="openLightbox('${item.id}')">
+            <span class="media-type-badge ${typeBadgeClass}">${typeLabel} (${ext})</span>
+            <span class="media-size-badge">${sizeText}</span>
+            ${previewMedia}
+            <div class="media-zoom-overlay">
+              <div class="media-zoom-icon">${item.isVideo ? '▶' : '🔍'}</div>
+            </div>
+          </div>
+
+          <div class="media-card-body">
+            <div class="media-user-row">
+              <span class="media-user-pill" title="${item.userEmail}">
+                👤 ${item.userEmail}
+              </span>
+              <span class="media-time" title="${item.createdAt}">${formattedDate}</span>
+            </div>
+
+            <div class="media-meta-info">
+              <span class="media-filename" title="${item.fileName}">${item.fileName}</span>
+              <span style="font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;" title="${item.folderName}">
+                📁 ${item.folderName.length > 25 ? item.folderName.slice(0, 25) + '...' : item.folderName}
+              </span>
+            </div>
+
+            ${item.prompt ? `<div class="media-prompt" title="${item.prompt}">✨ "${item.prompt}"</div>` : ''}
+
+            <div class="media-actions-row">
+              <button class="btn-media-action" onclick="openLightbox('${item.id}')" title="معاينة كبيرة">
+                🔍 عرض
+              </button>
+              <button class="btn-media-action" onclick="copyMediaLink('${item.publicUrl}', this)" title="نسخ رابط Supabase العام">
+                🔗 رابط
+              </button>
+              <button class="btn-media-action" onclick="downloadFile('${item.publicUrl}', '${item.fileName}')" title="تحميل الملف">
+                📥 تحميل
+              </button>
+              <button class="btn-media-action btn-del" onclick="deleteStorageFile('${item.fullPath}', '${item.id}')" title="حذف نهائي من Storage">
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function openUserMediaModal(userId, userEmail) {
+      const modal = document.getElementById('user-media-modal');
+      const avatarEl = document.getElementById('modal-user-avatar');
+      const emailEl = document.getElementById('modal-user-email');
+      const idEl = document.getElementById('modal-user-id');
+      const countEl = document.getElementById('modal-user-count');
+      const sizeEl = document.getElementById('modal-user-size');
+      const loadingEl = document.getElementById('modal-loading-state');
+      const emptyEl = document.getElementById('modal-empty-state');
+      const gridEl = document.getElementById('modal-gallery-grid');
+
+      if (!modal) return;
+
+      const displayEmail = userEmail || getUserEmail(userId);
+      avatarEl.textContent = (displayEmail[0] || 'U').toUpperCase();
+      emailEl.textContent = displayEmail;
+      idEl.textContent = `User ID: ${userId}`;
+
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      if (loadingEl) loadingEl.style.display = 'block';
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (gridEl) gridEl.innerHTML = '';
+
+      let userFiles = [];
+
+      // 1. Direct RPC for this specific user (instant & bypasses Storage RLS)
+      try {
+        const { data: rpcFiles, error: rpcErr } = await activeClient.rpc('get_admin_storage_media', { p_user_id: userId });
+        if (!rpcErr && Array.isArray(rpcFiles) && rpcFiles.length > 0) {
+          userFiles = rpcFiles.map(item => {
+            const parts = item.name.split('/');
+            const folderName = parts.length > 2 ? parts[1] : 'root';
+            const fileName = parts[parts.length - 1];
+            const isVid = /\.(mp4|webm|mov)$/i.test(fileName);
+            let timestamp = item.created_at || item.updated_at;
+            const ghostMatch = folderName.match(/ghost-(\d+)/);
+            if (ghostMatch) {
+              const parsedMs = Number(ghostMatch[1]);
+              if (!isNaN(parsedMs) && parsedMs > 1000000000000) {
+                timestamp = new Date(parsedMs).toISOString();
+              }
+            }
+            return {
+              id: `${userId}_${folderName}_${fileName}`,
+              userId,
+              userEmail: displayEmail,
+              folderName,
+              fileName,
+              fullPath: item.name,
+              publicUrl: `${SUPABASE_URL}/storage/v1/object/public/generated-images/${item.name}`,
+              size: item.size || 0,
+              createdAt: timestamp || new Date().toISOString(),
+              isVideo: isVid,
+              prompt: null,
+              model: null,
+            };
+          });
+        }
+      } catch (rpcEx) {
+        console.warn('RPC in openUserMediaModal error:', rpcEx);
+      }
+
+      // 2. Check cached vault files
+      if (userFiles.length === 0) {
+        userFiles = cachedVaultFiles.filter(f => f.userId === userId);
+      }
+
+      // 3. Fallback: try direct crawl for this specific userId
+      if (userFiles.length === 0) {
+        try {
+          const { data: subFolders } = await activeClient.storage
+            .from('generated-images')
+            .list(userId, { limit: 100, sortBy: { column: 'name', order: 'desc' } });
+
+          if (subFolders && subFolders.length > 0) {
+            for (const sub of subFolders) {
+              if (!sub.id || sub.id === null || !sub.metadata?.size) {
+                const nodeFolder = sub.name;
+                const { data: files } = await activeClient.storage
+                  .from('generated-images')
+                  .list(`${userId}/${nodeFolder}`, { limit: 50 });
+
+                if (files && files.length > 0) {
+                  for (const f of files) {
+                    const fullPath = `${userId}/${nodeFolder}/${f.name}`;
+                    const { data: { publicUrl } } = activeClient.storage.from('generated-images').getPublicUrl(fullPath);
+                    const isVid = /\.(mp4|webm|mov)$/i.test(f.name);
+                    let timestamp = f.created_at || f.updated_at;
+                    const ghostMatch = nodeFolder.match(/ghost-(\d+)/);
+                    if (ghostMatch) {
+                      const parsedMs = Number(ghostMatch[1]);
+                      if (!isNaN(parsedMs) && parsedMs > 1000000000000) {
+                        timestamp = new Date(parsedMs).toISOString();
+                      }
+                    }
+                    userFiles.push({
+                      id: `${userId}_${nodeFolder}_${f.name}`,
+                      userId,
+                      userEmail: displayEmail,
+                      folderName: nodeFolder,
+                      fileName: f.name,
+                      fullPath,
+                      publicUrl,
+                      size: f.metadata?.size || 0,
+                      createdAt: timestamp || new Date().toISOString(),
+                      isVideo: isVid,
+                      prompt: null,
+                      model: null,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch (crawlErr) {
+          console.warn('Direct crawl in modal error:', crawlErr);
+        }
+      }
+
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      const totalBytes = userFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+      countEl.textContent = `${userFiles.length} ملفات`;
+      sizeEl.textContent = formatFileSize(totalBytes);
+
+      if (userFiles.length === 0) {
+        if (emptyEl) {
+          emptyEl.style.display = 'block';
+          emptyEl.innerHTML = `
+            <div style="font-size: 28px; margin-bottom: 8px;">📂</div>
+            <div style="font-weight: 700; color: #fff; font-size: 14px; margin-bottom: 4px;">
+              لم يتم العثور على وسائط معروضة لهذا المستخدم حالياً
+            </div>
+            <div style="color: var(--text-muted); font-size: 12.5px; line-height: 1.5; max-width: 600px; margin: 0 auto;">
+              إذا كان للمستخدم ملفات في مجلد <code>${userId.slice(0, 16)}...</code>، فإن قيود أمان Supabase (Storage RLS) تتطلب تفعيل صلاحية الاستعراض.
+            </div>
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px; margin: 16px auto 0; max-width: 640px; text-align: right; direction: rtl; color: #fbbf24; font-size: 12.5px;">
+              ⚡ <b>طريقة التفعيل بضغطة واحدة:</b><br>
+              انسخ سكربت SQL الخاص بقراءة Storage وألصقه في <b>Supabase Dashboard > SQL Editor</b> واضغط Run:
+              <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-start;">
+                <button class="btn btn-secondary" onclick="copyStorageSqlCode(this)" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); font-weight: 700; font-size: 12px; padding: 7px 14px;">
+                  📋 نسخ كود SQL لـ Supabase
+                </button>
+                <button class="btn btn-secondary" onclick="loadVaultMedia(true).then(() => openUserMediaModal('${userId}', '${displayEmail}'))" style="font-size: 12px; padding: 7px 14px;">
+                  🔄 إعادة فحص الملفات
+                </button>
+              </div>
+            </div>
+          `;
+        }
+      } else {
+        if (emptyEl) emptyEl.style.display = 'none';
+        renderVaultGrid(userFiles, 'modal-gallery-grid', 'modal-empty-state');
+      }
+    }
+
+    function closeUserMediaModal() {
+      const modal = document.getElementById('user-media-modal');
+      if (modal) modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+    }
+
+    function handleModalBackdropClick(e) {
+      if (e.target.id === 'user-media-modal') {
+        closeUserMediaModal();
+      }
+    }
+
+    function openLightbox(itemId) {
+      const item = cachedVaultFiles.find(f => f.id === itemId);
+      if (!item) return;
+
+      currentLightboxItem = item;
+      const modal = document.getElementById('lightbox-modal');
+      const container = document.getElementById('lightbox-media-container');
+      const filenameEl = document.getElementById('lb-filename');
+      const metaEl = document.getElementById('lb-meta');
+
+      filenameEl.textContent = item.fileName;
+      metaEl.textContent = `${getUserEmail(item.userId)} • ${formatFileSize(item.size)} • ${new Date(item.createdAt).toLocaleString()}`;
+
+      if (item.isVideo) {
+        container.innerHTML = `<video class="lightbox-media" controls autoplay playsinline src="${item.publicUrl}"></video>`;
+      } else {
+        container.innerHTML = `<img class="lightbox-media" src="${item.publicUrl}" alt="${item.fileName}">`;
+      }
+
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      const modal = document.getElementById('lightbox-modal');
+      const container = document.getElementById('lightbox-media-container');
+      if (container) container.innerHTML = '';
+      if (modal) modal.style.display = 'none';
+      currentLightboxItem = null;
+
+      const userModal = document.getElementById('user-media-modal');
+      if (!userModal || userModal.style.display !== 'flex') {
+        document.body.style.overflow = 'auto';
+      }
+    }
+
+    function handleLightboxBackdropClick(e) {
+      if (e.target.id === 'lightbox-modal') {
+        closeLightbox();
+      }
+    }
+
+    function copyLightboxUrl(btn) {
+      if (currentLightboxItem?.publicUrl) {
+        copyMediaLink(currentLightboxItem.publicUrl, btn);
+      }
+    }
+
+    function downloadLightboxFile() {
+      if (currentLightboxItem) {
+        downloadFile(currentLightboxItem.publicUrl, currentLightboxItem.fileName);
+      }
+    }
+
+    async function copyMediaLink(url, btnElement) {
+      try {
+        await navigator.clipboard.writeText(url);
+        const originalText = btnElement.innerHTML;
+        btnElement.innerHTML = '✅ Copied!';
+        btnElement.style.color = '#34d399';
+        setTimeout(() => {
+          btnElement.innerHTML = originalText;
+          btnElement.style.color = '';
+        }, 1800);
+      } catch (err) {
+        prompt('Copy media link:', url);
+      }
+    }
+
+    function downloadFile(url, filename) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.download = filename || 'media_file';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    async function deleteStorageFile(fullPath, itemId) {
+      const confirmed = confirm(`هل أنت متأكد من حذف هذا الملف نهائياً من Supabase Storage؟\n\n${fullPath}`);
+      if (!confirmed) return;
+
+      try {
+        let deleted = false;
+        try {
+          const { data: res, error } = await activeClient.rpc('delete_admin_storage_file', { p_file_path: fullPath });
+          if (!error && res === true) deleted = true;
+        } catch (e) {
+          console.warn('RPC delete fallback:', e);
+        }
+
+        if (!deleted) {
+          const { error } = await activeClient.storage.from('generated-images').remove([fullPath]);
+          if (error) throw error;
+        }
+
+        cachedVaultFiles = cachedVaultFiles.filter(f => f.id !== itemId && f.fullPath !== fullPath);
+        handleVaultFilter();
+
+        const userModal = document.getElementById('user-media-modal');
+        if (userModal && userModal.style.display === 'flex') {
+          const activeUserId = document.getElementById('modal-user-id')?.textContent.replace('User ID: ', '').trim();
+          if (activeUserId) {
+            const userFiles = cachedVaultFiles.filter(f => f.userId === activeUserId);
+            renderVaultGrid(userFiles, 'modal-gallery-grid', 'modal-empty-state');
+          }
+        }
+      } catch (err) {
+        alert('فشل حذف الملف من Storage: ' + (err.message || err));
+      }
+    }
+
+    const STORAGE_SQL_SCRIPT = `-- ==============================================================================
+-- Anarchy AI — Admin Storage Media & Production Explorer
+-- Run this script in your Supabase Dashboard > SQL Editor
+-- ==============================================================================
+
+-- 1. Function to retrieve all generated images & videos across users
+CREATE OR REPLACE FUNCTION public.get_admin_storage_media(p_user_id text DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, storage, auth
+AS $$
+DECLARE
+  caller_email text;
+  caller_role text;
+  result jsonb;
+BEGIN
+  caller_email := auth.jwt() ->> 'email';
+  caller_role := coalesce(auth.jwt() ->> 'role', '');
+  
+  IF caller_role != 'service_role' 
+     AND (caller_email IS NULL OR caller_email NOT IN ('mustfahusham979@gmail.com', 'anarchy.lat@gmail.com')) THEN
+    RAISE EXCEPTION 'Access denied: User % is not authorized as an administrator.', coalesce(caller_email, 'anonymous');
+  END IF;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', o.id,
+        'bucket_id', o.bucket_id,
+        'name', o.name,
+        'created_at', o.created_at,
+        'updated_at', o.updated_at,
+        'size', coalesce((o.metadata ->> 'size')::bigint, 0),
+        'mimetype', coalesce(o.metadata ->> 'mimetype', 'image/jpeg')
+      )
+      ORDER BY o.created_at DESC
+    ),
+    '[]'::jsonb
+  ) INTO result
+  FROM storage.objects o
+  WHERE o.bucket_id = 'generated-images'
+    AND (
+      p_user_id IS NULL 
+      OR p_user_id = '' 
+      OR p_user_id = 'all' 
+      OR o.name LIKE (p_user_id || '/%')
+      OR o.name = p_user_id
+    );
+
+  RETURN result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_storage_media(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_storage_media(text) TO service_role;
+
+-- 2. Function to delete a media file by admin
+CREATE OR REPLACE FUNCTION public.delete_admin_storage_file(p_file_path text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, storage, auth
+AS $$
+DECLARE
+  caller_email text;
+  caller_role text;
+BEGIN
+  caller_email := auth.jwt() ->> 'email';
+  caller_role := coalesce(auth.jwt() ->> 'role', '');
+  
+  IF caller_role != 'service_role' 
+     AND (caller_email IS NULL OR caller_email NOT IN ('mustfahusham979@gmail.com', 'anarchy.lat@gmail.com')) THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  DELETE FROM storage.objects
+  WHERE bucket_id = 'generated-images' AND name = p_file_path;
+
+  RETURN true;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_admin_storage_file(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_admin_storage_file(text) TO service_role;
+
+-- 3. Enable Storage RLS policy so standard storage listing works as well
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'storage' 
+      AND tablename = 'objects' 
+      AND policyname = 'Admin Full Access To generated-images'
+  ) THEN
+    CREATE POLICY "Admin Full Access To generated-images" 
+      ON storage.objects 
+      FOR ALL 
+      TO authenticated 
+      USING (bucket_id = 'generated-images');
+  END IF;
+END $$;
+`;
+
+    async function copyStorageSqlCode(btn) {
+      try {
+        await navigator.clipboard.writeText(STORAGE_SQL_SCRIPT);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ تم نسخ كود SQL بنجاح!';
+        btn.style.color = '#34d399';
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.style.color = '';
+        }, 2500);
+      } catch (e) {
+        prompt('انسخ كود SQL التالي:', STORAGE_SQL_SCRIPT);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const lb = document.getElementById('lightbox-modal');
+        if (lb && lb.style.display === 'flex') {
+          closeLightbox();
+          return;
+        }
+        const um = document.getElementById('user-media-modal');
+        if (um && um.style.display === 'flex') {
+          closeUserMediaModal();
+        }
+      }
+    });
   </script>
 </body>
 </html>

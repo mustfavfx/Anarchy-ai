@@ -595,6 +595,9 @@ export const RightSidebar: React.FC = () => {
             prunaEnhanceRealism: config.prunaEnhanceRealism,
             prunaQuality: config.prunaQuality,
             prunaOutputFormat: config.prunaOutputFormat,
+            // Anarchy Upscale settings
+            anarchyUpscaleScale: config.anarchyUpscaleScale,
+            anarchyUpscaleCreativity: config.anarchyUpscaleCreativity,
             // Seedream sequential settings
             sequentialImageGeneration: config.sequentialImageGeneration,
             maxImages: config.maxImages,

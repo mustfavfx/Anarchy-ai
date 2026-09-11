@@ -13,9 +13,36 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.89',
+    date: 'September 11, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'improvement',
+        title: 'Architectural Monolith Decomposition & Professional Codebase Modularization',
+        description: 'Completed a comprehensive software engineering refactoring across all 371 files in the codebase. Every monolith file exceeding 1,000 lines (including LayoutEditor, useBuilderWorkflow, AIControlPanel, BuilderPage, ReplicateService, useLayoutEditorState, SettingsPage, AnarchyService, ExportService, MaskCanvas, HistoryService) was modularized into clean, decoupled sub-components and hooks using the Zero-Breakage Facade Pattern, achieving zero files over 1,000 lines workspace-wide with 100% backward compatibility.'
+      },
+      {
+        type: 'fix',
+        title: 'Anarchy Upscale Sidebar Controls & Execution Pipeline',
+        description: 'Fixed parameter syncing for Anarchy Upscale (Clarity Pro) in the right sidebar. Scale factor buttons (2x, 4x, 8x, 16x) and the creativity slider now persist state accurately across renders. Added Replicate version hash resolution and enabled one-click generation for prompt-less upscaler nodes.'
+      },
+      {
+        type: 'fix',
+        title: 'Multi-Tenant User Attribution & Cloud Storage Isolation',
+        description: 'Enhanced Replicate webhook dispatch and upscaler engines with dynamic authenticated session resolution, ensuring generated images and upscaled outputs are strictly partitioned into each subscriber\'s private Supabase storage directory ([user_id]/[node_id]/).'
+      },
+      {
+        type: 'improvement',
+        title: 'Vite Production Bundling & Oxc Transform Engine Hardening',
+        description: 'Hardened TypeScript AST boundaries and hook lifecycles across canvas and layout editors, ensuring instantaneous and error-free production builds via Vite.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.88',
     date: 'September 10, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'feature',

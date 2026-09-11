@@ -8,832 +8,96 @@
  */
 
 import { logger } from '../../utils/logger';
-import { supabaseUrl, supabaseAnonKey } from '../supabase/supabaseClient';
+import { supabase, supabaseUrl } from '../supabase/supabaseClient';
 
-// ── Image Models ──────────────────────────────────────────────────────────────
-export type ReplicateImageModel =
-  | 'google/nano-banana-2'              // Nano Banana 2 (Gemini 3.1 Flash)
-  | 'google/nano-banana-2-lite'         // Nano Banana 2 Lite (Gemini 3.1 Flash Lite)
-  | 'bytedance/seedream-5-pro'          // Seedream 5 Pro - ByteDance
-  | 'black-forest-labs/flux-2-pro'      // FLUX 2 Pro - img2img + 8 ref images
-  | 'openai/gpt-image-2'                // GPT Image 2 - OpenAI
-  | 'openai/gpt-image-2.5-flare'        // GPT Image 2.5 Flare - OpenAI
-  | 'openai/gpt-image-2.5-sunburst'     // GPT Image 2.5 Sunburst - OpenAI
-  | 'google/nano-banana-pro'            // Nano Banana Pro (Gemini 3 Pro)
-  | 'prunaai/p-image'                    // Pruna AI P-Image
-  | 'krea/krea-2-large'                  // Krea 2 Large
-  | 'stability-ai/stable-diffusion-3.5-large' // Stable Diffusion 3.5 Large
-  | 'reve/edit-fast'                     // Edit Fast - Reve AI
-  | 'reve/create'                        // Create - Reve AI v2
-  | 'reve/extract-layout'                // Extract Layout - Reve AI v2
-  | 'reve/render-layout'                 // Render Layout - Reve AI v2
-  | 'reve/create-layout'                 // Create Layout - Reve AI v2
-  | 'reve/reconcile-layouts';            // Reconcile Layouts - Reve AI v2
+// Re-export all types
+export type {
+  ReplicateImageModel,
+  ReplicateUpscaleModel,
+  ReplicateVideoModel,
+  Replicate3DModel,
+  ReplicateChatModel,
+  ReplicateModel,
+  ReplicateGenerationParams,
+  ReplicateChatMessage,
+  ReplicateChatResult,
+  ReplicateGenerationResult,
+  ReplicatePrediction,
+  ReplicateApiConfig,
+  ModelMeta,
+} from './modules/replicateTypes';
 
-// ── Upscale Models ────────────────────────────────────────────────────────────
-export type ReplicateUpscaleModel =
-  | 'topazlabs/image-upscale'              // Topaz Labs Image Upscale
-  | 'philz1337x/clarity-upscaler'          // Clarity Upscaler
-  | 'prunaai/p-image-upscale'             // Pruna AI P-Image Upscale
-  | 'philz1337x/clarity-pro-upscaler';     // Anarchy Upscale (Clarity Pro)
+import type {
+  ReplicateImageModel,
+  ReplicateVideoModel,
+  Replicate3DModel,
+  ReplicateChatModel,
+  ReplicateModel,
+  ReplicateGenerationParams,
+  ReplicateChatMessage,
+  ReplicateChatResult,
+  ReplicateGenerationResult,
+  ReplicatePrediction,
+  ModelMeta,
+} from './modules/replicateTypes';
 
-// ── Video Models ──────────────────────────────────────────────────────────────
-export type ReplicateVideoModel =
-  | 'wavespeedai/wan-2.1-i2v-480p'        // Wan 2.1 i2v 480p
-  | 'wavespeedai/wan-2.1-i2v-720p'        // Wan 2.1 i2v 720p
-  | 'bytedance/seedance-2.0'              // Seedance 2.0 - video
-  | 'kwaivgi/kling-v3-omni-video'         // Kling v3 Omni Video
-  | 'xai/grok-imagine-video-1.5'          // Grok Imagine Video 1.5
-  | 'prunaai/p-video'                     // Pruna AI P-Video
-  | 'google/veo-3.1-fast'                 // Google Veo 3.1 Fast
-  | 'pixverse/pixverse-v6'                 // PixVerse v6
-  | 'openai/sora-2-pro';                  // OpenAI Sora 2 Pro
+// Re-export all constants & utilities
+export {
+  MODEL_META,
+  MODEL_VERSIONS,
+  arToSize,
+  resolutionToPixels,
+} from './modules/replicateConstants';
 
-// ── 3D Models ─────────────────────────────────────────────────────────────────
-export type Replicate3DModel =
-  | 'zsxkib/tripo3d';                      // Tripo3D image-to-3D
+import {
+  MODEL_META,
+  MODEL_VERSIONS,
+} from './modules/replicateConstants';
 
-// ── Chat Models ───────────────────────────────────────────────────────────────
-export type ReplicateChatModel =
-  | 'meta/meta-llama-3-70b-instruct'
-  | 'anthropic/claude-3.7-sonnet'
-  | 'deepseek-ai/deepseek-r1';
+// Re-export transport functions
+export {
+  getProxyUrl,
+  proxyPost,
+  proxyGet,
+  uploadToReplicate,
+  pollPrediction,
+} from './modules/replicateTransport';
 
-export type ReplicateModel =
-  | ReplicateImageModel
-  | ReplicateUpscaleModel
-  | ReplicateVideoModel
-  | Replicate3DModel
-  | ReplicateChatModel;
+import {
+  getProxyUrl,
+  proxyPost,
+  uploadToReplicate,
+  pollPrediction,
+} from './modules/replicateTransport';
 
-// ── Parameter Interfaces ──────────────────────────────────────────────────────
-export interface ReplicateGenerationParams {
-  prompt: string;
-  negativePrompt?: string;
-  model: ReplicateImageModel | ReplicateVideoModel;
-  aspectRatio?: string;
-  width?: number;
-  height?: number;
-  steps?: number;
-  seed?: number | null;
-  strength?: number;
-  referenceStrength?: number;
-  results?: number;
-  disableSafetyChecker?: boolean;
-  upscaleFactor?: number;
-  resolution?: string;
-  loraUrl?: string;
-  loraScale?: number;
-  styleType?: string;
-  stylePreset?: string;
-  cfg?: number; // Guidance scale for SD 3.5 (range 1-10, default 5)
-  nodeId?: string;
-  userId?: string;
-  sequentialImageGeneration?: string;
-  maxImages?: number;
-  videoDuration?: string;
-  videoQuality?: string;
-  motionStrength?: number;
-  videoFps?: number;
-  prunaQuality?: number;
-  seedanceLastFrameImage?: string | null;
-  seedanceGenerateAudio?: boolean;
-  klingStartImage?: string | null;
-  klingEndImage?: string | null;
-  klingReferenceImages?: string[] | null;
-  klingReferenceVideo?: string | null;
-  klingVideoReferenceType?: string;
-  klingKeepOriginalSound?: boolean;
-  klingGenerateAudio?: boolean;
-  klingMode?: string;
-  prunaLastFrameImage?: string | null;
-  prunaAudio?: string | null;
-  prunaFps?: number;
-  veoLastFrame?: string | null;
-  veoGenerateAudio?: boolean;
-  pixverseLastFrameImage?: string | null;
-  pixverseGenerateAudioSwitch?: boolean;
-  pixverseGenerateMultiClipSwitch?: boolean;
-  soraInputReference?: string | null;
-}
+// Re-export payload builders
+export {
+  getModelCapabilities,
+  extractImageUrl,
+  extractImageUrls,
+  buildNanoBananaInput,
+  buildFluxInput,
+  buildGeneralInput,
+  buildSeedreamInput,
+  buildGptImageInput,
+  buildStableDiffusionInput,
+  buildVideoInput,
+  buildInput,
+  buildResult,
+} from './modules/replicatePayloadBuilders';
 
-export interface ReplicateChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export interface ReplicateChatResult {
-  content: string;
-  model: ReplicateChatModel;
-}
-
-export interface ReplicateGenerationResult {
-  id: string;
-  imageUrl: string;
-  imageUrls?: string[];
-  metadata: {
-    model: ReplicateImageModel | ReplicateVideoModel;
-    prompt: string;
-    negativePrompt?: string;
-    width: number;
-    height: number;
-    seed: number;
-    steps: number;
-    generationTime: number;
-    timestamp: number;
-  };
-}
-
-export interface ReplicatePrediction {
-  id: string;
-  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
-  output: unknown;
-  error?: any;
-  logs?: string;
-  version?: string;
-  input?: Record<string, unknown>;
-}
-
-export interface ReplicateApiConfig {
-  baseUrl: string;
-  timeout: number;
-  maxRetries: number;
-}
-
-// ── Model Metadata ────────────────────────────────────────────────────────────
-interface ModelMeta {
-  supportsImg2Img: boolean;
-  supportsMultiImage: boolean;
-  supportsSeed: boolean;
-  supportsSteps: boolean;
-  supportsNegativePrompt: boolean;
-  supportsUpscale: boolean;
-  supportsLoRA: boolean;
-  supportsReferenceStrength: boolean;
-  supportsStyleType?: boolean;
-  supportsStylePreset?: boolean;
-  defaultSteps: number;
-  stepsRange: [number, number];    // [min, max]
-  maxReferenceImages: number;
-  aspectRatios: string[];
-  resolutions: string[];
-  styleTypes?: string[];
-  stylePresets?: string[];
-  pricePerImage: number;
-}
-
-const MODEL_META: Record<ReplicateModel, ModelMeta> = {
-  // ── 1. Nano Banana 2 (Gemini 3.1 Flash Image) ──────────────────────────────
-  'google/nano-banana-2': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 14,
-    resolutions: ['1K', '2K', '4K'],
-    aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
-    pricePerImage: 0.067,
-  },
-  'google/nano-banana-2-lite': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 14,
-    resolutions: ['1K'],
-    aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
-    pricePerImage: 0.034,
-  },
-  // ── 2.1. Seedream 5 Pro ─────────────────────────────────────────────────────
-  'bytedance/seedream-5-pro': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 14,
-    resolutions: ['1K', '2K'],
-    aspectRatios: ['match_input_image', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
-    pricePerImage: 0.045,
-  },
-  // ── 3. FLUX 2 Pro ────────────────────────────────────────────────────────────
-  'black-forest-labs/flux-2-pro': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: true,
-    defaultSteps: 28,
-    stepsRange: [1, 50],
-    maxReferenceImages: 8,
-    resolutions: ['0.5K', '1K', '2K', '4K'],
-    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
-    pricePerImage: 0.015,
-  },
-  // ── 4. GPT Image 2 ──────────────────────────────────────────────────────────
-  'openai/gpt-image-2': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 10,
-    resolutions: ['auto', 'low', 'medium', 'high'],
-    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
-    pricePerImage: 0.128,
-  },
-  // ── 4.1. GPT Image 2.5 Flare ───────────────────────────────────────────────
-  'openai/gpt-image-2.5-flare': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 10,
-    resolutions: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
-    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
-    pricePerImage: 0.25,
-  },
-  // ── 4.2. GPT Image 2.5 Sunburst ────────────────────────────────────────────
-  'openai/gpt-image-2.5-sunburst': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 10,
-    resolutions: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
-    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
-    pricePerImage: 0.25,
-  },
-  // ── 5. Nano Banana Pro (Gemini 3 Pro Image) ──────────────────────────────────
-  'google/nano-banana-pro': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 14,
-    resolutions: ['1K', '2K', '4K'],
-    aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'],
-    pricePerImage: 0.15,
-  },
-
-  // ── Pruna AI P-Image ────────────────────────────────────────────────────────
-  'prunaai/p-image': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: true,
-    supportsNegativePrompt: true,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 25,
-    stepsRange: [1, 50],
-    maxReferenceImages: 1,
-    resolutions: ['1K', '2K'],
-    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
-    pricePerImage: 0.005,
-  },
-  // ── Krea 2 Large ────────────────────────────────────────────────────────────
-  'krea/krea-2-large': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 30,
-    stepsRange: [1, 50],
-    maxReferenceImages: 1,
-    resolutions: ['Auto'],
-    aspectRatios: ['1:1', '4:3', '3:2', '16:9', '2.35:1', '4:5', '2:3', '3:4', '9:16'],
-    pricePerImage: 0.06,
-  },
-  // ── 9. Stable Diffusion 3.5 Large ────────────────────────────────────────
-  'stability-ai/stable-diffusion-3.5-large': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: true,
-    supportsNegativePrompt: true,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: true,
-    defaultSteps: 28,
-    stepsRange: [20, 50],
-    maxReferenceImages: 1,
-    resolutions: ['Auto'],
-    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '9:21'],
-    pricePerImage: 0.065, // $0.065 per image (official Replicate price)
-  },
-
-  // ── Reve AI Models ──────────────────────────────────────────────────────────
-  'reve/edit-fast': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 8,
-    resolutions: ['Auto'],
-    aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '21:9', '9:21', 'auto'],
-    pricePerImage: 0.01,
-  },
-  'reve/create': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 8,
-    resolutions: ['Auto'],
-    aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '21:9', '9:21', 'auto'],
-    pricePerImage: 0.01,
-  },
-  'reve/extract-layout': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['Auto'],
-    aspectRatios: ['auto'],
-    pricePerImage: 0.01,
-  },
-  'reve/render-layout': {
-    supportsImg2Img: true,
-    supportsMultiImage: true,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 8,
-    resolutions: ['Auto'],
-    aspectRatios: ['auto'],
-    pricePerImage: 0.01,
-  },
-  'reve/create-layout': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: ['Auto'],
-    aspectRatios: ['auto'],
-    pricePerImage: 0.01,
-  },
-  'reve/reconcile-layouts': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: ['Auto'],
-    aspectRatios: ['auto'],
-    pricePerImage: 0.01,
-  },
-
-  // ── 10. Topaz Labs Image Upscale ──────────────────────────────────────────
-  'topazlabs/image-upscale': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: true,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: ['2x', '4x', '6x'],
-    aspectRatios: [],
-    pricePerImage: 0.05,
-  },
-  // ── 11. Pruna AI P-Image Upscale ───────────────────────────────────────────
-  'prunaai/p-image-upscale': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: true,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: ['1x', '2x', '4x', '8x', '16x'],
-    aspectRatios: [],
-    pricePerImage: 0.01,
-  },
-
-  // ── 12. Clarity Upscaler ─────────────────────────────────────────────────
-  'philz1337x/clarity-upscaler': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: true,
-    supportsNegativePrompt: true,
-    supportsUpscale: true,
-    supportsLoRA: true,
-    supportsReferenceStrength: false,
-    defaultSteps: 20,
-    stepsRange: [1, 100],
-    maxReferenceImages: 0,
-    resolutions: ['1x', '2x', '4x'],
-    aspectRatios: [],
-    pricePerImage: 0.01,
-  },
-  // ── 12.1. Anarchy Upscale (Clarity Pro) ──────────────────────────────────
-  'philz1337x/clarity-pro-upscaler': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: true,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: ['2x', '4x', '8x', '16x'],
-    aspectRatios: [],
-    pricePerImage: 0.03,
-  },
-  // ── 13. Wan 2.1 i2v 480p ────────────────────────────────────────────────
-  'wavespeedai/wan-2.1-i2v-480p': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['480p'],
-    aspectRatios: [],
-    pricePerImage: 0.04,
-  },
-  // ── 14. Wan 2.1 i2v 720p ────────────────────────────────────────────────
-  'wavespeedai/wan-2.1-i2v-720p': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['720p'],
-    aspectRatios: [],
-    pricePerImage: 0.08,
-  },
-  // ── Seedance 2.0 (video) ──────────────────────────────────────────────────
-  'bytedance/seedance-2.0': {
-    supportsImg2Img: true,
-    supportsMultiImage: true, // supports up to 9 ref images + first/last frame
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 9,
-    resolutions: ['480p', '720p', '1080p', '4k'],
-    aspectRatios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', '9:21', 'adaptive'],
-    pricePerImage: 0.08,
-  },
-  // ── Kling v3 Omni Video ──────────────────────────────────────────────────
-  'kwaivgi/kling-v3-omni-video': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['standard', 'pro', '4k'],
-    aspectRatios: ['adaptive', '16:9', '9:16', '1:1'],
-    pricePerImage: 0.12,
-  },
-  // ── Grok Imagine Video 1.5 ──────────────────────────────────────────────────
-  'xai/grok-imagine-video-1.5': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['720p', '480p'],
-    aspectRatios: ['auto', '16:9', '4:3', '1:1', '9:16', '3:4', '3:2', '2:3'],
-    pricePerImage: 0.10,
-  },
-  // ── Pruna AI P-Video ──────────────────────────────────────────────────
-  'prunaai/p-video': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['720p', '1080p'],
-    aspectRatios: ['adaptive', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '1:1'],
-    pricePerImage: 0.08,
-  },
-  // ── Google Veo 3.1 Fast ──────────────────────────────────────────────────
-  'google/veo-3.1-fast': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['720p', '1080p'],
-    aspectRatios: ['adaptive', '16:9', '9:16'],
-    pricePerImage: 0.15,
-  },
-  // ── PixVerse v6 ──────────────────────────────────────────────────
-  'pixverse/pixverse-v6': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['360p', '540p', '720p', '1080p'],
-    aspectRatios: ['adaptive', '16:9', '9:16', '1:1'],
-    pricePerImage: 0.09,
-  },
-  // ── OpenAI Sora 2 Pro ──────────────────────────────────────────────────
-  'openai/sora-2-pro': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: true,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: ['standard', 'high'],
-    aspectRatios: ['adaptive', 'portrait', 'landscape'],
-    pricePerImage: 0.20,
-  },
-  // ── 15. Tripo3D ───────────────────────────────────────────────────────────
-  'zsxkib/tripo3d': {
-    supportsImg2Img: true,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 1,
-    resolutions: [],
-    aspectRatios: [],
-    pricePerImage: 0.03,
-  },
-  // ── 16-18. Chat Models ──────────────────────────────────────────────────
-  'meta/meta-llama-3-70b-instruct': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: [],
-    aspectRatios: [],
-    pricePerImage: 0,
-  },
-  'anthropic/claude-3.7-sonnet': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: [],
-    aspectRatios: [],
-    pricePerImage: 0,
-  },
-  'deepseek-ai/deepseek-r1': {
-    supportsImg2Img: false,
-    supportsMultiImage: false,
-    supportsSeed: false,
-    supportsSteps: false,
-    supportsNegativePrompt: false,
-    supportsUpscale: false,
-    supportsLoRA: false,
-    supportsReferenceStrength: false,
-    defaultSteps: 1,
-    stepsRange: [1, 1],
-    maxReferenceImages: 0,
-    resolutions: [],
-    aspectRatios: [],
-    pricePerImage: 0,
-  },
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function arToSize(ar: string, base: number): { width: number; height: number } {
-  const map: Record<string, { width: number; height: number }> = {
-    '1:1': { width: base, height: base },
-    '16:9': { width: base, height: Math.round(base * 9 / 16) },
-    '9:16': { width: Math.round(base * 9 / 16), height: base },
-    '4:3': { width: base, height: Math.round(base * 3 / 4) },
-    '3:4': { width: Math.round(base * 3 / 4), height: base },
-    '3:2': { width: base, height: Math.round(base * 2 / 3) },
-    '2:3': { width: Math.round(base * 2 / 3), height: base },
-  };
-  return map[ar] ?? { width: base, height: base };
-}
-
-function resolutionToPixels(res: string): number {
-  if (!res || res === 'Auto') return 1024;
-  const upper = res.toUpperCase();
-  if (upper === '1K' || upper === 'HD' || upper === 'STANDARD') return 1024;
-  if (upper === '2K' || upper === 'QHD') return 1536;
-  if (upper === '4K' || upper === 'UHD') return 2048;
-  const n = Number.parseInt(res, 10);
-  return (isNaN(n) || n < 256) ? 1024 : n;
-}
-
-// ── Supabase proxy URL ───────────────────────────────────────────────────────
-function getProxyUrl(): string {
-  const url = supabaseUrl;
-  const key = supabaseAnonKey;
-  if (!url || !key || url.includes('placeholder')) {
-    throw new Error(
-      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env. ' +
-      'All Replicate API calls require the Supabase Edge Function proxy.'
-    );
-  }
-  return `${url}/functions/v1/replicate-proxy`;
-}
-
-// ── Proxy fetch: all API calls go through Supabase Edge Function ──────────────
-async function proxyPost(proxyUrl: string, replicatePath: string, body: unknown, signal?: AbortSignal): Promise<ReplicatePrediction> {
-  const anonKey = supabaseAnonKey;
-  const res = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': anonKey,
-      'Authorization': `Bearer ${anonKey}`,
-      'x-replicate-path': replicatePath,
-      'x-replicate-method': 'POST',
-    },
-    body: JSON.stringify(body),
-    signal,
-  });
-  if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-async function proxyGet(proxyUrl: string, replicatePath: string, signal?: AbortSignal): Promise<ReplicatePrediction> {
-  const anonKey = supabaseAnonKey;
-  const res = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': anonKey,
-      'Authorization': `Bearer ${anonKey}`,
-      'x-replicate-path': replicatePath,
-      'x-replicate-method': 'GET',
-    },
-    signal,
-  });
-  if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
-  return res.json();
-}
+import {
+  getModelCapabilities,
+  extractImageUrl,
+  extractImageUrls,
+  buildInput,
+  buildResult,
+} from './modules/replicatePayloadBuilders';
 
 // ── Service Class ─────────────────────────────────────────────────────────────
-class ReplicateService {
+export class ReplicateService {
+  public static readonly MODEL_VERSIONS = MODEL_VERSIONS;
+
   private lastRequestTime = 0;
   private readonly minRequestInterval = 12_000; // 12s between requests (5 req/min safe)
   private webhookUrl: string = '';
@@ -864,7 +128,7 @@ class ReplicateService {
   }
 
   getModelCapabilities(model: ReplicateModel): ModelMeta {
-    return MODEL_META[model] ?? MODEL_META['google/nano-banana-2'];
+    return getModelCapabilities(model);
   }
 
   getModelSettings(model: ReplicateModel) {
@@ -893,115 +157,16 @@ class ReplicateService {
     return Object.keys(MODEL_META) as (ReplicateImageModel | ReplicateVideoModel)[];
   }
 
-  // ── Poll a prediction until SUCCEEDED or FAILED ──────────────────────────────
   private async pollPrediction(
     predictionId: string,
     signal?: AbortSignal,
     onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
   ): Promise<ReplicatePrediction> {
-    const proxy = getProxyUrl();
-    const path = `/predictions/${predictionId}`;
-    const maxAttempts = 120;
-    let hasNotifiedProcessing = false;
-    let consecutiveErrors = 0;
-
-    for (let i = 0; i < maxAttempts; i++) {
-      if (signal?.aborted) {
-        throw new Error('Prediction polling aborted');
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(resolve, 2000);
-        if (signal) {
-          const onAbort = () => {
-            clearTimeout(timeout);
-            reject(new Error('Prediction polling aborted'));
-          };
-          signal.addEventListener('abort', onAbort, { once: true });
-        }
-      });
-
-      if (signal?.aborted) {
-        throw new Error('Prediction polling aborted');
-      }
-
-      let data: ReplicatePrediction;
-      try {
-        data = await proxyGet(proxy, path, signal);
-        consecutiveErrors = 0; // Reset error count on successful query
-      } catch (err: any) {
-        if (signal?.aborted) {
-          throw new Error('Prediction polling aborted');
-        }
-        consecutiveErrors++;
-        logger.warn(`[ReplicateService] Prediction polling failed (${consecutiveErrors}/5):`, err?.message || err);
-        if (consecutiveErrors >= 5) {
-          throw new Error(`Prediction polling failed after 5 consecutive attempts: ${err?.message || err}`);
-        }
-        continue; // Retry on next iteration
-      }
-
-      // Update status when prediction transitions to processing status
-      if (data.status === 'processing' && !hasNotifiedProcessing) {
-        hasNotifiedProcessing = true;
-        if (onStatusChange) {
-          onStatusChange('processing', predictionId);
-        }
-      }
-
-      if (data.status === 'succeeded') return data;
-      if (data.status === 'failed' || data.status === 'canceled') {
-        logger.error('[ReplicateService] Prediction failed:', {
-          status: data.status,
-          error: data.error,
-          logs: data.logs,
-          input: data.input,
-          model: data.version,
-        });
-        throw new Error(`Prediction ${data.status}: ${JSON.stringify(data.error ?? data.logs ?? 'unknown error')}`);
-      }
-    }
-    throw new Error('Prediction timed out after 4 minutes');
+    return pollPrediction(predictionId, signal, onStatusChange);
   }
 
-  // Community models need version-based endpoint instead of /models/
-  private static readonly MODEL_VERSIONS: Record<string, string> = {
-    'philz1337x/clarity-upscaler': 'dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e',
-  };
-
-  // ── Upload a base64 data URI to Replicate Files API via proxy ──────────────
   async uploadToReplicate(dataUri: string): Promise<string> {
-    // Parse data URI
-    const commaIdx = dataUri.indexOf(',');
-    if (commaIdx === -1) throw new Error('Invalid data URI');
-    const meta = dataUri.substring(0, commaIdx);
-    const b64 = dataUri.substring(commaIdx + 1);
-    const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
-    const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
-
-    const proxy = getProxyUrl();
-    logger.log('[ReplicateService] Uploading image via proxy...');
-    const byteStr = atob(b64);
-    const bytes = new Uint8Array(byteStr.length);
-    for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
-    const blob = new Blob([bytes], { type: mime });
-    const formData = new FormData();
-    formData.append('content', blob, `upload.${ext}`);
-
-    const anonKey = supabaseAnonKey;
-    const res = await fetch(proxy, {
-      method: 'POST',
-      headers: {
-        'apikey': anonKey,
-        'Authorization': `Bearer ${anonKey}`,
-        'x-replicate-path': '/files',
-        'x-replicate-method': 'POST',
-      },
-      body: formData,
-    });
-    if (!res.ok) throw new Error(`Replicate upload via proxy failed: ${res.status} - ${await res.text()}`);
-    const json = await res.json();
-    return json.urls?.get || json.url;
+    return uploadToReplicate(dataUri);
   }
 
   // ── Submit a prediction and wait for result (with rate-limit retry) ──────
@@ -1014,7 +179,7 @@ class ReplicateService {
     onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
   ): Promise<ReplicatePrediction> {
     const proxy = getProxyUrl();
-    logger.log("Model:", modelId, "Payload:", input);
+    logger.log('Model:', modelId, 'Payload:', input);
 
     // Use version-based endpoint for community models
     const version = ReplicateService.MODEL_VERSIONS[modelId];
@@ -1024,8 +189,20 @@ class ReplicateService {
     // Add webhook URL to all Replicate predictions
     const activeWebhookUrl = this.getWebhookUrl();
     if (activeWebhookUrl) {
+      // Auto-resolve authenticated user from active Supabase session if omitted or generic
+      let effectiveUserId = (userId || input.user_id || input.userId) as string | undefined;
+      if (!effectiveUserId || effectiveUserId === 'user' || effectiveUserId === 'anonymous') {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session?.user?.id) {
+            effectiveUserId = sessionData.session.user.id;
+          }
+        } catch {
+          // Ignore and fallback
+        }
+      }
+      const finalUserId = effectiveUserId || 'user';
       const finalNodeId = (nodeId || input.node_id || input.nodeId || 'canvas-node') as string;
-      const finalUserId = (userId || input.user_id || input.userId || 'user') as string;
       let webhookWithParams = `${activeWebhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(modelId)}`;
       const workflowIdVal = (input.workflow_id || input.workflowId) as string | undefined;
       if (workflowIdVal) {
@@ -1061,7 +238,7 @@ class ReplicateService {
         }
 
         if (prediction.status === 'succeeded') {
-          logger.log("Replicate response:", prediction);
+          logger.log('Replicate response:', prediction);
           return prediction;
         }
         if (prediction.status === 'failed') {
@@ -1074,7 +251,7 @@ class ReplicateService {
           throw new Error(`Prediction failed: ${JSON.stringify(prediction.error ?? prediction)}`);
         }
         const response = await this.pollPrediction(prediction.id, signal, onStatusChange);
-        logger.log("Replicate response:", response);
+        logger.log('Replicate response:', response);
         return response;
       } catch (err: any) {
         if (signal?.aborted) {
@@ -1128,9 +305,21 @@ class ReplicateService {
     const path = version ? '/predictions' : `/models/${model}/predictions`;
 
     let webhookWithParams = this.webhookUrl;
+    let effectiveUserId = metadata.userId;
+    if (!effectiveUserId || effectiveUserId === 'user' || effectiveUserId === 'anonymous') {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user?.id) {
+          effectiveUserId = sessionData.session.user.id;
+        }
+      } catch {
+        // Ignore and fallback
+      }
+    }
+    const finalUserId = effectiveUserId || 'anonymous';
+    const finalNodeId = metadata.nodeId || 'unknown';
+
     if (this.webhookUrl) {
-      const finalNodeId = metadata.nodeId || 'unknown';
-      const finalUserId = metadata.userId || 'anonymous';
       webhookWithParams = `${this.webhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(model)}`;
       if (metadata.workflowId) {
         webhookWithParams += `&workflow_id=${encodeURIComponent(metadata.workflowId)}`;
@@ -1142,8 +331,8 @@ class ReplicateService {
       webhook: webhookWithParams,
       webhook_events_filter: ['start', 'completed'],
       metadata: {
-        node_id: metadata.nodeId,
-        user_id: metadata.userId,
+        node_id: finalNodeId,
+        user_id: finalUserId,
         workflow_id: metadata.workflowId,
         app: 'anarchy-ai',
       },
@@ -1168,148 +357,12 @@ class ReplicateService {
     return { id: data.id, status: data.status };
   }
 
-  // ── Extract first image URL from prediction output ────────────────────────
   public extractImageUrl(output: unknown): string {
-    const urls = this.extractImageUrls(output);
-    if (urls.length > 0) return urls[0];
-    throw new Error(`No valid image URL found in prediction output: ${JSON.stringify(output)}`);
+    return extractImageUrl(output);
   }
 
-  // ── Extract all image URLs from prediction output ─────────────────────────
   public extractImageUrls(output: unknown): string[] {
-    if (!output) return [];
-
-    const urls: string[] = [];
-
-    const extractFromValue = (val: unknown) => {
-      if (!val) return;
-      if (typeof val === 'string') {
-        const trimmed = val.trim();
-        if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
-          urls.push(trimmed);
-        } else if (trimmed.length > 10 && !trimmed.includes(' ') && (trimmed.includes('/') || trimmed.includes('.'))) {
-          urls.push(trimmed);
-        }
-        return;
-      }
-      if (Array.isArray(val)) {
-        val.forEach(extractFromValue);
-        return;
-      }
-      if (typeof val === 'object') {
-        const obj = val as Record<string, unknown>;
-        if (typeof obj.url === 'string') extractFromValue(obj.url);
-        else if (typeof obj.href === 'string') extractFromValue(obj.href);
-        else if (typeof obj.file === 'string') extractFromValue(obj.file);
-        else if (typeof obj.image === 'string') extractFromValue(obj.image);
-        else {
-          Object.values(obj).forEach(v => extractFromValue(v));
-        }
-      }
-    };
-
-    extractFromValue(output);
-    return urls;
-  }
-
-  // ── Build input payload for Nano Banana models (image_input field) ─────────
-  private buildNanoBananaInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const promptText = images.length > 0
-      ? params.prompt
-      : params.prompt;
-    const input: Record<string, any> = { prompt: promptText };
-    if (images.length > 0) {
-      input.image_input = images;
-    }
-    const resolutionMap: Record<string, string> = {
-      '1K': '1K',
-      '2K': '2K',
-      '4K': '4K',
-    };
-
-    logger.log('[NanoBanana] Original resolution param:', params.resolution);
-
-    if (params.resolution && params.resolution !== 'Auto') {
-      const mappedResolution = resolutionMap[params.resolution] || params.resolution;
-      input.resolution = mappedResolution;
-      logger.log('[NanoBanana] Mapped resolution:', mappedResolution);
-    } else {
-      input.resolution = '1K';
-      logger.log('[NanoBanana] Using default resolution: 1K');
-    }
-
-    logger.log('[NanoBanana] Final input:', JSON.stringify(input, null, 2));
-
-    if (images.length === 0 && params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio;
-    }
-    return input;
-  }
-
-
-
-  // ── Build input payload for FLUX models ───────────────────────────────────
-  private buildFluxInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const meta = this.getModelCapabilities(params.model);
-    const input: Record<string, any> = { prompt: params.prompt };
-
-    const mpMap: Record<string, string> = {
-      '0.5K': '0.5 MP',
-      '1K': '1 MP',
-      '2K': '2 MP',
-      '4K': '4 MP',
-    };
-    input.resolution = mpMap[params.resolution ?? '1K'] ?? '1 MP';
-
-    if (images.length > 0) {
-      if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input') {
-        input.aspect_ratio = 'match_input_image';
-      } else {
-        input.aspect_ratio = params.aspectRatio;
-      }
-      input.input_images = images;
-      if (meta.supportsReferenceStrength && params.strength != null) {
-        input.prompt_strength = params.strength;
-      }
-    } else {
-      input.aspect_ratio = params.aspectRatio ?? '1:1';
-    }
-
-    if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
-    return input;
-  }
-
-  // ── Build input for general/fallback models ───────────────────────────────
-  private buildGeneralInput(
-    params: ReplicateGenerationParams
-  ): Record<string, any> {
-    const meta = this.getModelCapabilities(params.model);
-    const input: Record<string, any> = { prompt: params.prompt };
-
-    if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio;
-    } else {
-      input.aspect_ratio = '1:1';
-    }
-
-    if (meta.supportsSeed && params.seed != null) input.seed = params.seed;
-    if (meta.supportsNegativePrompt && params.negativePrompt) {
-      input.negative_prompt = params.negativePrompt;
-    }
-    if (meta.supportsSteps && params.steps != null) {
-      input.num_inference_steps = params.steps;
-    }
-    // Krea-specific: creativity level ('raw' | 'low' | 'medium' | 'high')
-    if (params.model === 'krea/krea-2-large') {
-      input.creativity = (params as any).kreaCreativity || (params as any).creativity || 'medium';
-    }
-    return input;
+    return extractImageUrls(output);
   }
 
   // ── Text-to-Image ─────────────────────────────────────────────────────────
@@ -1319,7 +372,7 @@ class ReplicateService {
     onStatusChange?: (status: 'queued' | 'processing', predictionId?: string) => void
   ): Promise<ReplicateGenerationResult> {
     const start = Date.now();
-    const input = this.buildInput(params, []);
+    const input = buildInput(params, []);
 
     const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
     const imageUrls = this.extractImageUrls(prediction.output);
@@ -1329,7 +382,7 @@ class ReplicateService {
     }
     const imageUrl = imageUrls[0];
 
-    const result = this.buildResult(params, imageUrl, {}, start);
+    const result = buildResult(params, imageUrl, {}, start);
     result.imageUrls = imageUrls;
     return result;
   }
@@ -1343,7 +396,7 @@ class ReplicateService {
       throw new Error('Webhook URL not configured. Ensure VITE_SUPABASE_URL is set correctly.');
     }
 
-    const input = this.buildInput(params, []);
+    const input = buildInput(params, []);
 
     const prediction = await this.submitPredictionWithWebhook(params.model, input, metadata);
 
@@ -1367,7 +420,7 @@ class ReplicateService {
     const maxImgs = meta.maxReferenceImages > 0 ? meta.maxReferenceImages : 14;
     const imgSlice = imageList.slice(0, maxImgs);
 
-    const input = this.buildInput(params, imgSlice);
+    const input = buildInput(params, imgSlice);
 
     const prediction = await this.runPrediction(params.model, input, params.nodeId, params.userId, signal, onStatusChange);
     const imageUrls = this.extractImageUrls(prediction.output);
@@ -1377,345 +430,10 @@ class ReplicateService {
     }
     const imageUrl = imageUrls[0];
 
-    const result = this.buildResult(params, imageUrl, input, start);
+    const result = buildResult(params, imageUrl, input, start);
     result.imageUrls = imageUrls;
     return result;
   }
-
-  // ── Build input for Seedream 4.5 ─────────────────────────────────────────
-  private buildSeedreamInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const input: Record<string, any> = { prompt: params.prompt };
-    if (images.length > 0) {
-      input.image_input = images;
-    }
-    if (params.model === 'bytedance/seedream-5-pro') {
-      input.size = params.resolution === '2K' ? '2K' : '1K';
-    } else {
-      if (params.resolution === 'custom') {
-        input.size = 'custom';
-        input.width = params.width ?? 2048;
-        input.height = params.height ?? 2048;
-      } else {
-        input.size = params.resolution === '4K' ? '4K' : '2K';
-      }
-    }
-    if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio;
-    } else if (images.length > 0) {
-      input.aspect_ratio = 'match_input_image';
-    }
-
-    // Support sequential generation parameters (only for seedream-4.5)
-    if (params.sequentialImageGeneration) {
-      input.sequential_image_generation = params.sequentialImageGeneration;
-    }
-    if (params.maxImages != null) {
-      input.max_images = params.maxImages;
-    }
-    return input;
-  }
-
-
-
-  // ── Build input for GPT Image 2 / 2.5 ────────────────────────────────────
-  private buildGptImageInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const input: Record<string, any> = { prompt: params.prompt };
-
-    if (images.length >= 1) {
-      input.input_images = images;
-    }
-
-    const qualityVal = (params as any).gptQuality || (params as any).qualityVariant || params.resolution;
-    if (qualityVal && qualityVal !== 'auto') {
-      input.quality = String(qualityVal).toLowerCase();
-    } else {
-      input.quality = 'auto';
-    }
-
-    if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio;
-    } else if (params.aspectRatio === 'Auto' || params.aspectRatio === 'auto') {
-      input.aspect_ratio = 'auto';
-    }
-
-    return input;
-  }
-
-  // ── Build input payload for Stable Diffusion 3.5 ────────────────────────────
-  private buildStableDiffusionInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const input: Record<string, any> = { prompt: params.prompt };
-
-    if (images.length > 0) {
-      input.image = images[0];
-      input.prompt_strength = params.strength ?? 0.45;
-    } else if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-      input.aspect_ratio = params.aspectRatio;
-    }
-
-    if (params.cfg != null) {
-      input.cfg = params.cfg;
-    }
-
-    if (params.negativePrompt) {
-      input.negative_prompt = params.negativePrompt;
-    }
-
-    if (params.steps != null) {
-      input.num_inference_steps = params.steps;
-    }
-
-    if (params.seed != null) input.seed = params.seed;
-
-    return input;
-  }
-
-  private buildVideoInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const m = params.model;
-    const input: Record<string, any> = { prompt: params.prompt };
-
-    // Default image mapping (except for models with specialized structures)
-    if (images.length > 0 && m !== 'bytedance/seedance-2.0' && m !== 'kwaivgi/kling-v3-omni-video') {
-      input.image = images[0];
-    }
-
-    if (params.seed != null) {
-      input.seed = params.seed;
-    }
-
-    if (params.aspectRatio && params.aspectRatio !== 'Auto' && m !== 'bytedance/seedance-2.0') {
-      input.aspect_ratio = params.aspectRatio;
-    }
-
-    if (m === 'kwaivgi/kling-v3-omni-video') {
-      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5;
-      if (params.cfg != null) {
-        input.cfg_scale = params.cfg;
-      }
-      
-      // Mode (standard, pro, 4k)
-      input.mode = params.resolution || 'pro';
-
-      // Separate images and videos from connected parent nodes
-      const parentImages = images.filter(url => {
-        const lower = url.toLowerCase();
-        return !(lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/'));
-      });
-      const parentVideos = images.filter(url => {
-        const lower = url.toLowerCase();
-        return lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/');
-      });
-
-      // Start image (first connected node image)
-      if (parentImages.length > 0) {
-        input.start_image = parentImages[0];
-      }
-
-      // End image (manually uploaded in the sidebar)
-      if (params.klingEndImage) {
-        input.end_image = params.klingEndImage;
-      }
-
-      // Reference images (all subsequent connected node images)
-      if (parentImages.length > 1) {
-        input.reference_images = parentImages.slice(1);
-      }
-
-      // Reference video (manually uploaded in sidebar or first connected video node)
-      if (params.klingReferenceVideo) {
-        input.reference_video = params.klingReferenceVideo;
-      } else if (parentVideos.length > 0) {
-        input.reference_video = parentVideos[0];
-      }
-
-      // Video reference type
-      if (params.klingVideoReferenceType) {
-        input.video_reference_type = params.klingVideoReferenceType;
-      }
-
-      // Keep original sound
-      input.keep_original_sound = params.klingKeepOriginalSound !== false;
-
-      // Generate audio
-      input.generate_audio = params.klingGenerateAudio === true;
-    } else if (m === 'google/veo-3.1-fast') {
-      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 8;
-      if (params.veoLastFrame) {
-        input.last_frame = params.veoLastFrame;
-      }
-      input.generate_audio = params.veoGenerateAudio !== false;
-      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-        input.aspect_ratio = params.aspectRatio;
-      }
-      if (params.resolution && params.resolution !== 'Auto') {
-        input.resolution = params.resolution;
-      }
-    } else if (m === 'openai/sora-2-pro') {
-      if (params.soraInputReference) {
-        input.input_reference = params.soraInputReference;
-      }
-      input.seconds = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 4;
-      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-        input.aspect_ratio = params.aspectRatio;
-      }
-      if (params.resolution && params.resolution !== 'Auto') {
-        input.resolution = params.resolution;
-      }
-    } else if (m === 'xai/grok-imagine-video-1.5') {
-      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5;
-      if (params.resolution && params.resolution !== 'Auto') {
-        input.resolution = params.resolution;
-      }
-    } else if (m === 'pixverse/pixverse-v6') {
-      if (params.pixverseLastFrameImage) {
-        input.last_frame_image = params.pixverseLastFrameImage;
-      }
-      if (params.resolution && params.resolution !== 'Auto') {
-        input.quality = params.resolution;
-      }
-      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-        input.aspect_ratio = params.aspectRatio;
-      }
-      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 15;
-      input.generate_audio_switch = params.pixverseGenerateAudioSwitch === true;
-      input.generate_multi_clip_switch = params.pixverseGenerateMultiClipSwitch === true;
-    } else if (m === 'prunaai/p-video') {
-      if (params.prunaQuality != null) {
-        input.quality = params.prunaQuality;
-      }
-      if (params.prunaLastFrameImage) {
-        input.last_frame_image = params.prunaLastFrameImage;
-      }
-      if (params.prunaAudio) {
-        input.audio = params.prunaAudio;
-      }
-      input.duration = params.videoDuration ? parseInt(params.videoDuration.replace('s', ''), 10) : 5;
-      if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-        input.aspect_ratio = params.aspectRatio;
-      }
-      if (params.resolution && params.resolution !== 'Auto') {
-        input.resolution = params.resolution;
-      }
-      input.fps = params.prunaFps ?? 24;
-    } else if (m === 'bytedance/seedance-2.0') {
-      const parentImages = images.filter(url => {
-        const lower = url.toLowerCase();
-        return !(lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/'));
-      });
-      const parentVideos = images.filter(url => {
-        const lower = url.toLowerCase();
-        return lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogg') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('data:video/');
-      });
-
-      // 1. First image goes to image (first frame)
-      if (parentImages.length > 0) {
-        input.image = parentImages[0];
-      }
-
-      // 2. Second image goes to last_frame_image
-      if (parentImages.length > 1) {
-        input.last_frame_image = parentImages[1];
-      } else if (params.seedanceLastFrameImage) {
-        input.last_frame_image = params.seedanceLastFrameImage;
-      }
-
-      // 3. Any additional parent images go to reference_images
-      if (parentImages.length > 2) {
-        input.reference_images = parentImages.slice(2);
-      }
-
-      // 4. Any connected videos go to reference_videos
-      if (parentVideos.length > 0) {
-        input.reference_videos = parentVideos;
-      }
-
-      // 5. duration (integer, min -1, max 15, default 5)
-      if (params.videoDuration) {
-        const parsedDur = parseInt(params.videoDuration.replace('s', ''), 10);
-        input.duration = isNaN(parsedDur) ? 5 : parsedDur;
-      } else {
-        input.duration = 5;
-      }
-
-      // 6. resolution (string, choices: "720p", "1080p", "2K", "4K")
-      input.resolution = params.resolution && params.resolution !== 'Auto' ? params.resolution : '720p';
-
-      // 7. aspect_ratio (string, choices: adaptive, 16:9, etc.)
-      input.aspect_ratio = params.aspectRatio && params.aspectRatio !== 'Auto' ? params.aspectRatio : 'adaptive';
-
-      // 8. generate_audio (boolean, default true)
-      input.generate_audio = params.seedanceGenerateAudio !== false;
-    }
-
-    return input;
-  }
-
-  // ── Route input building per model family ─────────────────────────────────
-  private buildInput(
-    params: ReplicateGenerationParams,
-    images: string[]
-  ): Record<string, any> {
-    const m = params.model;
-    if (m.startsWith('google/nano-banana')) return this.buildNanoBananaInput(params, images);
-    if (m.startsWith('black-forest-labs/flux')) return this.buildFluxInput(params, images);
-    if (m === 'bytedance/seedream-5-pro') return this.buildSeedreamInput(params, images);
-    if (m === 'openai/gpt-image-2' || m === 'openai/gpt-image-2.5-flare' || m === 'openai/gpt-image-2.5-sunburst') return this.buildGptImageInput(params, images);
-    if (m === 'stability-ai/stable-diffusion-3.5-large') return this.buildStableDiffusionInput(params, images);
-    // Video models routing
-    if (
-      m === 'bytedance/seedance-2.0' ||
-      m === 'kwaivgi/kling-v3-omni-video' ||
-      m === 'xai/grok-imagine-video-1.5' ||
-      m === 'prunaai/p-video' ||
-      m === 'google/veo-3.1-fast' ||
-      m === 'pixverse/pixverse-v6' ||
-      m === 'openai/sora-2-pro' ||
-      m.startsWith('wavespeedai/wan')
-    ) {
-      return this.buildVideoInput(params, images);
-    }
-
-    return this.buildGeneralInput(params);
-  }
-
-  // ── Build standardised result ─────────────────────────────────────────────
-  private buildResult(
-    params: ReplicateGenerationParams,
-    imageUrl: string,
-    body: Record<string, any>,
-    start: number
-  ): ReplicateGenerationResult {
-    const meta = this.getModelCapabilities(params.model);
-    const base = resolutionToPixels(params.resolution ?? 'Auto');
-    const dims = arToSize(params.aspectRatio ?? '1:1', base);
-    return {
-      id: `replicate-${Date.now()}`,
-      imageUrl,
-      metadata: {
-        model: params.model,
-        prompt: params.prompt,
-        negativePrompt: params.negativePrompt,
-        width: params.width ?? dims.width,
-        height: params.height ?? dims.height,
-        seed: body.seed ?? -1,
-        steps: body.num_inference_steps ?? meta.defaultSteps,
-        generationTime: Date.now() - start,
-        timestamp: Date.now(),
-      },
-    };
-  }
-
 
   // ── Video Generation ──────────────────────────────────────────────────────
   async generateVideo(
@@ -1774,25 +492,13 @@ class ReplicateService {
   async pingProxy(): Promise<boolean> {
     try {
       const url = getProxyUrl();
-      const anonKey = supabaseAnonKey;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': anonKey,
-          'Authorization': `Bearer ${anonKey}`,
-          'x-replicate-path': '/ping',
-          'x-replicate-method': 'GET',
-        },
-        body: JSON.stringify({ ping: true }),
-      });
-      return res.ok;
+      const res = await proxyPost(url, '/ping', { ping: true });
+      return !!res;
     } catch (err) {
       logger.warn('[ReplicateService] Warm-up ping failed:', err);
       return false;
     }
   }
-
 }
 
 // Singleton

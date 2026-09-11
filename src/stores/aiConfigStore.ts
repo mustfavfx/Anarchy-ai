@@ -27,6 +27,8 @@ export interface AIConfig {
   aspectRatio: string;
   studioMode: 'edit' | 'generate';
   selectedTool: 'image-editor' | 'image-creator' | 'image-upscaler' | 'video-creator' | '3d-creator' | 'anarchy-creator';
+  userId?: string;
+  nodeId?: string;
   // Watermark 1 settings
   enableWatermark: boolean;
   watermarkType: 'text' | 'image';

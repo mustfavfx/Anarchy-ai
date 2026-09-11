@@ -58,7 +58,14 @@ export class ClarityUpscaler implements BaseUpscaler {
     }
 
     const payload = this.buildPayload(config, currentImageUrl);
-    const prediction = await replicateService.runPrediction(this.modelId, payload, undefined, undefined, signal, onStatusChange);
+    const prediction = await replicateService.runPrediction(
+      this.modelId,
+      payload,
+      config.nodeId,
+      config.userId,
+      signal,
+      onStatusChange
+    );
     const resultImageUrl = replicateService.extractImageUrl(prediction.output);
 
     const dims = await getImageDimensions(image);
