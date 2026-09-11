@@ -39,6 +39,7 @@ import { useBuilderProjectSync } from './hooks/useBuilderProjectSync';
 import { useBuilderNodeCallbacks } from './hooks/useBuilderNodeCallbacks';
 import { useBuilderCanvasEvents } from './hooks/useBuilderCanvasEvents';
 import { useBuilderContextActions } from './hooks/useBuilderContextActions';
+import { useBuilderExternalEvents } from './hooks/useBuilderExternalEvents';
 
 // Helpers
 import {
@@ -120,7 +121,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   const setUserCreditsInStore = useAIConfigStore((s) => s.setUserCreditsInStore);
   useEffect(() => {
-    setUserCreditsInStore(userCredits, isTrial);
+    setUserCreditsInStore(userCredits ?? 0, isTrial);
   }, [userCredits, isTrial, setUserCreditsInStore]);
 
   const studioMode = useAIConfigStore(state => state.config.studioMode || 'edit');

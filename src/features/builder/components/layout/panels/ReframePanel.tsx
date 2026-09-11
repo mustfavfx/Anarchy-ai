@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, ChevronDown, Check, Loader2 } from 'lucide-react';
 import { ASPECT_RATIO_OPTIONS, RELAYOUT_CATEGORIES } from '../types';
+import { AspectRatioIcon } from '../../../../../shared/components/AspectRatioIcon';
 
 export interface ReframePanelProps {
   reframeTab: 'reshoot' | 'relayout';
@@ -91,7 +92,15 @@ export const ReframePanel: React.FC<ReframePanelProps> = ({
               className="reframe-ratio-trigger-btn"
               onClick={() => setShowAspectDropdown(!showAspectDropdown)}
             >
-              <span>{selectedAspectRatio}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <AspectRatioIcon 
+                  ratio={ASPECT_RATIO_OPTIONS.find(o => o.label === selectedAspectRatio)?.ratio || selectedAspectRatio} 
+                  size={15} 
+                />
+                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  {selectedAspectRatio}
+                </span>
+              </div>
               <ChevronDown size={14} />
             </button>
 
@@ -106,8 +115,8 @@ export const ReframePanel: React.FC<ReframePanelProps> = ({
                       setShowAspectDropdown(false);
                     }}
                   >
-                    <div className="ratio-item-left">
-                      <span className="ratio-icon-placeholder" />
+                    <div className="ratio-item-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AspectRatioIcon ratio={opt.ratio} size={15} active={selectedAspectRatio === opt.label} />
                       <span className="ratio-label">{opt.label}</span>
                       {opt.sub && <span className="ratio-sub">· {opt.sub}</span>}
                     </div>
@@ -153,8 +162,8 @@ export const ReframePanel: React.FC<ReframePanelProps> = ({
                       className={`relayout-item-row ${isChecked ? 'active' : ''}`}
                       onClick={() => toggleRelayoutSelection(item.label)}
                     >
-                      <div className="item-left">
-                        <span className="relayout-icon-box" />
+                      <div className="item-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AspectRatioIcon ratio={item.ratio} size={15} active={isChecked} />
                         <span className="relayout-label">{item.label}</span>
                         <span className="relayout-sub">· ({item.ratio})</span>
                       </div>

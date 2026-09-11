@@ -34,6 +34,7 @@ import { UpscalerSettingsSection } from './controlPanel/UpscalerSettingsSection'
 import { VideoSettingsSection } from './controlPanel/VideoSettingsSection';
 import { AnarchyCreatorSection } from './controlPanel/AnarchyCreatorSection';
 import { GeneralParamsSection } from './controlPanel/GeneralParamsSection';
+import { AspectRatioIcon, getAspectRatioHint } from '../../shared/components/AspectRatioIcon';
 import './AIControlPanel.css';
 
 export type { AIControlPanelProps, ToolType, Engine };
@@ -541,23 +542,39 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               className="dropdown-trigger"
               onClick={() => setShowAspectDropdown(!showAspectDropdown)}
             >
-              <span>{params.aspectRatio}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <AspectRatioIcon ratio={params.aspectRatio || '1:1'} size={16} />
+                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  {params.aspectRatio}
+                </span>
+              </div>
               <ChevronDown size={16} />
             </div>
             {showAspectDropdown && (
               <div className="dropdown-menu small-menu">
-                {availableAspectRatios.map(ratio => (
-                  <div 
-                    key={ratio}
-                    className={`dropdown-item ${params.aspectRatio === ratio ? 'active' : ''}`}
-                    onClick={() => {
-                      updateParam('aspectRatio', ratio);
-                      setShowAspectDropdown(false);
-                    }}
-                  >
-                    {ratio}
-                  </div>
-                ))}
+                {availableAspectRatios.map(ratio => {
+                  const hint = getAspectRatioHint(ratio);
+                  const isSelected = params.aspectRatio === ratio;
+                  return (
+                    <div 
+                      key={ratio}
+                      className={`dropdown-item ${isSelected ? 'active' : ''}`}
+                      onClick={() => {
+                        updateParam('aspectRatio', ratio);
+                        setShowAspectDropdown(false);
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '9px' }}
+                    >
+                      <AspectRatioIcon ratio={ratio} size={16} active={isSelected} />
+                      <span style={{ fontWeight: 500 }}>{ratio}</span>
+                      {hint && (
+                        <span style={{ fontSize: '10.5px', opacity: 0.5, marginLeft: 'auto' }}>
+                          {hint}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

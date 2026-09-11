@@ -112,7 +112,7 @@ export const SettingsPage: React.FC = () => {
           setAppVersion(String(v));
         }
       })
-      .catch(() => setAppVersion('0.3.89'));
+      .catch(() => setAppVersion('0.3.90'));
   }, []);
 
   const checkForUpdates = useCallback(async () => {

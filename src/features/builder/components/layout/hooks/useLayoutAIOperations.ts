@@ -31,7 +31,7 @@ export interface UseLayoutAIOperationsProps {
   setIsRendering: React.Dispatch<React.SetStateAction<boolean>>;
   setSelectedRegionIdx: React.Dispatch<React.SetStateAction<number | null>>;
   setHoveredRegionIdx: React.Dispatch<React.SetStateAction<number | null>>;
-  maskCanvasRef: React.RefObject<HTMLCanvasElement>;
+  maskCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   maskPrompt: string;
   setMaskPrompt: React.Dispatch<React.SetStateAction<string>>;
   clearMaskCanvas: () => void;

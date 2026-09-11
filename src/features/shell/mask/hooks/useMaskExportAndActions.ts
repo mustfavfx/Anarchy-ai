@@ -11,16 +11,18 @@ import {
   hexToRgba,
   renderCompositeAndMask,
 } from '../utils/maskBitmapUtils';
-import type { InpaintLayer, ArrowNodeItem } from '../types';
+import type { InpaintLayer } from '../../components/LayersPanel';
+import type { ArrowNodeItem } from '../../components/VizMakerArrowCard';
+import type { LayerVisibility } from '../types';
 
 export interface UseMaskExportAndActionsParams {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   drawingCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   wrapperRef: React.RefObject<HTMLDivElement | null>;
   resolvedImage?: string | null;
-  image?: string;
+  image?: string | null;
   imgMeta: { w: number; h: number } | null;
-  layerVisibility: { image?: boolean; arrows?: boolean; [key: string]: boolean | undefined };
+  layerVisibility: LayerVisibility;
   inpaintLayers: InpaintLayer[];
   workspaceMode: string;
   arrowNodes: ArrowNodeItem[];

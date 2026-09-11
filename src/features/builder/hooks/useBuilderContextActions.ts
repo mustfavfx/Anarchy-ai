@@ -19,7 +19,7 @@ export interface UseBuilderContextActionsParams {
   handleContextExportAll: () => void;
   handleContextExportPDF: () => void;
   handleContextExportZip: (selectedOnly: boolean, node?: BuilderNode | undefined) => Promise<void>;
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<any>;
   handleLoad: () => Promise<void>;
   handleContextOpenImagesFolder: (node: BuilderNode | undefined) => Promise<void>;
   handleContextExportNodePDF: (node: BuilderNode | undefined) => Promise<void>;
@@ -86,19 +86,19 @@ export function useBuilderContextActions({
         break;
       }
       case 'compare-a':
-        handleContextCompare(contextNode, 'A');
+        handleContextCompare(contextNode || undefined, 'A');
         break;
       case 'compare-b':
-        handleContextCompare(contextNode, 'B');
+        handleContextCompare(contextNode || undefined, 'B');
         break;
       case 'save-node-image':
-        handleContextSaveNodeImage(contextNode);
+        handleContextSaveNodeImage(contextNode || undefined);
         break;
       case 'export-dxf':
-        handleContextExportDXF(contextNode);
+        handleContextExportDXF(contextNode || undefined);
         break;
       case 'analyze-plan':
-        void handleContextAnalyzePlan(contextNode);
+        void handleContextAnalyzePlan(contextNode || undefined);
         break;
       case 'export-all':
         handleContextExportAll();
@@ -110,7 +110,7 @@ export function useBuilderContextActions({
         void handleContextExportZip(false);
         break;
       case 'export-selection-zip':
-        void handleContextExportZip(true, contextNode);
+        void handleContextExportZip(true, contextNode || undefined);
         break;
       case 'save-project':
         void handleSave();
@@ -119,10 +119,10 @@ export function useBuilderContextActions({
         void handleLoad();
         break;
       case 'open-images-folder':
-        void handleContextOpenImagesFolder(contextNode);
+        void handleContextOpenImagesFolder(contextNode || undefined);
         break;
       case 'export-node-pdf':
-        void handleContextExportNodePDF(contextNode);
+        void handleContextExportNodePDF(contextNode || undefined);
         break;
       case 'draw-mask': {
         if (contextNode) {

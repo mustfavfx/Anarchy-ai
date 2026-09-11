@@ -675,6 +675,29 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     );
   }, [setNodes, pushHistory]);
 
+  // ========================================================================
+  // ACTIVE TARGET - For prompt bar
+  // ========================================================================
+
+  const activeTarget = useMemo((): Node | null => {
+    // Priority: selected ghost node
+    if (selectedNodeId) {
+      const selected = getNode(selectedNodeId);
+      if (selected) {
+        const data = selected.data as BuilderNodeData;
+        if (data.type === 'ghost' && data.state === 'idle') {
+          return selected;
+        }
+      }
+    }
+    
+    // Fallback: any idle ghost
+    return nodes.find(n => {
+      const data = n.data as BuilderNodeData;
+      return data.type === 'ghost' && data.state === 'idle';
+    }) || null;
+  }, [nodes, selectedNodeId, getNode]);
+
   // STATISTICS
   // ========================================================================
 

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.90] - 2026-09-11
+
+### Added
+- **Universal Geometric Aspect Ratio Indicators (All AI Engines)**:
+  - Designed and deployed [`AspectRatioIcon.tsx`](file:///e:/New%20folder%20(5)/Anarchy%20Ai%200.07/src/shared/components/AspectRatioIcon.tsx) providing real-time, mathematically proportional vector previews next to aspect ratio numbers across all engines:
+    - **Ultrawide & Banners**: `4:1`, `3:1`, `21:9`, `2:1`, `17:9`
+    - **Widescreen & Landscape**: `16:9`, `3:2`, `4:3`, `5:4`
+    - **Square**: `1:1`
+    - **Portrait, Posters & Reels**: `4:5`, `3:4`, `2:3`, `9:16`, `9:21`
+    - **Adaptive / Auto**: `auto`, `match_input_image` with dashed badge geometry
+  - Fully integrated into `AIControlPanel.tsx` active dropdown trigger button and dropdown list items across all AI models (Flux, SDXL, Ideogram, Recraft, Reve / Anarchy Creator, Imagen 3, GPT Image 2.5, Kling, Luma, MiniMax, Seedance).
+  - Integrated into the Layout Editor Reframe / Crop dropdown and Relayout category cards (`ReframePanel.tsx`).
+
+### Fixed & Stabilized
+- **Canvas Hook Alignment & Runtime Scope Resolution**:
+  - Resolved `useBuilderExternalEvents` import in `BuilderPage.tsx`.
+  - Resolved `activeTarget` reactive calculation within `useBuilderWorkflow.ts`.
+  - Coerced `contextNode` nullability in `useBuilderContextActions.ts` and enabled flexible `Dispatch | function` typing in `useBuilderPersistence.ts`.
+  - Resolved module types for `InpaintLayer` and `ArrowNodeItem` in `useMaskExportAndActions.ts`.
+  - Added strict app-level TypeScript validation (`npx tsc -p tsconfig.app.json --noEmit`) with 0 errors across all 371 files in `src/`.
+  - Verified 100% test pass rate on all 31 Vitest suites (249 tests passing).
+
 ## [0.3.89] - 2026-09-11
 
 ### Architectural & Codebase Modularization

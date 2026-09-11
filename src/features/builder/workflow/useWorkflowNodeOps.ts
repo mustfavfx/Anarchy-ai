@@ -8,9 +8,9 @@ import type {
   BuilderNodeData, 
   ProcessingType, 
   DataPacket, 
-  NodeLineage,
-  NodeTreeData
+  NodeLineage
 } from '../types';
+import type { NodeTreeData } from '../../../types/history';
 import {
   createDataPacket,
   createEdge,

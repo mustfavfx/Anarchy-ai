@@ -13,9 +13,31 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.89',
+    version: 'v0.3.90',
     date: 'September 11, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'feature',
+        title: 'Universal Aspect Ratio Proportional Geometric Indicators',
+        description: 'Added crisp, real-time geometric rectangle preview icons representing exact image frame proportions (from ultrawide 4:1, 3:1, 21:9 down to portrait 4:5, 3:4, 2:3, 9:16, 9:21) next to aspect ratio numbers across all AI engines (Flux, SDXL, Ideogram, Recraft, Reve, Imagen 3, GPT Image 2.5, Kling, Luma, MiniMax, Seedance) and Layout Reframe panels.'
+      },
+      {
+        type: 'fix',
+        title: 'Builder Canvas Modularization Runtime Stability & Hook Alignment',
+        description: 'Resolved runtime module dependencies including useBuilderExternalEvents and activeTarget memoization within useBuilderWorkflow following monolith decomposition. Fixed context action node parameters and canvas event callbacks.'
+      },
+      {
+        type: 'improvement',
+        title: 'Strict App-Level Type Safety & Production Build Hardening',
+        description: 'Achieved 100% strict type-safety verification via tsconfig.app.json with 0 type errors across all 371 workspace files, 100% passing Vitest test suites (249 tests), and error-free Vite production builds.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.89',
+    date: 'September 11, 2026',
+    status: 'release',
     features: [
       {
         type: 'improvement',

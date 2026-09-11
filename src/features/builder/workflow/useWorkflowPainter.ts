@@ -9,12 +9,15 @@ import {
   getUnifiedCost,
   deductCredits,
   refundCredits,
+  getUserCredit,
   DEV_MODE,
 } from '../../../services/credit/creditService';
 import {
   addHistoryEntry,
   cacheLocalImage,
+  resolveUrlToBlob,
 } from '../../../services/history/HistoryService';
+import { replicateService } from '../../../services/replicate';
 import { getCurrentUserId } from '../../../services/supabase/supabaseClient';
 import type { BuilderNode, BuilderNodeData } from '../types';
 import {
@@ -190,7 +193,7 @@ export const useWorkflowPainter = ({
           baseParams,
           imageInputs,
           undefined,
-          (status) => {
+          (status: string) => {
             setNodes(nds => nds.map(n => n.id === parentId ? {
               ...n,
               data: { ...n.data, statusMessage: status }
@@ -267,7 +270,7 @@ export const useWorkflowPainter = ({
           baseParams,
           imageInputs,
           undefined,
-          (status) => {
+          (status: string) => {
             setNodes(nds => nds.map(n => n.id === parentId ? {
               ...n,
               data: { ...n.data, statusMessage: status }
@@ -356,7 +359,7 @@ export const useWorkflowPainter = ({
       logger.error('[BuilderWorkflow] Mask generation error:', err);
       if (creditDeducted && userId && userId !== 'default_user' && !DEV_MODE) {
         await refundCredits(userId, cost, 'AI Mask Inpaint Failure Refund').catch(() => {});
-        getUserCredit(userId).then(c => c && useAIConfigStore.getState().setUserCredits(c.balance)).catch(() => {});
+        getUserCredit(userId).then((c: any) => c && useAIConfigStore.getState().setUserCredits(c.balance)).catch(() => {});
       }
       window.dispatchEvent(new CustomEvent('anarchy:mask-generation-error'));
       

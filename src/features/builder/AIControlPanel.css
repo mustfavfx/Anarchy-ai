@@ -191,6 +191,11 @@
   color: #e11d48;
 }
 
+.dropdown-item svg.aspect-ratio-icon {
+  margin-left: 0 !important;
+  color: inherit;
+}
+
 /* Engine Section */
 .engine-section {
   margin-top: 2px;

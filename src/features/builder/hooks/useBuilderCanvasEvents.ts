@@ -199,7 +199,7 @@ export function useBuilderCanvasEvents({
   ) => {
     if (!contextNode) return;
 
-    setConfig(prev => ({
+    setConfig((prev: any) => ({
       ...prev,
       selectedTool: tool,
       model: model as any,

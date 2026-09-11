@@ -21,7 +21,7 @@ interface UseBuilderPersistenceArgs {
   fitView: (options?: any) => void;
   isRestored: boolean;
   createSourceNode: () => string;
-  setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>;
+  setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>> | ((id: string | null) => void);
   setSelectedNode: (node: any) => void;
   hasFittedInitiallyRef?: React.RefObject<boolean>;
   forceCanvasRepaint?: () => void;
