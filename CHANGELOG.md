@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.91] - 2026-09-11
+
+### Fixed & Enforced
+- **Mandatory Update Dialog Enforcement & Persistence**:
+  - Removed auto-install timer from [`UpdateNotification.tsx`](file:///e:/New%20folder%20(5)/Anarchy%20Ai%200.07/src/features/updater/UpdateNotification.tsx) to ensure the update modal never auto-dismisses or disappears unexpectedly.
+  - Implemented an unclosable full-screen backdrop overlay (`z-index: 99999`) preventing application interactions until the user confirms the update.
+  - Added clear error handling with retry and manual download fallbacks.
+- **Canvas Builder Runtime Stability & Reference Fix**:
+  - Restored and secured `activeTarget` reactive memoization inside [`useBuilderWorkflow.ts`](file:///e:/New%20folder%20(5)/Anarchy%20Ai%200.07/src/features/builder/useBuilderWorkflow.ts), resolving the runtime `ReferenceError: activeTarget is not defined` when opening the Canvas / Builder page.
+
 ## [0.3.90] - 2026-09-11
 
 ### Added

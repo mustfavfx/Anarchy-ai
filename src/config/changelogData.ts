@@ -13,9 +13,31 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.90',
+    version: 'v0.3.91',
     date: 'September 11, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'fix',
+        title: 'Mandatory Update Dialog Enforcement & Unclosable Persistence',
+        description: 'Eliminated auto-dismissal timeouts from the update notification. The mandatory update modal now stays firmly pinned with a frosted glass backdrop blocking application interactions until the user explicitly clicks Update Now, guaranteeing all clients transition smoothly to the latest build.'
+      },
+      {
+        type: 'fix',
+        title: 'Canvas Builder activeTarget Scope Resolution & Crash Prevention',
+        description: 'Fully restored and hardened activeTarget memoization within useBuilderWorkflow, eliminating runtime ReferenceErrors and guaranteeing immediate, stable canvas loading across all tabs.'
+      },
+      {
+        type: 'feature',
+        title: 'Universal Aspect Ratio Proportional Geometric Indicators',
+        description: 'Crisp, real-time geometric rectangle preview icons representing exact image frame proportions (from ultrawide 4:1 to vertical 9:21) next to aspect ratio numbers across all AI engines and layout reframe tools.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.90',
+    date: 'September 11, 2026',
+    status: 'release',
     features: [
       {
         type: 'feature',
