@@ -9,6 +9,7 @@ import {
   ReactFlowProvider,
   SelectionMode,
   useStore,
+  type DefaultEdgeOptions,
 } from '@xyflow/react';
 import { LayoutGrid } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
@@ -24,9 +25,9 @@ import { BuilderCanvasModals } from './components/BuilderCanvasModals';
 import { BuilderCanvasSvgDefs } from './components/BuilderCanvasSvgDefs';
 import { useBuilderDrop } from './hooks/useBuilderDrop';
 import { useBuilderKeyboard } from './hooks/useBuilderKeyboard';
+import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { useAuth } from '../auth/AuthContext';
 import { logger } from '../../utils/logger';
-import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { invoke } from '@tauri-apps/api/core';
 import { watermarkService } from '../../services/watermark/WatermarkService';
 import { getCurrentUserId } from '../../services/supabase/supabaseClient';
@@ -50,6 +51,23 @@ import {
 } from './utils/builderHelpers';
 
 import './BuilderPage.css';
+
+const PRO_OPTIONS = { hideAttribution: true };
+const FIT_VIEW_OPTIONS = { padding: 0.2, minZoom: 0.6, maxZoom: 2, duration: 300 };
+const DEFAULT_EDGE_OPTIONS: DefaultEdgeOptions = {
+  type: 'default',
+  animated: false,
+  label: null,
+  style: {
+    strokeWidth: 2.5,
+    stroke: '#e11d48',
+    strokeDasharray: '6 4',
+    strokeLinecap: 'round',
+  }
+};
+const PAN_ON_DRAG_BUTTONS: [number, number] = [1, 2];
+const MULTI_SELECTION_KEY_CODES = ['Shift', 'Control'];
+const DELETE_KEY_CODES = ['Delete', 'Backspace'];
 
 const getAutosaveKey = (tabId?: string) => {
   const uid = getCurrentUserId();
@@ -178,20 +196,36 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     setCreditError,
   });
 
+  // Node tracking ref for effects without re-triggering on node mutations
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
   // Ensure an idle Standalone Ghost Node is present on canvas ONLY when in Generate mode
   useEffect(() => {
-    if (isGenerateMode && isRestored) {
-      const hasIdleGhost = nodes.some(n => n.data?.type === 'ghost' && !n.data?.lineage?.parentId && n.data?.state === 'idle');
+    if (!isRestored) return;
+    if (isGenerateMode) {
+      const hasIdleGhost = nodesRef.current.some(n => 
+        (n.data?.isStandaloneGenerator || n.data?.label === 'Generator') && 
+        n.data?.type === 'ghost' && 
+        !n.data?.lineage?.parentId && 
+        n.data?.state === 'idle'
+      );
       if (!hasIdleGhost) {
         createStandaloneGhostNode();
       }
-    } else if (!isGenerateMode && isRestored) {
-      const idleStandaloneGhost = nodes.find(n => n.data?.type === 'ghost' && !n.data?.lineage?.parentId && n.data?.state === 'idle');
-      if (idleStandaloneGhost) {
-        setNodes(nds => nds.filter(n => n.id !== idleStandaloneGhost.id));
+    } else {
+      const standaloneGhosts = nodesRef.current.filter(n => 
+        (n.data?.isStandaloneGenerator || n.data?.label === 'Generator') && 
+        n.data?.type === 'ghost' && 
+        !n.data?.lineage?.parentId && 
+        n.data?.state === 'idle'
+      );
+      if (standaloneGhosts.length > 0) {
+        const removeIds = new Set(standaloneGhosts.map(n => n.id));
+        setNodes(nds => nds.filter(n => !removeIds.has(n.id)));
       }
     }
-  }, [isGenerateMode, isRestored, nodes, createStandaloneGhostNode, setNodes]);
+  }, [isGenerateMode, isRestored, createStandaloneGhostNode, setNodes]);
 
   const handleNodesChange = useCallback((changes: any[]) => {
     const sanitizedChanges = changes.filter(change => {
@@ -237,7 +271,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     return state.config.upscaleFactor ?? 2;
   });
   const setSelectedNode = useAIConfigStore((state) => state.setSelectedNode);
-  const storeSelectedNode = useAIConfigStore((state) => state.selectedNode);
+  const storeSelectedNodeId = useAIConfigStore((state) => state.selectedNode?.id);
   const setCompareSlot = useAIConfigStore((state) => state.setCompareSlot);
   const setConfig = useAIConfigStore((state) => state.setConfig);
   const isEnlargedView = useAIConfigStore((state) => state.isEnlargedView);
@@ -378,7 +412,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
 
   useEffect(() => {
     if (!isEnlargedView) return;
-    const targetNodeId = selectedNodeId || storeSelectedNode?.id;
+    const targetNodeId = selectedNodeId || storeSelectedNodeId;
     if (!targetNodeId) return;
 
     const centerTimer = setTimeout(() => {
@@ -394,7 +428,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     }, 120);
 
     return () => clearTimeout(centerTimer);
-  }, [isEnlargedView, selectedNodeId, storeSelectedNode?.id, getRFNode, fitBounds]);
+  }, [isEnlargedView, selectedNodeId, storeSelectedNodeId, getRFNode, fitBounds]);
 
   // Hook 3: Project Synchronization, Auto-load & Snapshots
   const {
@@ -470,8 +504,6 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   });
 
   // Sync selected node to AIConfigContext
-  const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
 
   useEffect(() => {
     logger.log('[BuilderPage] selectedNodeId changed:', selectedNodeId);
@@ -726,7 +758,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
         <BuilderCanvasSvgDefs />
 
         <ReactFlow
-          proOptions={{ hideAttribution: true }}
+          proOptions={PRO_OPTIONS}
           nodes={nodesWithCallbacks}
           edges={edges}
           onNodesChange={handleNodesChange}
@@ -743,32 +775,22 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           onNodeDragStop={handleNodeDragStop}
           nodeTypes={memoizedNodeTypes}
           edgeTypes={memoizedEdgeTypes}
-          fitViewOptions={{ padding: 0.2, minZoom: 0.6, maxZoom: 2, duration: 300 }}
+          fitViewOptions={FIT_VIEW_OPTIONS}
           colorMode="dark"
           minZoom={0.01}
           maxZoom={2}
           connectionLineComponent={CustomConnectionLine}
-          defaultEdgeOptions={{
-            type: 'default',
-            animated: false,
-            label: null,
-            style: {
-              strokeWidth: 2.5,
-              stroke: '#e11d48',
-              strokeDasharray: '6 4',
-              strokeLinecap: 'round',
-            }
-          }}
+          defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
           onlyRenderVisibleElements={true}
           panOnScroll={false}
           zoomOnScroll={true}
           zoomOnPinch={true}
           zoomOnDoubleClick={false}
-          panOnDrag={isSpacePressed ? true : [1, 2]}
+          panOnDrag={isSpacePressed ? true : PAN_ON_DRAG_BUTTONS}
           selectionOnDrag={!isSpacePressed}
           selectionMode={SelectionMode.Partial}
-          multiSelectionKeyCode={['Shift', 'Control']}
-          deleteKeyCode={['Delete', 'Backspace']}
+          multiSelectionKeyCode={MULTI_SELECTION_KEY_CODES}
+          deleteKeyCode={DELETE_KEY_CODES}
           elevateNodesOnSelect={true}
           nodesDraggable={true}
           nodesConnectable={true}

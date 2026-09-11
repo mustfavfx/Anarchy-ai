@@ -248,7 +248,8 @@ export const useWorkflowNodeOps = ({
         createdAt: Date.now(),
         lineage,
         config: {},
-        pendingPlacement: false
+        pendingPlacement: false,
+        isStandaloneGenerator: true
       } as BuilderNodeData
     };
 

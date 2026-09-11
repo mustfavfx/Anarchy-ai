@@ -48,37 +48,12 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
 }) => {
   const config = useAIConfigStore((state) => state.config);
   const setConfig = useAIConfigStore((state) => state.setConfig);
+  const selectedTool: ToolType = config.selectedTool || 'image-editor';
   
-  // Initialize selectedTool from config, but only once on mount
-  const initialToolRef = useRef<ToolType>(config.selectedTool || 'image-editor');
-  const [selectedTool, setSelectedTool] = useState<ToolType>(initialToolRef.current);
   const [showToolDropdown, setShowToolDropdown] = useState(false);
   const [showEngineDropdown, setShowEngineDropdown] = useState(false);
   const [showResDropdown, setShowResDropdown] = useState(false);
   const [showAspectDropdown, setShowAspectDropdown] = useState(false);
-
-  // Ref to track previous tool value
-  const prevSelectedToolRef = useRef<ToolType>(selectedTool);
-  
-  // Sync external config changes to local state (when config changes from outside)
-  useEffect(() => {
-    if (config.selectedTool !== selectedTool) {
-      setSelectedTool(config.selectedTool);
-      prevSelectedToolRef.current = config.selectedTool;
-    }
-  }, [config.selectedTool, selectedTool]);
-  
-  // Sync selectedTool to AIConfigContext - only when local tool changes
-  useEffect(() => {
-    if (prevSelectedToolRef.current !== selectedTool) {
-      prevSelectedToolRef.current = selectedTool;
-      setConfig(prev => ({ 
-        ...prev, 
-        selectedTool,
-        ...(selectedTool !== 'image-editor' ? { studioMode: 'edit' } : {})
-      }));
-    }
-  }, [selectedTool, setConfig]);
 
   // Ensure active model is a Reve model when anarchy-creator is selected
   useEffect(() => {
@@ -176,18 +151,38 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   useEffect(() => {
     const updates: Partial<typeof params> = {};
     
-    if (params.resolution && !availableResolutions.includes(params.resolution)) {
-      updates.resolution = availableResolutions[0] ?? 'Auto';
+    // Only adjust resolution if model actually provides a non-empty list of supported resolutions
+    if (
+      availableResolutions && 
+      availableResolutions.length > 0 && 
+      params.resolution && 
+      !availableResolutions.includes(params.resolution)
+    ) {
+      const nextRes = availableResolutions[0] ?? 'Auto';
+      if (nextRes !== params.resolution) {
+        updates.resolution = nextRes;
+      }
     }
     
-    if (params.aspectRatio && !availableAspectRatios.includes(params.aspectRatio)) {
-      updates.aspectRatio = availableAspectRatios[0] ?? '1:1';
+    // Only adjust aspect ratio if model actually provides a non-empty list of supported aspect ratios
+    if (
+      availableAspectRatios && 
+      availableAspectRatios.length > 0 && 
+      params.aspectRatio && 
+      !availableAspectRatios.includes(params.aspectRatio)
+    ) {
+      const nextAspect = availableAspectRatios[0] ?? '1:1';
+      if (nextAspect !== params.aspectRatio) {
+        updates.aspectRatio = nextAspect;
+      }
     }
 
     if (selectedModel === 'bytedance/seedance-2.0') {
       const dur = params.videoDuration != null ? Number(String(params.videoDuration).replace('s', '')) : 5;
       if (dur !== -1 && (dur < 4 || dur > 15)) {
-        updates.videoDuration = '5';
+        if (params.videoDuration !== '5') {
+          updates.videoDuration = '5';
+        }
       }
     }
     
@@ -298,13 +293,16 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                 className={`dropdown-item ${selectedTool === tool.id ? 'active' : ''} ${tool.disabled ? 'disabled' : ''}`}
                 onClick={() => {
                   if (tool.disabled) return;
-                  setSelectedTool(tool.id);
-                  if (tool.id !== 'image-editor') {
-                    setConfig(prev => ({ ...prev, studioMode: 'edit' }));
-                  }
-                  const enginesForTool = ENGINES.filter(e => e.tool === tool.id);
-                  if (enginesForTool.length > 0 && !enginesForTool.some(e => e.id === selectedModel)) {
-                    onModelChange(enginesForTool[0].id);
+                  if (tool.id !== selectedTool) {
+                    setConfig(prev => ({
+                      ...prev,
+                      selectedTool: tool.id,
+                      ...(tool.id !== 'image-editor' ? { studioMode: 'edit' } : {})
+                    }));
+                    const enginesForTool = ENGINES.filter(e => e.tool === tool.id);
+                    if (enginesForTool.length > 0 && !enginesForTool.some(e => e.id === selectedModel)) {
+                      onModelChange(enginesForTool[0].id);
+                    }
                   }
                   setShowEngineDropdown(false);
                   setShowToolDropdown(false);

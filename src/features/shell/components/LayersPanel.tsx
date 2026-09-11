@@ -1,10 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
-  Layers, X, Eye, EyeOff, Lock, Unlock, Plus, Trash2, Loader2, 
-  Link2, Copy, Contrast, ArrowUp, ArrowDown, Paintbrush2, ArrowLeftRight, FileCode
+  X, Eye, EyeOff, Lock, Unlock, Plus, Trash2, Loader2, 
+  Link2, Copy, Contrast, ArrowUp, ArrowDown, Paintbrush2, FileCode,
+  Search, ChevronDown, ChevronRight, Folder, Move, MoreHorizontal
 } from 'lucide-react';
 import { useResolvedImage } from '../../../hooks';
 import { useTranslation } from '../../../services/i18n';
+import { PhotoshopColorPanel } from './PhotoshopColorPanel';
+import { PhotoshopAdjustmentsPanel } from './PhotoshopAdjustmentsPanel';
 
 const LayerThumbnail: React.FC<{ rawSrc?: string | null; alt: string; className?: string }> = ({ rawSrc, alt, className }) => {
   const resolved = useResolvedImage(rawSrc);
@@ -89,22 +92,19 @@ export const BLEND_MODE_GROUPS: {
   },
 ];
 
-export const BLEND_MODES: { value: PhotoshopBlendMode; label: string }[] = BLEND_MODE_GROUPS.flatMap(g => g.modes);
-
 export interface InpaintLayer {
   id: string;
   name: string;
-  prompt: string;
+  prompt?: string;
   image: string;
   maskDataUrl?: string | null;
   maskPreviewUrl?: string | null;
   visible: boolean;
-  opacity?: number; // 0 to 100
+  opacity?: number;
   blendMode?: PhotoshopBlendMode;
   locked?: boolean;
-  selectedTarget: 'image' | 'mask';
-  isGenerating?: boolean;
-  createdAt: number;
+  selectedTarget?: 'image' | 'mask';
+  createdAt?: number;
 }
 
 export interface LayersPanelProps {
@@ -130,7 +130,7 @@ export interface LayersPanelProps {
   currentMaskPreviewUrl?: string | null;
   hasActiveMask?: boolean;
   maskVisible?: boolean;
-  maskOpacity?: number; // 0 to 100 or 0 to 1
+  maskOpacity?: number;
   maskBlendMode?: PhotoshopBlendMode;
   onChangeMaskOpacity?: (opacity: number) => void;
   onChangeMaskBlendMode?: (mode: PhotoshopBlendMode) => void;
@@ -139,6 +139,9 @@ export interface LayersPanelProps {
   activeMaskColor?: 'white' | 'black';
   onToggleMaskColor?: () => void;
   onExportPsd?: () => void;
+  brushColor?: string;
+  onChangeBrushColor?: (color: string) => void;
+  onOpenColorRange?: () => void;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
@@ -173,35 +176,40 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   activeMaskColor = 'white',
   onToggleMaskColor,
   onExportPsd,
+  brushColor = '#e11d48',
+  onChangeBrushColor,
+  onOpenColorRange,
 }) => {
   const { isAr } = useTranslation();
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string>('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (editingLayerId && renameInputRef.current) {
-      renameInputRef.current.focus();
-      renameInputRef.current.select();
-    }
-  }, [editingLayerId]);
+  // Studio Dock Accordion Groups State
+  const [isColorOpen, setIsColorOpen] = useState(true);
+  const [isAdjustmentsOpen, setIsAdjustmentsOpen] = useState(true);
+  const [isLayersOpen, setIsLayersOpen] = useState(true);
+
+  // Layers Tab & Filter State
+  const [layersTab, setLayersTab] = useState<'layers' | 'channels' | 'paths'>('layers');
+  const [filterType, setFilterType] = useState<'all' | 'image' | 'adjustment' | 'text' | 'shape' | 'smart'>('all');
+  const [fillOpacity, setFillOpacity] = useState<number>(100);
 
   const isMaskActive = activeLayerId === 'active-mask';
   const isBaseActive = activeLayerId === 'base';
   const activeLayer = layers.find(l => l.id === activeLayerId);
 
-  // Compute active blend mode
+  // Active blend mode & opacity
   let currentBlendMode: PhotoshopBlendMode = 'normal';
   if (isMaskActive) {
     currentBlendMode = maskBlendMode || 'normal';
-  } else if (activeLayer) {
-    currentBlendMode = activeLayer.blendMode || 'normal';
+  } else if (activeLayer && activeLayer.blendMode) {
+    currentBlendMode = activeLayer.blendMode;
   }
 
-  // Compute active opacity (0-100)
   let currentOpacity = 100;
   if (isMaskActive) {
-    currentOpacity = Math.round(maskOpacity <= 1 ? maskOpacity * 100 : maskOpacity);
+    currentOpacity = maskOpacity !== undefined ? Math.round(maskOpacity * (maskOpacity <= 1 ? 100 : 1)) : 100;
   } else if (isBaseActive) {
     currentOpacity = baseImageOpacity !== undefined ? baseImageOpacity : 100;
   } else if (activeLayer) {
@@ -209,7 +217,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   }
 
   const isLayerLocked = Boolean(activeLayer?.locked);
-
   const activeIndex = layers.findIndex(l => l.id === activeLayerId);
   const canMoveUp = activeIndex > 0;
   const canMoveDown = activeIndex >= 0 && activeIndex < layers.length - 1;
@@ -237,457 +244,639 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
 
   return (
     <div className="mask-layers-docked-panel ps-layers-panel">
-      {/* Docked Layers Header */}
-      <div className="mask-layers-dock-header">
-        <div className="mask-layers-title-row">
-          <Layers size={14} className="mask-layers-header-icon" />
-          <span className="mask-layers-title-text">{isAr ? 'الطبقات' : 'Layers'}</span>
+      {/* Studio Dock Master Header */}
+      <div className="ps-dock-master-bar">
+        <div className="ps-dock-title-group">
+          <span className="ps-dock-title-text">{isAr ? 'لوحات فوتوشوب' : 'Photoshop Studio'}</span>
           <span className="ps-layer-count-badge" title={isAr ? `${totalLayerCount} طبقات نشطة` : `${totalLayerCount} Layers Active`}>
             {totalLayerCount}
           </span>
         </div>
-        <button type="button" className="mask-layers-close-btn" onClick={onClose} title={isAr ? 'إغلاق لوحة الطبقات' : 'Close Layers'}>
-          <X size={14} />
+        <button type="button" className="mask-layers-close-btn" onClick={onClose} title={isAr ? 'إغلاق لوحة الطبقات' : 'Close Panels'}>
+          <X size={13} />
         </button>
       </div>
 
-      {/* Photoshop Top Controls: Blend Mode & Opacity */}
-      <div className="ps-layers-top-controls">
-        <div className="ps-control-row">
-          {/* Blend Mode Dropdown */}
-          <select
-            className="ps-blend-mode-select"
-            value={currentBlendMode}
-            onChange={(e) => {
-              const newMode = e.target.value as PhotoshopBlendMode;
-              if (isMaskActive && onChangeMaskBlendMode) {
-                onChangeMaskBlendMode(newMode);
-              } else if (activeLayerId && !isBaseActive && onChangeBlendMode) {
-                onChangeBlendMode(activeLayerId, newMode);
-              }
-            }}
-            disabled={(!isMaskActive && (!activeLayerId || isBaseActive || isLayerLocked))}
-            title={isAr ? 'وضع دمج الطبقة (Blend Mode)' : 'Layer Blend Mode'}
+      <div className="ps-dock-scrollable-body">
+        {/* GROUP 1: Color & Swatches */}
+        <div className={`ps-dock-accordion-group ${isColorOpen ? 'open' : 'collapsed'}`}>
+          <div 
+            className="ps-dock-accordion-header" 
+            onClick={() => setIsColorOpen(prev => !prev)}
+            title={isAr ? 'طي / توسيع لوحة الألوان' : 'Toggle Color Panel'}
           >
-            {BLEND_MODE_GROUPS.map(group => (
-              <optgroup key={group.groupName} label={`── ${group.groupName} ──`}>
-                {group.modes.map(mode => (
-                  <option key={mode.value} value={mode.value}>
-                    {mode.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-
-          {/* Opacity Slider & Value */}
-          <div className="ps-opacity-control" title={`${isAr ? 'الشفافية' : 'Opacity'}: ${currentOpacity}%`}>
-            <span className="ps-opacity-label">{isAr ? 'الشفافية:' : 'Opacity:'}</span>
-            <input
-              type="range"
-              min="5"
-              max="100"
-              value={currentOpacity}
-              disabled={(!isMaskActive && !isBaseActive && (!activeLayerId || isLayerLocked))}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                if (isMaskActive && onChangeMaskOpacity) {
-                  onChangeMaskOpacity(val);
-                } else if (isBaseActive && onChangeBaseOpacity) {
-                  onChangeBaseOpacity(val);
-                } else if (activeLayerId && !isBaseActive && onChangeOpacity) {
-                  onChangeOpacity(activeLayerId, val);
-                }
-              }}
-              className="ps-opacity-slider"
-            />
-            <span className="ps-opacity-val">{currentOpacity}%</span>
+            {isColorOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            <span className="ps-accordion-title">{isAr ? 'اللون والعينات' : 'Color & Swatches'}</span>
           </div>
+          {isColorOpen && (
+            <PhotoshopColorPanel
+              activeColor={brushColor || (activeMaskColor === 'white' ? '#ffffff' : '#000000')}
+              onChangeColor={(color) => {
+                if (onChangeBrushColor) onChangeBrushColor(color);
+              }}
+              secondaryColor={activeMaskColor === 'white' ? '#000000' : '#ffffff'}
+              onToggleMaskColor={onToggleMaskColor}
+              activeMaskColor={activeMaskColor}
+            />
+          )}
         </div>
 
-        {/* Reorder and Lock Row */}
-        {activeLayerId && !isBaseActive && !isMaskActive && (
-          <div className="ps-layer-sub-controls">
-            <div className="ps-reorder-buttons">
-              <button
-                type="button"
-                className="ps-mini-btn"
-                disabled={!canMoveUp}
-                onClick={() => onReorderLayers && onReorderLayers(activeIndex, activeIndex - 1)}
-                title={isAr ? 'تحريك الطبقة للأعلى' : 'Bring Forward'}
-              >
-                <ArrowUp size={11} />
-              </button>
-              <button
-                type="button"
-                className="ps-mini-btn"
-                disabled={!canMoveDown}
-                onClick={() => onReorderLayers && onReorderLayers(activeIndex, activeIndex + 1)}
-                title={isAr ? 'تحريك الطبقة للأسفل' : 'Send Backward'}
-              >
-                <ArrowDown size={11} />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className={`ps-mini-btn ${isLayerLocked ? 'active-lock' : ''}`}
-              onClick={() => onToggleLock && onToggleLock(activeLayerId)}
-              title={isLayerLocked ? (isAr ? 'إلغاء قفل الطبقة' : 'Unlock Layer') : (isAr ? 'قفل الطبقة' : 'Lock Layer')}
-            >
-              {isLayerLocked ? <Lock size={11} style={{ color: '#ffffff' }} /> : <Unlock size={11} />}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Layers Stack List */}
-      <div className="mask-layers-list ps-layers-list">
-        {/* Active Generating Layer Indicator */}
-        {isGenerating && (
-          <div className="mask-layer-item ps-layer-item generating active">
-            <div className="vizmaker-layer-eye-btn">
-              <Loader2 size={13} className="spin" style={{ color: '#ffffff' }} />
-            </div>
-            <div className="ps-thumb-group">
-              <div className="ps-thumb ps-thumb-image">
-                {baseImage ? (
-                  <LayerThumbnail rawSrc={baseImage} alt="Base" />
-                ) : (
-                  <div className="vizmaker-empty-thumb" />
-                )}
-              </div>
-              <div className="ps-thumb-link">
-                <Link2 size={11} style={{ color: 'rgba(255,255,255,0.5)' }} />
-              </div>
-              <div className="ps-thumb ps-thumb-mask active-mask-target">
-                {currentMaskPreviewUrl ? (
-                  <img src={currentMaskPreviewUrl} alt="Mask Thumb" className="vizmaker-layer-img-preview" />
-                ) : (
-                  <div className="ps-mask-white-fill" />
-                )}
-              </div>
-            </div>
-            <span className="vizmaker-layer-title generating-title">
-              {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : 'Generating inpaint...'}
-            </span>
-          </div>
-        )}
-
-        {/* Live Active Drawing / Mask Selection Layer */}
-        {showActiveMaskRow && !isGenerating && (
+        {/* GROUP 2: Adjustments & Presets */}
+        <div className={`ps-dock-accordion-group ${isAdjustmentsOpen ? 'open' : 'collapsed'}`}>
           <div 
-            className={`mask-layer-item ps-layer-item active-mask-layer ${isMaskActive ? 'active' : ''}`}
-            onClick={() => onSelectLayer('active-mask', 'mask')}
+            className="ps-dock-accordion-header" 
+            onClick={() => setIsAdjustmentsOpen(prev => !prev)}
+            title={isAr ? 'طي / توسيع لوحة التعديلات' : 'Toggle Adjustments Panel'}
           >
-            <button 
-              type="button" 
-              className="vizmaker-layer-eye-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleLayerVisibility('active-mask');
-              }}
-              title={maskVisible !== false ? 'Hide Mask Overlay (👁️)' : 'Show Mask Overlay'}
-            >
-              {maskVisible !== false ? (
-                <Eye size={13} className="vizmaker-layer-eye" />
-              ) : (
-                <EyeOff size={13} className="vizmaker-layer-eye off" />
-              )}
-            </button>
-
-            <div className="ps-thumb-group">
-              <div 
-                className={`ps-thumb ps-thumb-image ${isMaskActive && !isBaseActive ? '' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectLayer('active-mask', 'image');
-                }}
-                title="Base Image"
-              >
-                {baseImage ? (
-                  <img src={baseImage} alt="Base" className="vizmaker-layer-img-preview" />
-                ) : (
-                  <div className="vizmaker-empty-thumb" />
-                )}
-              </div>
-              <div className="ps-thumb-link">
-                <Link2 size={11} style={{ color: 'rgba(255, 255, 255, 0.6)' }} />
-              </div>
-              <div 
-                className={`ps-thumb ps-thumb-mask selected-target`} 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectLayer('active-mask', 'mask');
-                }}
-                title="Active Mask Stencil (Click to paint White/Black)"
-              >
-                {currentMaskPreviewUrl ? (
-                  <img src={currentMaskPreviewUrl} alt="Live Mask Cutout" className="vizmaker-layer-img-preview" />
-                ) : (
-                  <div className="ps-mask-empty-thumb" title="Empty Mask Stencil - Click to paint">
-                    <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.7)' }} />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="ps-layer-info">
-              <span className="vizmaker-layer-title ps-layer-title">
-                {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : (isAr ? 'قناع الطبقة' : 'Layer Mask')}
-              </span>
-              <span className="ps-layer-blend-badge">
-                {maskBlendMode && maskBlendMode !== 'normal' ? maskBlendMode : (isAr ? 'قناع نشط' : 'Active Stencil')}
-              </span>
-            </div>
+            {isAdjustmentsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            <span className="ps-accordion-title">{isAr ? 'التعديلات' : 'Adjustments'}</span>
           </div>
-        )}
+          {isAdjustmentsOpen && (
+            <PhotoshopAdjustmentsPanel
+              onInvertMask={onInvertMask ? () => onInvertMask(activeLayerId) : undefined}
+              onOpenColorRange={onOpenColorRange}
+              activeLayerId={activeLayerId}
+            />
+          )}
+        </div>
 
-        {/* Current Inpaint Layers Stack (Photoshop style) */}
-        {layers.map((layer) => {
-          const isLayerActive = activeLayerId === layer.id;
-          const isMaskSelected = isLayerActive && layer.selectedTarget === 'mask';
-          const isImageSelected = isLayerActive && layer.selectedTarget === 'image';
-          const layerOpacity = layer.opacity !== undefined ? layer.opacity : 100;
-          const layerBlend = layer.blendMode || 'normal';
-          const isEditing = editingLayerId === layer.id;
+        {/* GROUP 3: Layers / Channels / Paths */}
+        <div className={`ps-dock-accordion-group ps-layers-accordion-group ${isLayersOpen ? 'open' : 'collapsed'}`}>
+          <div 
+            className="ps-dock-accordion-header" 
+            onClick={() => setIsLayersOpen(prev => !prev)}
+            title={isAr ? 'طي / توسيع لوحة الطبقات' : 'Toggle Layers Panel'}
+          >
+            {isLayersOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            <span className="ps-accordion-title">{isAr ? 'الطبقات والقنوات' : 'Layers & Channels'}</span>
+          </div>
 
-          return (
-            <div
-              key={layer.id}
-              className={`mask-layer-item ps-layer-item ${isLayerActive ? 'active' : ''}`}
-              onClick={() => onSelectLayer(layer.id, isMaskSelected ? 'mask' : 'image')}
-            >
-              <button
-                type="button"
-                className="vizmaker-layer-eye-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleLayerVisibility(layer.id);
-                }}
-                title={layer.visible ? 'Hide Layer (👁️)' : 'Show Layer'}
-              >
-                {layer.visible ? (
-                  <Eye size={13} className="vizmaker-layer-eye" />
-                ) : (
-                  <EyeOff size={13} className="vizmaker-layer-eye off" />
-                )}
-              </button>
-
-              {/* Photoshop Dual Thumbnails with Link Chain */}
-              <div className="ps-thumb-group">
-                {/* Image Thumbnail */}
-                <div
-                  className={`ps-thumb ps-thumb-image ${isImageSelected ? 'selected-target' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectLayer(layer.id, 'image');
-                  }}
-                  title="Layer Image (Click to select image)"
-                >
-                  <LayerThumbnail rawSrc={layer.image} alt={layer.name} />
+          {isLayersOpen && (
+            <div className="ps-layers-section-container">
+              {/* Tabs: Layers | Channels | Paths */}
+              <div className="ps-dock-panel-tabs ps-layers-dock-tabs">
+                <div className="ps-dock-tabs-list">
+                  <button
+                    type="button"
+                    className={`ps-dock-tab ${layersTab === 'layers' ? 'active' : ''}`}
+                    onClick={() => setLayersTab('layers')}
+                  >
+                    {isAr ? 'الطبقات' : 'Layers'}
+                  </button>
+                  <button
+                    type="button"
+                    className={`ps-dock-tab ${layersTab === 'channels' ? 'active' : ''}`}
+                    onClick={() => setLayersTab('channels')}
+                  >
+                    {isAr ? 'القنوات' : 'Channels'}
+                  </button>
+                  <button
+                    type="button"
+                    className={`ps-dock-tab ${layersTab === 'paths' ? 'active' : ''}`}
+                    onClick={() => setLayersTab('paths')}
+                  >
+                    {isAr ? 'المسارات' : 'Paths'}
+                  </button>
                 </div>
+                <button type="button" className="ps-dock-tab-menu-btn" title="Panel Options">
+                  <MoreHorizontal size={13} />
+                </button>
+              </div>
 
-                {/* Photoshop Link Chain 🔗 */}
-                <div className="ps-thumb-link" title="Layer and Mask Linked">
-                  <Link2 size={11} />
-                </div>
+              {layersTab === 'layers' && (
+                <>
+                  {/* Photoshop Filter Bar: Kind ⌵ + Layer Type Icons */}
+                  <div className="ps-layers-filter-bar">
+                    <div className="ps-kind-dropdown-wrap">
+                      <Search size={11} className="ps-kind-search-icon" />
+                      <span className="ps-kind-text">Kind</span>
+                      <ChevronDown size={10} className="ps-kind-arrow" />
+                    </div>
 
-                {/* Layer Mask Thumbnail ⬜/⬛ */}
-                <div
-                  className={`ps-thumb ps-thumb-mask ${isMaskSelected ? 'selected-target' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectLayer(layer.id, 'mask');
-                  }}
-                  title="Layer Mask (Click to paint with White/Black)"
-                >
-                  {layer.maskPreviewUrl || layer.maskDataUrl ? (
-                    <img src={layer.maskPreviewUrl || layer.maskDataUrl || ''} alt="Mask" className="vizmaker-layer-img-preview" />
-                  ) : (
-                    <div className="ps-mask-empty-thumb" title="Empty Mask - Click to paint">
-                      <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                    <div className="ps-filter-icons-row">
+                      {/* Image layers */}
+                      <button
+                        type="button"
+                        className={`ps-filter-icon-btn ${filterType === 'image' ? 'active' : ''}`}
+                        onClick={() => setFilterType(f => f === 'image' ? 'all' : 'image')}
+                        title={isAr ? 'تصفية طبقات الصور' : 'Filter for pixel layers'}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                      </button>
+
+                      {/* Adjustment layers */}
+                      <button
+                        type="button"
+                        className={`ps-filter-icon-btn ${filterType === 'adjustment' ? 'active' : ''}`}
+                        onClick={() => setFilterType(f => f === 'adjustment' ? 'all' : 'adjustment')}
+                        title={isAr ? 'تصفية طبقات التعديل' : 'Filter for adjustment layers'}
+                      >
+                        <Contrast size={11} />
+                      </button>
+
+                      {/* Type layers */}
+                      <button
+                        type="button"
+                        className={`ps-filter-icon-btn ${filterType === 'text' ? 'active' : ''}`}
+                        onClick={() => setFilterType(f => f === 'text' ? 'all' : 'text')}
+                        title={isAr ? 'تصفية طبقات النصوص' : 'Filter for type layers'}
+                      >
+                        <span style={{ fontWeight: 'bold', fontSize: '11px', fontFamily: 'serif' }}>T</span>
+                      </button>
+
+                      {/* Shape layers */}
+                      <button
+                        type="button"
+                        className={`ps-filter-icon-btn ${filterType === 'shape' ? 'active' : ''}`}
+                        onClick={() => setFilterType(f => f === 'shape' ? 'all' : 'shape')}
+                        title={isAr ? 'تصفية طبقات الأشكال' : 'Filter for shape layers'}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="4" y="4" width="16" height="16" rx="1" />
+                        </svg>
+                      </button>
+
+                      {/* Filter On/Off Switch Pill */}
+                      <div 
+                        className={`ps-filter-toggle-pill ${filterType !== 'all' ? 'on' : ''}`}
+                        onClick={() => setFilterType('all')}
+                        title={filterType !== 'all' ? 'Turn off layer filtering' : 'Filter off'}
+                      >
+                        <div className="ps-filter-pill-thumb" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Blend Mode & Opacity Row */}
+                  <div className="ps-layers-top-controls">
+                    <div className="ps-control-row">
+                      <select
+                        className="ps-blend-mode-select"
+                        value={currentBlendMode}
+                        onChange={(e) => {
+                          const newMode = e.target.value as PhotoshopBlendMode;
+                          if (isMaskActive && onChangeMaskBlendMode) {
+                            onChangeMaskBlendMode(newMode);
+                          } else if (activeLayerId && !isBaseActive && onChangeBlendMode) {
+                            onChangeBlendMode(activeLayerId, newMode);
+                          }
+                        }}
+                        disabled={(!isMaskActive && (!activeLayerId || isBaseActive || isLayerLocked))}
+                        title={isAr ? 'وضع دمج الطبقة (Blend Mode)' : 'Layer Blend Mode'}
+                      >
+                        {BLEND_MODE_GROUPS.map(group => (
+                          <optgroup key={group.groupName} label={`── ${group.groupName} ──`}>
+                            {group.modes.map(mode => (
+                              <option key={mode.value} value={mode.value}>
+                                {mode.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+
+                      <div className="ps-opacity-control" title={`${isAr ? 'الشفافية' : 'Opacity'}: ${currentOpacity}%`}>
+                        <span className="ps-opacity-label">{isAr ? 'الشفافية:' : 'Opacity:'}</span>
+                        <input
+                          type="range"
+                          min="5"
+                          max="100"
+                          value={currentOpacity}
+                          disabled={(!isMaskActive && !isBaseActive && (!activeLayerId || isLayerLocked))}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            if (isMaskActive && onChangeMaskOpacity) {
+                              onChangeMaskOpacity(val);
+                            } else if (isBaseActive && onChangeBaseOpacity) {
+                              onChangeBaseOpacity(val);
+                            } else if (activeLayerId && !isBaseActive && onChangeOpacity) {
+                              onChangeOpacity(activeLayerId, val);
+                            }
+                          }}
+                          className="ps-opacity-slider"
+                        />
+                        <span className="ps-opacity-val">{currentOpacity}%</span>
+                      </div>
+                    </div>
+
+                    {/* Lock & Fill Row */}
+                    <div className="ps-lock-fill-row">
+                      <div className="ps-lock-icons-group">
+                        <span className="ps-lock-prefix">{isAr ? 'قفل:' : 'Lock:'}</span>
+                        <button
+                          type="button"
+                          className="ps-lock-icon-btn"
+                          title={isAr ? 'قفل البكسلات الشفافة' : 'Lock transparent pixels'}
+                        >
+                          <span style={{ fontSize: '10px' }}>🏁</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="ps-lock-icon-btn"
+                          title={isAr ? 'قفل بكسلات الصورة' : 'Lock image pixels'}
+                        >
+                          <Paintbrush2 size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          className="ps-lock-icon-btn"
+                          title={isAr ? 'قفل الموضع والحركة' : 'Lock position'}
+                        >
+                          <Move size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          className={`ps-lock-icon-btn ${isLayerLocked ? 'active' : ''}`}
+                          onClick={() => onToggleLock && onToggleLock(activeLayerId)}
+                          title={isLayerLocked ? (isAr ? 'إلغاء قفل الطبقة' : 'Unlock Layer') : (isAr ? 'قفل الطبقة بالكامل' : 'Lock All')}
+                        >
+                          <Lock size={11} />
+                        </button>
+                      </div>
+
+                      <div className="ps-fill-control-wrap">
+                        <span className="ps-fill-label">{isAr ? 'التعبئة:' : 'Fill:'}</span>
+                        <select
+                          className="ps-fill-select"
+                          value={fillOpacity}
+                          onChange={(e) => setFillOpacity(Number(e.target.value))}
+                        >
+                          <option value="100">100%</option>
+                          <option value="80">80%</option>
+                          <option value="60">60%</option>
+                          <option value="40">40%</option>
+                          <option value="20">20%</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Layers Stack List */}
+                  <div className="mask-layers-list ps-layers-list">
+                    {/* Active Generating Layer Indicator */}
+                    {isGenerating && (
+                      <div className="mask-layer-item ps-layer-item generating active">
+                        <div className="vizmaker-layer-eye-btn">
+                          <Loader2 size={13} className="spin" style={{ color: '#ffffff' }} />
+                        </div>
+                        <div className="ps-thumb-group">
+                          <div className="ps-thumb ps-thumb-image">
+                            {baseImage ? (
+                              <LayerThumbnail rawSrc={baseImage} alt="Base" />
+                            ) : (
+                              <div className="vizmaker-empty-thumb" />
+                            )}
+                          </div>
+                          <div className="ps-thumb-link">
+                            <Link2 size={11} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                          </div>
+                          <div className="ps-thumb ps-thumb-mask active-mask-target">
+                            {currentMaskPreviewUrl ? (
+                              <img src={currentMaskPreviewUrl} alt="Mask Thumb" className="vizmaker-layer-img-preview" />
+                            ) : (
+                              <div className="ps-mask-white-fill" />
+                            )}
+                          </div>
+                        </div>
+                        <span className="vizmaker-layer-title generating-title">
+                          {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : 'Generating inpaint...'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Live Active Drawing / Mask Selection Layer */}
+                    {showActiveMaskRow && !isGenerating && (
+                      <div 
+                        className={`mask-layer-item ps-layer-item active-mask-layer ${isMaskActive ? 'active' : ''}`}
+                        onClick={() => onSelectLayer('active-mask', 'mask')}
+                      >
+                        <button 
+                          type="button" 
+                          className="vizmaker-layer-eye-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleLayerVisibility('active-mask');
+                          }}
+                          title={maskVisible !== false ? 'Hide Mask Overlay (👁️)' : 'Show Mask Overlay'}
+                        >
+                          {maskVisible !== false ? (
+                            <Eye size={13} className="vizmaker-layer-eye" />
+                          ) : (
+                            <EyeOff size={13} className="vizmaker-layer-eye off" />
+                          )}
+                        </button>
+
+                        <div className="ps-thumb-group">
+                          <div 
+                            className={`ps-thumb ps-thumb-image ${isMaskActive && !isBaseActive ? '' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectLayer('active-mask', 'image');
+                            }}
+                            title="Base Image"
+                          >
+                            {baseImage ? (
+                              <LayerThumbnail rawSrc={baseImage} alt="Base" />
+                            ) : (
+                              <div className="vizmaker-empty-thumb" />
+                            )}
+                          </div>
+                          <div className="ps-thumb-link">
+                            <Link2 size={11} style={{ color: 'rgba(255, 255, 255, 0.6)' }} />
+                          </div>
+                          <div 
+                            className="ps-thumb ps-thumb-mask selected-target" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectLayer('active-mask', 'mask');
+                            }}
+                            title="Active Mask Stencil (Click to paint White/Black)"
+                          >
+                            {currentMaskPreviewUrl ? (
+                              <img src={currentMaskPreviewUrl} alt="Live Mask Cutout" className="vizmaker-layer-img-preview" />
+                            ) : (
+                              <div className="ps-mask-empty-thumb" title="Empty Mask Stencil - Click to paint">
+                                <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.7)' }} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="ps-layer-info">
+                          <span className="vizmaker-layer-title ps-layer-title">
+                            {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : (isAr ? 'قناع الطبقة' : 'Layer Mask')}
+                          </span>
+                          <span className="ps-layer-blend-badge">
+                            {maskBlendMode && maskBlendMode !== 'normal' ? maskBlendMode : (isAr ? 'قناع نشط' : 'Active Stencil')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Render Inpaint Generated Layers */}
+                    {layers.map((layer) => {
+                      const isSelected = activeLayerId === layer.id;
+                      const isImageSelected = isSelected;
+                      const isMaskSelected = false;
+                      const isEditing = editingLayerId === layer.id;
+                      const layerBlend = layer.blendMode || 'normal';
+                      const layerOpacity = layer.opacity !== undefined ? layer.opacity : 100;
+
+                      return (
+                        <div
+                          key={layer.id}
+                          className={`mask-layer-item ps-layer-item ${isSelected ? 'active' : ''} ${layer.locked ? 'locked' : ''}`}
+                          onClick={() => onSelectLayer(layer.id, 'image')}
+                        >
+                          <button
+                            type="button"
+                            className="vizmaker-layer-eye-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleLayerVisibility(layer.id);
+                            }}
+                            title={layer.visible ? 'Hide Layer (👁️)' : 'Show Layer'}
+                          >
+                            {layer.visible ? (
+                              <Eye size={13} className="vizmaker-layer-eye" />
+                            ) : (
+                              <EyeOff size={13} className="vizmaker-layer-eye off" />
+                            )}
+                          </button>
+
+                          {/* Photoshop Dual Thumbnails with Link Chain */}
+                          <div className="ps-thumb-group">
+                            <div
+                              className={`ps-thumb ps-thumb-image ${isImageSelected ? 'selected-target' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectLayer(layer.id, 'image');
+                              }}
+                              title="Layer Image (Click to select image)"
+                            >
+                              <LayerThumbnail rawSrc={layer.image} alt={layer.name} />
+                            </div>
+
+                            <div className="ps-thumb-link" title="Layer and Mask Linked">
+                              <Link2 size={11} />
+                            </div>
+
+                            <div
+                              className={`ps-thumb ps-thumb-mask ${isMaskSelected ? 'selected-target' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectLayer(layer.id, 'mask');
+                              }}
+                              title="Layer Mask (Click to paint with White/Black)"
+                            >
+                              {layer.maskPreviewUrl || layer.maskDataUrl ? (
+                                <img src={layer.maskPreviewUrl || layer.maskDataUrl || ''} alt="Mask" className="vizmaker-layer-img-preview" />
+                              ) : (
+                                <div className="ps-mask-empty-thumb" title="Empty Mask - Click to paint">
+                                  <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="ps-layer-info">
+                            {isEditing ? (
+                              <input
+                                ref={renameInputRef}
+                                type="text"
+                                className="ps-layer-rename-input"
+                                value={editingName}
+                                onChange={(e) => setEditingName(e.target.value)}
+                                onBlur={() => handleFinishRename(layer.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleFinishRename(layer.id);
+                                  if (e.key === 'Escape') setEditingLayerId(null);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <span 
+                                className="vizmaker-layer-title ps-layer-title" 
+                                title={`${layer.name} (Double-click to rename)`}
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartRename(layer.id, layer.name);
+                                }}
+                              >
+                                {layer.name.length > 18 ? layer.name.slice(0, 18) + '...' : layer.name}
+                              </span>
+                            )}
+                            {(layerBlend !== 'normal' || layerOpacity < 100) && (
+                              <span className="ps-layer-blend-badge">
+                                {layerBlend !== 'normal' ? layerBlend : ''} {layerOpacity < 100 ? `${layerOpacity}%` : ''}
+                              </span>
+                            )}
+                          </div>
+
+                          {layer.locked && (
+                            <Lock size={11} style={{ color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }} />
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Base Image Layer (Locked background layer) */}
+                    <div
+                      className={`mask-layer-item ps-layer-item ${isBaseActive ? 'active' : ''}`}
+                      onClick={() => onSelectLayer('base', 'image')}
+                    >
+                      <button
+                        type="button"
+                        className="vizmaker-layer-eye-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleBaseImageVisibility();
+                        }}
+                        title={baseImageVisible ? 'Hide Background' : 'Show Background'}
+                      >
+                        {baseImageVisible ? (
+                          <Eye size={13} className="vizmaker-layer-eye" />
+                        ) : (
+                          <EyeOff size={13} className="vizmaker-layer-eye off" />
+                        )}
+                      </button>
+
+                      <div className="ps-thumb-group">
+                        <div className={`ps-thumb ps-thumb-image ${isBaseActive ? 'selected-target' : ''}`}>
+                          {baseImage ? (
+                            <LayerThumbnail rawSrc={baseImage} alt="Base" />
+                          ) : (
+                            <div className="vizmaker-empty-thumb" />
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="vizmaker-layer-title ps-layer-title">{isAr ? 'الخلفية' : 'Background Base'}</span>
+                      <Lock size={13} className="vizmaker-layer-lock-icon" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {layersTab === 'channels' && (
+                <div className="ps-channels-list">
+                  <div className="ps-channel-item active">
+                    <Eye size={12} className="ps-channel-eye" />
+                    <div className="ps-channel-thumb rgb" />
+                    <span className="ps-channel-name">RGB</span>
+                    <span className="ps-channel-shortcut">Ctrl+2</span>
+                  </div>
+                  <div className="ps-channel-item">
+                    <Eye size={12} className="ps-channel-eye" />
+                    <div className="ps-channel-thumb red" />
+                    <span className="ps-channel-name">Red</span>
+                    <span className="ps-channel-shortcut">Ctrl+3</span>
+                  </div>
+                  <div className="ps-channel-item">
+                    <Eye size={12} className="ps-channel-eye" />
+                    <div className="ps-channel-thumb green" />
+                    <span className="ps-channel-name">Green</span>
+                    <span className="ps-channel-shortcut">Ctrl+4</span>
+                  </div>
+                  <div className="ps-channel-item">
+                    <Eye size={12} className="ps-channel-eye" />
+                    <div className="ps-channel-thumb blue" />
+                    <span className="ps-channel-name">Blue</span>
+                    <span className="ps-channel-shortcut">Ctrl+5</span>
+                  </div>
+                  {(hasActiveMask || currentMaskPreviewUrl) && (
+                    <div className="ps-channel-item mask-channel">
+                      <Eye size={12} className="ps-channel-eye" />
+                      <div className="ps-channel-thumb mask-stencil" />
+                      <span className="ps-channel-name">Alpha 1 (Mask)</span>
+                      <span className="ps-channel-shortcut">Ctrl+6</span>
                     </div>
                   )}
                 </div>
-              </div>
-
-              <div className="ps-layer-info">
-                {isEditing ? (
-                  <input
-                    ref={renameInputRef}
-                    type="text"
-                    className="ps-layer-rename-input"
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    onBlur={() => handleFinishRename(layer.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleFinishRename(layer.id);
-                      if (e.key === 'Escape') setEditingLayerId(null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <span 
-                    className="vizmaker-layer-title ps-layer-title" 
-                    title={`${layer.name} (Double-click to rename)`}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      handleStartRename(layer.id, layer.name);
-                    }}
-                  >
-                    {layer.name.length > 18 ? layer.name.slice(0, 18) + '...' : layer.name}
-                  </span>
-                )}
-                {(layerBlend !== 'normal' || layerOpacity < 100) && (
-                  <span className="ps-layer-blend-badge">
-                    {layerBlend !== 'normal' ? layerBlend : ''} {layerOpacity < 100 ? `${layerOpacity}%` : ''}
-                  </span>
-                )}
-              </div>
-
-              {layer.locked && (
-                <Lock size={11} style={{ color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }} />
               )}
-            </div>
-          );
-        })}
 
-        {/* Base Image Layer (Locked background layer) */}
-        <div
-          className={`mask-layer-item ps-layer-item ${isBaseActive ? 'active' : ''}`}
-          onClick={() => onSelectLayer('base', 'image')}
-        >
-          <button
-            type="button"
-            className="vizmaker-layer-eye-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleBaseImageVisibility();
-            }}
-            title={baseImageVisible ? 'Hide Background' : 'Show Background'}
-          >
-            {baseImageVisible ? (
-              <Eye size={13} className="vizmaker-layer-eye" />
-            ) : (
-              <EyeOff size={13} className="vizmaker-layer-eye off" />
-            )}
-          </button>
-
-          <div className="ps-thumb-group">
-            <div className={`ps-thumb ps-thumb-image ${isBaseActive ? 'selected-target' : ''}`}>
-              {baseImage ? (
-                <img src={baseImage} alt="Base" className="vizmaker-layer-img-preview" />
-              ) : (
-                <div className="vizmaker-empty-thumb" />
+              {layersTab === 'paths' && (
+                <div className="ps-empty-tab-note">
+                  <span>{isAr ? 'لا توجد مسارات متجهة حالياً' : 'No vector paths available'}</span>
+                </div>
               )}
+
+              {/* Photoshop Iconic Footer Action Bar */}
+              <div className="mask-layers-dock-footer ps-photoshop-footer">
+                <button
+                  type="button"
+                  className="ps-dock-action-btn"
+                  title={isAr ? 'ربط الطبقات (Link Layers)' : 'Link Layers'}
+                >
+                  <Link2 size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  className="ps-dock-action-btn"
+                  title={isAr ? 'تأثيرات ونمط الطبقة (Layer Styles fx)' : 'Add a layer style (fx)'}
+                >
+                  <span style={{ fontWeight: 'bold', fontStyle: 'italic', fontSize: '12px', fontFamily: 'serif' }}>fx</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="ps-dock-action-btn"
+                  onClick={() => onSelectLayer('active-mask', 'mask')}
+                  title={isAr ? 'إضافة قناع طبقة (Add Layer Mask)' : 'Add layer mask'}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="12" cy="12" r="5" fill="currentColor" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  className="ps-dock-action-btn"
+                  onClick={onOpenColorRange}
+                  title={isAr ? 'إنشاء طبقة ضبط جديدة (New Adjustment Layer)' : 'Create new fill or adjustment layer'}
+                >
+                  <Contrast size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  className="ps-dock-action-btn"
+                  title={isAr ? 'إنشاء مجموعة جديدة (New Group)' : 'Create a new group'}
+                >
+                  <Folder size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  className="ps-dock-action-btn"
+                  onClick={onAddLayer}
+                  title={isAr ? 'إنشاء طبقة جديدة (Create New Layer)' : 'Create a new layer'}
+                >
+                  <Plus size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  className="ps-dock-action-btn delete"
+                  onClick={() => {
+                    if (isDeleteEnabled) {
+                      onDeleteLayer(activeLayerId);
+                    }
+                  }}
+                  disabled={!isDeleteEnabled}
+                  title={isAr ? 'حذف الطبقة (Delete Layer)' : 'Delete layer'}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
-          </div>
-
-          <span className="vizmaker-layer-title ps-layer-title">{isAr ? 'الخلفية' : 'Background'}</span>
-          <Lock size={13} className="vizmaker-layer-lock-icon" />
-        </div>
-      </div>
-
-      {/* Footer with Mask Color Quick Switcher and Actions */}
-      <div className="mask-layers-dock-footer ps-layers-footer">
-        {onToggleMaskColor && (
-          <div
-            className="ps-layer-color-switch"
-            onClick={onToggleMaskColor}
-            title={
-              isAr
-                ? `تبديل لون فرشة الماسك (اختصار: X)\nالحالي: ${activeMaskColor === 'white' ? 'رسم الماسك (أبيض)' : 'مسح الماسك (أسود)'}`
-                : `Toggle Mask Brush (Shortcut: X)\nCurrent: ${activeMaskColor === 'white' ? 'Paint Mask (White)' : 'Erase Mask (Black)'}`
-            }
-          >
-            <div className="ps-color-chips-wrap">
-              <div 
-                className={`ps-color-chip white ${activeMaskColor === 'white' ? 'active' : ''}`} 
-                title={isAr ? 'أبيض: رسم الماسك' : 'White: Paint Mask'} 
-              />
-              <ArrowLeftRight size={10} className="ps-color-swap-icon" />
-              <div 
-                className={`ps-color-chip black ${activeMaskColor === 'black' ? 'active' : ''}`} 
-                title={isAr ? 'أسود: مسح الماسك' : 'Black: Erase Mask'} 
-              />
-            </div>
-            <span className="ps-color-label">
-              {activeMaskColor === 'white' ? (isAr ? 'رسم' : 'Paint') : (isAr ? 'مسح' : 'Erase')}
-            </span>
-            <span className="ps-color-shortcut">X</span>
-          </div>
-        )}
-
-        {onToggleMaskColor && <div className="ps-footer-divider" />}
-
-        <div className="ps-footer-buttons">
-          {/* Invert Mask Button (Ctrl+I) */}
-          {onInvertMask && (
-            <button
-              type="button"
-              className="mask-layer-action-btn"
-              onClick={() => onInvertMask(activeLayerId)}
-              title={isAr ? 'عكس قناع الماسك (Ctrl+I)' : 'Invert Layer Mask (Ctrl+I)'}
-              disabled={!activeLayerId || activeLayerId === 'base'}
-            >
-              <Contrast size={14} />
-            </button>
           )}
-
-          {/* Duplicate Layer (Ctrl+J) */}
-          {onDuplicateLayer && (
-            <button
-              type="button"
-              className="mask-layer-action-btn"
-              onClick={() => onDuplicateLayer(activeLayerId)}
-              title={isAr ? 'مضاعفة الطبقة الحالية (Ctrl+J)' : 'Duplicate Layer (Ctrl+J)'}
-              disabled={!activeLayerId}
-            >
-              <Copy size={13} />
-            </button>
-          )}
-
-          {/* Export PSD (.psd) */}
-          {onExportPsd && (
-            <button
-              type="button"
-              className="mask-layer-action-btn"
-              onClick={onExportPsd}
-              title={isAr ? 'تصدير كملف فوتوشوب (Export PSD)' : 'Export Layers as Photoshop PSD'}
-            >
-              <FileCode size={13} />
-            </button>
-          )}
-
-          {/* Add New Layer (+) */}
-          <button
-            type="button"
-            className="mask-layer-action-btn"
-            onClick={onAddLayer}
-            title={isAr ? 'إضافة طبقة جديدة (+)' : 'Add New Layer (+)'}
-          >
-            <Plus size={14} />
-          </button>
-
-          {/* Delete Layer (Trash) */}
-          <button
-            type="button"
-            className="mask-layer-action-btn delete-btn"
-            onClick={() => {
-              if (isDeleteEnabled) {
-                onDeleteLayer(activeLayerId);
-              }
-            }}
-            disabled={!isDeleteEnabled}
-            title={
-              isDeleteEnabled
-                ? (isAr ? 'حذف الطبقة / مسح الماسك (Delete)' : 'Delete Selected Layer / Clear Mask (Delete)')
-                : (isAr ? 'لا يمكن حذف طبقة الخلفية' : 'Cannot delete background layer')
-            }
-          >
-            <Trash2 size={13} />
-          </button>
         </div>
       </div>
     </div>

@@ -220,39 +220,6 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, isRestored, tabId]);
 
-  // ========================================================================
-  // AUTO CLEANUP & SANITIZATION OF EDGES
-  // ========================================================================
-  // Performance optimization: Only sanitize edges on structural changes (node count, node types, edge count)
-  // to avoid heavy computations and edge flickering during node dragging.
-  const nodeStructureKey = useMemo(() => {
-    return `${nodes.length}-${nodes.map(n => `${n.id}:${n.data?.type}`).join(',')}`;
-  }, [nodes]);
-
-  const edgeStructureKey = useMemo(() => {
-    return `${edges.length}-${edges.map(e => `${e.id}:${e.targetHandle}`).join(',')}`;
-  }, [edges]);
-
-  useEffect(() => {
-    if (!isRestored) return;
-    const sanitized = sanitizeEdges(nodesRef.current, edgesRef.current);
-    
-    // Check if there are actual changes to avoid infinite loop
-    const hasChanges = sanitized.length !== edgesRef.current.length || sanitized.some((e, i) => {
-      const orig = edgesRef.current[i];
-      return !orig || e.id !== orig.id || e.targetHandle !== orig.targetHandle;
-    });
-
-    if (hasChanges) {
-      setEdges(sanitized);
-    }
-  }, [nodeStructureKey, edgeStructureKey, isRestored, setEdges]);
-
-
-  // ========================================================================
-  // UTILITY FUNCTIONS
-  // ========================================================================
-
   const getNode = useCallback((nodeId: string): BuilderNode | undefined => {
     return nodesRef.current.find(n => n.id === nodeId);
   }, []);

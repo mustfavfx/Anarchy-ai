@@ -49,7 +49,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   width: 48px;
   height: 100%;
   padding: 8px 0;
@@ -526,14 +526,48 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
+/* ── Photoshop-Style Vertical Right Rail (Layers & History Actions) ─────── */
+
+.mask-canvas-right-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 48px;
+  height: 100%;
+  padding: 8px 0;
+  background: rgba(12, 14, 22, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 35;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+  gap: 6px;
+}
+
+.mask-canvas-right-rail .mask-toolbar-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.mask-canvas-rail-divider {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 2px 0;
+}
+
 /* ── Docked Right Layers Panel (Desktop Studio Layout) ─────────────────────── */
 
 .mask-layers-docked-panel {
   position: relative;
-  width: 280px;
+  width: 320px;
+  min-width: 320px;
   height: 100%;
   box-sizing: border-box;
-  background: #111218;
+  background: #18181b;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0;
   display: flex;
@@ -1321,12 +1355,16 @@
 /* ── Photoshop Layer Mask Styles (Exact Replication) ─────────────────────────── */
 
 .ps-layers-panel {
-  width: 280px;
+  width: 320px;
+  min-width: 320px;
   height: 100%;
-  background: #111218;
+  background: #19191d;
   border: none;
   border-radius: 0;
   box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .ps-layer-item {
@@ -1355,8 +1393,8 @@
 }
 
 .ps-thumb {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 4px;
   background: #000000;
   border: 1.5px solid rgba(255, 255, 255, 0.2);
@@ -1367,6 +1405,7 @@
   position: relative;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .ps-thumb:hover {
@@ -1378,8 +1417,40 @@
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), inset 0 0 2px rgba(255, 255, 255, 0.8);
 }
 
+.ps-thumb-image {
+  background-color: #0b0c10;
+  background-image: 
+    linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%), 
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%), 
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%);
+  background-size: 6px 6px;
+  background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
+}
+
 .ps-thumb-mask {
   background: #000000;
+}
+
+.ps-thumb img,
+.vizmaker-layer-img-preview {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  image-rendering: auto;
+}
+
+.vizmaker-empty-thumb {
+  width: 100%;
+  height: 100%;
+  background: #090a0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ps-mask-empty-thumb {
@@ -1826,6 +1897,749 @@
   color: #94a3b8;
   font-weight: 500;
   text-transform: capitalize;
+}
+
+/* ── Photoshop Studio Dock Header & Accordion Structure ─────────────────────── */
+
+.ps-dock-master-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: #18181c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.ps-dock-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ps-dock-title-text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #e2e8f0;
+}
+
+.ps-dock-scrollable-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar-track {
+  background: #151518;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.ps-dock-accordion-group {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1c1c20;
+}
+
+.ps-dock-accordion-group.ps-layers-accordion-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+
+.ps-dock-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: #232328;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  transition: all 0.14s ease;
+}
+
+.ps-dock-accordion-header:hover {
+  background: #2b2b32;
+  color: #ffffff;
+}
+
+.ps-accordion-title {
+  flex: 1;
+  letter-spacing: 0.4px;
+}
+
+/* ── Photoshop Panel Tabs ─────────────────────────────────────────────────── */
+
+.ps-dock-panel-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a1a1e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0 4px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.ps-dock-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.ps-dock-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #888894;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.ps-dock-tab:hover {
+  color: #e2e8f0;
+}
+
+.ps-dock-tab.active {
+  color: #ffffff;
+  border-bottom-color: #3b82f6;
+  font-weight: 600;
+}
+
+.ps-dock-tab-menu-btn {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: color 0.14s ease;
+}
+
+.ps-dock-tab-menu-btn:hover {
+  color: #ffffff;
+}
+
+.ps-empty-tab-note {
+  padding: 24px 16px;
+  text-align: center;
+  color: #71717a;
+  font-size: 11px;
+}
+
+/* ── GROUP 1: Photoshop Color Panel ───────────────────────────────────────── */
+
+.ps-color-panel {
+  display: flex;
+  flex-direction: column;
+  background: #1c1c20;
+}
+
+.ps-color-content {
+  padding: 10px 12px;
+}
+
+.ps-color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 110px;
+}
+
+.ps-fg-bg-box {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.ps-chip-swatch {
+  width: 23px;
+  height: 23px;
+  border-radius: 2px;
+  position: absolute;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+.ps-chip-swatch.foreground {
+  top: 0;
+  left: 0;
+  z-index: 2;
+  border-color: #ffffff;
+}
+
+.ps-chip-swatch.background {
+  bottom: 0;
+  right: 0;
+  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ps-chip-swap-arrow {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 3;
+  width: 15px;
+  height: 15px;
+  background: #27272f;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+
+.ps-chip-swap-arrow:hover {
+  background: #383844;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.ps-spectrum-field {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+  cursor: crosshair;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+.ps-spectrum-white {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #ffffff, transparent);
+}
+
+.ps-spectrum-black {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, #000000, transparent);
+}
+
+.ps-spectrum-reticle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.9), inset 0 0 1px rgba(0, 0, 0, 0.9);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ps-hue-slider {
+  width: 18px;
+  height: 100%;
+  position: relative;
+  border-radius: 3px;
+  cursor: pointer;
+  background: linear-gradient(
+    to bottom,
+    #ff0000 0%,
+    #ffff00 17%,
+    #00ff00 33%,
+    #00ffff 50%,
+    #0000ff 67%,
+    #ff00ff 83%,
+    #ff0000 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.ps-hue-thumb {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 4px;
+  border: 1.5px solid #ffffff;
+  background: transparent;
+  transform: translateY(-50%);
+  pointer-events: none;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+  border-radius: 1px;
+}
+
+.ps-swatches-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  padding: 4px 0;
+}
+
+.ps-swatch-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.ps-swatch-cell:hover {
+  transform: scale(1.25);
+  border-color: #ffffff;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.ps-swatch-cell.selected {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.7);
+  transform: scale(1.15);
+}
+
+/* ── GROUP 2: Photoshop Adjustments Panel ─────────────────────────────────── */
+
+.ps-adjustments-panel {
+  display: flex;
+  flex-direction: column;
+  background: #1c1c20;
+}
+
+.ps-adjustments-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.ps-adj-sub-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: #19191d;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ps-adj-tool-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ps-adj-icon-btn {
+  background: transparent;
+  border: none;
+  color: #888894;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.14s ease;
+}
+
+.ps-adj-icon-btn:hover {
+  color: #ffffff;
+}
+
+.ps-adj-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 12px;
+  background: #18181c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ps-adj-mode-tab {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 0;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.14s ease;
+}
+
+.ps-adj-mode-tab:hover {
+  color: #d1d5db;
+}
+
+.ps-adj-mode-tab.active {
+  color: #ffffff;
+  font-weight: 600;
+  border-bottom: 1.5px solid #ffffff;
+}
+
+.ps-adjustments-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 8px 6px;
+  background: #1c1c20;
+}
+
+.ps-adjustment-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  min-height: 52px;
+}
+
+.ps-adjustment-tile:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.ps-adjustment-tile:active {
+  transform: scale(0.96);
+}
+
+.ps-adj-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  color: #cbd5e1;
+}
+
+.ps-adj-tile-label {
+  font-size: 8.5px;
+  line-height: 1.15;
+  color: #94a3b8;
+  text-align: center;
+  white-space: normal;
+  max-width: 68px;
+  font-weight: 500;
+}
+
+/* ── GROUP 3: Layers Section Container & Filter Bar ──────────────────────── */
+
+.ps-layers-section-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ps-layers-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #1a1a1e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ps-kind-dropdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #131317;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: #cbd5e1;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.ps-kind-search-icon {
+  color: #71717a;
+}
+
+.ps-kind-text {
+  font-weight: 500;
+}
+
+.ps-kind-arrow {
+  color: #71717a;
+}
+
+.ps-filter-icons-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ps-filter-icon-btn {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.ps-filter-icon-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ps-filter-icon-btn.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.ps-filter-toggle-pill {
+  width: 22px;
+  height: 12px;
+  background: #27272f;
+  border-radius: 6px;
+  position: relative;
+  cursor: pointer;
+  margin-left: 5px;
+  transition: background 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ps-filter-pill-thumb {
+  width: 8px;
+  height: 8px;
+  background: #71717a;
+  border-radius: 50%;
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  transition: all 0.15s ease;
+}
+
+.ps-filter-toggle-pill.on {
+  background: #2563eb;
+  border-color: #3b82f6;
+}
+
+.ps-filter-toggle-pill.on .ps-filter-pill-thumb {
+  left: 11px;
+  background: #ffffff;
+}
+
+/* ── Lock & Fill Controls Row ────────────────────────────────────────────── */
+
+.ps-lock-fill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ps-lock-icons-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ps-lock-prefix {
+  font-size: 10px;
+  color: #71717a;
+  margin-right: 2px;
+  font-weight: 500;
+}
+
+.ps-lock-icon-btn {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s ease;
+}
+
+.ps-lock-icon-btn:hover {
+  color: #ffffff;
+}
+
+.ps-lock-icon-btn.active {
+  color: #38bdf8;
+}
+
+.ps-fill-control-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-fill-label {
+  font-size: 10px;
+  color: #71717a;
+  font-weight: 500;
+}
+
+.ps-fill-select {
+  background: #141418;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: #cbd5e1;
+  font-size: 10px;
+  padding: 1px 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ── Channels List Tab ───────────────────────────────────────────────────── */
+
+.ps-channels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: #18181c;
+  flex: 1;
+}
+
+.ps-channel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.12s ease;
+}
+
+.ps-channel-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.ps-channel-item.active {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+}
+
+.ps-channel-eye {
+  color: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.ps-channel-thumb {
+  width: 26px;
+  height: 20px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+}
+
+.ps-channel-thumb.rgb {
+  background: linear-gradient(135deg, #ef4444 33%, #22c55e 33% 66%, #3b82f6 66%);
+}
+
+.ps-channel-thumb.red {
+  background: #ef4444;
+}
+
+.ps-channel-thumb.green {
+  background: #22c55e;
+}
+
+.ps-channel-thumb.blue {
+  background: #3b82f6;
+}
+
+.ps-channel-thumb.mask-stencil {
+  background: #ffffff;
+}
+
+.ps-channel-name {
+  flex: 1;
+}
+
+.ps-channel-shortcut {
+  font-size: 9.5px;
+  color: #64748b;
+  font-family: monospace;
+}
+
+/* ── Photoshop Footer Toolbar ────────────────────────────────────────────── */
+
+.ps-photoshop-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 8px;
+  background: #18181c;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.ps-dock-action-btn {
+  background: transparent;
+  border: none;
+  color: #8e8e98;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.ps-dock-action-btn:hover:not(:disabled) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ps-dock-action-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.ps-dock-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ps-dock-action-btn.delete:hover:not(:disabled) {
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.14);
 }
 
 /* ── VizMaker-Style Dual-Engine Workspace Mode (Mask vs Draw) ─────────────── */

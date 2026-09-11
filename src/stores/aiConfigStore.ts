@@ -411,10 +411,25 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
     state: undefined,
   },
   lastSelectedNodeId: null,
-  setSelectedNode: (node) => set((state) => ({
-    selectedNode: node,
-    lastSelectedNodeId: node.id ? node.id : state.lastSelectedNodeId,
-  })),
+  setSelectedNode: (node) => set((state) => {
+    const cur = state.selectedNode;
+    if (
+      cur &&
+      cur.id === node.id &&
+      cur.type === node.type &&
+      cur.image === node.image &&
+      cur.originalImage === node.originalImage &&
+      cur.prompt === node.prompt &&
+      cur.state === node.state &&
+      cur.isVideo === node.isVideo
+    ) {
+      return state;
+    }
+    return {
+      selectedNode: node,
+      lastSelectedNodeId: node.id ? node.id : state.lastSelectedNodeId,
+    };
+  }),
   setLastSelectedNodeId: (id) => set({ lastSelectedNodeId: id }),
   clearSelectedNode: () => set({
     selectedNode: { id: null, type: null, image: undefined, prompt: undefined, state: undefined }

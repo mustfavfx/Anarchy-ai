@@ -4,7 +4,7 @@ import {
   Crop, CornerDownRight, Paintbrush2, Eraser, Trash2, SlidersHorizontal,
   Contrast, Sparkles, Maximize2, Minimize2, PaintBucket, Columns, Eye,
   FolderPlus, FileDown, Download, Check, Copy, Share2,
-  Layers, RotateCcw, RotateCw, FileCode, Compass, SunMedium, X,
+  FileCode, Compass, SunMedium,
 } from 'lucide-react';
 
 export const MASK_COLOR_PRESETS = [
@@ -56,12 +56,12 @@ export interface MaskTopToolbarProps {
   zoomScale: number;
   setZoomScale: React.Dispatch<React.SetStateAction<number>>;
   setPanOffset: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
-  showLayerStack: boolean;
-  setShowLayerStack: React.Dispatch<React.SetStateAction<boolean>>;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
+  showLayerStack?: boolean;
+  setShowLayerStack?: React.Dispatch<React.SetStateAction<boolean>>;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
   isOrthoMode?: boolean;
   onToggleOrtho?: () => void;
   onOpenColorRange?: () => void;
@@ -108,16 +108,16 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
   zoomScale: _zoomScale,
   setZoomScale: _setZoomScale,
   setPanOffset: _setPanOffset,
-  showLayerStack,
-  setShowLayerStack,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
+  showLayerStack: _showLayerStack,
+  setShowLayerStack: _setShowLayerStack,
+  canUndo: _canUndo,
+  canRedo: _canRedo,
+  onUndo: _onUndo,
+  onRedo: _onRedo,
   isOrthoMode = false,
   onToggleOrtho,
   onOpenColorRange,
-  onClose,
+  onClose: _onClose,
 }) => {
   const [openDropdown, setOpenDropdown] = useState<'lasso' | 'pen' | 'size' | null>(null);
   const [showMaskSettings, setShowMaskSettings] = useState(false);
@@ -270,31 +270,9 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
                 <span className="mask-dropdown-label">Pointer / Move (V)</span>
               </button>
 
-              <button
-                type="button"
-                className={`mask-dropdown-item ${maskTool === 'smart_select' ? 'active' : ''}`}
-                onClick={() => {
-                  setMaskTool('smart_select');
-                  setOpenDropdown(null);
-                }}
-                title="Smart Auto-Segmentation (SAM) — Hover & Click to Select (S)"
-              >
-                <Sparkles size={15} />
-                <span className="mask-dropdown-label">Smart Auto-Select (SAM)</span>
-              </button>
             </div>
           )}
         </div>
-
-        {/* Smart Auto-Select (SAM 2 - Hover & Click to Select) */}
-        <button
-          type="button"
-          className={`mask-toolbar-btn ${maskTool === 'smart_select' ? 'active' : ''}`}
-          onClick={() => setMaskTool((prev) => (prev === 'smart_select' ? 'brush' : 'smart_select'))}
-          title="Smart Auto-Select / SAM (Hover & Click to Select Object) — Shortcut: S or Shift+W"
-        >
-          <Sparkles size={16} />
-        </button>
 
         {/* Crop Tool (C) */}
         <button
@@ -900,51 +878,6 @@ export const MaskTopToolbar: React.FC<MaskTopToolbarProps> = ({
         </div>
       </div>
 
-      {/* Bottom Section: Layers & Undo/Redo */}
-      <div className="mask-canvas-left-actions">
-        <button
-          type="button"
-          className={`mask-toolbar-btn ${showLayerStack ? 'active' : ''}`}
-          onClick={() => setShowLayerStack((prev) => !prev)}
-          title="Photoshop Layers Panel"
-        >
-          <Layers size={16} />
-        </button>
-
-        <button
-          type="button"
-          className="mask-toolbar-btn"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Undo (Ctrl+Z)"
-          style={{ opacity: canUndo ? 1 : 0.35 }}
-        >
-          <RotateCcw size={15} />
-        </button>
-
-        <button
-          type="button"
-          className="mask-toolbar-btn"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="Redo (Ctrl+Y)"
-          style={{ opacity: canRedo ? 1 : 0.35 }}
-        >
-          <RotateCw size={15} />
-        </button>
-
-        {onClose && (
-          <button
-            type="button"
-            className="mask-toolbar-btn mask-toolbar-close-btn"
-            onClick={onClose}
-            title="Back to canvas (Esc)"
-            style={{ color: 'rgba(255,255,255,0.75)' }}
-          >
-            <X size={15} />
-          </button>
-        )}
-      </div>
     </div>
   );
 };

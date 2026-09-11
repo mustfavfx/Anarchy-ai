@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.92] - 2026-09-12
+
+### Added
+- **Photoshop Studio Dock for Mask Canvas**:
+  - Implemented desktop Photoshop-style collapsible dock layout for Mask Canvas:
+    - **Color & Swatches Panel**: 2D Saturation-Brightness spectrum box, vertical rainbow Hue slider, foreground/background color chips with swap button, and 48 default swatches.
+    - **Adjustments Panel**: 16 Photoshop adjustment tiles in a 4x4 grid with live Invert (`Ctrl+I`), Threshold, and Levels bindings.
+    - **Layers, Channels & Paths Panel**: 3-group accordion dock, layer kind filter bar, lock & fill controls, RGB/Mask channels tab, and iconic Photoshop footer actions (`🔗 fx ◩ ◐ 📁 ➕ 🗑️`).
+
+### Fixed & Stabilized
+- **Eliminated React Infinite Render Loop in AI Control Panel**:
+  - Resolved `Maximum update depth exceeded` crash triggered when switching between tools (Upscale, Video, Image Studio).
+  - Added guards to ensure aspect ratios and resolutions are only validated when models explicitly define non-empty supported lists.
+  - Eliminated duplicate `selectedTool` local state and dual-syncing effects in `AIControlPanel.tsx`.
+- **Canvas Builder Runtime Stability & Edge Loop Prevention**:
+  - Stabilized standalone ghost node creation and cleanup in `BuilderPage.tsx`, preventing cascading node deletions.
+  - Removed circular edge sanitization effect in `useBuilderWorkflow.ts`.
+  - Added shallow equality check in `aiConfigStore.ts` for `setSelectedNode` to prevent redundant re-renders across the app.
+
 ## [0.3.91] - 2026-09-11
 
 ### Fixed & Enforced

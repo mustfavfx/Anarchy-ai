@@ -118,38 +118,63 @@ export function useBuilderNodeCallbacks({
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
 
+  const handlersRef = useRef({
+    addChildNode,
+    deleteNode,
+    makeImageUploadHandler,
+    makeImagesUploadHandler,
+    makeRetryHandler,
+    getConfig,
+    executeWithNotifications,
+    cancelExecution,
+  });
+  handlersRef.current = {
+    addChildNode,
+    deleteNode,
+    makeImageUploadHandler,
+    makeImagesUploadHandler,
+    makeRetryHandler,
+    getConfig,
+    executeWithNotifications,
+    cancelExecution,
+  };
+
   const mappedNodesCache = useRef<Map<string, BuilderNode>>(new Map());
   const nodeDataCache = useRef<Map<string, { rawData: any; mappedData: any; enableWatermark: boolean }>>(new Map());
+  const prevResultRef = useRef<BuilderNode[]>([]);
 
   const stableHandlers = useMemo(() => ({
     onAddChild: (id: string, type: ProcessingType) => {
       const tool = useAIConfigStore.getState().config.selectedTool || 'image-editor';
       const mode = useAIConfigStore.getState().config.studioMode || 'edit';
       if (tool === 'image-editor' && mode === 'generate') return;
-      addChildNode(id, type);
+      handlersRef.current.addChildNode(id, type);
     },
     onImageUpload: (id: string, url: string) => {
-      makeImageUploadHandler(id)(url);
+      handlersRef.current.makeImageUploadHandler(id)(url);
     },
     onImagesUpload: (id: string, urls: string[]) => {
       const node = nodesRef.current.find(n => n.id === id);
-      if (node) makeImagesUploadHandler(node)(urls);
+      if (node) handlersRef.current.makeImagesUploadHandler(node)(urls);
     },
     onDelete: (id: string) => {
-      deleteNode(id);
+      handlersRef.current.deleteNode(id);
     },
     onRetry: (id: string) => {
       const node = nodesRef.current.find(n => n.id === id);
-      if (node) { const handler = makeRetryHandler(node); handler?.(); }
+      if (node) {
+        const handler = handlersRef.current.makeRetryHandler(node);
+        handler?.();
+      }
     },
     onExecute: (id: string, promptText: string) => {
-      const cfg = buildGenConfig(getConfig());
-      executeWithNotifications(id, promptText, cfg).catch(() => { });
+      const cfg = buildGenConfig(handlersRef.current.getConfig());
+      handlersRef.current.executeWithNotifications(id, promptText, cfg).catch(() => { });
     },
     onCancel: (id: string) => {
-      cancelExecution(id);
+      handlersRef.current.cancelExecution(id);
     }
-  }), [addChildNode, deleteNode, makeImageUploadHandler, makeImagesUploadHandler, makeRetryHandler, getConfig, executeWithNotifications, cancelExecution]);
+  }), []);
 
   const nodesWithCallbacks = useMemo(() => {
     const nextCache = new Map<string, BuilderNode>();
@@ -160,7 +185,7 @@ export function useBuilderNodeCallbacks({
             return false;
           }
         } else {
-          if (node.data.type === 'ghost' && !node.data.lineage?.parentId && node.data.state === 'idle') {
+          if ((node.data?.isStandaloneGenerator || node.data?.label === 'Generator') && node.data.type === 'ghost' && !node.data.lineage?.parentId && node.data.state === 'idle') {
             return false;
           }
         }
@@ -204,6 +229,14 @@ export function useBuilderNodeCallbacks({
         return mappedNode;
       });
     mappedNodesCache.current = nextCache;
+
+    if (
+      prevResultRef.current.length === result.length &&
+      result.every((n, i) => n === prevResultRef.current[i])
+    ) {
+      return prevResultRef.current;
+    }
+    prevResultRef.current = result;
     return result;
   }, [nodes, stableHandlers, enableWatermark, isGenerateMode]);
 

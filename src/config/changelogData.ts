@@ -13,9 +13,31 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.92',
+    date: 'September 12, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'feature',
+        title: 'Photoshop Studio Dock for Mask Canvas',
+        description: 'Complete desktop Photoshop-style collapsible dock layout for Mask Canvas featuring Color & Swatches spectrum picker, 16 Adjustments 4x4 grid (Invert, Threshold, Levels), and 3-group accordion Layers, Channels & Paths panel with iconic footer controls.'
+      },
+      {
+        type: 'fix',
+        title: 'Eliminated React Infinite Render Loop in AI Control Panel',
+        description: 'Resolved Maximum update depth exceeded crash when switching between Image, Upscaling, and Video tools by adding strict guards for resolution and aspect ratio checks and removing redundant state synchronization.'
+      },
+      {
+        type: 'fix',
+        title: 'Canvas Builder Runtime Stability & Edge Loop Prevention',
+        description: 'Stabilized ghost node initialization, prevented cascading deletions in MultiBuilder tabs, and removed circular edge sanitization effects.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.91',
     date: 'September 11, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'fix',

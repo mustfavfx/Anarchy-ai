@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Minus, Plus, Maximize2 } from 'lucide-react';
+import { Minus, Plus, Maximize2, Layers, RotateCcw, RotateCw, X } from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
+import { useTranslation } from '../../services/i18n';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { logger } from '../../utils/logger';
@@ -52,6 +53,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   isGenerating = false,
   onClose,
 }) => {
+  const { isAr } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -936,8 +938,65 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           activeMaskColor={psMaskColor}
           onToggleMaskColor={() => setPsMaskColor(c => c === 'white' ? 'black' : 'white')}
           onExportPsd={handleExportPsd}
+          brushColor={brushColor}
+          onChangeBrushColor={setBrushColor}
+          onOpenColorRange={() => setShowColorRangeModal(true)}
         />
       )}
+
+      {/* Photoshop-Style Vertical Right Rail (Layers, Undo, Redo, Close) */}
+      <div className="mask-canvas-right-rail">
+        <button
+          type="button"
+          className={`mask-toolbar-btn ${showLayerStack ? 'active' : ''}`}
+          onClick={() => setShowLayerStack((prev) => !prev)}
+          title={isAr ? (showLayerStack ? 'إخفاء لوحة الطبقات' : 'إظهار لوحة الطبقات') : 'Photoshop Layers Panel'}
+        >
+          <Layers size={16} />
+        </button>
+
+        <div className="mask-canvas-rail-divider" />
+
+        <button
+          type="button"
+          className="mask-toolbar-btn"
+          onClick={() => {
+            undo();
+            updateMaskPreview();
+          }}
+          disabled={!canUndo}
+          title={isAr ? 'تراجع (Ctrl+Z)' : 'Undo (Ctrl+Z)'}
+          style={{ opacity: canUndo ? 1 : 0.35 }}
+        >
+          <RotateCcw size={15} />
+        </button>
+
+        <button
+          type="button"
+          className="mask-toolbar-btn"
+          onClick={() => {
+            redo();
+            updateMaskPreview();
+          }}
+          disabled={!canRedo}
+          title={isAr ? 'إعادة (Ctrl+Y)' : 'Redo (Ctrl+Y)'}
+          style={{ opacity: canRedo ? 1 : 0.35 }}
+        >
+          <RotateCw size={15} />
+        </button>
+
+        {onClose && (
+          <button
+            type="button"
+            className="mask-toolbar-btn mask-toolbar-close-btn"
+            onClick={onClose}
+            title={isAr ? 'رجوع إلى الكانفاز (Esc)' : 'Back to canvas (Esc)'}
+            style={{ color: 'rgba(255,255,255,0.75)', marginTop: 'auto' }}
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
 
       <ColorRangeModal
         isOpen={showColorRangeModal}

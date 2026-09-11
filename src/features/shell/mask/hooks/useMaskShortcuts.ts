@@ -171,16 +171,7 @@ export function useMaskShortcuts(options: UseMaskShortcutsOptions) {
         fillEntireMask();
       }
       if (e.key === 'w' || e.key === 'W') {
-        if (e.shiftKey) {
-          setMaskTool('smart_select');
-        } else {
-          setMaskTool('wand');
-        }
-      }
-      if (e.key === 's' || e.key === 'S') {
-        if (!e.ctrlKey && !e.metaKey) {
-          setMaskTool('smart_select');
-        }
+        setMaskTool('wand');
       }
       if (e.key === 'o' || e.key === 'O') {
         if (!e.ctrlKey && !e.metaKey && setIsOrthoMode) {
