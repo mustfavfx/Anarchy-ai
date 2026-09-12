@@ -1358,10 +1358,10 @@
   width: 320px;
   min-width: 320px;
   height: 100%;
-  background: #19191d;
+  background: #11131a;
   border: none;
   border-radius: 0;
-  box-shadow: none;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1905,8 +1905,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 12px;
-  background: #18181c;
+  padding: 8px 12px;
+  background: #14161f;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
 }
@@ -1918,9 +1918,9 @@
 }
 
 .ps-dock-title-text {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   color: #e2e8f0;
 }
@@ -1938,21 +1938,21 @@
 }
 
 .ps-dock-scrollable-body::-webkit-scrollbar-track {
-  background: #151518;
+  background: #11131a;
 }
 
 .ps-dock-scrollable-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.16);
   border-radius: 3px;
 }
 
 .ps-dock-scrollable-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .ps-dock-accordion-group {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: #1c1c20;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: #151720;
 }
 
 .ps-dock-accordion-group.ps-layers-accordion-group {
@@ -1965,11 +1965,11 @@
 .ps-dock-accordion-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: #232328;
-  color: #9ca3af;
-  font-size: 11px;
+  gap: 7px;
+  padding: 7px 12px;
+  background: #1a1c26;
+  color: #cbd5e1;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   user-select: none;
@@ -1979,7 +1979,7 @@
 }
 
 .ps-dock-accordion-header:hover {
-  background: #2b2b32;
+  background: #222634;
   color: #ffffff;
 }
 
@@ -2303,9 +2303,9 @@
 .ps-adjustments-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  gap: 5px;
   padding: 8px 6px;
-  background: #1c1c20;
+  background: #14161f;
 }
 
 .ps-adjustment-tile {
@@ -2313,23 +2313,26 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 6px 2px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  gap: 4px;
+  padding: 6px 3px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.12s ease;
-  min-height: 52px;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 54px;
 }
 
 .ps-adjustment-tile:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .ps-adjustment-tile:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
+  border-color: #38bdf8;
 }
 
 .ps-adj-tile-icon {
@@ -2338,6 +2341,11 @@
   justify-content: center;
   height: 24px;
   color: #cbd5e1;
+  transition: color 0.15s ease;
+}
+
+.ps-adjustment-tile:hover .ps-adj-tile-icon {
+  color: #38bdf8;
 }
 
 .ps-adj-tile-label {
@@ -2348,6 +2356,11 @@
   white-space: normal;
   max-width: 68px;
   font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.ps-adjustment-tile:hover .ps-adj-tile-label {
+  color: #ffffff;
 }
 
 /* ── GROUP 3: Layers Section Container & Filter Bar ──────────────────────── */
@@ -2598,34 +2611,36 @@
   font-family: monospace;
 }
 
-/* ── Photoshop Footer Toolbar ────────────────────────────────────────────── */
+/* ── Studio Action Footer Toolbar ────────────────────────────────────────── */
 
 .ps-photoshop-footer {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 6px 8px;
-  background: #18181c;
+  padding: 8px 10px;
+  background: #14161f;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
 }
 
 .ps-dock-action-btn {
-  background: transparent;
-  border: none;
-  color: #8e8e98;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 3px;
+  padding: 6px 9px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s ease;
+  transition: all 0.14s ease;
 }
 
 .ps-dock-action-btn:hover:not(:disabled) {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+  transform: translateY(-1px);
 }
 
 .ps-dock-action-btn:active:not(:disabled) {
@@ -2633,13 +2648,14 @@
 }
 
 .ps-dock-action-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.25;
   cursor: not-allowed;
 }
 
 .ps-dock-action-btn.delete:hover:not(:disabled) {
   color: #f43f5e;
-  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.15);
 }
 
 /* ── VizMaker-Style Dual-Engine Workspace Mode (Mask vs Draw) ─────────────── */

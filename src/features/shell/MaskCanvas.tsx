@@ -566,6 +566,245 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     handleDeleteLayer,
   });
 
+  // Real-time Canvas & Layer Adjustment Engine (All 16 adjustments active & undoable)
+  const handleApplyAdjustment = useCallback(async (key: string, name: string) => {
+    // 1. If active target is the active mask canvas
+    if (activeLayerId === 'active-mask' || inpaintLayers.find(l => l.id === activeLayerId)?.selectedTarget === 'mask') {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const a = d[i + 3];
+          if (key === 'invert') {
+            if (a > 10) {
+              d[i + 3] = 0;
+            } else {
+              d[i] = 225; d[i + 1] = 29; d[i + 2] = 72; d[i + 3] = Math.round(inpaintOps.maskOverlayOpacity * 255);
+            }
+          } else if (key === 'threshold' || key === 'levels') {
+            d[i + 3] = a >= 90 ? Math.round(inpaintOps.maskOverlayOpacity * 255) : 0;
+          } else if (key === 'black-white') {
+            if (a > 10) {
+              d[i] = 255; d[i + 1] = 255; d[i + 2] = 255; d[i + 3] = 255;
+            }
+          } else if (key === 'posterize') {
+            d[i + 3] = Math.floor(a / 64) * 85;
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        pushHistory();
+        updateMaskPreview();
+        useNotificationStore.getState().addNotification({
+          type: 'success',
+          title: name,
+          message: isAr ? `تم تطبيق ${name} على القناع.` : `Applied ${name} to mask.`,
+          duration: 2200,
+        });
+        return;
+      }
+    }
+
+    // 2. Pixel-by-pixel RGB adjustments on layer or base image
+    const processImagePixels = (src: string): Promise<string> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth || img.width;
+          c.height = img.naturalHeight || img.height;
+          const ctx = c.getContext('2d');
+          if (!ctx) {
+            resolve(src);
+            return;
+          }
+          ctx.drawImage(img, 0, 0);
+          const imgData = ctx.getImageData(0, 0, c.width, c.height);
+          const d = imgData.data;
+
+          for (let i = 0; i < d.length; i += 4) {
+            let r = d[i];
+            let g = d[i + 1];
+            let b = d[i + 2];
+            const a = d[i + 3];
+            if (a === 0) continue;
+
+            switch (key) {
+              case 'vibrance': {
+                const max = Math.max(r, g, b);
+                const avg = (r + g + b) / 3;
+                const sat = max === 0 ? 0 : (max - avg) / max;
+                const boost = (1 - sat) * 0.45;
+                r = Math.min(255, Math.max(0, r + (r - avg) * boost));
+                g = Math.min(255, Math.max(0, g + (g - avg) * boost));
+                b = Math.min(255, Math.max(0, b + (b - avg) * boost));
+                break;
+              }
+              case 'brightness-contrast': {
+                const factor = 1.22;
+                r = Math.min(255, Math.max(0, factor * (r - 128) + 128 + 20));
+                g = Math.min(255, Math.max(0, factor * (g - 128) + 128 + 20));
+                b = Math.min(255, Math.max(0, factor * (b - 128) + 128 + 20));
+                break;
+              }
+              case 'levels': {
+                const minIn = 15, maxIn = 240;
+                r = Math.min(255, Math.max(0, ((r - minIn) / (maxIn - minIn)) * 255));
+                g = Math.min(255, Math.max(0, ((g - minIn) / (maxIn - minIn)) * 255));
+                b = Math.min(255, Math.max(0, ((b - minIn) / (maxIn - minIn)) * 255));
+                break;
+              }
+              case 'curves': {
+                const nr = r / 255, ng = g / 255, nb = b / 255;
+                r = Math.min(255, Math.max(0, (nr * nr * (3 - 2 * nr)) * 255));
+                g = Math.min(255, Math.max(0, (ng * ng * (3 - 2 * ng)) * 255));
+                b = Math.min(255, Math.max(0, (nb * nb * (3 - 2 * nb)) * 255));
+                break;
+              }
+              case 'exposure': {
+                r = Math.min(255, r * 1.25);
+                g = Math.min(255, g * 1.25);
+                b = Math.min(255, b * 1.25);
+                break;
+              }
+              case 'hue-saturation': {
+                const avg = (r + g + b) / 3;
+                r = Math.min(255, Math.max(0, avg + (r - avg) * 1.35));
+                g = Math.min(255, Math.max(0, avg + (g - avg) * 1.35));
+                b = Math.min(255, Math.max(0, avg + (b - avg) * 1.35));
+                break;
+              }
+              case 'color-balance': {
+                r = Math.min(255, r + 20);
+                b = Math.max(0, b - 14);
+                break;
+              }
+              case 'black-white': {
+                const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                r = lum; g = lum; b = lum;
+                break;
+              }
+              case 'photo-filter': {
+                r = Math.min(255, r * 1.14 + 14);
+                g = Math.min(255, g * 1.04 + 4);
+                b = Math.max(0, b * 0.88 - 8);
+                break;
+              }
+              case 'channel-mixer': {
+                const nr = Math.min(255, 0.7 * r + 0.4 * g);
+                const ng = Math.min(255, 0.2 * r + 0.8 * g);
+                const nb = Math.min(255, 0.2 * r + 0.8 * b);
+                r = nr; g = ng; b = nb;
+                break;
+              }
+              case 'color-lookup': {
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                if (lum < 128) {
+                  g = Math.min(255, g * 1.06 + 4);
+                  b = Math.min(255, b * 1.16 + 12);
+                } else {
+                  r = Math.min(255, r * 1.14 + 14);
+                  g = Math.min(255, g * 1.04 + 4);
+                }
+                break;
+              }
+              case 'invert': {
+                r = 255 - r;
+                g = 255 - g;
+                b = 255 - b;
+                break;
+              }
+              case 'posterize': {
+                r = Math.floor(r / 64) * 85;
+                g = Math.floor(g / 64) * 85;
+                b = Math.floor(b / 64) * 85;
+                break;
+              }
+              case 'threshold': {
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                const val = lum >= 128 ? 255 : 0;
+                r = val; g = val; b = val;
+                break;
+              }
+              case 'gradient-map': {
+                const t = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                r = Math.round(15 + t * (249 - 15));
+                g = Math.round(23 + t * (115 - 23));
+                b = Math.round(42 + t * (22 - 42));
+                break;
+              }
+              case 'selective-color': {
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                if (max - min > 28) {
+                  r = Math.min(255, r * 1.22);
+                  g = Math.min(255, g * 1.22);
+                  b = Math.min(255, b * 1.22);
+                }
+                break;
+              }
+            }
+
+            d[i] = r;
+            d[i + 1] = g;
+            d[i + 2] = b;
+          }
+
+          ctx.putImageData(imgData, 0, 0);
+          resolve(c.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(src);
+        img.src = src;
+      });
+    };
+
+    // 3. If an inpaint layer is selected
+    if (activeLayerId && activeLayerId !== 'base') {
+      const layer = inpaintLayers.find(l => l.id === activeLayerId);
+      if (layer?.image) {
+        const adjustedImg = await processImagePixels(layer.image);
+        setInpaintLayers(prev => prev.map(l => l.id === activeLayerId ? { ...l, image: adjustedImg } : l));
+        pushHistory();
+        useNotificationStore.getState().addNotification({
+          type: 'success',
+          title: name,
+          message: isAr ? `تم تطبيق ${name} على الطبقة ${layer.name}.` : `Applied ${name} to layer ${layer.name}.`,
+          duration: 2500,
+        });
+        return;
+      }
+    }
+
+    // 4. Default: Apply to base image
+    const baseSrc = resolvedBaseImage || baseOriginalImage || currentCanvasImage;
+    if (baseSrc) {
+      const adjustedImg = await processImagePixels(baseSrc);
+      setBaseOriginalImage(adjustedImg);
+      setCurrentCanvasImage(adjustedImg);
+      pushHistory();
+      useNotificationStore.getState().addNotification({
+        type: 'success',
+        title: name,
+        message: isAr ? `تم تطبيق ${name} على صورة الخلفية.` : `Applied ${name} to background base.`,
+        duration: 2500,
+      });
+    }
+  }, [
+    activeLayerId,
+    inpaintLayers,
+    setInpaintLayers,
+    resolvedBaseImage,
+    baseOriginalImage,
+    currentCanvasImage,
+    inpaintOps.maskOverlayOpacity,
+    canvasRef,
+    pushHistory,
+    updateMaskPreview,
+    isAr,
+  ]);
+
   useEffect(() => {
     const handleTrigger = () => {
       void handleGenerate();
@@ -941,16 +1180,17 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           brushColor={brushColor}
           onChangeBrushColor={setBrushColor}
           onOpenColorRange={() => setShowColorRangeModal(true)}
+          onApplyAdjustment={handleApplyAdjustment}
         />
       )}
 
-      {/* Photoshop-Style Vertical Right Rail (Layers, Undo, Redo, Close) */}
+      {/* Studio Vertical Right Rail (Layers, Undo, Redo, Close) */}
       <div className="mask-canvas-right-rail">
         <button
           type="button"
           className={`mask-toolbar-btn ${showLayerStack ? 'active' : ''}`}
           onClick={() => setShowLayerStack((prev) => !prev)}
-          title={isAr ? (showLayerStack ? 'إخفاء لوحة الطبقات' : 'إظهار لوحة الطبقات') : 'Photoshop Layers Panel'}
+          title={isAr ? (showLayerStack ? 'إخفاء لوحة الاستوديو' : 'إظهار لوحة الاستوديو') : (showLayerStack ? 'Hide Studio Panel' : 'Show Studio Panel')}
         >
           <Layers size={16} />
         </button>

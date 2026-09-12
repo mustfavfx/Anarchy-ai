@@ -11,16 +11,23 @@ export interface PhotoshopAdjustmentsPanelProps {
   onInvertMask?: () => void;
   onOpenColorRange?: () => void;
   activeLayerId?: string;
+  onApplyAdjustment?: (key: string, name: string) => void;
 }
 
 export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps> = ({
   onInvertMask,
   onOpenColorRange,
-  activeLayerId,
+  activeLayerId: _activeLayerId,
+  onApplyAdjustment,
 }) => {
   const { isAr } = useTranslation();
 
   const handleAdjustmentClick = (key: string, name: string) => {
+    if (onApplyAdjustment) {
+      onApplyAdjustment(key, name);
+      return;
+    }
+
     if (key === 'invert') {
       if (onInvertMask) {
         onInvertMask();

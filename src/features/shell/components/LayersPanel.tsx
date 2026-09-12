@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { 
   X, Eye, EyeOff, Lock, Plus, Trash2, Loader2, 
-  Link2, Contrast, ChevronDown, ChevronRight, Paintbrush2
+  Link2, Contrast, ChevronDown, ChevronRight, Paintbrush2,
+  Layers, Sliders
 } from 'lucide-react';
 import { useResolvedImage } from '../../../hooks';
 import { useTranslation } from '../../../services/i18n';
@@ -141,6 +142,7 @@ export interface LayersPanelProps {
   brushColor?: string;
   onChangeBrushColor?: (color: string) => void;
   onOpenColorRange?: () => void;
+  onApplyAdjustment?: (key: string, name: string) => void;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
@@ -178,6 +180,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   brushColor = '#e11d48',
   onChangeBrushColor,
   onOpenColorRange,
+  onApplyAdjustment,
 }) => {
   const { isAr } = useTranslation();
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
@@ -243,18 +246,19 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
       {/* Studio Dock Master Header */}
       <div className="ps-dock-master-bar">
         <div className="ps-dock-title-group">
-          <span className="ps-dock-title-text">{isAr ? 'لوحات فوتوشوب' : 'Photoshop Studio'}</span>
+          <Sliders size={13} style={{ color: '#38bdf8' }} />
+          <span className="ps-dock-title-text">{isAr ? 'استوديو التحكم والطبقات' : 'Studio Canvas'}</span>
           <span className="ps-layer-count-badge" title={isAr ? `${totalLayerCount} طبقات نشطة` : `${totalLayerCount} Layers Active`}>
             {totalLayerCount}
           </span>
         </div>
-        <button type="button" className="mask-layers-close-btn" onClick={onClose} title={isAr ? 'إغلاق لوحة الطبقات' : 'Close Panels'}>
+        <button type="button" className="mask-layers-close-btn" onClick={onClose} title={isAr ? 'إغلاق لوحة الاستوديو' : 'Close Studio'}>
           <X size={13} />
         </button>
       </div>
 
       <div className="ps-dock-scrollable-body">
-        {/* GROUP 1: Color & Swatches */}
+        {/* GROUP 1: Color */}
         <div className={`ps-dock-accordion-group ${isColorOpen ? 'open' : 'collapsed'}`}>
           <div 
             className="ps-dock-accordion-header" 
@@ -277,7 +281,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           )}
         </div>
 
-        {/* GROUP 2: Adjustments & Presets */}
+        {/* GROUP 2: Adjustments */}
         <div className={`ps-dock-accordion-group ${isAdjustmentsOpen ? 'open' : 'collapsed'}`}>
           <div 
             className="ps-dock-accordion-header" 
@@ -285,13 +289,14 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             title={isAr ? 'طي / توسيع لوحة التعديلات' : 'Toggle Adjustments Panel'}
           >
             {isAdjustmentsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span className="ps-accordion-title">{isAr ? 'التعديلات' : 'Adjustments'}</span>
+            <span className="ps-accordion-title">{isAr ? 'التعديلات والتأثيرات' : 'Adjustments'}</span>
           </div>
           {isAdjustmentsOpen && (
             <PhotoshopAdjustmentsPanel
               onInvertMask={onInvertMask ? () => onInvertMask(activeLayerId) : undefined}
               onOpenColorRange={onOpenColorRange}
               activeLayerId={activeLayerId}
+              onApplyAdjustment={onApplyAdjustment}
             />
           )}
         </div>
@@ -615,8 +620,8 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                 <button
                   type="button"
                   className="ps-dock-action-btn"
-                  onClick={() => onSelectLayer('active-mask', 'mask')}
-                  title={isAr ? 'إضافة قناع طبقة (Add Layer Mask)' : 'Add layer mask'}
+                  onClick={() => onSelectLayer(activeLayerId && activeLayerId !== 'base' ? activeLayerId : 'active-mask', 'mask')}
+                  title={isAr ? 'تفعيل / إضافة قناع الطبقة (Add / Select Layer Mask)' : 'Add / Select layer mask'}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2"/>
