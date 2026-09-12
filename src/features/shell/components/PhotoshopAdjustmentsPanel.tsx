@@ -6,8 +6,10 @@ import {
 import { useTranslation } from '../../../services/i18n';
 import type { AdjustmentParams } from '../mask/utils/adjustmentEngine';
 import type { InpaintLayer } from './LayersPanel';
+import { PhotoshopCurvesEditor } from './PhotoshopCurvesEditor';
 
 export interface PhotoshopAdjustmentsPanelProps {
+  baseImage?: string | null;
   onInvertMask?: () => void;
   onOpenColorRange?: () => void;
   activeLayerId?: string;
@@ -37,7 +39,13 @@ export function getInitialAdjustmentParams(key: string, name: string): Adjustmen
     whitePoint: 255,
     midtones: 1.0,
     curveAmount: 50,
-    curvePreset: 'medium',
+    curvePreset: 'default',
+    curveChannels: {
+      rgb: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+      red: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+      green: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+      blue: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
+    },
     redBalance: 0,
     greenBalance: 0,
     blueBalance: 0,
@@ -92,6 +100,7 @@ const SliderRow: React.FC<{
 );
 
 export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps> = ({
+  baseImage,
   onInvertMask,
   onOpenColorRange,
   activeLayerId: _activeLayerId,
@@ -311,16 +320,15 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
 
               {/* 3. Curves */}
               {activeTool.key === 'curves' && (
-                <>
-                  <SliderRow
-                    label={isAr ? 'قوة منحنى التباين (S-Curve)' : 'Curve Contrast'}
-                    value={params.curveAmount ?? 50}
-                    min={0}
-                    max={100}
-                    unit="%"
-                    onChange={(val) => updateParam('curveAmount', val)}
-                  />
-                </>
+                <PhotoshopCurvesEditor
+                  params={params}
+                  onChangeParams={(next) => {
+                    setParams(next);
+                    onPreviewAdjustment?.(next);
+                  }}
+                  baseImage={baseImage}
+                  activeLayer={activeLayer}
+                />
               )}
 
               {/* 4. Exposure */}

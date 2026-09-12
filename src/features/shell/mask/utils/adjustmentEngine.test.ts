@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyAdjustmentParamsToImageData,
+  generateSplineLUT,
+  buildCurveLUT,
 } from './adjustmentEngine';
 
 function createDummyImageData(r = 100, g = 150, b = 200, a = 255): ImageData {
@@ -204,5 +206,102 @@ describe('adjustmentEngine', () => {
         applyAdjustmentParamsToImageData(imgData, { key, name: key }, false);
       }).not.toThrow();
     }
+  });
+
+  describe('Photoshop Curves Spline & LUT Engine', () => {
+    it('produces identity LUT for default 2-point curve (0,0) -> (255,255)', () => {
+      const lut = generateSplineLUT([
+        { x: 0, y: 0 },
+        { x: 255, y: 255 },
+      ]);
+      expect(lut[0]).toBe(0);
+      expect(lut[64]).toBe(64);
+      expect(lut[128]).toBe(128);
+      expect(lut[192]).toBe(192);
+      expect(lut[255]).toBe(255);
+    });
+
+    it('produces inverted LUT for negative curve (0,255) -> (255,0)', () => {
+      const lut = generateSplineLUT([
+        { x: 0, y: 255 },
+        { x: 255, y: 0 },
+      ]);
+      expect(lut[0]).toBe(255);
+      expect(lut[128]).toBe(127);
+      expect(lut[255]).toBe(0);
+    });
+
+    it('produces smooth S-curve with medium contrast', () => {
+      const lut = generateSplineLUT([
+        { x: 0, y: 0 },
+        { x: 64, y: 48 },
+        { x: 192, y: 208 },
+        { x: 255, y: 255 },
+      ]);
+      // Shadows darkened
+      expect(lut[64]).toBeLessThan(64);
+      // Highlights brightened
+      expect(lut[192]).toBeGreaterThan(192);
+      // Continuous monotonicity
+      for (let i = 1; i < 256; i++) {
+        expect(lut[i]).toBeGreaterThanOrEqual(lut[i - 1]);
+      }
+    });
+
+    it('combines master RGB and individual channel curves via buildCurveLUT', () => {
+      const masterPoints = [
+        { x: 0, y: 0 },
+        { x: 128, y: 150 },
+        { x: 255, y: 255 },
+      ];
+      const redPoints = [
+        { x: 0, y: 0 },
+        { x: 128, y: 100 },
+        { x: 255, y: 255 },
+      ];
+      const lut = buildCurveLUT(redPoints, masterPoints);
+      expect(lut.length).toBe(256);
+      expect(lut[0]).toBe(0);
+      expect(lut[255]).toBe(255);
+    });
+
+    it('applies curveChannels to ImageData accurately across channels', () => {
+      const imgData = createDummyImageData(100, 100, 100, 255);
+      applyAdjustmentParamsToImageData(
+        imgData,
+        {
+          key: 'curves',
+          name: 'Curves',
+          curveChannels: {
+            rgb: [
+              { x: 0, y: 0 },
+              { x: 100, y: 140 },
+              { x: 255, y: 255 },
+            ],
+            red: [
+              { x: 0, y: 0 },
+              { x: 140, y: 160 },
+              { x: 255, y: 255 },
+            ],
+            green: [
+              { x: 0, y: 0 },
+              { x: 255, y: 255 },
+            ],
+            blue: [
+              { x: 0, y: 0 },
+              { x: 255, y: 255 },
+            ],
+          },
+        },
+        false
+      );
+
+      // Red channel should be adjusted by master curve then red channel curve
+      expect(imgData.data[0]).toBeGreaterThan(140);
+      // Green channel was adjusted by master curve only
+      expect(imgData.data[1]).toBe(140);
+      // Blue channel was adjusted by master curve only
+      expect(imgData.data[2]).toBe(140);
+    });
   });
 });

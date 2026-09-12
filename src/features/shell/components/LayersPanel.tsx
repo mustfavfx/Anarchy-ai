@@ -307,6 +307,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           </div>
           {isAdjustmentsOpen && (
             <PhotoshopAdjustmentsPanel
+              baseImage={baseImage}
               onInvertMask={onInvertMask ? () => onInvertMask(activeLayerId) : undefined}
               onOpenColorRange={onOpenColorRange}
               activeLayerId={activeLayerId}

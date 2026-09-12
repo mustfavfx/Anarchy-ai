@@ -1,3 +1,15 @@
+export interface CurvePoint {
+  x: number; // 0 to 255
+  y: number; // 0 to 255
+}
+
+export interface CurveChannels {
+  rgb: CurvePoint[];
+  red: CurvePoint[];
+  green: CurvePoint[];
+  blue: CurvePoint[];
+}
+
 export interface AdjustmentParams {
   key: string;
   name: string;
@@ -15,6 +27,7 @@ export interface AdjustmentParams {
   midtones?: number; // 0.2 to 3
   curveAmount?: number; // 0 to 100
   curvePreset?: string;
+  curveChannels?: CurveChannels;
   redBalance?: number; // -100 to 100
   greenBalance?: number; // -100 to 100
   blueBalance?: number; // -100 to 100
@@ -37,6 +50,153 @@ export interface AdjustmentParams {
   bwRed?: number;
   bwGreen?: number;
   bwBlue?: number;
+}
+
+/**
+ * Generates a 256-entry lookup table using Fritsch-Carlson Monotone Cubic Spline
+ * interpolation for natural, smooth Photoshop-grade curves.
+ */
+export function generateSplineLUT(points: CurvePoint[]): Uint8Array {
+  const lut = new Uint8Array(256);
+  if (!points || points.length === 0) {
+    for (let i = 0; i < 256; i++) lut[i] = i;
+    return lut;
+  }
+
+  // Remove duplicate x coordinates and sort by x ascending
+  const sorted = [...points].sort((a, b) => a.x - b.x);
+  const uniquePts: CurvePoint[] = [];
+  for (const pt of sorted) {
+    if (uniquePts.length === 0 || uniquePts[uniquePts.length - 1].x !== pt.x) {
+      uniquePts.push({
+        x: Math.max(0, Math.min(255, pt.x)),
+        y: Math.max(0, Math.min(255, pt.y)),
+      });
+    } else {
+      uniquePts[uniquePts.length - 1] = {
+        x: Math.max(0, Math.min(255, pt.x)),
+        y: Math.max(0, Math.min(255, pt.y)),
+      };
+    }
+  }
+
+  const n = uniquePts.length;
+  if (n === 1) {
+    const y = Math.round(uniquePts[0].y);
+    lut.fill(y);
+    return lut;
+  }
+
+  if (n === 2) {
+    const p0 = uniquePts[0];
+    const p1 = uniquePts[1];
+    const dx = p1.x - p0.x;
+    for (let x = 0; x < 256; x++) {
+      if (x <= p0.x) {
+        lut[x] = Math.round(p0.y);
+      } else if (x >= p1.x) {
+        lut[x] = Math.round(p1.y);
+      } else {
+        const t = dx === 0 ? 0 : (x - p0.x) / dx;
+        lut[x] = Math.max(0, Math.min(255, Math.round(p0.y + t * (p1.y - p0.y))));
+      }
+    }
+    return lut;
+  }
+
+  // Fritsch-Carlson Monotone Cubic Spline
+  const dxs: number[] = new Array(n - 1);
+  const dys: number[] = new Array(n - 1);
+  const ms: number[] = new Array(n - 1);
+
+  for (let i = 0; i < n - 1; i++) {
+    dxs[i] = uniquePts[i + 1].x - uniquePts[i].x;
+    dys[i] = uniquePts[i + 1].y - uniquePts[i].y;
+    ms[i] = dxs[i] === 0 ? 0 : dys[i] / dxs[i];
+  }
+
+  const c1s: number[] = new Array(n);
+  c1s[0] = ms[0];
+  for (let i = 1; i < n - 1; i++) {
+    const mPrev = ms[i - 1];
+    const mCur = ms[i];
+    if (mPrev * mCur <= 0) {
+      c1s[i] = 0;
+    } else {
+      c1s[i] = (mPrev + mCur) / 2;
+    }
+  }
+  c1s[n - 1] = ms[n - 2];
+
+  // Monotonicity constraints
+  for (let i = 0; i < n - 1; i++) {
+    const m = ms[i];
+    if (m === 0) {
+      c1s[i] = 0;
+      c1s[i + 1] = 0;
+    } else {
+      const alpha = c1s[i] / m;
+      const beta = c1s[i + 1] / m;
+      const dist = alpha * alpha + beta * beta;
+      if (dist > 9) {
+        const tau = 3 / Math.sqrt(dist);
+        c1s[i] = tau * alpha * m;
+        c1s[i + 1] = tau * beta * m;
+      }
+    }
+  }
+
+  // Evaluate spline for all x in 0..255
+  let seg = 0;
+  for (let x = 0; x < 256; x++) {
+    if (x <= uniquePts[0].x) {
+      lut[x] = Math.round(uniquePts[0].y);
+      continue;
+    }
+    if (x >= uniquePts[n - 1].x) {
+      lut[x] = Math.round(uniquePts[n - 1].y);
+      continue;
+    }
+
+    while (seg < n - 2 && x > uniquePts[seg + 1].x) {
+      seg++;
+    }
+
+    const x0 = uniquePts[seg].x;
+    const x1 = uniquePts[seg + 1].x;
+    const y0 = uniquePts[seg].y;
+    const y1 = uniquePts[seg + 1].y;
+    const h = x1 - x0;
+    const t = h === 0 ? 0 : (x - x0) / h;
+    const t2 = t * t;
+    const t3 = t2 * t;
+
+    const h00 = 2 * t3 - 3 * t2 + 1;
+    const h10 = t3 - 2 * t2 + t;
+    const h01 = -2 * t3 + 3 * t2;
+    const h11 = t3 - t2;
+
+    const y = h00 * y0 + h10 * h * c1s[seg] + h01 * y1 + h11 * h * c1s[seg + 1];
+    lut[x] = Math.max(0, Math.min(255, Math.round(y)));
+  }
+
+  return lut;
+}
+
+/**
+ * Combines master RGB curve and channel curve into a single 256-LUT
+ */
+export function buildCurveLUT(channelPoints?: CurvePoint[], masterPoints?: CurvePoint[]): Uint8Array {
+  const masterLUT = masterPoints && masterPoints.length >= 2 ? generateSplineLUT(masterPoints) : null;
+  const chanLUT = channelPoints && channelPoints.length >= 2 ? generateSplineLUT(channelPoints) : null;
+
+  const lut = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) {
+    let val = masterLUT ? masterLUT[i] : i;
+    val = chanLUT ? chanLUT[val] : val;
+    lut[i] = val;
+  }
+  return lut;
 }
 
 /**
@@ -217,6 +377,20 @@ export function applyAdjustmentParamsToImageData(
   }
 
   if (key === 'curves') {
+    if (params.curveChannels) {
+      const lutR = buildCurveLUT(params.curveChannels.red, params.curveChannels.rgb);
+      const lutG = buildCurveLUT(params.curveChannels.green, params.curveChannels.rgb);
+      const lutB = buildCurveLUT(params.curveChannels.blue, params.curveChannels.rgb);
+
+      for (let i = 0; i < len; i += 4) {
+        if (d[i + 3] === 0) continue;
+        d[i] = lutR[d[i]];
+        d[i + 1] = lutG[d[i + 1]];
+        d[i + 2] = lutB[d[i + 2]];
+      }
+      return;
+    }
+
     const amt = (params.curveAmount ?? 50) / 50;
     for (let i = 0; i < len; i += 4) {
       if (d[i + 3] === 0) continue;
