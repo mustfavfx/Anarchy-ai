@@ -262,7 +262,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             title={isAr ? 'طي / توسيع لوحة الألوان' : 'Toggle Color Panel'}
           >
             {isColorOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span className="ps-accordion-title">{isAr ? 'اللون والعينات' : 'Color & Swatches'}</span>
+            <span className="ps-accordion-title">{isAr ? 'اللون' : 'Color'}</span>
           </div>
           {isColorOpen && (
             <PhotoshopColorPanel
