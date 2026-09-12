@@ -165,16 +165,6 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
 
   const ADJUSTMENTS = [
     {
-      key: 'vibrance',
-      name: isAr ? 'اللون والحيوية' : 'Color and vibrance',
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="12 2 22 20 2 20" />
-          <circle cx="12" cy="13" r="3" fill="#3b82f6" stroke="#3b82f6" />
-        </svg>
-      ),
-    },
-    {
       key: 'brightness',
       name: isAr ? 'السطوع / التباين' : 'Brightness/Contrast',
       icon: <Sun size={20} />,
@@ -273,6 +263,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
     },
   ];
 
+
   return (
     <div className="ps-adjustments-panel">
       <div className="ps-adjustments-content">
@@ -341,27 +332,58 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 </>
               )}
 
-              {/* 2. Color and Vibrance */}
-              {activeTool.key === 'vibrance' && (
+              {/* 2. Levels */}
+              {activeTool.key === 'levels' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'الحيوية (Vibrance)' : 'Vibrance'}
-                    value={params.vibrance ?? 0}
-                    min={-100}
-                    max={100}
-                    onChange={(val) => updateParam('vibrance', val)}
+                    label={isAr ? 'نقطة الظلال (Shadows)' : 'Shadows'}
+                    value={params.blackPoint ?? 0}
+                    min={0}
+                    max={254}
+                    onChange={(val) => updateParam('blackPoint', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'التشبع (Saturation)' : 'Saturation'}
-                    value={params.saturation ?? 0}
-                    min={-100}
+                    label={isAr ? 'النغمات المتوسطة (Midtones)' : 'Midtones'}
+                    value={params.midtones ?? 1.0}
+                    min={0.2}
+                    max={3.0}
+                    step={0.05}
+                    onChange={(val) => updateParam('midtones', val)}
+                  />
+                  <SliderRow
+                    label={isAr ? 'نقطة الإضاءة (Highlights)' : 'Highlights'}
+                    value={params.whitePoint ?? 255}
+                    min={1}
+                    max={255}
+                    onChange={(val) => updateParam('whitePoint', val)}
+                  />
+                  {onOpenColorRange && (
+                    <button
+                      type="button"
+                      className="ps-adj-pill full"
+                      onClick={onOpenColorRange}
+                    >
+                      {isAr ? 'فتح نافذة النطاق اللوني المتقدم (Color Range)' : 'Open Advanced Color Range'}
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* 3. Curves */}
+              {activeTool.key === 'curves' && (
+                <>
+                  <SliderRow
+                    label={isAr ? 'قوة منحنى التباين (S-Curve)' : 'Curve Contrast'}
+                    value={params.curveAmount ?? 50}
+                    min={0}
                     max={100}
-                    onChange={(val) => updateParam('saturation', val)}
+                    unit="%"
+                    onChange={(val) => updateParam('curveAmount', val)}
                   />
                 </>
               )}
 
-              {/* 3. Exposure */}
+              {/* 4. Exposure */}
               {activeTool.key === 'exposure' && (
                 <>
                   <SliderRow
@@ -391,7 +413,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 </>
               )}
 
-              {/* 4. Hue / Saturation */}
+              {/* 5. Hue / Saturation */}
               {activeTool.key === 'hue-sat' && (
                 <>
                   <SliderRow
@@ -419,7 +441,27 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 </>
               )}
 
-              {/* 5. Color Balance */}
+              {/* 6. Vibrance */}
+              {activeTool.key === 'vibrance' && (
+                <>
+                  <SliderRow
+                    label={isAr ? 'الحيوية (Vibrance)' : 'Vibrance'}
+                    value={params.vibrance ?? 0}
+                    min={-100}
+                    max={100}
+                    onChange={(val) => updateParam('vibrance', val)}
+                  />
+                  <SliderRow
+                    label={isAr ? 'التشبع (Saturation)' : 'Saturation'}
+                    value={params.saturation ?? 0}
+                    min={-100}
+                    max={100}
+                    onChange={(val) => updateParam('saturation', val)}
+                  />
+                </>
+              )}
+
+              {/* 7. Color Balance */}
               {activeTool.key === 'color-balance' && (
                 <>
                   <SliderRow
@@ -446,7 +488,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 </>
               )}
 
-              {/* 6. Black & White */}
+              {/* 8. Black & White */}
               {activeTool.key === 'black-white' && (
                 <>
                   <div className="ps-adj-preset-pills">
@@ -493,57 +535,6 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     max={200}
                     unit="%"
                     onChange={(val) => updateParam('bwBlue', val)}
-                  />
-                </>
-              )}
-
-              {/* 7. Levels */}
-              {activeTool.key === 'levels' && (
-                <>
-                  <SliderRow
-                    label={isAr ? 'نقطة الظلال (Shadows)' : 'Shadows'}
-                    value={params.blackPoint ?? 0}
-                    min={0}
-                    max={254}
-                    onChange={(val) => updateParam('blackPoint', val)}
-                  />
-                  <SliderRow
-                    label={isAr ? 'النغمات المتوسطة (Midtones)' : 'Midtones'}
-                    value={params.midtones ?? 1.0}
-                    min={0.2}
-                    max={3.0}
-                    step={0.05}
-                    onChange={(val) => updateParam('midtones', val)}
-                  />
-                  <SliderRow
-                    label={isAr ? 'نقطة الإضاءة (Highlights)' : 'Highlights'}
-                    value={params.whitePoint ?? 255}
-                    min={1}
-                    max={255}
-                    onChange={(val) => updateParam('whitePoint', val)}
-                  />
-                  {onOpenColorRange && (
-                    <button
-                      type="button"
-                      className="ps-adj-pill full"
-                      onClick={onOpenColorRange}
-                    >
-                      {isAr ? 'فتح نافذة النطاق اللوني المتقدم (Color Range)' : 'Open Advanced Color Range'}
-                    </button>
-                  )}
-                </>
-              )}
-
-              {/* 8. Curves */}
-              {activeTool.key === 'curves' && (
-                <>
-                  <SliderRow
-                    label={isAr ? 'قوة منحنى التباين (S-Curve)' : 'Curve Contrast'}
-                    value={params.curveAmount ?? 50}
-                    min={0}
-                    max={100}
-                    unit="%"
-                    onChange={(val) => updateParam('curveAmount', val)}
                   />
                 </>
               )}
