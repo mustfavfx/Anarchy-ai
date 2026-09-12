@@ -1,8 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
-  X, Eye, EyeOff, Lock, Unlock, Plus, Trash2, Loader2, 
-  Link2, Copy, Contrast, ArrowUp, ArrowDown, Paintbrush2, FileCode,
-  Search, ChevronDown, ChevronRight, Folder, Move, MoreHorizontal
+  X, Eye, EyeOff, Lock, Plus, Trash2, Loader2, 
+  Link2, Contrast, ChevronDown, ChevronRight, Paintbrush2
 } from 'lucide-react';
 import { useResolvedImage } from '../../../hooks';
 import { useTranslation } from '../../../services/i18n';
@@ -190,10 +189,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   const [isAdjustmentsOpen, setIsAdjustmentsOpen] = useState(true);
   const [isLayersOpen, setIsLayersOpen] = useState(true);
 
-  // Layers Tab & Filter State
-  const [layersTab, setLayersTab] = useState<'layers' | 'channels' | 'paths'>('layers');
-  const [filterType, setFilterType] = useState<'all' | 'image' | 'adjustment' | 'text' | 'shape' | 'smart'>('all');
-  const [fillOpacity, setFillOpacity] = useState<number>(100);
+
 
   const isMaskActive = activeLayerId === 'active-mask';
   const isBaseActive = activeLayerId === 'base';
@@ -308,108 +304,11 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             title={isAr ? 'طي / توسيع لوحة الطبقات' : 'Toggle Layers Panel'}
           >
             {isLayersOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span className="ps-accordion-title">{isAr ? 'الطبقات والقنوات' : 'Layers & Channels'}</span>
+            <span className="ps-accordion-title">{isAr ? 'الطبقات' : 'Layers'}</span>
           </div>
 
           {isLayersOpen && (
             <div className="ps-layers-section-container">
-              {/* Tabs: Layers | Channels | Paths */}
-              <div className="ps-dock-panel-tabs ps-layers-dock-tabs">
-                <div className="ps-dock-tabs-list">
-                  <button
-                    type="button"
-                    className={`ps-dock-tab ${layersTab === 'layers' ? 'active' : ''}`}
-                    onClick={() => setLayersTab('layers')}
-                  >
-                    {isAr ? 'الطبقات' : 'Layers'}
-                  </button>
-                  <button
-                    type="button"
-                    className={`ps-dock-tab ${layersTab === 'channels' ? 'active' : ''}`}
-                    onClick={() => setLayersTab('channels')}
-                  >
-                    {isAr ? 'القنوات' : 'Channels'}
-                  </button>
-                  <button
-                    type="button"
-                    className={`ps-dock-tab ${layersTab === 'paths' ? 'active' : ''}`}
-                    onClick={() => setLayersTab('paths')}
-                  >
-                    {isAr ? 'المسارات' : 'Paths'}
-                  </button>
-                </div>
-                <button type="button" className="ps-dock-tab-menu-btn" title="Panel Options">
-                  <MoreHorizontal size={13} />
-                </button>
-              </div>
-
-              {layersTab === 'layers' && (
-                <>
-                  {/* Photoshop Filter Bar: Kind ⌵ + Layer Type Icons */}
-                  <div className="ps-layers-filter-bar">
-                    <div className="ps-kind-dropdown-wrap">
-                      <Search size={11} className="ps-kind-search-icon" />
-                      <span className="ps-kind-text">Kind</span>
-                      <ChevronDown size={10} className="ps-kind-arrow" />
-                    </div>
-
-                    <div className="ps-filter-icons-row">
-                      {/* Image layers */}
-                      <button
-                        type="button"
-                        className={`ps-filter-icon-btn ${filterType === 'image' ? 'active' : ''}`}
-                        onClick={() => setFilterType(f => f === 'image' ? 'all' : 'image')}
-                        title={isAr ? 'تصفية طبقات الصور' : 'Filter for pixel layers'}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/>
-                          <circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                      </button>
-
-                      {/* Adjustment layers */}
-                      <button
-                        type="button"
-                        className={`ps-filter-icon-btn ${filterType === 'adjustment' ? 'active' : ''}`}
-                        onClick={() => setFilterType(f => f === 'adjustment' ? 'all' : 'adjustment')}
-                        title={isAr ? 'تصفية طبقات التعديل' : 'Filter for adjustment layers'}
-                      >
-                        <Contrast size={11} />
-                      </button>
-
-                      {/* Type layers */}
-                      <button
-                        type="button"
-                        className={`ps-filter-icon-btn ${filterType === 'text' ? 'active' : ''}`}
-                        onClick={() => setFilterType(f => f === 'text' ? 'all' : 'text')}
-                        title={isAr ? 'تصفية طبقات النصوص' : 'Filter for type layers'}
-                      >
-                        <span style={{ fontWeight: 'bold', fontSize: '11px', fontFamily: 'serif' }}>T</span>
-                      </button>
-
-                      {/* Shape layers */}
-                      <button
-                        type="button"
-                        className={`ps-filter-icon-btn ${filterType === 'shape' ? 'active' : ''}`}
-                        onClick={() => setFilterType(f => f === 'shape' ? 'all' : 'shape')}
-                        title={isAr ? 'تصفية طبقات الأشكال' : 'Filter for shape layers'}
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="4" y="4" width="16" height="16" rx="1" />
-                        </svg>
-                      </button>
-
-                      {/* Filter On/Off Switch Pill */}
-                      <div 
-                        className={`ps-filter-toggle-pill ${filterType !== 'all' ? 'on' : ''}`}
-                        onClick={() => setFilterType('all')}
-                        title={filterType !== 'all' ? 'Turn off layer filtering' : 'Filter off'}
-                      >
-                        <div className="ps-filter-pill-thumb" />
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Blend Mode & Opacity Row */}
                   <div className="ps-layers-top-controls">
@@ -463,56 +362,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                       </div>
                     </div>
 
-                    {/* Lock & Fill Row */}
-                    <div className="ps-lock-fill-row">
-                      <div className="ps-lock-icons-group">
-                        <span className="ps-lock-prefix">{isAr ? 'قفل:' : 'Lock:'}</span>
-                        <button
-                          type="button"
-                          className="ps-lock-icon-btn"
-                          title={isAr ? 'قفل البكسلات الشفافة' : 'Lock transparent pixels'}
-                        >
-                          <span style={{ fontSize: '10px' }}>🏁</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="ps-lock-icon-btn"
-                          title={isAr ? 'قفل بكسلات الصورة' : 'Lock image pixels'}
-                        >
-                          <Paintbrush2 size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          className="ps-lock-icon-btn"
-                          title={isAr ? 'قفل الموضع والحركة' : 'Lock position'}
-                        >
-                          <Move size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          className={`ps-lock-icon-btn ${isLayerLocked ? 'active' : ''}`}
-                          onClick={() => onToggleLock && onToggleLock(activeLayerId)}
-                          title={isLayerLocked ? (isAr ? 'إلغاء قفل الطبقة' : 'Unlock Layer') : (isAr ? 'قفل الطبقة بالكامل' : 'Lock All')}
-                        >
-                          <Lock size={11} />
-                        </button>
-                      </div>
 
-                      <div className="ps-fill-control-wrap">
-                        <span className="ps-fill-label">{isAr ? 'التعبئة:' : 'Fill:'}</span>
-                        <select
-                          className="ps-fill-select"
-                          value={fillOpacity}
-                          onChange={(e) => setFillOpacity(Number(e.target.value))}
-                        >
-                          <option value="100">100%</option>
-                          <option value="80">80%</option>
-                          <option value="60">60%</option>
-                          <option value="40">40%</option>
-                          <option value="20">20%</option>
-                        </select>
-                      </div>
-                    </div>
                   </div>
 
                   {/* Layers Stack List */}
@@ -759,70 +609,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                       <Lock size={13} className="vizmaker-layer-lock-icon" />
                     </div>
                   </div>
-                </>
-              )}
 
-              {layersTab === 'channels' && (
-                <div className="ps-channels-list">
-                  <div className="ps-channel-item active">
-                    <Eye size={12} className="ps-channel-eye" />
-                    <div className="ps-channel-thumb rgb" />
-                    <span className="ps-channel-name">RGB</span>
-                    <span className="ps-channel-shortcut">Ctrl+2</span>
-                  </div>
-                  <div className="ps-channel-item">
-                    <Eye size={12} className="ps-channel-eye" />
-                    <div className="ps-channel-thumb red" />
-                    <span className="ps-channel-name">Red</span>
-                    <span className="ps-channel-shortcut">Ctrl+3</span>
-                  </div>
-                  <div className="ps-channel-item">
-                    <Eye size={12} className="ps-channel-eye" />
-                    <div className="ps-channel-thumb green" />
-                    <span className="ps-channel-name">Green</span>
-                    <span className="ps-channel-shortcut">Ctrl+4</span>
-                  </div>
-                  <div className="ps-channel-item">
-                    <Eye size={12} className="ps-channel-eye" />
-                    <div className="ps-channel-thumb blue" />
-                    <span className="ps-channel-name">Blue</span>
-                    <span className="ps-channel-shortcut">Ctrl+5</span>
-                  </div>
-                  {(hasActiveMask || currentMaskPreviewUrl) && (
-                    <div className="ps-channel-item mask-channel">
-                      <Eye size={12} className="ps-channel-eye" />
-                      <div className="ps-channel-thumb mask-stencil" />
-                      <span className="ps-channel-name">Alpha 1 (Mask)</span>
-                      <span className="ps-channel-shortcut">Ctrl+6</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {layersTab === 'paths' && (
-                <div className="ps-empty-tab-note">
-                  <span>{isAr ? 'لا توجد مسارات متجهة حالياً' : 'No vector paths available'}</span>
-                </div>
-              )}
-
-              {/* Photoshop Iconic Footer Action Bar */}
+              {/* Action Footer */}
               <div className="mask-layers-dock-footer ps-photoshop-footer">
-                <button
-                  type="button"
-                  className="ps-dock-action-btn"
-                  title={isAr ? 'ربط الطبقات (Link Layers)' : 'Link Layers'}
-                >
-                  <Link2 size={13} />
-                </button>
-
-                <button
-                  type="button"
-                  className="ps-dock-action-btn"
-                  title={isAr ? 'تأثيرات ونمط الطبقة (Layer Styles fx)' : 'Add a layer style (fx)'}
-                >
-                  <span style={{ fontWeight: 'bold', fontStyle: 'italic', fontSize: '12px', fontFamily: 'serif' }}>fx</span>
-                </button>
-
                 <button
                   type="button"
                   className="ps-dock-action-btn"
@@ -842,14 +631,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   title={isAr ? 'إنشاء طبقة ضبط جديدة (New Adjustment Layer)' : 'Create new fill or adjustment layer'}
                 >
                   <Contrast size={13} />
-                </button>
-
-                <button
-                  type="button"
-                  className="ps-dock-action-btn"
-                  title={isAr ? 'إنشاء مجموعة جديدة (New Group)' : 'Create a new group'}
-                >
-                  <Folder size={13} />
                 </button>
 
                 <button
