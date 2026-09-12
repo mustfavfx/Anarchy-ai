@@ -106,6 +106,9 @@ export interface InpaintLayer {
   locked?: boolean;
   selectedTarget?: 'image' | 'mask';
   createdAt?: number;
+  layerType?: 'raster' | 'adjustment';
+  adjustmentKey?: string;
+  adjustmentParams?: AdjustmentParams;
 }
 
 export interface LayersPanelProps {
@@ -148,6 +151,7 @@ export interface LayersPanelProps {
   onPreviewAdjustment?: (params: AdjustmentParams) => void;
   onCommitAdjustment?: (params: AdjustmentParams) => void;
   onCancelAdjustment?: () => void;
+  onCreateAdjustmentLayer?: (key: string, name: string, initialParams: AdjustmentParams) => void;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
@@ -190,6 +194,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   onPreviewAdjustment,
   onCommitAdjustment,
   onCancelAdjustment,
+  onCreateAdjustmentLayer,
 }) => {
   const { isAr } = useTranslation();
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
@@ -305,6 +310,8 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               onInvertMask={onInvertMask ? () => onInvertMask(activeLayerId) : undefined}
               onOpenColorRange={onOpenColorRange}
               activeLayerId={activeLayerId}
+              activeLayer={layers.find(l => l.id === activeLayerId)}
+              onCreateAdjustmentLayer={onCreateAdjustmentLayer}
               onApplyAdjustment={onApplyAdjustment}
               onStartAdjustment={onStartAdjustment}
               onPreviewAdjustment={onPreviewAdjustment}
@@ -497,8 +504,13 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                       return (
                         <div
                           key={layer.id}
-                          className={`mask-layer-item ps-layer-item ${isSelected ? 'active' : ''} ${layer.locked ? 'locked' : ''}`}
-                          onClick={() => onSelectLayer(layer.id, 'image')}
+                          className={`mask-layer-item ps-layer-item ${isSelected ? 'active' : ''} ${layer.locked ? 'locked' : ''} ${layer.layerType === 'adjustment' ? 'adjustment-layer' : ''}`}
+                          onClick={() => {
+                            onSelectLayer(layer.id, 'image');
+                            if (layer.layerType === 'adjustment') {
+                              setIsAdjustmentsOpen(true);
+                            }
+                          }}
                         >
                           <button
                             type="button"
@@ -523,10 +535,19 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onSelectLayer(layer.id, 'image');
+                                if (layer.layerType === 'adjustment') {
+                                  setIsAdjustmentsOpen(true);
+                                }
                               }}
-                              title="Layer Image (Click to select image)"
+                              title={layer.layerType === 'adjustment' ? `${layer.name} (Adjustment Layer)` : "Layer Image (Click to select image)"}
                             >
-                              <LayerThumbnail rawSrc={layer.image} alt={layer.name} />
+                              {layer.layerType === 'adjustment' ? (
+                                <div className="ps-adj-thumb-icon-box" title={layer.name}>
+                                  <Contrast size={14} className="ps-adj-icon-glyph" />
+                                </div>
+                              ) : (
+                                <LayerThumbnail rawSrc={layer.image} alt={layer.name} />
+                              )}
                             </div>
 
                             <div className="ps-thumb-link" title="Layer and Mask Linked">
@@ -544,8 +565,12 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                               {layer.maskPreviewUrl || layer.maskDataUrl ? (
                                 <img src={layer.maskPreviewUrl || layer.maskDataUrl || ''} alt="Mask" className="vizmaker-layer-img-preview" />
                               ) : (
-                                <div className="ps-mask-empty-thumb" title="Empty Mask - Click to paint">
-                                  <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                                <div className="ps-mask-empty-thumb" title={layer.layerType === 'adjustment' ? (isAr ? 'قناع طبقة الضبط' : 'Adjustment Layer Mask') : (isAr ? 'قناع فارغ' : 'Empty Mask')}>
+                                  {layer.layerType === 'adjustment' ? (
+                                    <div className="ps-mask-white-fill" title={isAr ? 'قناع كامل (يؤثر على كل البيكسلات)' : 'Full White Mask'} />
+                                  ) : (
+                                    <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -567,16 +592,23 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                                 onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
-                              <span 
-                                className="vizmaker-layer-title ps-layer-title" 
-                                title={`${layer.name} (Double-click to rename)`}
-                                onDoubleClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStartRename(layer.id, layer.name);
-                                }}
-                              >
-                                {layer.name.length > 18 ? layer.name.slice(0, 18) + '...' : layer.name}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+                                <span 
+                                  className="vizmaker-layer-title ps-layer-title" 
+                                  title={`${layer.name} (Double-click to rename)`}
+                                  onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStartRename(layer.id, layer.name);
+                                  }}
+                                >
+                                  {layer.name.length > 18 ? layer.name.slice(0, 18) + '...' : layer.name}
+                                </span>
+                                {layer.layerType === 'adjustment' && (
+                                  <span className="ps-adj-layer-tag">
+                                    {isAr ? 'ضبط' : 'Adj'}
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {(layerBlend !== 'normal' || layerOpacity < 100) && (
                               <span className="ps-layer-blend-badge">
@@ -645,7 +677,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                 <button
                   type="button"
                   className="ps-dock-action-btn"
-                  onClick={onOpenColorRange}
+                  onClick={() => setIsAdjustmentsOpen(true)}
                   title={isAr ? 'إنشاء طبقة ضبط جديدة (New Adjustment Layer)' : 'Create new fill or adjustment layer'}
                 >
                   <Contrast size={13} />

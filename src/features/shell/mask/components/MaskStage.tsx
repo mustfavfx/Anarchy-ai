@@ -141,6 +141,12 @@ export const MaskStage: React.FC<MaskStageProps> = ({
               pointerEvents: 'none',
               opacity: (layer.opacity ?? 100) / 100,
               mixBlendMode: (layer.blendMode as any) || 'normal',
+              maskImage: layer.maskDataUrl ? `url(${layer.maskDataUrl})` : undefined,
+              WebkitMaskImage: layer.maskDataUrl ? `url(${layer.maskDataUrl})` : undefined,
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
               zIndex: 2,
               clipPath: splitCompareMode ? `polygon(${splitPosition}% 0, 100% 0, 100% 100%, ${splitPosition}% 100%)` : undefined,
             }}

@@ -578,10 +578,206 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     originalImageSrc?: string;
     originalBaseOriginal?: string | null;
     originalCanvasImage?: string | null;
+    originalAdjustmentParams?: AdjustmentParams;
     cachedImageData?: ImageData;
     cachedCanvas?: HTMLCanvasElement;
     cachedCtx?: CanvasRenderingContext2D;
+    isNewLayer?: boolean;
   } | null>(null);
+
+  // Composite all layers strictly underneath targetLayerId into an offscreen ImageData
+  const compositeUnderlyingLayers = useCallback(async (targetLayerId: string | null) => {
+    const baseSrc = resolvedBaseImage || baseOriginalImage || currentCanvasImage;
+    const canvas = canvasRef.current;
+
+    let targetW = canvas?.width || 0;
+    let targetH = canvas?.height || 0;
+    let baseImgEl: HTMLImageElement | null = null;
+
+    if (baseSrc && (targetW === 0 || targetH === 0)) {
+      try {
+        baseImgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = baseSrc;
+        });
+        targetW = baseImgEl.naturalWidth || baseImgEl.width;
+        targetH = baseImgEl.naturalHeight || baseImgEl.height;
+      } catch (e) {
+        logger.warn('Failed to preload base image for compositing', e);
+      }
+    }
+
+    if (targetW === 0) targetW = 800;
+    if (targetH === 0) targetH = 600;
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = targetW;
+    offscreen.height = targetH;
+    const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+    if (!offCtx) return null;
+
+    // 1. Draw base image if visible
+    if (baseImageVisible !== false && baseSrc) {
+      if (!baseImgEl) {
+        try {
+          baseImgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = baseSrc;
+          });
+        } catch {
+          // ignore
+        }
+      }
+      if (baseImgEl) {
+        offCtx.save();
+        offCtx.globalAlpha = baseImageOpacity;
+        offCtx.drawImage(baseImgEl, 0, 0, targetW, targetH);
+        offCtx.restore();
+      }
+    }
+
+    // 2. Determine which layers are strictly underneath targetLayerId
+    // inpaintLayers is ordered top (index 0) to bottom (last index)
+    let layersUnderneath: InpaintLayer[] = [];
+    if (!targetLayerId) {
+      layersUnderneath = inpaintLayers.slice().reverse();
+    } else {
+      const idx = inpaintLayers.findIndex(l => l.id === targetLayerId);
+      if (idx !== -1) {
+        layersUnderneath = inpaintLayers.slice(idx + 1).reverse();
+      } else {
+        layersUnderneath = inpaintLayers.slice().reverse();
+      }
+    }
+
+    // 3. Composite each visible underlying layer
+    for (const layer of layersUnderneath) {
+      if (!layer.visible || !layer.image) continue;
+      try {
+        let layerImg: HTMLImageElement | null = null;
+        const domEl = document.querySelector(`img[data-layer-id="${layer.id}"]`) as HTMLImageElement | null;
+        if (domEl && domEl.complete && domEl.naturalWidth > 0) {
+          layerImg = domEl;
+        } else {
+          layerImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = layer.image!;
+          });
+        }
+
+        offCtx.save();
+        offCtx.globalAlpha = (layer.opacity ?? 100) / 100;
+        offCtx.globalCompositeOperation = (layer.blendMode && layer.blendMode !== 'normal')
+          ? (layer.blendMode as GlobalCompositeOperation)
+          : 'source-over';
+        offCtx.drawImage(layerImg, 0, 0, targetW, targetH);
+        offCtx.restore();
+      } catch (err) {
+        logger.warn(`Failed to composite layer ${layer.id}`, err);
+      }
+    }
+
+    const rawData = offCtx.getImageData(0, 0, targetW, targetH);
+    return { canvas: offscreen, ctx: offCtx, rawData, width: targetW, height: targetH };
+  }, [resolvedBaseImage, baseOriginalImage, currentCanvasImage, canvasRef, baseImageVisible, baseImageOpacity, inpaintLayers]);
+
+  // Create a new Photoshop Adjustment Layer at the top of the layer stack
+  const handleCreateAdjustmentLayer = useCallback(async (key: string, name: string, initialParams: AdjustmentParams) => {
+    try {
+      const comp = await compositeUnderlyingLayers(null);
+      if (!comp) return;
+
+      const newLayerId = `adj-layer-${Date.now()}`;
+
+      // Apply initial adjustment to composite
+      const copy = new ImageData(
+        new Uint8ClampedArray(comp.rawData.data),
+        comp.rawData.width,
+        comp.rawData.height
+      );
+      applyAdjustmentParamsToImageData(copy, initialParams, false);
+      comp.ctx.putImageData(copy, 0, 0);
+      const initialDataUrl = comp.canvas.toDataURL('image/png');
+
+      // If there is an active selection on the canvas, turn it into the layer's mask
+      let layerMaskUrl: string | undefined = undefined;
+      if (hasSelectionContent && canvasRef.current) {
+        layerMaskUrl = canvasRef.current.toDataURL('image/png');
+        clearMask();
+      }
+
+      const count = inpaintLayers.filter(l => l.name.startsWith(name)).length + 1;
+      const layerName = `${name} ${count}`;
+
+      const newLayer: InpaintLayer = {
+        id: newLayerId,
+        name: layerName,
+        visible: true,
+        opacity: 100,
+        blendMode: 'normal',
+        image: initialDataUrl,
+        layerType: 'adjustment',
+        adjustmentKey: key,
+        adjustmentParams: initialParams,
+        maskDataUrl: layerMaskUrl,
+      };
+
+      adjustmentSnapshotRef.current = {
+        targetType: 'layer',
+        layerId: newLayerId,
+        originalImageSrc: initialDataUrl,
+        originalAdjustmentParams: initialParams,
+        cachedImageData: comp.rawData,
+        cachedCanvas: comp.canvas,
+        cachedCtx: comp.ctx,
+        isNewLayer: true,
+      };
+
+      setInpaintLayers(prev => [newLayer, ...prev]);
+      setActiveLayerId(newLayerId);
+      pushHistory();
+
+      useNotificationStore.getState().addNotification({
+        type: 'success',
+        title: layerName,
+        message: isAr ? `تمت إضافة طبقة ضبط جديدة: ${layerName}` : `Added adjustment layer: ${layerName}`,
+        duration: 2200,
+      });
+    } catch (err) {
+      logger.error('Failed to create adjustment layer', err);
+    }
+  }, [compositeUnderlyingLayers, hasSelectionContent, canvasRef, clearMask, inpaintLayers, setInpaintLayers, setActiveLayerId, pushHistory, isAr]);
+
+  // Synchronize snapshot when switching active layer to an existing adjustment layer
+  useEffect(() => {
+    const active = inpaintLayers.find(l => l.id === activeLayerId);
+    if (active && active.layerType === 'adjustment' && active.adjustmentKey) {
+      if (adjustmentSnapshotRef.current?.layerId !== active.id) {
+        compositeUnderlyingLayers(active.id).then((comp) => {
+          if (!comp) return;
+          adjustmentSnapshotRef.current = {
+            targetType: 'layer',
+            layerId: active.id,
+            originalImageSrc: active.image,
+            originalAdjustmentParams: active.adjustmentParams,
+            cachedImageData: comp.rawData,
+            cachedCanvas: comp.canvas,
+            cachedCtx: comp.ctx,
+            isNewLayer: false,
+          };
+        });
+      }
+    }
+  }, [activeLayerId, inpaintLayers, compositeUnderlyingLayers]);
 
   const handleStartAdjustment = useCallback((_key: string) => {
     // 1. Mask target
@@ -672,7 +868,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       return;
     }
 
-    if (snapshot.targetType === 'layer') {
+    if (snapshot.targetType === 'layer' && snapshot.layerId) {
       if (snapshot.cachedImageData && snapshot.cachedCanvas && snapshot.cachedCtx) {
         const copy = new ImageData(
           new Uint8ClampedArray(snapshot.cachedImageData.data),
@@ -682,10 +878,18 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         applyAdjustmentParamsToImageData(copy, params, false);
         snapshot.cachedCtx.putImageData(copy, 0, 0);
         const previewUrl = snapshot.cachedCanvas.toDataURL('image/png');
-        setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? { ...l, image: previewUrl } : l));
+        setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? {
+          ...l,
+          image: previewUrl,
+          adjustmentParams: params
+        } : l));
       } else if (snapshot.originalImageSrc) {
         applyAdjustmentParamsToImageUrl(snapshot.originalImageSrc, params).then((previewUrl) => {
-          setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? { ...l, image: previewUrl } : l));
+          setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? {
+            ...l,
+            image: previewUrl,
+            adjustmentParams: params
+          } : l));
         });
       }
       return;
@@ -732,10 +936,10 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       useNotificationStore.getState().addNotification({
         type: 'success',
         title: params.name,
-        message: isAr ? `تم تطبيق ${params.name} على الطبقة بنجاح.` : `Applied ${params.name} to layer.`,
+        message: isAr ? `تم حفظ تعديلات ${params.name}.` : `Saved ${params.name} adjustments.`,
         duration: 2200,
       });
-      adjustmentSnapshotRef.current = null;
+      snapshot.isNewLayer = false;
       return;
     }
 
@@ -767,8 +971,16 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
         ctx.putImageData(snapshot.originalMaskData, 0, 0);
         updateMaskPreview();
       }
-    } else if (snapshot.targetType === 'layer' && snapshot.layerId && snapshot.originalImageSrc) {
-      setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? { ...l, image: snapshot.originalImageSrc! } : l));
+    } else if (snapshot.targetType === 'layer' && snapshot.layerId) {
+      if (snapshot.isNewLayer) {
+        setInpaintLayers(prev => prev.filter(l => l.id !== snapshot.layerId));
+      } else if (snapshot.originalImageSrc) {
+        setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? {
+          ...l,
+          image: snapshot.originalImageSrc!,
+          adjustmentParams: snapshot.originalAdjustmentParams
+        } : l));
+      }
     } else if (snapshot.targetType === 'base') {
       if (snapshot.originalBaseOriginal !== undefined) {
         setBaseOriginalImage(snapshot.originalBaseOriginal);
@@ -1223,6 +1435,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           brushColor={brushColor}
           onChangeBrushColor={setBrushColor}
           onOpenColorRange={() => setShowColorRangeModal(true)}
+          onCreateAdjustmentLayer={handleCreateAdjustmentLayer}
           onApplyAdjustment={handleApplyAdjustment}
           onStartAdjustment={handleStartAdjustment}
           onPreviewAdjustment={handlePreviewAdjustment}

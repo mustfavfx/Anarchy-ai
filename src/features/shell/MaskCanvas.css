@@ -3054,3 +3054,44 @@
   }
 }
 
+/* ── Photoshop Adjustment Layer Styling ───────────────────────────────────── */
+
+.ps-adj-thumb-icon-box {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38bdf8;
+  border-radius: 2px;
+}
+
+.ps-adj-icon-glyph {
+  color: #38bdf8;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.5));
+}
+
+.ps-adj-layer-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  margin-inline-start: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mask-layer-item.adjustment-layer {
+  border-left: 2px solid #38bdf8;
+}
+
+.mask-layer-item.adjustment-layer.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+

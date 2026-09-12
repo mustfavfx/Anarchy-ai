@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Sun, Sliders, Scale, SplitSquareVertical, Camera, Layers, Grid3X3, 
   Mail, Contrast, TrendingUp, BarChart2, ShieldAlert,
@@ -6,11 +6,14 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '../../../services/i18n';
 import type { AdjustmentParams } from '../mask/utils/adjustmentEngine';
+import type { InpaintLayer } from './LayersPanel';
 
 export interface PhotoshopAdjustmentsPanelProps {
   onInvertMask?: () => void;
   onOpenColorRange?: () => void;
   activeLayerId?: string;
+  activeLayer?: InpaintLayer;
+  onCreateAdjustmentLayer?: (key: string, name: string, initialParams: AdjustmentParams) => void;
   onStartAdjustment?: (key: string) => void;
   onPreviewAdjustment?: (params: AdjustmentParams) => void;
   onCommitAdjustment?: (params: AdjustmentParams) => void;
@@ -18,51 +21,10 @@ export interface PhotoshopAdjustmentsPanelProps {
   onApplyAdjustment?: (key: string, name: string) => void;
 }
 
-const SliderRow: React.FC<{
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  unit?: string;
-  onChange: (val: number) => void;
-}> = ({ label, value, min, max, step = 1, unit = '', onChange }) => (
-  <div className="ps-adj-slider-row">
-    <div className="ps-adj-slider-header">
-      <span className="ps-adj-slider-label">{label}</span>
-      <span className="ps-adj-slider-value">
-        {value > 0 && unit !== '°' ? `+${value}` : value}{unit}
-      </span>
-    </div>
-    <input
-      type="range"
-      min={min}
-      max={max}
-      step={step}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="ps-adj-range-input"
-    />
-  </div>
-);
-
-export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps> = ({
-  onInvertMask,
-  onOpenColorRange,
-  activeLayerId: _activeLayerId,
-  onStartAdjustment,
-  onPreviewAdjustment,
-  onCommitAdjustment,
-  onCancelAdjustment,
-  onApplyAdjustment,
-}) => {
-  const { isAr } = useTranslation();
-  const [activeTool, setActiveTool] = useState<{ key: string; name: string } | null>(null);
-
-  // Active Tool Parameter State
-  const [params, setParams] = useState<AdjustmentParams>({
-    key: '',
-    name: '',
+export function getInitialAdjustmentParams(key: string, name: string): AdjustmentParams {
+  return {
+    key,
+    name,
     brightness: 0,
     contrast: 0,
     vibrance: 0,
@@ -99,61 +61,76 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
     bwRed: 40,
     bwGreen: 60,
     bwBlue: 20,
-  });
+  };
+}
+
+const SliderRow: React.FC<{
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (val: number) => void;
+}> = ({ label, value, min, max, step = 1, unit = '', onChange }) => (
+  <div className="ps-adj-slider-row">
+    <div className="ps-adj-slider-header">
+      <span className="ps-adj-slider-label">{label}</span>
+      <span className="ps-adj-slider-value">
+        {value > 0 && unit !== '°' ? `+${value}` : value}{unit}
+      </span>
+    </div>
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="ps-adj-range-input"
+    />
+  </div>
+);
+
+export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps> = ({
+  onInvertMask,
+  onOpenColorRange,
+  activeLayerId: _activeLayerId,
+  activeLayer,
+  onCreateAdjustmentLayer,
+  onStartAdjustment,
+  onPreviewAdjustment,
+  onCommitAdjustment,
+  onCancelAdjustment,
+  onApplyAdjustment,
+}) => {
+  const { isAr } = useTranslation();
+  const [activeTool, setActiveTool] = useState<{ key: string; name: string } | null>(null);
+
+  // Active Tool Parameter State
+  const [params, setParams] = useState<AdjustmentParams>(() => getInitialAdjustmentParams('', ''));
+
+  // Sync with active adjustment layer when selected in Layers list
+  useEffect(() => {
+    if (activeLayer && activeLayer.layerType === 'adjustment' && activeLayer.adjustmentKey) {
+      const key = activeLayer.adjustmentKey;
+      const initial = getInitialAdjustmentParams(key, activeLayer.name);
+      setActiveTool({ key, name: activeLayer.name });
+      setParams(activeLayer.adjustmentParams || initial);
+    }
+  }, [activeLayer?.id, activeLayer?.layerType, activeLayer?.adjustmentKey]);
 
   const handleOpenTool = (key: string, name: string) => {
-    // Immediate actions without slider popovers if preferred
-    if (key === 'invert' && !onPreviewAdjustment) {
-      if (onApplyAdjustment) onApplyAdjustment(key, name);
-      else if (onInvertMask) onInvertMask();
-      return;
-    }
-
-    const initial: AdjustmentParams = {
-      key,
-      name,
-      brightness: 0,
-      contrast: 0,
-      vibrance: 0,
-      saturation: 0,
-      hue: 0,
-      lightness: 0,
-      exposure: 0,
-      offset: 0,
-      gamma: 1.0,
-      blackPoint: 0,
-      whitePoint: 255,
-      midtones: 1.0,
-      curveAmount: 50,
-      curvePreset: 'medium',
-      redBalance: 0,
-      greenBalance: 0,
-      blueBalance: 0,
-      filterPreset: 'warm',
-      filterDensity: 30,
-      channelRed: 100,
-      channelGreen: 0,
-      channelBlue: 0,
-      channelMono: false,
-      lutPreset: 'teal-orange',
-      lutIntensity: 80,
-      posterizeLevels: 4,
-      thresholdLevel: 128,
-      gradientPreset: 'navy-coral',
-      gradientReverse: false,
-      selectiveCyan: 0,
-      selectiveMagenta: 0,
-      selectiveYellow: 0,
-      selectiveBlack: 0,
-      bwRed: 40,
-      bwGreen: 60,
-      bwBlue: 20,
-    };
-
+    const initial = getInitialAdjustmentParams(key, name);
     setActiveTool({ key, name });
     setParams(initial);
-    onStartAdjustment?.(key);
-    onPreviewAdjustment?.(initial);
+
+    if (onCreateAdjustmentLayer) {
+      onCreateAdjustmentLayer(key, name, initial);
+    } else {
+      onStartAdjustment?.(key);
+      onPreviewAdjustment?.(initial);
+    }
   };
 
   const updateParam = useCallback(<K extends keyof AdjustmentParams>(field: K, val: AdjustmentParams[K]) => {
@@ -171,7 +148,6 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
       } else if (onApplyAdjustment) {
         onApplyAdjustment(activeTool.key, activeTool.name);
       }
-      setActiveTool(null);
     }
   };
 
@@ -182,7 +158,9 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
 
   const handleReset = () => {
     if (!activeTool) return;
-    handleOpenTool(activeTool.key, activeTool.name);
+    const initial = getInitialAdjustmentParams(activeTool.key, activeTool.name);
+    setParams(initial);
+    onPreviewAdjustment?.(initial);
   };
 
   const ADJUSTMENTS = [
