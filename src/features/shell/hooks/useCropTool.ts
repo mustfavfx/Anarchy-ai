@@ -23,11 +23,22 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
+export interface CropResultDetails {
+  dataUrl: string;
+  cropRect: CropRect;
+  canvasWidth: number;
+  canvasHeight: number;
+  naturalWidth: number;
+  naturalHeight: number;
+  croppedNaturalWidth: number;
+  croppedNaturalHeight: number;
+}
+
 export function useCropTool(params: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   wrapperRef: RefObject<HTMLDivElement | null>;
   resolvedImage: string | null | undefined;
-  onCrop?: (croppedDataUrl: string) => void;
+  onCrop?: (croppedDataUrl: string, details?: CropResultDetails) => void;
   onApplied?: () => void;
 }) {
   const { canvasRef, wrapperRef, resolvedImage, onCrop, onApplied } = params;
@@ -264,28 +275,43 @@ export function useCropTool(params: {
     if (!canvas) return;
 
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const { x, y, w, h } = cropRect;
-      const scaleX = img.naturalWidth / canvas.width;
-      const scaleY = img.naturalHeight / canvas.height;
+      const naturalW = img.naturalWidth || img.width;
+      const naturalH = img.naturalHeight || img.height;
+      const scaleX = naturalW / canvas.width;
+      const scaleY = naturalH / canvas.height;
       const offscreen = document.createElement('canvas');
-      offscreen.width = Math.round(w * scaleX);
-      offscreen.height = Math.round(h * scaleY);
+      const croppedW = Math.max(1, Math.round(w * scaleX));
+      const croppedH = Math.max(1, Math.round(h * scaleY));
+      offscreen.width = croppedW;
+      offscreen.height = croppedH;
       const ctx = offscreen.getContext('2d');
       if (!ctx) return;
       ctx.drawImage(
         img,
         Math.round(x * scaleX),
         Math.round(y * scaleY),
-        offscreen.width,
-        offscreen.height,
+        croppedW,
+        croppedH,
         0,
         0,
-        offscreen.width,
-        offscreen.height
+        croppedW,
+        croppedH
       );
       const dataUrl = offscreen.toDataURL('image/png');
-      onCrop?.(dataUrl);
+      const details: CropResultDetails = {
+        dataUrl,
+        cropRect,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        naturalWidth: naturalW,
+        naturalHeight: naturalH,
+        croppedNaturalWidth: croppedW,
+        croppedNaturalHeight: croppedH,
+      };
+      onCrop?.(dataUrl, details);
       setCropRect(null);
       onApplied?.();
     };

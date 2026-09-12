@@ -368,6 +368,16 @@ export const EnlargedPreview: React.FC = () => {
                   if (selectedNode?.id && nodeImageUpdateFn) {
                     nodeImageUpdateFn(selectedNode.id, croppedUrl);
                   }
+                  if (selectedNode) {
+                    setSelectedNode({
+                      ...selectedNode,
+                      image: croppedUrl,
+                      data: {
+                        ...((selectedNode as any)?.data || {}),
+                        image: croppedUrl,
+                      },
+                    } as any);
+                  }
                 }}
               />
             ) : (
