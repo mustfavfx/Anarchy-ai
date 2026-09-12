@@ -165,21 +165,21 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
   const ADJUSTMENTS = [
     {
       key: 'brightness',
-      name: isAr ? 'السطوع / التباين' : 'Brightness/Contrast',
-      icon: <Sun size={20} />,
+      name: isAr ? 'السطوع / التباين' : 'Brightness / Contrast',
+      icon: <Sun size={17} />,
     },
     {
       key: 'levels',
       name: isAr ? 'المستويات' : 'Levels',
-      icon: <BarChart2 size={20} />,
+      icon: <BarChart2 size={17} />,
     },
     {
       key: 'curves',
       name: isAr ? 'المنحنيات' : 'Curves',
       icon: (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="2 2" />
-          <path d="M4 19 C 10 19, 14 5, 20 5" stroke="#ffffff" strokeWidth="2" />
+          <path d="M4 19 C 10 19, 14 5, 20 5" stroke="#38bdf8" strokeWidth="2" />
         </svg>
       ),
     },
@@ -187,40 +187,41 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
       key: 'exposure',
       name: isAr ? 'التعريض' : 'Exposure',
       icon: (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <rect x="3" y="3" width="18" height="18" rx="2" />
           <line x1="3" y1="21" x2="21" y2="3" />
-          <path d="M7 6 h2 M8 5 v2" stroke="#ffffff" strokeWidth="2" />
-          <path d="M15 17 h3" stroke="#ffffff" strokeWidth="2" />
+          <path d="M7 6 h2 M8 5 v2" stroke="#38bdf8" strokeWidth="2" />
+          <path d="M15 17 h3" stroke="#38bdf8" strokeWidth="2" />
         </svg>
       ),
     },
     {
       key: 'hue-sat',
-      name: isAr ? 'تدرج / تشبع' : 'Hue/Saturation',
-      icon: <Sliders size={20} />,
+      name: isAr ? 'تدرج / تشبع' : 'Hue / Saturation',
+      icon: <Sliders size={17} />,
     },
   ];
-
 
   return (
     <div className="ps-adjustments-panel">
       <div className="ps-adjustments-content">
         {!activeTool ? (
-          /* 4x4 Adjustments Grid */
-          <div className="ps-adjustments-grid">
-            {ADJUSTMENTS.map((adj) => (
+          /* Spacious 5 Adjustments Grid */
+          <div className="ps-adjustments-grid ps-5-tools-grid">
+            {ADJUSTMENTS.map((adj, idx) => (
               <button
                 key={adj.key}
                 type="button"
-                className="ps-adjustment-tile"
+                className={`ps-adjustment-tile ${idx === 4 ? 'ps-adj-tile-full' : ''}`}
                 onClick={() => handleOpenTool(adj.key, adj.name)}
-                title={`${adj.name}${adj.key === 'invert' ? ' (Ctrl+I)' : ''}`}
+                title={adj.name}
               >
                 <div className="ps-adj-tile-icon">
                   {adj.icon}
                 </div>
-                <span className="ps-adj-tile-label">{adj.name}</span>
+                <div className="ps-adj-tile-info">
+                  <span className="ps-adj-tile-label">{adj.name}</span>
+                </div>
               </button>
             ))}
           </div>

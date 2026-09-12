@@ -112,4 +112,97 @@ describe('adjustmentEngine', () => {
     expect(imgData.data[1]).toBeDefined();
     expect(imgData.data[2]).toBeDefined();
   });
+
+  it('handles curves adjustment on RGB correctly', () => {
+    const imgData = createDummyImageData(128, 128, 128, 255);
+    applyAdjustmentParamsToImageData(
+      imgData,
+      { key: 'curves', name: 'Curves', curveAmount: 60 },
+      false
+    );
+    expect(imgData.data[0]).toBeGreaterThan(0);
+    expect(imgData.data[0]).toBeLessThanOrEqual(255);
+  });
+
+  it('handles levels adjustment on RGB correctly', () => {
+    const imgData = createDummyImageData(100, 150, 200, 255);
+    applyAdjustmentParamsToImageData(
+      imgData,
+      { key: 'levels', name: 'Levels', blackPoint: 10, whitePoint: 240, midtones: 1.2 },
+      false
+    );
+    expect(imgData.data[0]).toBeGreaterThanOrEqual(0);
+    expect(imgData.data[2]).toBeLessThanOrEqual(255);
+  });
+
+  it('handles color balance correctly', () => {
+    const imgData = createDummyImageData(100, 100, 100, 255);
+    applyAdjustmentParamsToImageData(
+      imgData,
+      { key: 'color-balance', name: 'Color Balance', redBalance: 25, greenBalance: -10, blueBalance: 15 },
+      false
+    );
+    expect(imgData.data[0]).toBe(125);
+    expect(imgData.data[1]).toBe(90);
+    expect(imgData.data[2]).toBe(115);
+  });
+
+  it('handles photo filter correctly', () => {
+    const imgData = createDummyImageData(100, 100, 100, 255);
+    applyAdjustmentParamsToImageData(
+      imgData,
+      { key: 'photo-filter', name: 'Photo Filter', filterPreset: 'cool', filterDensity: 50 },
+      false
+    );
+    expect(imgData.data[0]).toBeDefined();
+    expect(imgData.data[1]).toBeDefined();
+    expect(imgData.data[2]).toBeDefined();
+  });
+
+  it('handles channel mixer correctly', () => {
+    const imgData = createDummyImageData(100, 150, 200, 255);
+    applyAdjustmentParamsToImageData(
+      imgData,
+      { key: 'channel-mixer', name: 'Channel Mixer', channelRed: 120, channelGreen: 10, channelBlue: 0 },
+      false
+    );
+    expect(imgData.data[0]).toBeGreaterThan(0);
+  });
+
+  it('handles color lookup (LUT) correctly', () => {
+    const imgData = createDummyImageData(128, 128, 128, 255);
+    applyAdjustmentParamsToImageData(
+      imgData,
+      { key: 'color-lookup', name: 'Color Lookup', lutPreset: 'teal-orange', lutIntensity: 80 },
+      false
+    );
+    expect(imgData.data[0]).toBeDefined();
+    expect(imgData.data[2]).toBeDefined();
+  });
+
+  it('handles selective color correctly', () => {
+    const imgData = createDummyImageData(200, 50, 50, 255);
+    applyAdjustmentParamsToImageData(
+      imgData,
+      { key: 'selective-color', name: 'Selective Color', selectiveCyan: 20, selectiveBlack: 10 },
+      false
+    );
+    expect(imgData.data[0]).toBeLessThan(200);
+  });
+
+  it('handles all 16 adjustment tool keys without throwing', () => {
+    const keys = [
+      'brightness', 'levels', 'curves', 'exposure', 'vibrance', 'hue-sat',
+      'color-balance', 'black-white', 'photo-filter', 'channel-mixer',
+      'color-lookup', 'invert', 'posterize', 'threshold', 'gradient-map',
+      'selective-color'
+    ];
+
+    for (const key of keys) {
+      const imgData = createDummyImageData(140, 120, 90, 255);
+      expect(() => {
+        applyAdjustmentParamsToImageData(imgData, { key, name: key }, false);
+      }).not.toThrow();
+    }
+  });
 });

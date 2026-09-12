@@ -1355,8 +1355,8 @@
 /* ── Photoshop Layer Mask Styles (Exact Replication) ─────────────────────────── */
 
 .ps-layers-panel {
-  width: 320px;
-  min-width: 320px;
+  width: 335px;
+  min-width: 335px;
   height: 100%;
   background: #11131a;
   border: none;
@@ -1368,10 +1368,16 @@
 }
 
 .ps-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
 .ps-layer-item:hover {
@@ -1473,6 +1479,44 @@
   width: 100%;
   height: 100%;
   background: #ffffff;
+}
+
+.ps-adj-thumb-icon-box {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1e2230 0%, #0f1117 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ps-adj-icon-glyph {
+  color: #38bdf8;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.4));
+}
+
+.ps-adj-layer-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  letter-spacing: 0.2px;
+  flex-shrink: 0;
+}
+
+.mask-layer-item.adjustment-layer {
+  border-left: 2.5px solid #38bdf8;
+}
+
+.mask-layer-item.adjustment-layer.active {
+  background: rgba(56, 189, 248, 0.08) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  border-left-color: #38bdf8 !important;
 }
 
 .ps-thumb-link {
@@ -1959,7 +2003,46 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 220px;
+  min-height: 180px;
+}
+
+.ps-layers-section-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: #11131a;
+}
+
+.ps-layers-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  background: #0d0f16;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+}
+
+.ps-layers-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ps-layers-list::-webkit-scrollbar-track {
+  background: #0a0b10;
+}
+
+.ps-layers-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+}
+
+.ps-layers-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
 }
 
 .ps-dock-accordion-header {
@@ -2062,14 +2145,14 @@
 }
 
 .ps-color-content {
-  padding: 10px 12px;
+  padding: 6px 10px;
 }
 
 .ps-color-picker-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 110px;
+  height: 82px;
 }
 
 .ps-fg-bg-box {
@@ -2302,60 +2385,76 @@
 
 .ps-adjustments-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  padding: 8px 6px;
-  background: #14161f;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+  padding: 8px 10px;
+  background: #141620;
 }
 
 .ps-adjustment-tile {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px 3px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  gap: 9px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
   cursor: pointer;
-  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
-  min-height: 54px;
+  min-height: 42px;
+  box-sizing: border-box;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: start;
 }
 
 .ps-adjustment-tile:hover {
-  background: rgba(56, 189, 248, 0.08);
-  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.09);
+  border-color: rgba(56, 189, 248, 0.4);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 .ps-adjustment-tile:active {
-  transform: scale(0.95);
+  transform: scale(0.97);
   border-color: #38bdf8;
+}
+
+.ps-adjustment-tile.ps-adj-tile-full {
+  grid-column: span 2;
 }
 
 .ps-adj-tile-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 24px;
-  color: #cbd5e1;
-  transition: color 0.15s ease;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.08);
+  color: #38bdf8;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
 .ps-adjustment-tile:hover .ps-adj-tile-icon {
-  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.18);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.ps-adj-tile-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 
 .ps-adj-tile-label {
-  font-size: 8.5px;
-  line-height: 1.15;
-  color: #94a3b8;
-  text-align: center;
+  font-size: 11px;
+  line-height: 1.25;
+  color: #e2e8f0;
+  font-weight: 600;
   white-space: normal;
-  max-width: 68px;
-  font-weight: 500;
   transition: color 0.15s ease;
 }
 
