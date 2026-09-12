@@ -6,13 +6,12 @@ import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { logger } from '../../utils/logger';
 import { VizMakerArrowCard, type ArrowNodeItem } from './components/VizMakerArrowCard';
-import { LayersPanel, type InpaintLayer, type PhotoshopBlendMode } from './components/LayersPanel';
+import { LayersPanel, type InpaintLayer } from './components/LayersPanel';
 import { CropOverlay } from './components/CropOverlay';
 import { useMaskHistory } from './hooks/useMaskHistory';
 import { useMagicWand } from './hooks/useMagicWand';
 import { useCropTool } from './hooks/useCropTool';
 import { getUnifiedCost } from '../../services/credit/creditService';
-import { exportToPsdWithDialog } from '../../services/export';
 import { MaskPromptBar } from './mask/components/MaskPromptBar';
 import { MaskTopToolbar } from './mask/components/MaskTopToolbar';
 import { MaskStage } from './mask/components/MaskStage';
@@ -27,6 +26,11 @@ import {
   generateMaskPreview,
   invertMask,
 } from './mask/utils/maskBitmapUtils';
+import {
+  type AdjustmentParams,
+  applyAdjustmentParamsToImageData,
+  applyAdjustmentParamsToImageUrl,
+} from './mask/utils/adjustmentEngine';
 import type {
   LayerId,
   LayerVisibility,
@@ -566,33 +570,227 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     handleDeleteLayer,
   });
 
-  // Real-time Canvas & Layer Adjustment Engine (All 16 adjustments active & undoable)
+  // ── Real-time Interactive Adjustment Engine ────────────────────────────────
+  const adjustmentSnapshotRef = useRef<{
+    targetType: 'mask' | 'layer' | 'base';
+    layerId?: string;
+    originalMaskData?: ImageData;
+    originalImageSrc?: string;
+    originalBaseOriginal?: string | null;
+    originalCanvasImage?: string | null;
+    cachedImageData?: ImageData;
+    cachedCanvas?: HTMLCanvasElement;
+    cachedCtx?: CanvasRenderingContext2D;
+  } | null>(null);
+
+  const handleStartAdjustment = useCallback((_key: string) => {
+    // 1. Mask target
+    const isMask = activeLayerId === 'active-mask' || inpaintLayers.find(l => l.id === activeLayerId)?.selectedTarget === 'mask';
+    if (isMask) {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) {
+        adjustmentSnapshotRef.current = {
+          targetType: 'mask',
+          originalMaskData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+        };
+      }
+      return;
+    }
+
+    // 2. Inpaint layer target
+    const layer = activeLayerId && activeLayerId !== 'base' ? inpaintLayers.find(l => l.id === activeLayerId) : null;
+    if (layer?.image) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || img.width;
+        c.height = img.naturalHeight || img.height;
+        const cCtx = c.getContext('2d');
+        if (cCtx) {
+          cCtx.drawImage(img, 0, 0);
+          const raw = cCtx.getImageData(0, 0, c.width, c.height);
+          adjustmentSnapshotRef.current = {
+            targetType: 'layer',
+            layerId: activeLayerId,
+            originalImageSrc: layer.image,
+            cachedImageData: raw,
+            cachedCanvas: c,
+            cachedCtx: cCtx,
+          };
+        }
+      };
+      img.src = layer.image;
+      return;
+    }
+
+    // 3. Base image target
+    const baseSrc = resolvedBaseImage || baseOriginalImage || currentCanvasImage;
+    if (baseSrc) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || img.width;
+        c.height = img.naturalHeight || img.height;
+        const cCtx = c.getContext('2d');
+        if (cCtx) {
+          cCtx.drawImage(img, 0, 0);
+          const raw = cCtx.getImageData(0, 0, c.width, c.height);
+          adjustmentSnapshotRef.current = {
+            targetType: 'base',
+            originalImageSrc: baseSrc,
+            originalBaseOriginal: baseOriginalImage,
+            originalCanvasImage: currentCanvasImage,
+            cachedImageData: raw,
+            cachedCanvas: c,
+            cachedCtx: cCtx,
+          };
+        }
+      };
+      img.src = baseSrc;
+    }
+  }, [activeLayerId, inpaintLayers, canvasRef, resolvedBaseImage, baseOriginalImage, currentCanvasImage]);
+
+  const handlePreviewAdjustment = useCallback((params: AdjustmentParams) => {
+    const snapshot = adjustmentSnapshotRef.current;
+    if (!snapshot) return;
+
+    if (snapshot.targetType === 'mask' && snapshot.originalMaskData) {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return;
+      const copy = new ImageData(
+        new Uint8ClampedArray(snapshot.originalMaskData.data),
+        snapshot.originalMaskData.width,
+        snapshot.originalMaskData.height
+      );
+      applyAdjustmentParamsToImageData(copy, params, true);
+      ctx.putImageData(copy, 0, 0);
+      updateMaskPreview();
+      return;
+    }
+
+    if (snapshot.targetType === 'layer') {
+      if (snapshot.cachedImageData && snapshot.cachedCanvas && snapshot.cachedCtx) {
+        const copy = new ImageData(
+          new Uint8ClampedArray(snapshot.cachedImageData.data),
+          snapshot.cachedImageData.width,
+          snapshot.cachedImageData.height
+        );
+        applyAdjustmentParamsToImageData(copy, params, false);
+        snapshot.cachedCtx.putImageData(copy, 0, 0);
+        const previewUrl = snapshot.cachedCanvas.toDataURL('image/png');
+        setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? { ...l, image: previewUrl } : l));
+      } else if (snapshot.originalImageSrc) {
+        applyAdjustmentParamsToImageUrl(snapshot.originalImageSrc, params).then((previewUrl) => {
+          setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? { ...l, image: previewUrl } : l));
+        });
+      }
+      return;
+    }
+
+    if (snapshot.targetType === 'base') {
+      if (snapshot.cachedImageData && snapshot.cachedCanvas && snapshot.cachedCtx) {
+        const copy = new ImageData(
+          new Uint8ClampedArray(snapshot.cachedImageData.data),
+          snapshot.cachedImageData.width,
+          snapshot.cachedImageData.height
+        );
+        applyAdjustmentParamsToImageData(copy, params, false);
+        snapshot.cachedCtx.putImageData(copy, 0, 0);
+        const previewUrl = snapshot.cachedCanvas.toDataURL('image/png');
+        setCurrentCanvasImage(previewUrl);
+      } else if (snapshot.originalImageSrc) {
+        applyAdjustmentParamsToImageUrl(snapshot.originalImageSrc, params).then((previewUrl) => {
+          setCurrentCanvasImage(previewUrl);
+        });
+      }
+    }
+  }, [canvasRef, updateMaskPreview, setInpaintLayers, setCurrentCanvasImage]);
+
+  const handleCommitAdjustment = useCallback((params: AdjustmentParams) => {
+    const snapshot = adjustmentSnapshotRef.current;
+    if (!snapshot) return;
+
+    if (snapshot.targetType === 'mask') {
+      pushHistory();
+      updateMaskPreview();
+      useNotificationStore.getState().addNotification({
+        type: 'success',
+        title: params.name,
+        message: isAr ? `تم تطبيق ${params.name} على القناع.` : `Applied ${params.name} to mask.`,
+        duration: 2200,
+      });
+      adjustmentSnapshotRef.current = null;
+      return;
+    }
+
+    if (snapshot.targetType === 'layer' && snapshot.layerId) {
+      pushHistory();
+      useNotificationStore.getState().addNotification({
+        type: 'success',
+        title: params.name,
+        message: isAr ? `تم تطبيق ${params.name} على الطبقة بنجاح.` : `Applied ${params.name} to layer.`,
+        duration: 2200,
+      });
+      adjustmentSnapshotRef.current = null;
+      return;
+    }
+
+    if (snapshot.targetType === 'base') {
+      const finalUrl = currentCanvasImage || snapshot.originalImageSrc;
+      if (finalUrl) {
+        setBaseOriginalImage(finalUrl);
+        setCurrentCanvasImage(finalUrl);
+      }
+      pushHistory();
+      useNotificationStore.getState().addNotification({
+        type: 'success',
+        title: params.name,
+        message: isAr ? `تم تطبيق ${params.name} على صورة الخلفية.` : `Applied ${params.name} to background base.`,
+        duration: 2200,
+      });
+      adjustmentSnapshotRef.current = null;
+    }
+  }, [isAr, pushHistory, updateMaskPreview, currentCanvasImage, setBaseOriginalImage, setCurrentCanvasImage]);
+
+  const handleCancelAdjustment = useCallback(() => {
+    const snapshot = adjustmentSnapshotRef.current;
+    if (!snapshot) return;
+
+    if (snapshot.targetType === 'mask' && snapshot.originalMaskData) {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) {
+        ctx.putImageData(snapshot.originalMaskData, 0, 0);
+        updateMaskPreview();
+      }
+    } else if (snapshot.targetType === 'layer' && snapshot.layerId && snapshot.originalImageSrc) {
+      setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? { ...l, image: snapshot.originalImageSrc! } : l));
+    } else if (snapshot.targetType === 'base') {
+      if (snapshot.originalBaseOriginal !== undefined) {
+        setBaseOriginalImage(snapshot.originalBaseOriginal);
+      }
+      if (snapshot.originalCanvasImage !== undefined) {
+        setCurrentCanvasImage(snapshot.originalCanvasImage);
+      }
+    }
+    adjustmentSnapshotRef.current = null;
+  }, [canvasRef, updateMaskPreview, setInpaintLayers, setBaseOriginalImage, setCurrentCanvasImage]);
+
+  // Backward-compatible single-call adjustment applicator
   const handleApplyAdjustment = useCallback(async (key: string, name: string) => {
-    // 1. If active target is the active mask canvas
-    if (activeLayerId === 'active-mask' || inpaintLayers.find(l => l.id === activeLayerId)?.selectedTarget === 'mask') {
+    const isMask = activeLayerId === 'active-mask' || inpaintLayers.find(l => l.id === activeLayerId)?.selectedTarget === 'mask';
+    const params: AdjustmentParams = { key, name };
+
+    if (isMask) {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (canvas && ctx) {
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const a = d[i + 3];
-          if (key === 'invert') {
-            if (a > 10) {
-              d[i + 3] = 0;
-            } else {
-              d[i] = 225; d[i + 1] = 29; d[i + 2] = 72; d[i + 3] = Math.round(inpaintOps.maskOverlayOpacity * 255);
-            }
-          } else if (key === 'threshold' || key === 'levels') {
-            d[i + 3] = a >= 90 ? Math.round(inpaintOps.maskOverlayOpacity * 255) : 0;
-          } else if (key === 'black-white') {
-            if (a > 10) {
-              d[i] = 255; d[i + 1] = 255; d[i + 2] = 255; d[i + 3] = 255;
-            }
-          } else if (key === 'posterize') {
-            d[i + 3] = Math.floor(a / 64) * 85;
-          }
-        }
+        applyAdjustmentParamsToImageData(imgData, params, true);
         ctx.putImageData(imgData, 0, 0);
         pushHistory();
         updateMaskPreview();
@@ -606,165 +804,10 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       }
     }
 
-    // 2. Pixel-by-pixel RGB adjustments on layer or base image
-    const processImagePixels = (src: string): Promise<string> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          const c = document.createElement('canvas');
-          c.width = img.naturalWidth || img.width;
-          c.height = img.naturalHeight || img.height;
-          const ctx = c.getContext('2d');
-          if (!ctx) {
-            resolve(src);
-            return;
-          }
-          ctx.drawImage(img, 0, 0);
-          const imgData = ctx.getImageData(0, 0, c.width, c.height);
-          const d = imgData.data;
-
-          for (let i = 0; i < d.length; i += 4) {
-            let r = d[i];
-            let g = d[i + 1];
-            let b = d[i + 2];
-            const a = d[i + 3];
-            if (a === 0) continue;
-
-            switch (key) {
-              case 'vibrance': {
-                const max = Math.max(r, g, b);
-                const avg = (r + g + b) / 3;
-                const sat = max === 0 ? 0 : (max - avg) / max;
-                const boost = (1 - sat) * 0.45;
-                r = Math.min(255, Math.max(0, r + (r - avg) * boost));
-                g = Math.min(255, Math.max(0, g + (g - avg) * boost));
-                b = Math.min(255, Math.max(0, b + (b - avg) * boost));
-                break;
-              }
-              case 'brightness-contrast': {
-                const factor = 1.22;
-                r = Math.min(255, Math.max(0, factor * (r - 128) + 128 + 20));
-                g = Math.min(255, Math.max(0, factor * (g - 128) + 128 + 20));
-                b = Math.min(255, Math.max(0, factor * (b - 128) + 128 + 20));
-                break;
-              }
-              case 'levels': {
-                const minIn = 15, maxIn = 240;
-                r = Math.min(255, Math.max(0, ((r - minIn) / (maxIn - minIn)) * 255));
-                g = Math.min(255, Math.max(0, ((g - minIn) / (maxIn - minIn)) * 255));
-                b = Math.min(255, Math.max(0, ((b - minIn) / (maxIn - minIn)) * 255));
-                break;
-              }
-              case 'curves': {
-                const nr = r / 255, ng = g / 255, nb = b / 255;
-                r = Math.min(255, Math.max(0, (nr * nr * (3 - 2 * nr)) * 255));
-                g = Math.min(255, Math.max(0, (ng * ng * (3 - 2 * ng)) * 255));
-                b = Math.min(255, Math.max(0, (nb * nb * (3 - 2 * nb)) * 255));
-                break;
-              }
-              case 'exposure': {
-                r = Math.min(255, r * 1.25);
-                g = Math.min(255, g * 1.25);
-                b = Math.min(255, b * 1.25);
-                break;
-              }
-              case 'hue-saturation': {
-                const avg = (r + g + b) / 3;
-                r = Math.min(255, Math.max(0, avg + (r - avg) * 1.35));
-                g = Math.min(255, Math.max(0, avg + (g - avg) * 1.35));
-                b = Math.min(255, Math.max(0, avg + (b - avg) * 1.35));
-                break;
-              }
-              case 'color-balance': {
-                r = Math.min(255, r + 20);
-                b = Math.max(0, b - 14);
-                break;
-              }
-              case 'black-white': {
-                const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-                r = lum; g = lum; b = lum;
-                break;
-              }
-              case 'photo-filter': {
-                r = Math.min(255, r * 1.14 + 14);
-                g = Math.min(255, g * 1.04 + 4);
-                b = Math.max(0, b * 0.88 - 8);
-                break;
-              }
-              case 'channel-mixer': {
-                const nr = Math.min(255, 0.7 * r + 0.4 * g);
-                const ng = Math.min(255, 0.2 * r + 0.8 * g);
-                const nb = Math.min(255, 0.2 * r + 0.8 * b);
-                r = nr; g = ng; b = nb;
-                break;
-              }
-              case 'color-lookup': {
-                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-                if (lum < 128) {
-                  g = Math.min(255, g * 1.06 + 4);
-                  b = Math.min(255, b * 1.16 + 12);
-                } else {
-                  r = Math.min(255, r * 1.14 + 14);
-                  g = Math.min(255, g * 1.04 + 4);
-                }
-                break;
-              }
-              case 'invert': {
-                r = 255 - r;
-                g = 255 - g;
-                b = 255 - b;
-                break;
-              }
-              case 'posterize': {
-                r = Math.floor(r / 64) * 85;
-                g = Math.floor(g / 64) * 85;
-                b = Math.floor(b / 64) * 85;
-                break;
-              }
-              case 'threshold': {
-                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-                const val = lum >= 128 ? 255 : 0;
-                r = val; g = val; b = val;
-                break;
-              }
-              case 'gradient-map': {
-                const t = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-                r = Math.round(15 + t * (249 - 15));
-                g = Math.round(23 + t * (115 - 23));
-                b = Math.round(42 + t * (22 - 42));
-                break;
-              }
-              case 'selective-color': {
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                if (max - min > 28) {
-                  r = Math.min(255, r * 1.22);
-                  g = Math.min(255, g * 1.22);
-                  b = Math.min(255, b * 1.22);
-                }
-                break;
-              }
-            }
-
-            d[i] = r;
-            d[i + 1] = g;
-            d[i + 2] = b;
-          }
-
-          ctx.putImageData(imgData, 0, 0);
-          resolve(c.toDataURL('image/png'));
-        };
-        img.onerror = () => resolve(src);
-        img.src = src;
-      });
-    };
-
-    // 3. If an inpaint layer is selected
     if (activeLayerId && activeLayerId !== 'base') {
       const layer = inpaintLayers.find(l => l.id === activeLayerId);
       if (layer?.image) {
-        const adjustedImg = await processImagePixels(layer.image);
+        const adjustedImg = await applyAdjustmentParamsToImageUrl(layer.image, params);
         setInpaintLayers(prev => prev.map(l => l.id === activeLayerId ? { ...l, image: adjustedImg } : l));
         pushHistory();
         useNotificationStore.getState().addNotification({
@@ -777,10 +820,9 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
       }
     }
 
-    // 4. Default: Apply to base image
     const baseSrc = resolvedBaseImage || baseOriginalImage || currentCanvasImage;
     if (baseSrc) {
-      const adjustedImg = await processImagePixels(baseSrc);
+      const adjustedImg = await applyAdjustmentParamsToImageUrl(baseSrc, params);
       setBaseOriginalImage(adjustedImg);
       setCurrentCanvasImage(adjustedImg);
       pushHistory();
@@ -798,11 +840,12 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     resolvedBaseImage,
     baseOriginalImage,
     currentCanvasImage,
-    inpaintOps.maskOverlayOpacity,
     canvasRef,
     pushHistory,
     updateMaskPreview,
     isAr,
+    setBaseOriginalImage,
+    setCurrentCanvasImage,
   ]);
 
   useEffect(() => {
@@ -1181,6 +1224,10 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           onChangeBrushColor={setBrushColor}
           onOpenColorRange={() => setShowColorRangeModal(true)}
           onApplyAdjustment={handleApplyAdjustment}
+          onStartAdjustment={handleStartAdjustment}
+          onPreviewAdjustment={handlePreviewAdjustment}
+          onCommitAdjustment={handleCommitAdjustment}
+          onCancelAdjustment={handleCancelAdjustment}
         />
       )}
 

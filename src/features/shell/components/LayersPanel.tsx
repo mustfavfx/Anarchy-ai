@@ -8,6 +8,7 @@ import { useResolvedImage } from '../../../hooks';
 import { useTranslation } from '../../../services/i18n';
 import { PhotoshopColorPanel } from './PhotoshopColorPanel';
 import { PhotoshopAdjustmentsPanel } from './PhotoshopAdjustmentsPanel';
+import type { AdjustmentParams } from '../mask/utils/adjustmentEngine';
 
 const LayerThumbnail: React.FC<{ rawSrc?: string | null; alt: string; className?: string }> = ({ rawSrc, alt, className }) => {
   const resolved = useResolvedImage(rawSrc);
@@ -143,6 +144,10 @@ export interface LayersPanelProps {
   onChangeBrushColor?: (color: string) => void;
   onOpenColorRange?: () => void;
   onApplyAdjustment?: (key: string, name: string) => void;
+  onStartAdjustment?: (key: string) => void;
+  onPreviewAdjustment?: (params: AdjustmentParams) => void;
+  onCommitAdjustment?: (params: AdjustmentParams) => void;
+  onCancelAdjustment?: () => void;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
@@ -181,6 +186,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   onChangeBrushColor,
   onOpenColorRange,
   onApplyAdjustment,
+  onStartAdjustment,
+  onPreviewAdjustment,
+  onCommitAdjustment,
+  onCancelAdjustment,
 }) => {
   const { isAr } = useTranslation();
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
@@ -297,6 +306,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
               onOpenColorRange={onOpenColorRange}
               activeLayerId={activeLayerId}
               onApplyAdjustment={onApplyAdjustment}
+              onStartAdjustment={onStartAdjustment}
+              onPreviewAdjustment={onPreviewAdjustment}
+              onCommitAdjustment={onCommitAdjustment}
+              onCancelAdjustment={onCancelAdjustment}
             />
           )}
         </div>
