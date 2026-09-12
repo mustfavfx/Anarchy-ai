@@ -2302,8 +2302,8 @@
 
 .ps-adjustments-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
-  gap: 5px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
   padding: 8px 6px;
   background: #14161f;
 }

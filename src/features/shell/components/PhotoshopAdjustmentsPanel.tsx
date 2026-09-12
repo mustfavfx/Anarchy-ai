@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { 
-  Sun, Sliders, Scale, SplitSquareVertical, Camera, Layers, Grid3X3, 
-  Mail, Contrast, TrendingUp, BarChart2, ShieldAlert,
+  Sun, Sliders, BarChart2,
   ArrowLeft, RotateCcw, Check, X as CloseIcon
 } from 'lucide-react';
 import { useTranslation } from '../../../services/i18n';
@@ -200,66 +199,6 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
       key: 'hue-sat',
       name: isAr ? 'تدرج / تشبع' : 'Hue/Saturation',
       icon: <Sliders size={20} />,
-    },
-    {
-      key: 'color-balance',
-      name: isAr ? 'توازن الألوان' : 'Color Balance',
-      icon: <Scale size={20} />,
-    },
-    {
-      key: 'black-white',
-      name: isAr ? 'أبيض وأسود' : 'Black & White',
-      icon: <SplitSquareVertical size={20} />,
-    },
-    {
-      key: 'photo-filter',
-      name: isAr ? 'فلتر صور' : 'Photo Filter',
-      icon: <Camera size={20} />,
-    },
-    {
-      key: 'channel-mixer',
-      name: isAr ? 'مازج القنوات' : 'Channel Mixer',
-      icon: <Layers size={20} />,
-    },
-    {
-      key: 'color-lookup',
-      name: isAr ? 'بحث الألوان (LUT)' : 'Color Lookup',
-      icon: <Grid3X3 size={20} />,
-    },
-    {
-      key: 'invert',
-      name: isAr ? 'عكس الألوان' : 'Invert (Ctrl+I)',
-      icon: <Mail size={20} />,
-    },
-    {
-      key: 'posterize',
-      name: isAr ? 'تدرج ملصق' : 'Posterize',
-      icon: <TrendingUp size={20} />,
-    },
-    {
-      key: 'threshold',
-      name: isAr ? 'العتبة (أبيض وأسود)' : 'Threshold',
-      icon: <ShieldAlert size={20} />,
-    },
-    {
-      key: 'gradient-map',
-      name: isAr ? 'خريطة التدرج' : 'Gradient Map',
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="5" width="18" height="14" rx="2" fill="url(#psGradMap)" stroke="currentColor" strokeWidth="1.5" />
-          <defs>
-            <linearGradient id="psGradMap" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#3b82f6" />
-              <stop offset="100%" stopColor="#ec4899" />
-            </linearGradient>
-          </defs>
-        </svg>
-      ),
-    },
-    {
-      key: 'selective-color',
-      name: isAr ? 'لون انتقائي' : 'Selective Color',
-      icon: <Contrast size={20} />,
     },
   ];
 
