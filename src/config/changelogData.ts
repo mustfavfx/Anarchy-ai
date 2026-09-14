@@ -13,9 +13,26 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.93',
+    date: 'September 14, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'improvement',
+        title: 'Calibrated Topaz Labs Upscaling Pricing & Margin Optimization',
+        description: 'Realigned Topaz Labs AI upscaler credit costs with actual A100 GPU compute expenditure, ensuring consistent profitability across standard (3 credits for <=24 MP) and ultra-resolution (up to 45 credits) outputs.'
+      },
+      {
+        type: 'improvement',
+        title: 'Desktop Dev Server Port Alignment (5180)',
+        description: 'Synchronized Tauri desktop bridge, Vite server, and Playwright test configurations to a unified port 5180 for seamless local development and automated CI runs.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.92',
     date: 'September 12, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'feature',

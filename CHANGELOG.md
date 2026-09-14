@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.93] - 2026-09-14
+
+### Pricing & Margins
+- **Calibrated Topaz Labs AI Upscaler Credit Costs**:
+  - Realigned dynamic credit deduction with real A100 GPU Replicate compute costs ($0.16/run).
+  - Configured baseline tier (<= 24 MP / 4K) to deduct 3 credits ($0.30) ensuring an 87%+ net profit margin per generation.
+  - Dynamically scaled higher megapixel brackets (6K, 8K, extreme prints up to 512 MP) from 5 to 45 credits to cover extended rendering times without deficits.
+
+### Configuration
+- **Desktop Dev Server Port Alignment (5180)**:
+  - Standardized local development port across `vite.config.ts`, `tauri.conf.json`, and `playwright.config.ts` to `5180`.
+
 ## [0.3.92] - 2026-09-12
 
 ### Added

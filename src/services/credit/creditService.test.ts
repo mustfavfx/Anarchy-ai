@@ -130,7 +130,7 @@ describe('Credit Service', () => {
       });
       
       it('should return correct cost for upscale models', () => {
-        expect(getModelCost('topazlabs/image-upscale')).toBe(1);
+        expect(getModelCost('topazlabs/image-upscale')).toBe(3);
       });
     });
 
@@ -192,34 +192,34 @@ describe('Credit Service', () => {
       });
       
       it('should return correct cost for upscale models', () => {
-        // Topaz Labs Upscale (dynamic Megapixels aligned with Replicate official tiers)
+        // Topaz Labs Upscale (dynamic Megapixels aligned with real A100 execution costs)
         // Default base image (1024x1024 = 1 MP):
-        // 2x upscale -> 4.19 MP (<= 24 MP) -> 1 credit
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 2, isTrial: false })).toBe(1);
-        // 4x upscale -> 16.78 MP (<= 24 MP) -> 1 credit
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 4, isTrial: false })).toBe(1);
-        // 6x upscale -> 37.75 MP (<= 48 MP) -> 2 credits
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 6, isTrial: false })).toBe(2);
+        // 2x upscale -> 4.19 MP (<= 24 MP) -> 3 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 2, isTrial: false })).toBe(3);
+        // 4x upscale -> 16.78 MP (<= 24 MP) -> 3 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 4, isTrial: false })).toBe(3);
+        // 6x upscale -> 37.75 MP (<= 48 MP) -> 5 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 6, isTrial: false })).toBe(5);
 
         // High resolution / 4K input image (3840x2160 ≈ 8.29 MP):
-        // 4K + 2x -> 33.18 MP (<= 48 MP) -> 2 credits
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 2, width: 3840, height: 2160, isTrial: false })).toBe(2);
-        // 4K + 4x -> 132.7 MP (<= 168 MP) -> 6 credits
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 4, width: 3840, height: 2160, isTrial: false })).toBe(6);
-        // 4K + 6x -> 298.6 MP (<= 336 MP) -> 11 credits
-        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 6, width: 3840, height: 2160, isTrial: false })).toBe(11);
+        // 4K + 2x -> 33.18 MP (<= 48 MP) -> 5 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 2, width: 3840, height: 2160, isTrial: false })).toBe(5);
+        // 4K + 4x -> 132.7 MP (<= 168 MP) -> 18 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 4, width: 3840, height: 2160, isTrial: false })).toBe(18);
+        // 4K + 6x -> 298.6 MP (<= 336 MP) -> 30 credits
+        expect(getModelCost('topazlabs/image-upscale', { upscaleFactor: 6, width: 3840, height: 2160, isTrial: false })).toBe(30);
 
-        // Explicit Output Megapixels brackets (Replicate official table):
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 12 })).toBe(1);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 24 })).toBe(1);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 36 })).toBe(2);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 48 })).toBe(2);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 60 })).toBe(3);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 96 })).toBe(4);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 132 })).toBe(5);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 168 })).toBe(6);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 336 })).toBe(11);
-        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 512 })).toBe(17);
+        // Explicit Output Megapixels brackets (aligned with profitable tiers):
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 12 })).toBe(3);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 24 })).toBe(3);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 36 })).toBe(5);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 48 })).toBe(5);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 60 })).toBe(7);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 96 })).toBe(10);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 132 })).toBe(14);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 168 })).toBe(18);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 336 })).toBe(30);
+        expect(getModelCost('topazlabs/image-upscale', { outputMegapixels: 512 })).toBe(45);
         
         // Clarity Upscaler (A100 GPU compute based: 2x=3, 4x=10, 8x=20, 12x=30)
         expect(getModelCost('philz1337x/clarity-upscaler', { upscaleFactor: 2, isTrial: false })).toBe(3);

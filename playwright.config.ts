@@ -15,7 +15,7 @@ export default defineConfig({
   workers: 1, // Run serially to avoid state collisions in IndexedDB
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5174',
+    baseURL: 'http://localhost:5180',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -34,7 +34,7 @@ export default defineConfig({
       VITE_SUPABASE_URL: 'https://mock-supabase.co',
       VITE_SUPABASE_ANON_KEY: 'mock-anon-key',
     },
-    url: 'http://localhost:5174',
+    url: 'http://localhost:5180',
     reuseExistingServer: !process.env.CI,
     timeout: 60 * 1000,
   },

@@ -1,11 +1,11 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Anarchy AI",
-  "version": "0.3.92",
+  "version": "0.3.93",
   "identifier": "com.anarchyai.app",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:5174",
+    "devUrl": "http://localhost:5180",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },

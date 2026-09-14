@@ -64,7 +64,7 @@ export const CREDIT_PACKAGES: CreditPackage[] = [
 //   Krea 2 Large              → 1
 //   FLUX Kontext Pro          → 1
 //   Grok Imagine              → 1
-//   Topaz Upscale             → 2
+//   Topaz Upscale             → 3
 //   Clarity Upscaler          → 1
 
 // Old costs (Trial)
@@ -252,18 +252,21 @@ export function costAnarchyUpscale(
 }
 
 /**
- * Dynamic Topaz Labs Image Upscale Cost based on official Replicate Megapixel brackets.
+ * Dynamic Topaz Labs Image Upscale Cost based on real Replicate execution costs & Megapixel brackets.
  * 
- * Replicate Official Tiers:
- * - <= 24 MP (12 & 24 MP): 1 Unit ($0.05) -> 1 credit ($0.10)
- * - <= 48 MP (36 & 48 MP): 2 Units ($0.10) -> 2 credits ($0.20)
- * - <= 60 MP:               3 Units ($0.15) -> 3 credits ($0.30)
- * - <= 96 MP:               4 Units ($0.20) -> 4 credits ($0.40)
- * - <= 132 MP:              5 Units ($0.24) -> 5 credits ($0.50)
- * - <= 168 MP:              6 Units ($0.29) -> 6 credits ($0.60)
- * - <= 336 MP:              11 Units ($0.53) -> 11 credits ($1.10)
- * - <= 512 MP:              17 Units ($0.82) -> 17 credits ($1.70)
- * - > 512 MP:               Math.max(17, Math.ceil(mp / 30))
+ * Replicate Execution Cost: ~$0.16 minimum base per run on A100 GPU (15-16s)
+ * Target margin: ~70-100% markup (1 credit = $0.10 USD)
+ * 
+ * Pricing Tiers:
+ * - <= 24 MP (up to 4K):   3 credits ($0.30) -> Net Profit: +$0.14 (87% margin)
+ * - <= 48 MP (up to 6K):   5 credits ($0.50) -> Net Profit: +$0.25+
+ * - <= 60 MP (up to 8K):   7 credits ($0.70)
+ * - <= 96 MP:              10 credits ($1.00)
+ * - <= 132 MP:             14 credits ($1.40)
+ * - <= 168 MP:             18 credits ($1.80)
+ * - <= 336 MP:             30 credits ($3.00)
+ * - <= 512 MP:             45 credits ($4.50)
+ * - > 512 MP:              Math.max(45, Math.ceil(mp / 10))
  */
 export function costTopazUpscale(
   upscaleFactor?: string | number,
@@ -292,15 +295,15 @@ export function costTopazUpscale(
     mp = totalOutputPixels / 1_000_000;
   }
 
-  if (mp <= 24)  return 1;
-  if (mp <= 48)  return 2;
-  if (mp <= 60)  return 3;
-  if (mp <= 96)  return 4;
-  if (mp <= 132) return 5;
-  if (mp <= 168) return 6;
-  if (mp <= 336) return 11;
-  if (mp <= 512) return 17;
-  return Math.max(17, Math.ceil(mp / 30));
+  if (mp <= 24)  return 3;
+  if (mp <= 48)  return 5;
+  if (mp <= 60)  return 7;
+  if (mp <= 96)  return 10;
+  if (mp <= 132) return 14;
+  if (mp <= 168) return 18;
+  if (mp <= 336) return 30;
+  if (mp <= 512) return 45;
+  return Math.max(45, Math.ceil(mp / 10));
 }
 
 // ── Flat cost table for simple models ────────────────────────────────────────
@@ -320,7 +323,7 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'reve/create-layout':                            1.6,
   'reve/render-layout':                            1.6,
   'reve/reconcile-layouts':                        1.6,
-  'topazlabs/image-upscale':                       1,
+  'topazlabs/image-upscale':                       3,
   'philz1337x/clarity-upscaler':                   3,
   'philz1337x/clarity-pro-upscaler':               3,
   'bytedance/seedance-2.0':                        20,
@@ -348,6 +351,7 @@ const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
   'reve/create-layout':                            1.6,
   'reve/render-layout':                            1.6,
   'reve/reconcile-layouts':                        1.6,
+  'topazlabs/image-upscale':                       3,
   'philz1337x/clarity-pro-upscaler':               3,
   'bytedance/seedance-2.0':                        2.5,
   'kwaivgi/kling-v3-omni-video':                   3.5,
