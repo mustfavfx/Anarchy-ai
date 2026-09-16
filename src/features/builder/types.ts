@@ -32,6 +32,7 @@ export type ProcessingType =
 
 export interface DataPacket {
   image?: string;
+  thumbnail?: string;
   prompt?: string;
   metadata: {
     width?: number;
@@ -75,6 +76,7 @@ export interface BuilderNodeData extends Record<string, unknown> {
   // Content
   image?: string;
   originalImage?: string;
+  thumbnail?: string;
   prompt?: string;
   
   // Processing metadata
@@ -84,6 +86,10 @@ export interface BuilderNodeData extends Record<string, unknown> {
   predictionId?: string;    // Replicate prediction ID for tracking generation
   userId?: string;          // User ID for Realtime subscription
   historyEntryId?: string;  // Links the canvas node to its history entry ID
+  dimensions?: {
+    width: number;
+    height: number;
+  };
 
   // Dummy Node Loading State
   isDummy?: boolean;

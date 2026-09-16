@@ -13,9 +13,31 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.95',
+    date: 'September 16, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'improvement',
+        title: 'Ultra-Smooth 60+ FPS Canvas & Workflow Nodes Engine',
+        description: 'Eliminated micro-stutter during viewport pan, zoom, and multi-node dragging. Decoupled node selection from reactive global state via memoized ReactFlow props, stabilized GhostNode edge selectors, enabled hardware-accelerated GPU layer promotion, and removed transform conflicts on hover.'
+      },
+      {
+        type: 'improvement',
+        title: 'Zero-Lag Mask Editor & Real-Time Drawing Optimization',
+        description: 'Completely revamped Mask Editor rendering performance. Switched continuous stroke capture to direct ref-based pointer events, removed heavy real-time Gaussian shadow blur, achieved zero-latency 144Hz/240Hz DOM cursor tracking, and converted history snapshots to instant GPU offscreen blits.'
+      },
+      {
+        type: 'feature',
+        title: 'Aspect Ratio & High-Precision Resolution Formatting',
+        description: 'Standardized aspect ratio handling and resolution alignment across AI generation panels, preview canvases, and API payload builders with full test coverage.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.93',
     date: 'September 14, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'improvement',

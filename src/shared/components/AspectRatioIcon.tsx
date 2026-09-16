@@ -30,7 +30,29 @@ export function getAspectRatioHint(ratio: string): string | null {
     case '2.35:1': return 'Anamorphic';
     case 'auto': return 'Auto';
     case 'match_input_image': return 'Match Input';
-    default: return null;
+    case '1024x1024': return '1K Square';
+    case '1536x1024': return '1.5K Photo';
+    case '1024x1536': return '1.5K Poster';
+    case '1536x1152': return '1.5K Standard';
+    case '1152x1536': return '1.5K Vertical';
+    case '2048x2048': return '2K Square';
+    case '2048x1152': return '2K Landscape';
+    case '1152x2048': return '2K Story';
+    case '3840x2160': return '4K UHD';
+    case '2160x3840': return '4K Story';
+    default: {
+      if (clean.includes('x')) {
+        const parts = clean.split('x');
+        if (parts.length === 2) {
+          const w = parseInt(parts[0], 10);
+          const h = parseInt(parts[1], 10);
+          if (w >= 3840 || h >= 3840) return '4K';
+          if (w >= 2048 || h >= 2048) return '2K';
+          if (w >= 1024 || h >= 1024) return '1K';
+        }
+      }
+      return null;
+    }
   }
 }
 
@@ -132,6 +154,12 @@ export const AspectRatioIcon: React.FC<AspectRatioIconProps> = ({
     }
   } else if (clean.includes('/')) {
     const parts = clean.split('/').map(p => parseFloat(p.trim()));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] > 0 && parts[1] > 0) {
+      wRatio = parts[0];
+      hRatio = parts[1];
+    }
+  } else if (clean.includes('x')) {
+    const parts = clean.split('x').map(p => parseFloat(p.trim()));
     if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] > 0 && parts[1] > 0) {
       wRatio = parts[0];
       hRatio = parts[1];

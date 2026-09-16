@@ -99,8 +99,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   isActive = true,
 }) => {
   const { user: authUser } = useAuth();
+  const isZoomedOut = useStore((s) => s.transform[2] < 0.75);
   const addNotification = useNotificationStore((state) => state.addNotification);
-  const isZoomedOut = useStore((s) => s.transform[2] < 0.6);
 
   const hasFittedInitially = useRef(false);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -819,8 +819,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
           {!isEnlargedView && nodesWithCallbacks.length > 0 && nodesWithCallbacks.length <= 50 && (
             <MiniMap
               position="bottom-right"
-              nodeColor={() => 'rgba(225, 29, 72, 0.8)'}
-              nodeStrokeColor={() => 'rgba(225, 29, 72, 1)'}
+              nodeColor="rgba(225, 29, 72, 0.8)"
+              nodeStrokeColor="rgba(225, 29, 72, 1)"
               nodeBorderRadius={2}
               maskColor="rgba(0, 0, 0, 0.6)"
               style={{
@@ -831,8 +831,8 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
                 height: 80,
                 marginBottom: 80,
               }}
-              zoomable
-              pannable
+              zoomable={false}
+              pannable={false}
             />
           )}
         </ReactFlow>

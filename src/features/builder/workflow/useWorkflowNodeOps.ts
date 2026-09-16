@@ -16,6 +16,7 @@ import {
   createEdge,
   TYPE_LABELS,
 } from './workflowConstants';
+import { createOptimizedThumbnailBlob } from '../utils/canvasImageOptimizer';
 
 export interface UseWorkflowNodeOpsParams {
   nodesRef: React.MutableRefObject<BuilderNode[]>;
@@ -42,12 +43,21 @@ export const useWorkflowNodeOps = ({
     const id = `source-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     
     let finalImageRef = imageUrl;
+    let thumbKey: string | undefined = undefined;
     if (imageUrl && imageUrl.startsWith('data:')) {
-      const imageKey = `idb://${crypto.randomUUID()}`;
+      const cleanUuid = crypto.randomUUID();
+      const imageKey = `idb://${cleanUuid}`;
       cacheLocalImage(imageKey, imageUrl).catch(err => {
         logger.error('[useBuilderWorkflow] Failed to cache source image:', err);
       });
       finalImageRef = imageKey;
+      const tKey = `idb://${cleanUuid}_canvas_thumb`;
+      thumbKey = tKey;
+      createOptimizedThumbnailBlob(imageUrl, 640).then(thumbBlob => {
+        if (thumbBlob) {
+          cacheLocalImage(tKey, thumbBlob).catch(() => {});
+        }
+      }).catch(() => {});
     }
 
     const lineage: NodeLineage = {
@@ -59,7 +69,7 @@ export const useWorkflowNodeOps = ({
       ancestry: []
     };
 
-    const packet = finalImageRef ? createDataPacket(finalImageRef, undefined, 'source') : undefined;
+    const packet = finalImageRef ? createDataPacket(finalImageRef, undefined, 'source', undefined, undefined, false, thumbKey) : undefined;
 
     const newNode: BuilderNode = {
       id,
@@ -73,6 +83,7 @@ export const useWorkflowNodeOps = ({
         state: finalImageRef ? 'ready' : 'idle',
         image: finalImageRef,
         originalImage: finalImageRef,
+        thumbnail: thumbKey,
         prompt: prompt || '',
         createdAt: Date.now(),
         lineage,

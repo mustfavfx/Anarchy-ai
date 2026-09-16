@@ -28,6 +28,7 @@ export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark
   const lastFrameTime = useRef<number>(0);
 
   useEffect(() => {
+    if (!isOpen) return;
     let animId: number;
     lastFrameTime.current = performance.now();
     
@@ -46,9 +47,10 @@ export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark
     
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
     const interval = setInterval(() => {
       // Calculate average FPS over last 60 frames
       if (frameTimes.current.length > 0) {
@@ -73,7 +75,7 @@ export const PerformanceHUD: React.FC<PerformanceHUDProps> = ({ onSpawnBenchmark
     }, 500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isOpen]);
 
   // Listen to keyboard shortcut to toggle HUD (Ctrl + Shift + P)
   useEffect(() => {

@@ -299,11 +299,13 @@ export const useWorkflowPainter = ({
       const imageKey = `idb://${crypto.randomUUID()}`;
       await cacheLocalImage(imageKey, localBlobOrData);
 
+      const painterDims = parentData?.dimensions || parentData?.outputData?.dimensions || { width: 1024, height: 1024 };
+
       const outputPacket = createDataPacket(
         imageKey,
         payload.prompt,
         'local',
-        { width: 1024, height: 1024 },
+        painterDims,
         model,
         false
       );
@@ -421,11 +423,12 @@ export const useWorkflowPainter = ({
         const parentData = parentNode?.data as BuilderNodeData | undefined;
         const parentLineage = parentData?.lineage;
         const newId = `node-${crypto.randomUUID()}`;
+        const maskDims = parentData?.dimensions || parentData?.outputData?.dimensions || { width: 1024, height: 1024 };
         const outputPacket = createDataPacket(
           key,
           prompt || 'Masked Inpaint Edit',
           'local',
-          { width: 1024, height: 1024 },
+          maskDims,
           model,
           false
         );
@@ -455,7 +458,7 @@ export const useWorkflowPainter = ({
               ancestry: parentLineage && parentNode ? [...parentLineage.ancestry, parentNode.id] : [],
             },
             outputData: outputPacket,
-            dimensions: { width: 1024, height: 1024 }
+            dimensions: maskDims
           }
         };
 

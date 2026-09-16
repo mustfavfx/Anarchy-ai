@@ -7,6 +7,8 @@ import {
   uploadImageIfLocal,
   persistImageLocally,
   resolveImageIfCached,
+  getImageDimensions,
+  resizeImageToDimensions,
   createDataPacket,
   createEdge,
   MODEL_DISPLAY_NAMES,
@@ -229,6 +231,39 @@ export const useWorkflowExecution = ({
       if (!sourceDims) {
         sourceDims = nodeData.inputData?.dimensions;
       }
+      // If dimensions are not yet recorded on nodeData, resolve directly from the source image
+      if ((!sourceDims || !sourceDims.width || !sourceDims.height) && sourceImage) {
+        try {
+          const resolvedSrc = await resolveImageIfCached(sourceImage);
+          if (resolvedSrc) {
+            sourceDims = await getImageDimensions(resolvedSrc);
+          }
+        } catch (dimErr) {
+          logger.warn('[WorkflowExecution] Could not resolve source image dimensions:', dimErr);
+        }
+      }
+      // Proactively backfill source dimensions to the parent node if missing
+      if (primaryEdge && sourceDims && sourceDims.width > 0 && sourceDims.height > 0) {
+        setNodes(nds => nds.map(n => {
+          if (n.id === primaryEdge.source) {
+            const currentData = n.data as BuilderNodeData;
+            if (!currentData?.dimensions || !currentData?.outputData?.dimensions) {
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  dimensions: currentData?.dimensions || sourceDims,
+                  outputData: currentData?.outputData ? {
+                    ...currentData.outputData,
+                    dimensions: currentData.outputData.dimensions || sourceDims,
+                  } : undefined
+                }
+              };
+            }
+          }
+          return n;
+        }));
+      }
       
       let result: { imageUrl: string; imageUrls?: string[]; metadata: { width: number; height: number; model: string; prompt: string } };
 
@@ -369,6 +404,26 @@ export const useWorkflowExecution = ({
         const resultImage = await persistImageLocally(result.imageUrl);
         finalImage = resultImage;
 
+        const isGptModel = model === 'openai/gpt-image-2' ||
+          model === 'openai/gpt-image-2.5-flare' ||
+          model === 'openai/gpt-image-2.5-sunburst';
+        const shouldPreserveSourceDims = Boolean(
+          sourceDims?.width &&
+          sourceDims?.height &&
+          sourceDims.width > 0 &&
+          sourceDims.height > 0 &&
+          (isGptModel || config?.aspectRatio === 'match_input_image')
+        );
+
+        if (shouldPreserveSourceDims && sourceDims) {
+          try {
+            logger.log('[WorkflowExecution] Preserving original image dimensions for GPT / img2img:', sourceDims);
+            finalImage = await resizeImageToDimensions(finalImage, sourceDims.width, sourceDims.height);
+          } catch (resizeErr) {
+            logger.warn('[WorkflowExecution] Failed to resize output image to source dimensions:', resizeErr);
+          }
+        }
+
         // Apply watermark if enabled
         if (wmEnabled) {
           try {
@@ -392,6 +447,20 @@ export const useWorkflowExecution = ({
         }
       }
 
+      const isGptModel = model === 'openai/gpt-image-2' ||
+        model === 'openai/gpt-image-2.5-flare' ||
+        model === 'openai/gpt-image-2.5-sunburst';
+      const shouldPreserveSourceDims = Boolean(
+        sourceDims?.width &&
+        sourceDims?.height &&
+        sourceDims.width > 0 &&
+        sourceDims.height > 0 &&
+        (isGptModel || config?.aspectRatio === 'match_input_image')
+      );
+
+      const finalWidth = (shouldPreserveSourceDims && sourceDims) ? sourceDims.width : result.metadata.width;
+      const finalHeight = (shouldPreserveSourceDims && sourceDims) ? sourceDims.height : result.metadata.height;
+
       const imageKey = `idb://${crypto.randomUUID()}`;
       await cacheLocalImage(imageKey, finalImage);
 
@@ -399,7 +468,7 @@ export const useWorkflowExecution = ({
         imageKey,
         prompt,
         nodeData.processingType,
-        { width: result.metadata.width, height: result.metadata.height },
+        { width: finalWidth, height: finalHeight },
         model,
         isVideo
       );
@@ -491,6 +560,13 @@ export const useWorkflowExecution = ({
             const localUrl = await persistImageLocally(url);
             
             let finalExtraImage = localUrl;
+            if (shouldPreserveSourceDims && sourceDims) {
+              try {
+                finalExtraImage = await resizeImageToDimensions(finalExtraImage, sourceDims.width, sourceDims.height);
+              } catch (resizeErr) {
+                logger.warn('[WorkflowExecution] Failed to resize extra image:', resizeErr);
+              }
+            }
             if (wmEnabled) {
               try {
                 let imageForWm = finalExtraImage;
@@ -518,7 +594,7 @@ export const useWorkflowExecution = ({
               key,
               prompt,
               nodeData.processingType,
-              { width: result.metadata.width, height: result.metadata.height },
+              { width: finalWidth, height: finalHeight },
               model,
               isVideo
             );
@@ -593,7 +669,7 @@ export const useWorkflowExecution = ({
                 },
                 inputData: nodeData.inputData,
                 outputData: childPacket,
-                dimensions: { width: result.metadata.width, height: result.metadata.height },
+                dimensions: { width: finalWidth, height: finalHeight },
                 historyEntryId: extraHistoryId
               }
             };
@@ -682,7 +758,7 @@ export const useWorkflowExecution = ({
             image: imageKey,
             originalImage: imageKey,
             outputData: outputPacket,
-            dimensions: { width: result.metadata.width, height: result.metadata.height },
+            dimensions: { width: finalWidth, height: finalHeight },
             processedAt: Date.now()
           }
         };

@@ -100,6 +100,7 @@ export const GENERATION_COST = TRIAL_GENERATION_COST;
 
 export interface ModelCostParams {
   resolution?: string;       // e.g. '1024x1024'
+  aspectRatio?: string;      // e.g. '16:9' or '3840x2160'
   qualityVariant?: string;   // GPT Image 2: 'low' | 'medium' | 'high' | 'auto'
   prunaTarget?: number;      // P Image Upscale target megapixels
   prunaMode?: 'target' | 'factor'; // P Image Upscale mode
@@ -164,13 +165,20 @@ function costGptImage2(qualityVariant: string, _isTrial?: boolean): number {
   return 1.8; // auto / default
 }
 
-function costGptImage2_5(qualityVariant: string, _isTrial?: boolean): number {
-  const variant = (qualityVariant || 'auto').toLowerCase().replace(/[-_]/g, '');
+function costGptImage2_5(qualityOrRes: string, _isTrial?: boolean): number {
+  const variant = (qualityOrRes || 'auto').toLowerCase().replace(/[-_]/g, '');
+  // Quality tiers
   if (variant === 'low') return 0.5;
   if (variant === 'medium') return 0.8;
   if (variant === 'high') return 1.8;
   if (variant === 'xhigh') return 3;
   if (variant === 'max') return 6.5;
+
+  // Resolution tiers
+  if (variant === '1k') return 2.5;
+  if (variant === '2k') return 3;
+  if (variant === '4k') return 5;
+
   return 3; // 'auto' or default is 3 credits ($0.25)
 }
 
@@ -365,7 +373,7 @@ const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
 };
 
 export function getModelCost(model: string, params: ModelCostParams = {}): number {
-  const { resolution = '', qualityVariant = 'auto', prunaTarget, upscaleFactor, isTrial = true, width, height, videoDuration, outputMegapixels } = params;
+  const { resolution = '', aspectRatio, qualityVariant = 'auto', prunaTarget, upscaleFactor, isTrial = true, width, height, videoDuration, outputMegapixels } = params;
   const px = resolveResPixels(resolution, width, height);
 
   // Video duration-based pricing
@@ -443,9 +451,16 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
     return costGptImage2(q, isTrial);
   }
   if (model === 'openai/gpt-image-2.5-flare' || model === 'openai/gpt-image-2.5-sunburst') {
+    const ar = aspectRatio || (params as any)?.aspectRatio;
+    let fallbackRes = resolution;
+    if ((!fallbackRes || fallbackRes.toLowerCase() === 'auto') && ar && typeof ar === 'string') {
+      if (ar === '3840x2160' || ar === '2160x3840') fallbackRes = '4k';
+      else if (ar === '2048x2048' || ar === '2048x1152' || ar === '1152x2048') fallbackRes = '2k';
+      else if (ar === '1024x1024' || ar === '1536x1024' || ar === '1024x1536') fallbackRes = '1k';
+    }
     const q = (qualityVariant && qualityVariant !== 'auto')
       ? qualityVariant
-      : (resolution || qualityVariant || 'auto');
+      : (fallbackRes || qualityVariant || 'auto');
     return costGptImage2_5(q, isTrial);
   }
   if (model === 'bytedance/seedream-4.5')   return costSeedream4_5(resolution, px, isTrial);
@@ -499,6 +514,7 @@ export function getUnifiedCost(config: any, isTrial: boolean = true, overrideMod
   const qualityVariant = config.qualityVariant ?? config.gptQuality ?? ((isGpt2 || isGpt25) ? config.resolution : undefined) ?? 'auto';
   return getModelCost(model, {
     resolution: config.resolution,
+    aspectRatio: config.aspectRatio,
     qualityVariant,
     prunaTarget: config.prunaTarget,
     prunaMode: config.prunaMode,

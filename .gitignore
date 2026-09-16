@@ -74,3 +74,7 @@ anarchy_audit/
 playwright-report/
 test-results/
 tauri-dev-utf8.txt
+
+# Knowledge graph
+graphify-out/
+.graphifyignore

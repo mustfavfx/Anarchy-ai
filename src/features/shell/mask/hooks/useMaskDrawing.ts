@@ -73,7 +73,9 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [polygonPoints, setPolygonPoints] = useState<Point[]>([]);
   const [polygonCursor, setPolygonCursor] = useState<Point | null>(null);
-  const [cursorPos, setCursorPos] = useState<Point | null>(null);
+  const cursorRef = useRef<HTMLDivElement | null>(null);
+  const cursorPosRef = useRef<Point | null>(null);
+  const hasSelectionRecordedRef = useRef(false);
   const [showBrushCursor, setShowBrushCursor] = useState(false);
   const [shapeStart, setShapeStart] = useState<Point | null>(null);
   const [shapeCurrent, setShapeCurrent] = useState<Point | null>(null);
@@ -288,12 +290,7 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
           ctx.lineJoin = 'round';
           ctx.strokeStyle = workspaceMode === 'draw' ? inkColor : hexToRgba(brushColor, maskOpacity);
 
-          if (brushHardness < 100) {
-            ctx.shadowBlur = ((100 - brushHardness) / 100) * (brushSize * 0.45);
-            ctx.shadowColor = workspaceMode === 'draw' ? inkColor : hexToRgba(brushColor, maskOpacity);
-          } else {
-            ctx.shadowBlur = 0;
-          }
+          ctx.shadowBlur = 0;
 
           ctx.beginPath();
           ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
@@ -314,12 +311,7 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
       if (!ctx) return;
       ctx.globalCompositeOperation = isErase ? 'destination-out' : 'source-over';
 
-      if (brushHardness < 100) {
-        ctx.shadowBlur = ((100 - brushHardness) / 100) * (brushSize * 0.45);
-        ctx.shadowColor = workspaceMode === 'draw' ? inkColor : hexToRgba(brushColor, maskOpacity);
-      } else {
-        ctx.shadowBlur = 0;
-      }
+      ctx.shadowBlur = 0;
 
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, brushSize / 2, 0, Math.PI * 2);
@@ -327,7 +319,8 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
       ctx.fill();
       lastPointRef.current = pt;
       setIsDrawing(true);
-      if (workspaceMode === 'mask') {
+      if (workspaceMode === 'mask' && !hasSelectionRecordedRef.current) {
+        hasSelectionRecordedRef.current = true;
         setHasSelectionContent(true);
       }
     },
@@ -338,7 +331,10 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
     (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
       const pt = getCanvasCoords(e);
       if (pt) {
-        setCursorPos(pt);
+        cursorPosRef.current = pt;
+        if (cursorRef.current) {
+          cursorRef.current.style.transform = `translate3d(${pt.x}px, ${pt.y}px, 0) translate(-50%, -50%)`;
+        }
         if (maskTool === 'lasso' && shapeSubTool === 'polygon' && polygonPoints.length > 0) {
           if (isOrthoMode || ('shiftKey' in e && (e as any).shiftKey)) {
             const lastPt = polygonPoints[polygonPoints.length - 1];
@@ -398,12 +394,7 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
       ctx.lineJoin = 'round';
       ctx.strokeStyle = workspaceMode === 'draw' ? inkColor : hexToRgba(brushColor, maskOpacity);
 
-      if (brushHardness < 100) {
-        ctx.shadowBlur = ((100 - brushHardness) / 100) * (brushSize * 0.45);
-        ctx.shadowColor = workspaceMode === 'draw' ? inkColor : hexToRgba(brushColor, maskOpacity);
-      } else {
-        ctx.shadowBlur = 0;
-      }
+      ctx.shadowBlur = 0;
 
       ctx.beginPath();
       if (lastPointRef.current) {
@@ -417,11 +408,8 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
       }
       ctx.stroke();
       lastPointRef.current = pt;
-      if (workspaceMode === 'mask') {
-        setHasSelectionContent(true);
-      }
     },
-    [isSpacebarDown, isPanning, isDrawing, maskTool, shapeSubTool, drawSubTool, polygonPoints, brushSize, brushColor, maskOpacity, workspaceMode, inkColor, isAltKeyDown, brushHardness, activeLayerId, psMaskColor, isOrthoMode, handleSmartHover, shapeStart, drawingCanvasRef, canvasRef, setHasSelectionContent]
+    [isSpacebarDown, isPanning, isDrawing, maskTool, shapeSubTool, drawSubTool, polygonPoints, brushSize, brushColor, maskOpacity, workspaceMode, inkColor, isAltKeyDown, brushHardness, activeLayerId, psMaskColor, isOrthoMode, handleSmartHover, shapeStart, drawingCanvasRef, canvasRef]
   );
 
   const stopDrawing = useCallback(() => {
@@ -502,12 +490,7 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
         ctx.lineWidth = brushSize;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        if (brushHardness < 100) {
-          ctx.shadowBlur = ((100 - brushHardness) / 100) * (brushSize * 0.45);
-          ctx.shadowColor = hexToRgba(brushColor, maskOpacity);
-        } else {
-          ctx.shadowBlur = 0;
-        }
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.moveTo(shapeStart.x, shapeStart.y);
         ctx.lineTo(shapeCurrent.x, shapeCurrent.y);
@@ -521,6 +504,7 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
       pushHistory();
     }
     lastPointRef.current = null;
+    hasSelectionRecordedRef.current = false;
     setIsDrawing(false);
     updateMaskPreview();
     if (activeLayerId === 'base') {
@@ -541,8 +525,8 @@ export function useMaskDrawing(params: UseMaskDrawingParams) {
     setPolygonPoints,
     polygonCursor,
     setPolygonCursor,
-    cursorPos,
-    setCursorPos,
+    cursorRef,
+    cursorPos: cursorPosRef.current,
     showBrushCursor,
     setShowBrushCursor,
     shapeStart,

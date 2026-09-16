@@ -279,10 +279,11 @@ export function htmlToCanvas(element: HTMLElement): Promise<HTMLCanvasElement | 
   });
 }
 
-export function makeSourceOutput(url: string, isVideo?: boolean) {
+export function makeSourceOutput(url: string, isVideo?: boolean, thumbnail?: string) {
   if (!url) return undefined;
   return { 
     image: url, 
+    thumbnail,
     prompt: undefined, 
     metadata: { 
       timestamp: Date.now(), 

@@ -6,6 +6,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { logger } from '../../utils/logger';
+import { APP_INFO } from '../../config/appInfo';
 
 export interface RecoverySnapshot {
   tabId: string;
@@ -70,7 +71,7 @@ export class AutoRecoveryService {
         const content = JSON.stringify(
           {
             ...snapshot,
-            version: '0.3.90',
+            version: APP_INFO.version,
             recoveryNotice: 'Anarchy AI Auto-Recovery Snapshot',
           },
           null,

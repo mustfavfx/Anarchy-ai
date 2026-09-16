@@ -1,20 +1,29 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 
 /**
- * Caps how many full-canvas ImageData snapshots we keep in memory.
- * Each snapshot is width*height*4 bytes, so an unbounded stack (the
- * original behavior) can grow to tens of MB in a long drawing session.
+ * Caps how many canvas snapshots we keep in memory.
  */
 const MAX_HISTORY_SIZE = 40;
 
 /** How long to wait after the last change before exporting a PNG via toDataURL. */
 const MASK_CHANGE_DEBOUNCE_MS = 150;
 
+function createSnapshot(canvas: HTMLCanvasElement): HTMLCanvasElement | null {
+  if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
+  const snapshot = document.createElement('canvas');
+  snapshot.width = canvas.width;
+  snapshot.height = canvas.height;
+  const sCtx = snapshot.getContext('2d');
+  if (!sCtx) return null;
+  sCtx.drawImage(canvas, 0, 0);
+  return snapshot;
+}
+
 export function useMaskHistory(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   onMaskChange?: (maskDataUrl: string | null) => void
 ) {
-  const historyRef = useRef<ImageData[]>([]);
+  const historyRef = useRef<HTMLCanvasElement[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -25,9 +34,7 @@ export function useMaskHistory(
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
 
-  // toDataURL() re-encodes the whole canvas to PNG — doing that synchronously
-  // on every single stroke (the original behavior) can visibly stall the UI.
-  // Debounce it so a fast sequence of strokes only pays that cost once.
+  // toDataURL() re-encodes the whole canvas to PNG — debounced to avoid stalls
   const notifyMaskChange = useCallback(() => {
     if (!onMaskChange) return;
     if (debounceTimerRef.current !== null) {
@@ -51,16 +58,17 @@ export function useMaskHistory(
 
   const pushHistory = useCallback(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+
+    const snap = createSnapshot(canvas);
+    if (!snap) return;
 
     if (historyIndexRef.current < historyRef.current.length - 1) {
       historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
     }
-    historyRef.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    historyRef.current.push(snap);
 
     if (historyRef.current.length > MAX_HISTORY_SIZE) {
-      // Drop the oldest snapshot rather than let the stack grow unbounded.
       historyRef.current.shift();
     }
 
@@ -72,10 +80,15 @@ export function useMaskHistory(
   const undo = useCallback(() => {
     if (historyIndexRef.current <= 0) return;
     historyIndexRef.current--;
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
     const state = historyRef.current[historyIndexRef.current];
-    if (state) ctx.putImageData(state, 0, 0);
+    if (state) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(state, 0, 0);
+    }
     updateHistoryButtons();
     notifyMaskChange();
   }, [canvasRef, updateHistoryButtons, notifyMaskChange]);
@@ -83,10 +96,15 @@ export function useMaskHistory(
   const redo = useCallback(() => {
     if (historyIndexRef.current >= historyRef.current.length - 1) return;
     historyIndexRef.current++;
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
     const state = historyRef.current[historyIndexRef.current];
-    if (state) ctx.putImageData(state, 0, 0);
+    if (state) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(state, 0, 0);
+    }
     updateHistoryButtons();
     notifyMaskChange();
   }, [canvasRef, updateHistoryButtons, notifyMaskChange]);
@@ -98,23 +116,32 @@ export function useMaskHistory(
     updateHistoryButtons();
   }, [updateHistoryButtons]);
 
-  /** Seeds the history stack with a single baseline snapshot (or captures current canvas if omitted). */
+  /** Seeds the history stack with a single baseline snapshot. */
   const initHistory = useCallback(
     (imageData?: ImageData) => {
+      const canvas = canvasRef.current;
+      if (!canvas || canvas.width === 0 || canvas.height === 0) {
+        historyRef.current = [];
+        historyIndexRef.current = -1;
+        updateHistoryButtons();
+        return;
+      }
+
       if (imageData) {
-        historyRef.current = [imageData];
-        historyIndexRef.current = 0;
+        const snap = document.createElement('canvas');
+        snap.width = imageData.width;
+        snap.height = imageData.height;
+        const sCtx = snap.getContext('2d');
+        if (sCtx) {
+          sCtx.putImageData(imageData, 0, 0);
+          historyRef.current = [snap];
+          historyIndexRef.current = 0;
+        }
       } else {
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (canvas && ctx && canvas.width > 0 && canvas.height > 0) {
-          try {
-            historyRef.current = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
-            historyIndexRef.current = 0;
-          } catch {
-            historyRef.current = [];
-            historyIndexRef.current = -1;
-          }
+        const snap = createSnapshot(canvas);
+        if (snap) {
+          historyRef.current = [snap];
+          historyIndexRef.current = 0;
         } else {
           historyRef.current = [];
           historyIndexRef.current = -1;

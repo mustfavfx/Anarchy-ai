@@ -13,24 +13,35 @@
    the canvas at 60fps regardless of node count.
    The class is added/removed by BuilderPage via onMoveStart/onMoveEnd.         */
 .canvas-panning .anarchy-node,
-.canvas-panning .anarchy-node *,
 .canvas-panning .react-flow__node,
 .canvas-panning .ghost-node,
-.canvas-panning .ghost-node *,
+.canvas-panning .group-node,
+.canvas-panning .dummy-node,
 .canvas-node-dragging .anarchy-node,
-.canvas-node-dragging .anarchy-node *,
 .canvas-node-dragging .react-flow__node,
 .canvas-node-dragging .ghost-node,
-.canvas-node-dragging .ghost-node * {
+.canvas-node-dragging .group-node,
+.canvas-node-dragging .dummy-node {
   transition: none !important;
-  animation-play-state: paused !important;
+  animation: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-/* Also kill the edge animations while panning or dragging */
+/* Also kill edge animations while panning or dragging */
 .canvas-panning .react-flow__edge-path,
 .canvas-node-dragging .react-flow__edge-path {
   animation: none !important;
   transition: none !important;
+}
+
+/* Pause MiniMap during active canvas movement to free 100% GPU rasterization bandwidth */
+.canvas-panning .react-flow__minimap,
+.canvas-node-dragging .react-flow__minimap {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.15s ease;
 }
 
 /* Enhanced Drag & Drop Styles */
@@ -170,9 +181,11 @@
    SMOOTH CANVAS PERFORMANCE OPTIMIZATIONS
    ================================================================ */
 
-/* Smooth node transitions */
+/* Smooth node transitions & hardware layer promotion */
 .react-flow__node {
-  transition: box-shadow 0.15s ease-out;
+  contain: layout style;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 .react-flow__node.react-flow__node-dragging,
@@ -181,9 +194,12 @@
   z-index: 1000 !important;
 }
 
-/* Smooth pan and zoom */
+/* Smooth pan and zoom with GPU layer promotion */
 .react-flow__viewport {
   transition: none !important;
+  will-change: transform;
+  transform: translateZ(0);
+  transform-style: flat;
 }
 
 /* Optimize edge animations */
@@ -1805,9 +1821,13 @@
 
 /* LOD (Level of Detail) Zoomed-out Node Optimizations (CSS-driven) */
 .lod-zoomed-out .anarchy-node,
-.lod-zoomed-out .ghost-node {
+.lod-zoomed-out .ghost-node,
+.lod-zoomed-out .group-node,
+.lod-zoomed-out .dummy-node {
   box-shadow: none !important;
   filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   transition: none !important;
   animation: none !important;
   background: rgba(20, 20, 25, 0.96) !important;

@@ -351,6 +351,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
     polygonCursor,
     setPolygonCursor,
     cursorPos,
+    cursorRef,
     showBrushCursor,
     setShowBrushCursor,
     shapeStart,
@@ -1463,6 +1464,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           brushSize={brushSize}
           showBrushCursor={showBrushCursor}
           cursorPos={cursorPos}
+          cursorRef={cursorRef}
           brushHardness={brushHardness}
         />
 

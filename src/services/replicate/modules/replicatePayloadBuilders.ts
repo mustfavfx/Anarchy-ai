@@ -193,6 +193,31 @@ export function buildSeedreamInput(
   return input;
 }
 
+// ── Calculate closest supported GPT aspect ratio ───────────────────────────
+export function getClosestGptAspectRatio(width: number, height: number): string {
+  if (!width || !height || height <= 0 || width <= 0) return '1:1';
+  const target = width / height;
+  const candidates: Array<{ ratioStr: string; val: number }> = [
+    { ratioStr: '16:9', val: 16 / 9 },
+    { ratioStr: '3:2', val: 3 / 2 },
+    { ratioStr: '4:3', val: 4 / 3 },
+    { ratioStr: '1:1', val: 1 },
+    { ratioStr: '3:4', val: 3 / 4 },
+    { ratioStr: '2:3', val: 2 / 3 },
+    { ratioStr: '9:16', val: 9 / 16 },
+  ];
+  let best = candidates[0];
+  let minDiff = Math.abs(target - best.val);
+  for (let i = 1; i < candidates.length; i++) {
+    const diff = Math.abs(target - candidates[i].val);
+    if (diff < minDiff) {
+      minDiff = diff;
+      best = candidates[i];
+    }
+  }
+  return best.ratioStr;
+}
+
 // ── Build input for GPT Image 2 / 2.5 ──────────────────────────────────────
 export function buildGptImageInput(
   params: ReplicateGenerationParams,
@@ -204,17 +229,70 @@ export function buildGptImageInput(
     input.input_images = images;
   }
 
-  const qualityVal = (params as any).gptQuality || (params as any).qualityVariant || params.resolution;
-  if (qualityVal && qualityVal !== 'auto') {
-    input.quality = String(qualityVal).toLowerCase();
+  // Determine quality: low, medium, high, xhigh, max, auto
+  const validQualities = ['low', 'medium', 'high', 'xhigh', 'max', 'auto'];
+  const rawQuality = (params as any).gptQuality || (params as any).qualityVariant;
+  if (rawQuality && validQualities.includes(String(rawQuality).toLowerCase())) {
+    input.quality = String(rawQuality).toLowerCase();
+  } else if (params.resolution && validQualities.includes(String(params.resolution).toLowerCase())) {
+    input.quality = String(params.resolution).toLowerCase();
   } else {
     input.quality = 'auto';
   }
 
-  if (params.aspectRatio && params.aspectRatio !== 'Auto') {
-    input.aspect_ratio = params.aspectRatio;
-  } else if (params.aspectRatio === 'Auto' || params.aspectRatio === 'auto') {
-    input.aspect_ratio = 'auto';
+  // Determine aspect ratio / dimension
+  let ar = params.aspectRatio;
+  const res = params.resolution;
+  const hasImages = images.length > 0;
+  const hasSourceDims = !!(params.sourceWidth && params.sourceHeight && params.sourceWidth > 0 && params.sourceHeight > 0);
+
+  if (hasImages && hasSourceDims) {
+    // If aspect ratio is match_input_image, Auto, auto, not set, or default 1:1, compute the closest matching ratio
+    if (
+      !ar ||
+      ar === 'match_input_image' ||
+      ar === 'Match Input' ||
+      ar === 'Auto' ||
+      ar === 'auto' ||
+      ar === '1:1'
+    ) {
+      ar = getClosestGptAspectRatio(params.sourceWidth!, params.sourceHeight!);
+    }
+  } else if (!hasImages && (ar === 'match_input_image' || ar === 'Match Input')) {
+    ar = '1:1';
+  }
+
+  if (ar && ar.includes('x')) {
+    // User explicitly selected exact pixel dimensions (e.g. 1024x1024, 2048x1152, 3840x2160, etc.)
+    input.aspect_ratio = ar;
+  } else {
+    const resUpper = String(res || '').toUpperCase();
+    if (resUpper === '4K') {
+      if (ar === '16:9') input.aspect_ratio = '3840x2160';
+      else if (ar === '9:16') input.aspect_ratio = '2160x3840';
+      else if (ar && ar !== 'Auto' && ar !== 'auto' && ar !== 'match_input_image') input.aspect_ratio = ar;
+      else input.aspect_ratio = '3840x2160';
+    } else if (resUpper === '2K') {
+      if (ar === '1:1') input.aspect_ratio = '2048x2048';
+      else if (ar === '16:9') input.aspect_ratio = '2048x1152';
+      else if (ar === '9:16') input.aspect_ratio = '1152x2048';
+      else if (ar && ar !== 'Auto' && ar !== 'auto' && ar !== 'match_input_image') input.aspect_ratio = ar;
+      else input.aspect_ratio = '2048x2048';
+    } else if (resUpper === '1K') {
+      if (ar === '1:1') input.aspect_ratio = '1024x1024';
+      else if (ar === '3:2') input.aspect_ratio = '1536x1024';
+      else if (ar === '2:3') input.aspect_ratio = '1024x1536';
+      else if (ar === '4:3') input.aspect_ratio = '1536x1152';
+      else if (ar === '3:4') input.aspect_ratio = '1152x1536';
+      else if (ar && ar !== 'Auto' && ar !== 'auto' && ar !== 'match_input_image') input.aspect_ratio = ar;
+      else input.aspect_ratio = '1024x1024';
+    } else {
+      if (ar && ar !== 'Auto' && ar !== 'auto' && ar !== 'match_input_image') {
+        input.aspect_ratio = ar;
+      } else {
+        input.aspect_ratio = 'auto';
+      }
+    }
   }
 
   return input;
@@ -473,6 +551,16 @@ export function buildResult(
   const meta = getModelCapabilities(params.model);
   const base = resolutionToPixels(params.resolution ?? 'Auto');
   const dims = arToSize(params.aspectRatio ?? '1:1', base);
+  const isGpt = params.model === 'openai/gpt-image-2' ||
+    params.model === 'openai/gpt-image-2.5-flare' ||
+    params.model === 'openai/gpt-image-2.5-sunburst';
+
+  const shouldPreserveSourceDims = (isGpt || params.aspectRatio === 'match_input_image') &&
+    !!(params.sourceWidth && params.sourceHeight && params.sourceWidth > 0 && params.sourceHeight > 0);
+
+  const finalWidth = shouldPreserveSourceDims ? params.sourceWidth! : (params.width ?? dims.width);
+  const finalHeight = shouldPreserveSourceDims ? params.sourceHeight! : (params.height ?? dims.height);
+
   return {
     id: `replicate-${Date.now()}`,
     imageUrl,
@@ -480,8 +568,8 @@ export function buildResult(
       model: params.model,
       prompt: params.prompt,
       negativePrompt: params.negativePrompt,
-      width: params.width ?? dims.width,
-      height: params.height ?? dims.height,
+      width: finalWidth,
+      height: finalHeight,
       seed: body.seed ?? -1,
       steps: body.num_inference_steps ?? meta.defaultSteps,
       generationTime: Date.now() - start,

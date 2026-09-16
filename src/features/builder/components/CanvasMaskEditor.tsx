@@ -41,9 +41,9 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
   const [brushSize, setBrushSize] = useState<number>(35);
   const [isErase, setIsErase] = useState<boolean>(false);
   const [isSnapMode, setIsSnapMode] = useState<boolean>(false);
-  const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const isDrawingRef = useRef<boolean>(false);
+  const activeStrokeRef = useRef<StrokePoint[]>([]);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [currentStroke, setCurrentStroke] = useState<StrokePoint[]>([]);
   const [imgLoaded, setImgLoaded] = useState<boolean>(false);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number }>({ width: 1024, height: 1024 });
 
@@ -63,12 +63,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw all completed strokes
-    const allStrokes = currentStroke.length > 0 
-      ? [...strokes, { points: currentStroke, brushSize, isErase }]
-      : strokes;
-
-    for (const stroke of allStrokes) {
+    for (const stroke of strokes) {
       if (stroke.points.length === 0) continue;
 
       ctx.save();
@@ -79,15 +74,24 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      ctx.beginPath();
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      if (stroke.points.length === 1) {
+        ctx.beginPath();
+        ctx.arc(stroke.points[0].x, stroke.points[0].y, stroke.brushSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          const midX = (stroke.points[i - 1].x + stroke.points[i].x) / 2;
+          const midY = (stroke.points[i - 1].y + stroke.points[i].y) / 2;
+          ctx.quadraticCurveTo(stroke.points[i - 1].x, stroke.points[i - 1].y, midX, midY);
+        }
+        ctx.lineTo(stroke.points[stroke.points.length - 1].x, stroke.points[stroke.points.length - 1].y);
+        ctx.stroke();
       }
-      ctx.stroke();
       ctx.restore();
     }
-  }, [strokes, currentStroke, brushSize, isErase]);
+  }, [strokes]);
 
   useEffect(() => {
     redrawCanvas();
@@ -103,8 +107,8 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
     redrawCanvas();
   }, [imgLoaded, redrawCanvas]);
 
-  // Coordinate Extractor
-  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): StrokePoint | null => {
+  // Coordinate Extractor (Supports Pointer, Mouse, and Touch)
+  const getCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): StrokePoint | null => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
@@ -116,26 +120,66 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
     };
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isSnapMode || e.button !== 0) return;
     const pt = getCanvasCoords(e);
     if (!pt) return;
-    setIsDrawing(true);
-    setCurrentStroke([pt]);
+
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    isDrawingRef.current = true;
+    activeStrokeRef.current = [pt];
+
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (ctx) {
+      ctx.save();
+      ctx.globalCompositeOperation = isErase ? 'destination-out' : 'source-over';
+      ctx.fillStyle = 'rgba(230, 48, 48, 0.75)';
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, brushSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current || isSnapMode) return;
     const pt = getCanvasCoords(e);
     if (!pt) return;
-    setCurrentStroke(prev => [...prev, pt]);
+
+    const pts = activeStrokeRef.current;
+    const prevPt = pts.length > 0 ? pts[pts.length - 1] : pt;
+    pts.push(pt);
+
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (ctx) {
+      ctx.save();
+      ctx.globalCompositeOperation = isErase ? 'destination-out' : 'source-over';
+      ctx.strokeStyle = 'rgba(230, 48, 48, 0.75)';
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(prevPt.x, prevPt.y);
+      ctx.lineTo(pt.x, pt.y);
+      ctx.stroke();
+      ctx.restore();
+    }
   };
 
-  const handleMouseUp = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    if (currentStroke.length > 0) {
-      setStrokes(prev => [...prev, { points: currentStroke, brushSize, isErase }]);
-      setCurrentStroke([]);
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    try {
+      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    } catch {}
+
+    const completed = activeStrokeRef.current;
+    if (completed.length > 0) {
+      setStrokes(prev => [...prev, { points: [...completed], brushSize, isErase }]);
+      activeStrokeRef.current = [];
     }
   };
 
@@ -145,7 +189,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
 
   const handleClear = () => {
     setStrokes([]);
-    setCurrentStroke([]);
+    activeStrokeRef.current = [];
   };
 
   // Generate 1:1 Binary Mask (Black background, White mask area)
@@ -441,11 +485,12 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
         <canvas 
           ref={canvasRef}
           className="mask-drawing-canvas"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           onClick={handleCanvasClick}
+          style={{ touchAction: 'none' }}
         />
       </div>
     </div>

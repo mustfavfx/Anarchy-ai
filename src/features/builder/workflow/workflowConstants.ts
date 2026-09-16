@@ -113,6 +113,102 @@ export async function resolveImageIfCached(url: string | undefined): Promise<str
   return url;
 }
 
+/**
+ * Resolves the true natural pixel dimensions (width & height) of an image.
+ */
+export async function getImageDimensions(url: string): Promise<{ width: number; height: number }> {
+  if (!url) return { width: 1024, height: 1024 };
+
+  let resolvedUrl = url;
+  if (url.startsWith('idb://')) {
+    try {
+      const cached = await getLocalImage(url);
+      if (cached) resolvedUrl = cached;
+    } catch {
+      // Fall back to original url
+    }
+  }
+
+  if (typeof window === 'undefined' || typeof Image === 'undefined') {
+    return { width: 1024, height: 1024 };
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      resolve({
+        width: img.naturalWidth || img.width || 1024,
+        height: img.naturalHeight || img.height || 1024,
+      });
+    };
+    img.onerror = () => {
+      resolve({ width: 1024, height: 1024 });
+    };
+    img.src = resolvedUrl;
+  });
+}
+
+/**
+ * Resamples and resizes an image to exact targetWidth and targetHeight using HTML5 Canvas.
+ */
+export async function resizeImageToDimensions(
+  imageUrl: string,
+  targetWidth: number,
+  targetHeight: number,
+  mimeType: string = 'image/png'
+): Promise<string> {
+  if (!imageUrl || !targetWidth || !targetHeight || targetWidth <= 0 || targetHeight <= 0) {
+    return imageUrl;
+  }
+  if (typeof window === 'undefined' || typeof document === 'undefined' || typeof Image === 'undefined') {
+    return imageUrl;
+  }
+
+  let resolvedUrl = imageUrl;
+  if (imageUrl.startsWith('idb://')) {
+    try {
+      const cached = await getLocalImage(imageUrl);
+      if (cached) resolvedUrl = cached;
+    } catch {
+      // Fall back
+    }
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (img.naturalWidth === targetWidth && img.naturalHeight === targetHeight) {
+        resolve(imageUrl);
+        return;
+      }
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(imageUrl);
+          return;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        const dataUrl = canvas.toDataURL(mimeType, 0.95);
+        resolve(dataUrl);
+      } catch (err) {
+        logger.warn('[ImageResize] Canvas resize error, using original:', err);
+        resolve(imageUrl);
+      }
+    };
+    img.onerror = () => {
+      resolve(imageUrl);
+    };
+    img.src = resolvedUrl;
+  });
+}
+
 // AI generation config passed to executeNode
 export interface GenerationConfig {
   model: ReplicateImageModel | ReplicateUpscaleModel;
@@ -235,9 +331,11 @@ export const createDataPacket = (
   operationType: ProcessingType,
   dimensions?: { width: number; height: number },
   model?: string,
-  isVideo?: boolean
+  isVideo?: boolean,
+  thumbnail?: string
 ): DataPacket => ({
   image,
+  thumbnail,
   prompt,
   metadata: {
     timestamp: Date.now(),

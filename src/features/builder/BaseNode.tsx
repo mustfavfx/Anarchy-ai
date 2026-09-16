@@ -13,6 +13,7 @@ import { NodeLightbox } from './components/NodeLightbox';
 import { NodeUploadPlaceholder } from './components/NodeUploadPlaceholder';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { isVideoNode, isVideoUrl } from './utils/builderHelpers';
+import { resolveCanvasThumbnail, invalidateCanvasThumbnail } from './utils/canvasImageOptimizer';
 import { downloadImage } from '../../utils/imageExport';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import './BaseNode.css';
@@ -40,16 +41,12 @@ const PROCESSING_CONFIG: Record<ProcessingType, { icon: React.ReactNode; color: 
 
 
 export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
-  const previewMode = useAIConfigStore((s) => s.previewMode);
-  const isEnlargedView = useAIConfigStore((s) => s.isEnlargedView);
-  const selectedNode = useAIConfigStore((s) => s.selectedNode);
-  const isMaskEditing = Boolean((isEnlargedView || previewMode === 'draw') && (selected || selectedNode?.id === id));
-  if (process.env.NODE_ENV === 'development' || (globalThis as any).__DEV__) {
-    (globalThis as any).__anarchyNodeRenders = ((globalThis as any).__anarchyNodeRenders || 0) + 1;
-  }
+  const isSelected = Boolean(selected);
   const nodeData = data;
-  const displayImageRaw = nodeData.image || nodeData.outputData?.image;
+  const fullImageRaw = nodeData.image || nodeData.outputData?.image;
+  const displayImageRaw = nodeData.thumbnail || nodeData.outputData?.thumbnail || fullImageRaw;
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | undefined>(undefined);
+  const [fullResolvedUrl, setFullResolvedUrl] = useState<string | undefined>(undefined);
   const [copied, setCopied] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
@@ -88,58 +85,72 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
 
   const [imgError, setImgError] = useState(false);
 
+  // Sync dimensions from node data when available
   React.useEffect(() => {
-    setImgDims(null);
+    const d = (nodeData.outputData?.dimensions ?? nodeData.dimensions) as { width: number; height: number } | undefined;
+    if (d && d.width && d.height) {
+      setImgDims({ w: d.width, h: d.height });
+    } else {
+      setImgDims(null);
+    }
+  }, [nodeData.outputData?.dimensions, nodeData.dimensions]);
+
+  React.useEffect(() => {
     setImgError(false);
     let active = true;
-    let currentBlobUrl: string | undefined = undefined;
 
-    if (!displayImageRaw) {
+    const targetKey = displayImageRaw || fullImageRaw;
+
+    if (!targetKey) {
       setResolvedImageUrl(undefined);
+      setFullResolvedUrl(undefined);
       return;
     }
 
     const resolveImage = async () => {
-      if (displayImageRaw.startsWith('idb://')) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[BaseNode] resolving idb key:', displayImageRaw, 'isVideo:', isVideoNode(nodeData));
-        }
-        const cachedUrl = await getLocalImageAsObjectURL(displayImageRaw);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[BaseNode] resolved URL prefix:', cachedUrl?.substring(0, 60));
-        }
-        if (!active) {
-          if (cachedUrl && cachedUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(cachedUrl);
-          }
-          return;
-        }
-        if (cachedUrl) {
-          if (cachedUrl.startsWith('blob:')) {
-            currentBlobUrl = cachedUrl;
-          }
-          setResolvedImageUrl(cachedUrl);
+      // For videos, resolve directly without thumbnailing
+      if (isVideoNode(nodeData) || isVideoUrl(targetKey)) {
+        if (targetKey.startsWith('idb://')) {
+          const cachedUrl = await getLocalImageAsObjectURL(targetKey);
+          if (!active) return;
+          setResolvedImageUrl(cachedUrl || undefined);
         } else {
-          setResolvedImageUrl(undefined);
+          setResolvedImageUrl(targetKey);
         }
         return;
       }
 
-      if (!active) return;
-
-      if (displayImageRaw.startsWith('data:')) {
-        try {
-          const response = await fetch(displayImageRaw);
-          const blob = await response.blob();
-          if (!active) return;
-          const blobUrl = URL.createObjectURL(blob);
-          currentBlobUrl = blobUrl;
-          setResolvedImageUrl(blobUrl);
-        } catch {
-          if (active) setResolvedImageUrl(displayImageRaw);
+      // For images, resolve fast GPU-optimized canvas thumbnail (640px max)
+      try {
+        let thumbUrl = await resolveCanvasThumbnail(targetKey, 640);
+        
+        // If thumbUrl is empty or still 'idb://', fall back to fullImageRaw or targetKey
+        if (!thumbUrl || thumbUrl.startsWith('idb://')) {
+          const fallbackSource = fullImageRaw || targetKey;
+          if (fallbackSource.startsWith('idb://')) {
+            thumbUrl = (await getLocalImageAsObjectURL(fallbackSource)) || '';
+          } else {
+            thumbUrl = fallbackSource;
+          }
         }
-      } else {
-        setResolvedImageUrl(displayImageRaw);
+
+        if (!active) return;
+
+        if (thumbUrl && !thumbUrl.startsWith('idb://')) {
+          setResolvedImageUrl(thumbUrl);
+        } else {
+          setImgError(true);
+        }
+      } catch {
+        if (!active) return;
+        const fallbackSource = fullImageRaw || targetKey;
+        if (fallbackSource.startsWith('idb://')) {
+          const cachedUrl = await getLocalImageAsObjectURL(fallbackSource);
+          if (!active) return;
+          setResolvedImageUrl(cachedUrl || undefined);
+        } else {
+          setResolvedImageUrl(fallbackSource);
+        }
       }
     };
 
@@ -147,11 +158,9 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
 
     return () => {
       active = false;
-      if (currentBlobUrl) {
-        revokeObjectUrl(currentBlobUrl);
-      }
+      // Do not revoke thumbnail blob URLs; memoryThumbnailCache manages its own lifecycle
     };
-  }, [displayImageRaw]);
+  }, [displayImageRaw, fullImageRaw]);
 
   const displayImage = resolvedImageUrl;
   const nodeType = nodeData.type;
@@ -177,14 +186,27 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [exportTarget, setExportTarget] = useState<{ url: string; name: string } | null>(null);
   const [lightbox, setLightbox] = useState<'preview' | 'expand' | null>(null);
-  const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
+  const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(() => {
+    const d = (nodeData.outputData?.dimensions ?? nodeData.dimensions) as { width: number; height: number } | undefined;
+    return d && d.width && d.height ? { w: d.width, h: d.height } : null;
+  });
   // FIX 6: Read enableWatermark from node data (set once in BuilderPage) instead
   // of subscribing to Zustand per-node. Avoids N separate store subscribers.
   const enableWatermark = nodeData.enableWatermark ?? false;
 
-  const handleExportClick = (e: React.MouseEvent) => {
+  const handleExportClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const imageUrl = displayImage;
+    let imageUrl = fullResolvedUrl;
+    if (!imageUrl && fullImageRaw) {
+      if (fullImageRaw.startsWith('idb://')) {
+        imageUrl = (await getLocalImageAsObjectURL(fullImageRaw)) || displayImage;
+      } else {
+        imageUrl = fullImageRaw;
+      }
+      if (imageUrl) setFullResolvedUrl(imageUrl);
+    }
+    if (!imageUrl) imageUrl = displayImage;
+
     if (imageUrl) {
       const isVid = isVideoNode(nodeData) || uploadedIsVideo || isVideoUrl(imageUrl);
       if (isVid) {
@@ -274,11 +296,11 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
     processFiles(files);
   };
 
-  const studioMode = useAIConfigStore((s) => s.config.studioMode || 'edit');
-  const selectedTool = useAIConfigStore((s) => s.config.selectedTool || 'image-editor');
-
   // Handle click on source/result node to spawn ghost node (Edit and Upscale mode)
   const handleNodeClick = () => {
+    const { config } = useAIConfigStore.getState();
+    const studioMode = config.studioMode || 'edit';
+    const selectedTool = config.selectedTool || 'image-editor';
     if (selectedTool === 'image-editor' && studioMode === 'generate') return; // Do not spawn ghost node in Generate mode
     if ((isSource || isResult) && nodeData.image && nodeData.onAddChild) {
       // Spawn a ghost node with appropriate processing type
@@ -299,7 +321,6 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
     try {
       const key = anarchyService.getCacheKey(displayImageRaw);
       if (anarchyService.layoutCache.has(key)) return true;
-      if (localStorage.getItem(`anarchy_layout_${key}`)) return true;
     } catch {}
     return false;
   }, [nodeData.extractedLayout, nodeData.layout, displayImageRaw]);
@@ -317,7 +338,6 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
         ${errorState}
         ${readyState}
         ${isAnalyzed ? 'node-is-analyzed' : ''}
-        ${isMaskEditing ? 'node-mask-editing-active' : ''}
       `}
       role="button"
       tabIndex={0}
@@ -430,7 +450,11 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              style={imgDims ? { aspectRatio: `${imgDims.w} / ${imgDims.h}` } : undefined}
+              style={
+                displayImage
+                  ? { minHeight: 'unset', ...(imgDims ? { aspectRatio: `${imgDims.w} / ${imgDims.h}` } : {}) }
+                  : undefined
+              }
             >
               {displayImage ? (
                 <>
@@ -450,7 +474,7 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                         const vid = e.currentTarget;
                         setImgDims({ w: vid.videoWidth, h: vid.videoHeight });
                       }}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '4px', cursor: 'pointer' }}
                     />
                   ) : imgError ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '24px 12px', background: 'rgba(225, 29, 72, 0.08)', borderRadius: '6px', textAlign: 'center', width: '100%', height: '100%' }}>
@@ -459,11 +483,19 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                       <button
                         type="button"
                         style={{ fontSize: '10px', background: '#e11d48', color: '#fff', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           setImgError(false);
-                          if (displayImageRaw?.startsWith('idb://')) {
-                            getLocalImageAsObjectURL(displayImageRaw).then((u) => setResolvedImageUrl(u || undefined));
+                          if (displayImageRaw) invalidateCanvasThumbnail(displayImageRaw);
+                          if (fullImageRaw) invalidateCanvasThumbnail(fullImageRaw);
+                          const key = fullImageRaw || displayImageRaw;
+                          if (key) {
+                            if (key.startsWith('idb://')) {
+                              const u = await getLocalImageAsObjectURL(key);
+                              if (u) setResolvedImageUrl(u);
+                            } else {
+                              setResolvedImageUrl(key);
+                            }
                           }
                         }}
                       >
@@ -477,12 +509,34 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                       alt={nodeData.label || 'صورة النود'}
                       loading="lazy"
                       decoding="async"
-                      fetchPriority="low"
                       onLoad={(e) => {
                         const img = e.currentTarget;
-                        setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
+                        if (!nodeData.dimensions && !nodeData.outputData?.dimensions) {
+                          setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
+                          nodeData.dimensions = { width: img.naturalWidth, height: img.naturalHeight };
+                          if (nodeData.outputData) {
+                            nodeData.outputData.dimensions = { width: img.naturalWidth, height: img.naturalHeight };
+                          }
+                        }
                       }}
-                      onError={() => setImgError(true)}
+                      onError={async () => {
+                        // Resilient fallback: If displayImage (e.g. thumbnail) failed, try fullImageRaw directly
+                        if (fullImageRaw && resolvedImageUrl !== fullImageRaw) {
+                          if (displayImageRaw) invalidateCanvasThumbnail(displayImageRaw);
+                          if (fullImageRaw) invalidateCanvasThumbnail(fullImageRaw);
+                          if (fullImageRaw.startsWith('idb://')) {
+                            const fallbackUrl = await getLocalImageAsObjectURL(fullImageRaw);
+                            if (fallbackUrl && !fallbackUrl.startsWith('idb://')) {
+                              setResolvedImageUrl(fallbackUrl);
+                              return;
+                            }
+                          } else {
+                            setResolvedImageUrl(fullImageRaw);
+                            return;
+                          }
+                        }
+                        setImgError(true);
+                      }}
                     />
                   )}
                   {imgDims && (
@@ -500,7 +554,18 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                         type="button"
                         className="image-action-btn preview"
                         title="Preview"
-                        onClick={(e) => { e.stopPropagation(); setLightbox('expand'); }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!fullResolvedUrl && fullImageRaw) {
+                            if (fullImageRaw.startsWith('idb://')) {
+                              const u = await getLocalImageAsObjectURL(fullImageRaw);
+                              if (u) setFullResolvedUrl(u);
+                            } else {
+                              setFullResolvedUrl(fullImageRaw);
+                            }
+                          }
+                          setLightbox('expand');
+                        }}
                       >
                         <Eye size={14} />
                       </button>
@@ -605,10 +670,10 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
       )}
 
       {/* Lightbox */}
-      {lightbox && displayImage && (
+      {lightbox && (fullResolvedUrl || displayImage) && (
         <NodeLightbox
           lightbox={lightbox}
-          displayImage={displayImage}
+          displayImage={fullResolvedUrl || displayImage || ''}
           isVideo={isVideoNode(nodeData) || uploadedIsVideo}
           label={nodeData.label}
           onClose={() => setLightbox(null)}

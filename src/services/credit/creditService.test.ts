@@ -93,6 +93,19 @@ describe('Credit Service', () => {
           expect(getUnifiedCost({ model, resolution: 'xhigh' })).toBe(3);
           expect(getUnifiedCost({ model, resolution: 'max' })).toBe(6.5);
 
+          // Via Resolution tiers (1K, 2K, 4K)
+          expect(getModelCost(model, { resolution: '1K' })).toBe(2.5);
+          expect(getModelCost(model, { resolution: '2K' })).toBe(3);
+          expect(getModelCost(model, { resolution: '4K' })).toBe(5);
+          expect(getUnifiedCost({ model, resolution: '1K' })).toBe(2.5);
+          expect(getUnifiedCost({ model, resolution: '2K' })).toBe(3);
+          expect(getUnifiedCost({ model, resolution: '4K' })).toBe(5);
+
+          // Via explicit dimension aspect ratios
+          expect(getUnifiedCost({ model, aspectRatio: '3840x2160' })).toBe(5);
+          expect(getUnifiedCost({ model, aspectRatio: '2048x2048' })).toBe(3);
+          expect(getUnifiedCost({ model, aspectRatio: '1024x1024' })).toBe(2.5);
+
           // Paid mode
           expect(getModelCost(model, { qualityVariant: 'low', isTrial: false })).toBe(0.5);
           expect(getModelCost(model, { qualityVariant: 'medium', isTrial: false })).toBe(0.8);

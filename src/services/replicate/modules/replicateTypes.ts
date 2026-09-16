@@ -79,6 +79,8 @@ export interface ReplicateGenerationParams {
   userId?: string;
   sequentialImageGeneration?: string;
   maxImages?: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
   videoDuration?: string;
   videoQuality?: string;
   motionStrength?: number;

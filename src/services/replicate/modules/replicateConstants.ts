@@ -82,7 +82,27 @@ export const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     stepsRange: [1, 1],
     maxReferenceImages: 10,
     resolutions: ['auto', 'low', 'medium', 'high'],
-    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
+    aspectRatios: [
+      'match_input_image',
+      '1:1',
+      '3:2',
+      '2:3',
+      '4:3',
+      '3:4',
+      '16:9',
+      '9:16',
+      'auto',
+      '1024x1024',
+      '1536x1024',
+      '1024x1536',
+      '1536x1152',
+      '1152x1536',
+      '2048x2048',
+      '2048x1152',
+      '1152x2048',
+      '3840x2160',
+      '2160x3840',
+    ],
     pricePerImage: 0.128,
   },
   // ── 4.1. GPT Image 2.5 Flare ───────────────────────────────────────────────
@@ -98,8 +118,28 @@ export const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     defaultSteps: 1,
     stepsRange: [1, 1],
     maxReferenceImages: 10,
-    resolutions: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
-    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
+    resolutions: [],
+    aspectRatios: [
+      'match_input_image',
+      '1:1',
+      '3:2',
+      '2:3',
+      '4:3',
+      '3:4',
+      '16:9',
+      '9:16',
+      'auto',
+      '1024x1024',
+      '1536x1024',
+      '1024x1536',
+      '1536x1152',
+      '1152x1536',
+      '2048x2048',
+      '2048x1152',
+      '1152x2048',
+      '3840x2160',
+      '2160x3840',
+    ],
     pricePerImage: 0.25,
   },
   // ── 4.2. GPT Image 2.5 Sunburst ────────────────────────────────────────────
@@ -115,8 +155,28 @@ export const MODEL_META: Record<ReplicateModel, ModelMeta> = {
     defaultSteps: 1,
     stepsRange: [1, 1],
     maxReferenceImages: 10,
-    resolutions: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'],
-    aspectRatios: ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', 'auto'],
+    resolutions: [],
+    aspectRatios: [
+      'match_input_image',
+      '1:1',
+      '3:2',
+      '2:3',
+      '4:3',
+      '3:4',
+      '16:9',
+      '9:16',
+      'auto',
+      '1024x1024',
+      '1536x1024',
+      '1024x1536',
+      '1536x1152',
+      '1152x1536',
+      '2048x2048',
+      '2048x1152',
+      '1152x2048',
+      '3840x2160',
+      '2160x3840',
+    ],
     pricePerImage: 0.25,
   },
   // ── 5. Nano Banana Pro (Gemini 3 Pro Image) ──────────────────────────────────
@@ -579,6 +639,16 @@ export const MODEL_META: Record<ReplicateModel, ModelMeta> = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 export function arToSize(ar: string, base: number): { width: number; height: number } {
+  if (ar && ar.includes('x')) {
+    const parts = ar.split('x');
+    if (parts.length === 2) {
+      const w = parseInt(parts[0], 10);
+      const h = parseInt(parts[1], 10);
+      if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
+        return { width: w, height: h };
+      }
+    }
+  }
   const map: Record<string, { width: number; height: number }> = {
     '1:1': { width: base, height: base },
     '16:9': { width: base, height: Math.round(base * 9 / 16) },

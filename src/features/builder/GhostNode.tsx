@@ -10,7 +10,7 @@
  */
 
 import React, { memo, useMemo, useCallback, useEffect, useState } from 'react';
-import { Handle, Position, type NodeProps, useReactFlow, useUpdateNodeInternals, useStore } from '@xyflow/react';
+import { Handle, Position, type NodeProps, type Edge, useReactFlow, useUpdateNodeInternals, useStore } from '@xyflow/react';
 import { 
   Loader2, AlertCircle, Eraser, RefreshCw, Sparkles
 } from 'lucide-react';
@@ -90,20 +90,7 @@ const GhostPlaceholder = memo(({ connectedCount, isStandaloneGenerator }: GhostP
   );
 });
 
-const edgeArrayEquality = (a: any[], b: any[]) => {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (
-      a[i].id !== b[i].id || 
-      a[i].source !== b[i].source || 
-      a[i].target !== b[i].target || 
-      a[i].targetHandle !== b[i].targetHandle
-    ) {
-      return false;
-    }
-  }
-  return true;
-};
+const edgesSelector = (s: { edges: Edge[] }) => s.edges;
 
 export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) => {
   if (process.env.NODE_ENV === 'development' || (globalThis as any).__DEV__) {
@@ -111,21 +98,20 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
   }
   const deleteElements = useReactFlow().deleteElements;
 
-  // ── Granular edge subscription ──────────────────────────────────────────
-  // PERF: useEdges() subscribes to ALL canvas edges, causing every GhostNode
-  // to re-render on every drag frame. useStore with a per-node selector means
-  // this component only re-renders when ITS OWN incoming edges change.
-  const incomingEdges = useStore(
-    useCallback((s) => s.edges.filter((e) => e.target === id), [id]),
-    edgeArrayEquality
-  );
+  // ── Optimized edge subscription ─────────────────────────────────────────
+  // Subscribing to s.edges reference ensures zero re-renders during canvas pan/zoom,
+  // since s.edges reference is immutable during viewport transforms.
+  const edges = useStore(edgesSelector);
+  const incomingEdges = useMemo(() => {
+    return edges.filter((e: Edge) => e.target === id);
+  }, [edges, id]);
 
   const connectedCount = incomingEdges.length;
 
   // Find the maximum index among active incoming edges targeting this node
   const maxConnectedIndex = useMemo(() => {
     let maxIdx = -1;
-    incomingEdges.forEach(e => {
+    incomingEdges.forEach((e: Edge) => {
       const match = e.targetHandle?.match(/ghost-target-(\d+)/);
       if (match) {
         const idx = parseInt(match[1], 10);

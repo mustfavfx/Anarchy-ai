@@ -387,7 +387,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
           </div>
         )}
 
-        {/* GPT 2.5 Variant Selector (flare / sunburst) */}
+        {/* GPT 2.5 Variant Selector (flare / sunburst) & Quality Selector */}
         {isGpt25 && (
           <div className="gpt-variant-selector-wrapper">
             <div className="gpt-variant-pill">
@@ -415,6 +415,33 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                 <Sun size={13} className="gpt-variant-icon" />
                 <span>sunburst</span>
               </button>
+            </div>
+
+            {/* Quality Tier Selector */}
+            <div className="gpt-quality-selector-wrapper">
+              <div className="gpt-quality-pill">
+                {(['auto', 'low', 'medium', 'high', 'xhigh', 'max'] as const).map(q => {
+                  const currentQuality = (params as any).gptQuality || config.gptQuality || 'auto';
+                  const isCurrent = currentQuality === q;
+                  const qCost = getModelCost(selectedModel, {
+                    qualityVariant: q,
+                  });
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      className={`gpt-quality-btn ${isCurrent ? 'active' : ''}`}
+                      onClick={() => {
+                        onParamsChange({ ...params, gptQuality: q, qualityVariant: q });
+                        setConfig(prev => ({ ...prev, gptQuality: q, qualityVariant: q }));
+                      }}
+                      title={`Quality: ${q} (${qCost} cr)`}
+                    >
+                      {q}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -486,52 +513,51 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
         </>
       ) : (
         <div className="control-row">
-          {/* Resolution / Quality */}
-          <div className="control-half" ref={resDropdownRef}>
-            <label className="section-label">
-              {(selectedModel === 'openai/gpt-image-2' || isGpt25) ? 'Quality' : 'Resolution'}
-            </label>
-            <div 
-              className="dropdown-trigger"
-              onClick={() => setShowResDropdown(!showResDropdown)}
-            >
-              <span>{params.resolution}</span>
-              <ChevronDown size={16} />
-            </div>
-            {showResDropdown && (
-              <div className="dropdown-menu small-menu">
-                {availableResolutions.map(res => {
-                  const itemCost = getModelCost(selectedModel, {
-                    resolution: res,
-                    qualityVariant: res,
-                  });
-                  return (
-                    <div 
-                      key={res}
-                      className={`dropdown-item ${params.resolution === res ? 'active' : ''}`}
-                      onClick={() => {
-                        if (selectedModel === 'openai/gpt-image-2' || isGpt25) {
-                          onParamsChange({ ...params, resolution: res, qualityVariant: res, gptQuality: res });
-                          if (isGpt25) {
-                            setConfig(prev => ({ ...prev, gptQuality: res as any }));
-                          }
-                        } else {
-                          updateParam('resolution', res);
-                        }
-                        setShowResDropdown(false);
-                      }}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    >
-                      <span>{res}</span>
-                      <span style={{ fontSize: '11px', opacity: 0.65, marginLeft: '8px', color: '#94a3b8' }}>
-                        {itemCost} cr
-                      </span>
-                    </div>
-                  );
-                })}
+          {/* Resolution / Quality (Hidden for GPT 2.5: quality is in the quality pill & dimensions are in Aspect Ratio) */}
+          {!isGpt25 && availableResolutions && availableResolutions.length > 0 && (
+            <div className="control-half" ref={resDropdownRef}>
+              <label className="section-label">
+                {selectedModel === 'openai/gpt-image-2' ? 'Quality' : 'Resolution'}
+              </label>
+              <div 
+                className="dropdown-trigger"
+                onClick={() => setShowResDropdown(!showResDropdown)}
+              >
+                <span>{params.resolution}</span>
+                <ChevronDown size={16} />
               </div>
-            )}
-          </div>
+              {showResDropdown && (
+                <div className="dropdown-menu small-menu">
+                  {availableResolutions.map(res => {
+                    const itemCost = getModelCost(selectedModel, {
+                      resolution: res,
+                      qualityVariant: (params as any).gptQuality || (params as any).qualityVariant || (selectedModel === 'openai/gpt-image-2' ? res : undefined),
+                    });
+                    return (
+                      <div 
+                        key={res}
+                        className={`dropdown-item ${params.resolution === res ? 'active' : ''}`}
+                        onClick={() => {
+                          if (selectedModel === 'openai/gpt-image-2') {
+                            onParamsChange({ ...params, resolution: res, qualityVariant: res, gptQuality: res });
+                          } else {
+                            updateParam('resolution', res);
+                          }
+                          setShowResDropdown(false);
+                        }}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                      >
+                        <span>{res}</span>
+                        <span style={{ fontSize: '11px', opacity: 0.65, marginLeft: '8px', color: '#94a3b8' }}>
+                          {itemCost} cr
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Aspect Ratio */}
           <div className="control-half" ref={aspectDropdownRef}>
@@ -543,7 +569,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <AspectRatioIcon ratio={params.aspectRatio || '1:1'} size={16} />
                 <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {params.aspectRatio}
+                  {params.aspectRatio === 'match_input_image' ? 'Match Input' : (params.aspectRatio || '1:1')}
                 </span>
               </div>
               <ChevronDown size={16} />
@@ -564,8 +590,10 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                       style={{ display: 'flex', alignItems: 'center', gap: '9px' }}
                     >
                       <AspectRatioIcon ratio={ratio} size={16} active={isSelected} />
-                      <span style={{ fontWeight: 500 }}>{ratio}</span>
-                      {hint && (
+                      <span style={{ fontWeight: 500 }}>
+                        {ratio === 'match_input_image' ? 'Match Input' : ratio}
+                      </span>
+                      {hint && ratio !== 'match_input_image' && (
                         <span style={{ fontSize: '10.5px', opacity: 0.5, marginLeft: 'auto' }}>
                           {hint}
                         </span>

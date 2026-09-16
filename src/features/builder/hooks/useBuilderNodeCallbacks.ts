@@ -7,6 +7,7 @@ import {
   positionExtraNode,
   buildGenConfig,
 } from '../utils/builderHelpers';
+import { createOptimizedThumbnailBlob } from '../utils/canvasImageOptimizer';
 
 export interface UseBuilderNodeCallbacksParams {
   nodes: BuilderNode[];
@@ -42,21 +43,31 @@ export function useBuilderNodeCallbacks({
   isGenerateMode,
 }: UseBuilderNodeCallbacksParams) {
   const makeImageUploadHandler = useCallback((nodeId: string) => (url: string) => {
-    if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, state: 'idle', outputData: undefined }); return; }
+    if (!url) { updateNodeData(nodeId, { image: url, originalImage: undefined, thumbnail: undefined, state: 'idle', outputData: undefined }); return; }
     const isVid = url.startsWith('data:video/') || 
                   url.toLowerCase().includes('.mp4') || 
                   url.toLowerCase().includes('.webm') || 
                   url.toLowerCase().includes('.mov') || 
                   url.toLowerCase().includes('.avi');
     applyWatermarkToSource(url).then(async (watermarked) => {
-      const imageKey = `idb://${crypto.randomUUID()}`;
+      const cleanUuid = crypto.randomUUID();
+      const imageKey = `idb://${cleanUuid}`;
       await cacheLocalImage(imageKey, watermarked);
+      let thumbKey: string | undefined = undefined;
+      if (!isVid) {
+        const thumbBlob = await createOptimizedThumbnailBlob(watermarked, 640);
+        if (thumbBlob) {
+          thumbKey = `idb://${cleanUuid}_canvas_thumb`;
+          await cacheLocalImage(thumbKey, thumbBlob);
+        }
+      }
       updateNodeData(nodeId, { 
         image: imageKey, 
         originalImage: imageKey, 
+        thumbnail: thumbKey,
         state: 'ready', 
         isVideo: isVid,
-        outputData: makeSourceOutput(imageKey, isVid) 
+        outputData: makeSourceOutput(imageKey, isVid, thumbKey) 
       });
 
       const currentSelected = useAIConfigStore.getState().selectedNode;
@@ -93,14 +104,24 @@ export function useBuilderNodeCallbacks({
                     watermarked.toLowerCase().includes('.webm') || 
                     watermarked.toLowerCase().includes('.mov') || 
                     watermarked.toLowerCase().includes('.avi');
-      const imageKey = `idb://${crypto.randomUUID()}`;
+      const cleanUuid = crypto.randomUUID();
+      const imageKey = `idb://${cleanUuid}`;
       await cacheLocalImage(imageKey, watermarked);
+      let thumbKey: string | undefined = undefined;
+      if (!isVid) {
+        const thumbBlob = await createOptimizedThumbnailBlob(watermarked, 640);
+        if (thumbBlob) {
+          thumbKey = `idb://${cleanUuid}_canvas_thumb`;
+          await cacheLocalImage(thumbKey, thumbBlob);
+        }
+      }
       updateNodeData(node.id, { 
         image: imageKey, 
         originalImage: imageKey, 
+        thumbnail: thumbKey,
         state: 'ready', 
         isVideo: isVid,
-        outputData: makeSourceOutput(imageKey, isVid) 
+        outputData: makeSourceOutput(imageKey, isVid, thumbKey) 
       });
       spawnExtraSources(node, watermarkedUrls);
       setSelectedNode({ 

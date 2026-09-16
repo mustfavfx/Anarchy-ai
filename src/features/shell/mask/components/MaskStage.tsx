@@ -46,6 +46,7 @@ export interface MaskStageProps {
   brushSize: number;
   showBrushCursor: boolean;
   cursorPos: { x: number; y: number } | null;
+  cursorRef?: RefObject<HTMLDivElement | null>;
   brushHardness: number;
 }
 
@@ -90,6 +91,7 @@ export const MaskStage: React.FC<MaskStageProps> = ({
   brushSize,
   showBrushCursor,
   cursorPos,
+  cursorRef,
   brushHardness,
 }) => {
   const isDrawingInteractionActive = maskTool !== 'crop' && maskTool !== 'arrow' && !isSpacebarDown && maskTool !== 'hand';
@@ -374,13 +376,15 @@ export const MaskStage: React.FC<MaskStageProps> = ({
 
         return (
           <div
+            ref={cursorRef}
             className={`mask-canvas-cursor ${isEraser ? 'mask-eraser-cursor' : ''}`}
             style={{
-              left: cursorPos.x,
-              top: cursorPos.y,
+              left: 0,
+              top: 0,
               width: brushSize,
               height: brushSize,
-              transform: 'translate(-50%, -50%)',
+              transform: `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`,
+              willChange: 'transform',
               position: 'absolute',
               pointerEvents: 'none',
               zIndex: 25,

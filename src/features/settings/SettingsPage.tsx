@@ -15,6 +15,7 @@ import { GeneralSettingsTab } from './tabs/GeneralSettingsTab';
 import { StorageSettingsTab } from './tabs/StorageSettingsTab';
 import { SystemHealthTab } from './tabs/SystemHealthTab';
 import { AboutTab } from './tabs/AboutTab';
+import { APP_INFO } from '../../config/appInfo';
 
 export const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -112,7 +113,7 @@ export const SettingsPage: React.FC = () => {
           setAppVersion(String(v));
         }
       })
-      .catch(() => setAppVersion('0.3.90'));
+      .catch(() => setAppVersion(APP_INFO.version));
   }, []);
 
   const checkForUpdates = useCallback(async () => {
