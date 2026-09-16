@@ -914,6 +914,125 @@
       border-left: 2px solid #f59e0b;
     }
 
+    /* Media Card Economics, AI Model & Dimensions Meta */
+    .media-meta-badges {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 4px 0 2px 0;
+    }
+
+    .media-badge-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .media-model-pill {
+      font-size: 11px;
+      font-weight: 700;
+      color: #c084fc;
+      background: rgba(192, 132, 252, 0.12);
+      padding: 3px 7px;
+      border-radius: 6px;
+      border: 1px solid rgba(192, 132, 252, 0.28);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .media-credit-pill {
+      font-size: 11px;
+      font-weight: 700;
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.12);
+      padding: 3px 7px;
+      border-radius: 6px;
+      border: 1px solid rgba(245, 158, 11, 0.28);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .media-cost-pill {
+      font-size: 11px;
+      font-weight: 700;
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.12);
+      padding: 3px 7px;
+      border-radius: 6px;
+      border: 1px solid rgba(16, 185, 129, 0.28);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .media-dim-pill {
+      font-size: 11px;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      padding: 3px 7px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .media-margin-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #a1a1aa;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 3px 6px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+
+    .media-dim-float {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.78);
+      color: #38bdf8;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      z-index: 2;
+      display: none;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .lightbox-econ-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+      background: rgba(17, 17, 21, 0.9);
+      backdrop-filter: blur(12px);
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
     .media-actions-row {
       display: flex;
       align-items: center;
@@ -1365,8 +1484,16 @@
             <!-- User Filter Dropdown -->
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">المستخدم:</span>
-              <select id="vault-user-select" class="sort-select" onchange="handleVaultFilter()" style="min-width: 250px;">
+              <select id="vault-user-select" class="sort-select" onchange="handleVaultFilter()" style="min-width: 230px;">
                 <option value="all">👥 All Users (كل المستخدمين)</option>
+              </select>
+            </div>
+
+            <!-- Model Filter Dropdown -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">المحرك:</span>
+              <select id="vault-model-select" class="sort-select" onchange="handleVaultFilter()" style="min-width: 210px;">
+                <option value="all">⚡ All Models (كل المحركات)</option>
               </select>
             </div>
 
@@ -1467,6 +1594,8 @@
       <div id="lightbox-media-container" style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
         <!-- Injected img or video -->
       </div>
+      <!-- Lightbox Economics, Model & Dimensions Strip -->
+      <div id="lb-econ-strip" class="lightbox-econ-bar" style="display: none;"></div>
       <div class="lightbox-bar">
         <div style="display: flex; flex-direction: column; gap: 3px; max-width: 60%;">
           <span id="lb-filename" style="font-weight: 700; color: #fff; font-size: 13px; font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">filename</span>
@@ -2004,9 +2133,356 @@
     // ==========================================================================
     let cachedVaultFiles = [];
     let currentVaultUser = 'all';
+    let currentVaultModel = 'all';
     let currentVaultType = 'all';
     let currentLightboxItem = null;
     let isVaultLoading = false;
+
+    // Model details, friendly names, icons, official Replicate API costs & Anarchy AI credits
+    const MODEL_REGISTRY = {
+      'google/nano-banana-2': {
+        name: 'Nano Banana 2',
+        vendor: 'Google (Gemini 3.1 Flash)',
+        icon: '🍌',
+        baseCostUsd: 0.067,
+        baseCredits: 1.1,
+        calcCost: (input) => {
+          const res = String(input?.resolution || '').toUpperCase();
+          if (res.includes('4K')) return { usd: 0.134, credits: 2.2 };
+          if (res.includes('2K')) return { usd: 0.073, credits: 1.2 };
+          return { usd: 0.067, credits: 1.1 };
+        }
+      },
+      'google/nano-banana-2-lite': {
+        name: 'Nano Banana 2 Lite',
+        vendor: 'Google',
+        icon: '🍌',
+        baseCostUsd: 0.034,
+        baseCredits: 0.7
+      },
+      'google/nano-banana-pro': {
+        name: 'Nano Banana Pro',
+        vendor: 'Google (Gemini 3 Pro)',
+        icon: '🍌',
+        baseCostUsd: 0.134,
+        baseCredits: 2.2,
+        calcCost: (input) => {
+          const res = String(input?.resolution || '').toUpperCase();
+          if (res.includes('4K')) return { usd: 0.240, credits: 4.2 };
+          return { usd: 0.134, credits: 2.2 };
+        }
+      },
+      'bytedance/seedream-5-pro': {
+        name: 'Seedream 5 Pro',
+        vendor: 'ByteDance',
+        icon: '🌊',
+        baseCostUsd: 0.045,
+        baseCredits: 0.8,
+        calcCost: (input) => {
+          const res = String(input?.resolution || '').toUpperCase();
+          if (res.includes('2K') || res.includes('4K')) return { usd: 0.075, credits: 1.3 };
+          return { usd: 0.045, credits: 0.8 };
+        }
+      },
+      'bytedance/seedream-4.5': {
+        name: 'Seedream 4.5',
+        vendor: 'ByteDance',
+        icon: '🌊',
+        baseCostUsd: 0.055,
+        baseCredits: 1.0,
+        calcCost: (input) => {
+          const res = String(input?.resolution || '').toUpperCase();
+          if (res.includes('4K')) return { usd: 0.082, credits: 1.5 };
+          return { usd: 0.055, credits: 1.0 };
+        }
+      },
+      'black-forest-labs/flux-2-pro': {
+        name: 'FLUX 2 Pro',
+        vendor: 'Black Forest Labs',
+        icon: '⚡',
+        baseCostUsd: 0.015,
+        baseCredits: 0.5
+      },
+      'black-forest-labs/flux-1.1-pro': {
+        name: 'FLUX 1.1 Pro',
+        vendor: 'Black Forest Labs',
+        icon: '⚡',
+        baseCostUsd: 0.040,
+        baseCredits: 1.0
+      },
+      'black-forest-labs/flux-1.1-pro-ultra': {
+        name: 'FLUX 1.1 Pro Ultra',
+        vendor: 'Black Forest Labs',
+        icon: '⚡',
+        baseCostUsd: 0.060,
+        baseCredits: 1.5
+      },
+      'black-forest-labs/flux-dev': {
+        name: 'FLUX Dev',
+        vendor: 'Black Forest Labs',
+        icon: '⚡',
+        baseCostUsd: 0.025,
+        baseCredits: 0.8
+      },
+      'black-forest-labs/flux-schnell': {
+        name: 'FLUX Schnell',
+        vendor: 'Black Forest Labs',
+        icon: '⚡',
+        baseCostUsd: 0.003,
+        baseCredits: 0.3
+      },
+      'openai/gpt-image-2': {
+        name: 'GPT Image 2',
+        vendor: 'OpenAI',
+        icon: '🤖',
+        baseCostUsd: 0.128,
+        baseCredits: 1.8,
+        calcCost: (input) => {
+          const q = String(input?.quality || '').toLowerCase();
+          if (q === 'low') return { usd: 0.032, credits: 0.5 };
+          if (q === 'medium') return { usd: 0.048, credits: 0.8 };
+          return { usd: 0.128, credits: 1.8 };
+        }
+      },
+      'openai/gpt-image-2.5-flare': {
+        name: 'GPT Image 2.5 Flare',
+        vendor: 'OpenAI',
+        icon: '✨',
+        baseCostUsd: 0.250,
+        baseCredits: 3.0
+      },
+      'openai/gpt-image-2.5-sunburst': {
+        name: 'GPT Image 2.5 Sunburst',
+        vendor: 'OpenAI',
+        icon: '☀️',
+        baseCostUsd: 0.250,
+        baseCredits: 3.0
+      },
+      'topazlabs/topaz-photo-ai': {
+        name: 'Topaz Labs AI Upscale',
+        vendor: 'Topaz Labs',
+        icon: '💎',
+        baseCostUsd: 0.160,
+        baseCredits: 3.0
+      },
+      'philz1337x/clarity-upscaler': {
+        name: 'Clarity Upscaler',
+        vendor: 'Clarity AI',
+        icon: '🔍',
+        baseCostUsd: 0.100,
+        baseCredits: 3.0
+      },
+      'philz1337x/clarity-pro-upscaler': {
+        name: 'Anarchy Clarity Pro',
+        vendor: 'Anarchy AI',
+        icon: '🔬',
+        baseCostUsd: 0.030,
+        baseCredits: 2.0
+      },
+      'prunaai/p-image': {
+        name: 'Pruna P-Image',
+        vendor: 'Pruna AI',
+        icon: '🎨',
+        baseCostUsd: 0.005,
+        baseCredits: 0.5
+      },
+      'prunaai/p-image-upscaler': {
+        name: 'Pruna Upscaler',
+        vendor: 'Pruna AI',
+        icon: '📐',
+        baseCostUsd: 0.010,
+        baseCredits: 0.5
+      },
+      'krea/krea-2-large': {
+        name: 'Krea 2 Large',
+        vendor: 'Krea AI',
+        icon: '🖌️',
+        baseCostUsd: 0.060,
+        baseCredits: 1.0
+      },
+      'stability-ai/stable-diffusion-3.5-large': {
+        name: 'SD 3.5 Large',
+        vendor: 'Stability AI',
+        icon: '🌌',
+        baseCostUsd: 0.065,
+        baseCredits: 1.2
+      },
+      'stability-ai/sdxl': {
+        name: 'SDXL',
+        vendor: 'Stability AI',
+        icon: '🎨',
+        baseCostUsd: 0.008,
+        baseCredits: 0.3
+      },
+      'bytedance/sdxl-lightning-4step': {
+        name: 'SDXL Lightning',
+        vendor: 'ByteDance',
+        icon: '⚡',
+        baseCostUsd: 0.003,
+        baseCredits: 0.2
+      },
+      'recraft-ai/recraft-v3': {
+        name: 'Recraft v3',
+        vendor: 'Recraft AI',
+        icon: '📐',
+        baseCostUsd: 0.040,
+        baseCredits: 1.0
+      },
+      'ideogram-ai/ideogram-v2': {
+        name: 'Ideogram v2',
+        vendor: 'Ideogram',
+        icon: '🔤',
+        baseCostUsd: 0.080,
+        baseCredits: 1.5
+      },
+      'minimax/video-01': {
+        name: 'MiniMax Video-01',
+        vendor: 'MiniMax',
+        icon: '🎬',
+        baseCostUsd: 0.250,
+        baseCredits: 14.0
+      }
+    };
+
+    function resolveModelEconomics(item) {
+      let modelKey = item.model;
+      if (!modelKey) {
+        const fn = (item.fileName || '').toLowerCase();
+        const fold = (item.folderName || '').toLowerCase();
+        const p = (item.prompt || '').toLowerCase();
+        if (fn.includes('topaz') || fold.includes('topaz') || p.includes('topaz')) {
+          modelKey = 'topazlabs/topaz-photo-ai';
+        } else if (fn.includes('clarity') || fold.includes('clarity') || p.includes('clarity')) {
+          modelKey = 'philz1337x/clarity-upscaler';
+        } else if (item.isVideo) {
+          modelKey = 'minimax/video-01';
+        } else if (fn.includes('flux') || fold.includes('flux') || p.includes('flux')) {
+          modelKey = 'black-forest-labs/flux-2-pro';
+        } else if (fn.includes('seedream') || fold.includes('seedream') || p.includes('seedream')) {
+          modelKey = 'bytedance/seedream-5-pro';
+        } else if (fn.includes('gpt') || fold.includes('gpt') || p.includes('dall-e')) {
+          modelKey = 'openai/gpt-image-2';
+        } else {
+          modelKey = 'google/nano-banana-2';
+        }
+      }
+
+      let reg = MODEL_REGISTRY[modelKey];
+      if (!reg) {
+        const foundKey = Object.keys(MODEL_REGISTRY).find(k => k.toLowerCase().includes(modelKey.toLowerCase()) || modelKey.toLowerCase().includes(k.toLowerCase()));
+        if (foundKey) reg = MODEL_REGISTRY[foundKey];
+      }
+
+      let name = reg ? reg.name : modelKey.split('/').pop();
+      let vendor = reg ? reg.vendor : 'AI Engine';
+      let icon = reg ? reg.icon : '⚡';
+      let costUsd = reg ? reg.baseCostUsd : 0.050;
+      let credits = reg ? reg.baseCredits : 1.0;
+
+      if (reg && reg.calcCost && item.input) {
+        const calculated = reg.calcCost(item.input);
+        costUsd = calculated.usd;
+        credits = calculated.credits;
+      }
+
+      if (item.creditAmount && item.creditAmount > 0) {
+        credits = item.creditAmount;
+      }
+
+      const revenueUsd = credits * 0.10;
+      let profitMargin = 0;
+      if (revenueUsd > 0) {
+        profitMargin = Math.round(((revenueUsd - costUsd) / revenueUsd) * 100);
+      }
+
+      return {
+        modelKey,
+        modelName: name,
+        vendor,
+        icon,
+        costUsd,
+        credits,
+        revenueUsd,
+        profitMargin: Math.max(0, profitMargin)
+      };
+    }
+
+    function getStandardAspectRatio(w, h) {
+      if (!w || !h) return null;
+      const ratio = w / h;
+      if (Math.abs(ratio - 16 / 9) < 0.06) return '16:9';
+      if (Math.abs(ratio - 1) < 0.04) return '1:1';
+      if (Math.abs(ratio - 9 / 16) < 0.06) return '9:16';
+      if (Math.abs(ratio - 4 / 3) < 0.05) return '4:3';
+      if (Math.abs(ratio - 3 / 4) < 0.05) return '3:4';
+      if (Math.abs(ratio - 3 / 2) < 0.05) return '3:2';
+      if (Math.abs(ratio - 2 / 3) < 0.05) return '2:3';
+      if (Math.abs(ratio - 21 / 9) < 0.08) return '21:9';
+      if (Math.abs(ratio - 4 / 5) < 0.05) return '4:5';
+      if (Math.abs(ratio - 5 / 4) < 0.05) return '5:4';
+      return ratio > 1 ? `${ratio.toFixed(2)}:1` : `1:${(1 / ratio).toFixed(2)}`;
+    }
+
+    function getAspectRatioDescription(ar) {
+      if (!ar) return '';
+      const map = {
+        '16:9': 'أفقي عريض (Landscape / يوتيوب وعرض شاشة)',
+        '1:1': 'مربع قياسي (Square / منشورات السوشيال)',
+        '9:16': 'طولي كامل (Story / ريلز وتيك توك)',
+        '4:3': 'شاشة قياسية (Standard Classic)',
+        '3:4': 'بورتريه كلاسيكي (Classic Portrait)',
+        '3:2': 'تصوير فوتوغرافي أفقي (DSLR Photo)',
+        '2:3': 'بورتريه فوتوغرافي طولي (Portrait Photo)',
+        '4:5': 'منشور انستغرام طولي (Instagram Feed Post)',
+        '21:9': 'سينمائي عريض فائق (Ultrawide Cinema)'
+      };
+      return map[ar] || 'نسبة أبعاد مخصصة';
+    }
+
+    function onMediaThumbLoad(el, itemId) {
+      if (!el) return;
+      const w = el.naturalWidth || el.videoWidth;
+      const h = el.naturalHeight || el.videoHeight;
+      if (!w || !h) return;
+      const ar = getStandardAspectRatio(w, h);
+      const desc = getAspectRatioDescription(ar);
+      
+      const dimText = document.getElementById(`dim-text-${itemId}`);
+      if (dimText) {
+        dimText.innerHTML = `📐 ${ar ? '<b>' + ar + '</b> • ' : ''}${w}×${h}px`;
+        dimText.title = `أبعاد الصورة الحقيقية: ${w}×${h} بكسل${desc ? ' | ' + desc : ''}`;
+      }
+      
+      const dimFloat = document.getElementById(`dim-float-${itemId}`);
+      if (dimFloat) {
+        dimFloat.innerHTML = `📐 ${ar ? ar + ' • ' : ''}${w}×${h}`;
+        dimFloat.title = `أبعاد الصورة الحقيقية: ${w}×${h} بكسل${desc ? ' | ' + desc : ''}`;
+        dimFloat.style.display = 'inline-flex';
+      }
+    }
+
+    function onLightboxMediaLoad(el) {
+      if (!el) return;
+      const w = el.naturalWidth || el.videoWidth;
+      const h = el.naturalHeight || el.videoHeight;
+      if (!w || !h) return;
+      const ar = getStandardAspectRatio(w, h);
+      const desc = getAspectRatioDescription(ar);
+      const pill = document.getElementById('lb-dim-pill');
+      if (pill) {
+        pill.innerHTML = `📐 <b>الأبعاد:</b> ${ar ? '<b>' + ar + '</b> • ' : ''}${w}×${h} بكسل`;
+        pill.title = `الأبعاد الحقيقية: ${w}×${h} بكسل${desc ? ' (' + desc + ')' : ''}`;
+      }
+    }
+
+    function copyPromptText(encodedPrompt, btn) {
+      const text = decodeURIComponent(encodedPrompt);
+      navigator.clipboard.writeText(text).then(() => {
+        const oldText = btn.textContent;
+        btn.textContent = 'تم النسخ ✓';
+        setTimeout(() => { btn.textContent = oldText; }, 2000);
+      });
+    }
 
     function scrollToVault() {
       const el = document.getElementById('section-media-vault');
@@ -2049,6 +2525,10 @@
     function handleVaultFilter() {
       const userSelect = document.getElementById('vault-user-select');
       currentVaultUser = userSelect ? userSelect.value : 'all';
+
+      const modelSelect = document.getElementById('vault-model-select');
+      currentVaultModel = modelSelect ? modelSelect.value : 'all';
+
       const searchVal = (document.getElementById('vault-search-input')?.value || '').toLowerCase().trim();
 
       let filtered = [...cachedVaultFiles];
@@ -2058,22 +2538,36 @@
         filtered = filtered.filter(f => f.userId === currentVaultUser);
       }
 
-      // 2. Filter by media type
+      // 2. Filter by AI Model
+      if (currentVaultModel !== 'all') {
+        filtered = filtered.filter(f => {
+          const eco = resolveModelEconomics(f);
+          return eco.modelName === currentVaultModel || f.model === currentVaultModel;
+        });
+      }
+
+      // 3. Filter by media type
       if (currentVaultType === 'image') {
         filtered = filtered.filter(f => !f.isVideo);
       } else if (currentVaultType === 'video') {
         filtered = filtered.filter(f => f.isVideo);
       }
 
-      // 3. Filter by search query
+      // 4. Filter by search query
       if (searchVal) {
-        filtered = filtered.filter(f => 
-          f.fileName.toLowerCase().includes(searchVal) ||
-          f.userEmail.toLowerCase().includes(searchVal) ||
-          f.folderName.toLowerCase().includes(searchVal) ||
-          (f.prompt && f.prompt.toLowerCase().includes(searchVal)) ||
-          f.userId.toLowerCase().includes(searchVal)
-        );
+        filtered = filtered.filter(f => {
+          const eco = resolveModelEconomics(f);
+          return (
+            f.fileName.toLowerCase().includes(searchVal) ||
+            f.userEmail.toLowerCase().includes(searchVal) ||
+            f.folderName.toLowerCase().includes(searchVal) ||
+            (f.prompt && f.prompt.toLowerCase().includes(searchVal)) ||
+            (f.model && f.model.toLowerCase().includes(searchVal)) ||
+            eco.modelName.toLowerCase().includes(searchVal) ||
+            eco.vendor.toLowerCase().includes(searchVal) ||
+            f.userId.toLowerCase().includes(searchVal)
+          );
+        });
       }
 
       renderVaultGrid(filtered, 'vault-gallery-grid', 'vault-empty-state');
@@ -2089,7 +2583,8 @@
       if (sizeEl) sizeEl.textContent = sizeFormatted;
       if (statusText) {
         const userLabel = currentVaultUser === 'all' ? 'كل المستخدمين' : getUserEmail(currentVaultUser);
-        statusText.innerHTML = `عرض <b>${filtered.length}</b> من أصل <b>${cachedVaultFiles.length}</b> عنصر (${userLabel})`;
+        const modelLabel = currentVaultModel === 'all' ? 'كل المحركات' : currentVaultModel;
+        statusText.innerHTML = `عرض <b>${filtered.length}</b> من أصل <b>${cachedVaultFiles.length}</b> عنصر (${userLabel} • ${modelLabel})`;
       }
     }
 
@@ -2116,14 +2611,14 @@
         const STORAGE_BUCKET = 'generated-images';
         let allDiscovered = [];
 
-        // Fetch predictions table for metadata and prompts
+        // Fetch predictions table for metadata, model, inputs, and prompts
         const predictionsMap = new Map();
         try {
           const { data: preds } = await activeClient
             .from('replicate_predictions')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(300);
+            .limit(3000);
 
           if (preds && preds.length > 0) {
             preds.forEach(p => {
@@ -2133,6 +2628,27 @@
           }
         } catch (predErr) {
           console.warn('Predictions table lookup fallback:', predErr);
+        }
+
+        // Fetch credit transactions to link exact deductions where logged
+        const transactionsMap = new Map();
+        try {
+          const { data: txs } = await activeClient
+            .from('credit_transactions')
+            .select('*')
+            .eq('type', 'usage')
+            .order('created_at', { ascending: false })
+            .limit(3000);
+
+          if (txs && txs.length > 0) {
+            txs.forEach(t => {
+              if (t.metadata?.replicate_id) transactionsMap.set(t.metadata.replicate_id, t);
+              if (t.metadata?.node_id) transactionsMap.set(t.metadata.node_id, t);
+              if (t.metadata?.prediction_id) transactionsMap.set(t.metadata.prediction_id, t);
+            });
+          }
+        } catch (txErr) {
+          console.warn('Credit transactions lookup fallback:', txErr);
         }
 
         // --- METHOD 1: Direct SQL RPC (Bypasses Storage RLS, instant & complete across all users) ---
@@ -2159,7 +2675,9 @@
                 }
               }
 
-              const pred = predictionsMap.get(folderName) || predictionsMap.get(fileName.replace(/\.[^/.]+$/, ''));
+              const predId = fileName.replace(/\.[^/.]+$/, '');
+              const pred = predictionsMap.get(folderName) || predictionsMap.get(predId);
+              const tx = transactionsMap.get(folderName) || transactionsMap.get(predId);
 
               allDiscovered.push({
                 id: `${userId}_${folderName}_${fileName}`,
@@ -2174,6 +2692,8 @@
                 isVideo: isVid,
                 prompt: pred?.prompt || pred?.input?.prompt || null,
                 model: pred?.model || null,
+                input: pred?.input || null,
+                creditAmount: tx?.amount ? Math.abs(tx.amount) : null,
               });
             }
           }
@@ -2243,7 +2763,9 @@
                           }
                         }
 
-                        const pred = predictionsMap.get(nodeFolder) || predictionsMap.get(f.name.replace(/\.[^/.]+$/, ''));
+                        const predId = f.name.replace(/\.[^/.]+$/, '');
+                        const pred = predictionsMap.get(nodeFolder) || predictionsMap.get(predId);
+                        const tx = transactionsMap.get(nodeFolder) || transactionsMap.get(predId);
 
                         allDiscovered.push({
                           id: `${userId}_${nodeFolder}_${f.name}`,
@@ -2258,6 +2780,8 @@
                           isVideo: isVid,
                           prompt: pred?.prompt || pred?.input?.prompt || null,
                           model: pred?.model || null,
+                          input: pred?.input || null,
+                          creditAmount: tx?.amount ? Math.abs(tx.amount) : null,
                         });
                       }
                     }
@@ -2279,6 +2803,8 @@
                       isVideo: isVid,
                       prompt: null,
                       model: null,
+                      input: null,
+                      creditAmount: null,
                     });
                   }
                 }
@@ -2296,6 +2822,7 @@
         cachedVaultFiles = allDiscovered;
 
         populateVaultUserSelect();
+        populateVaultModelSelect();
         handleVaultFilter();
       } catch (err) {
         console.error('Error reading Supabase Storage:', err);
@@ -2353,6 +2880,33 @@
       }
     }
 
+    function populateVaultModelSelect() {
+      const select = document.getElementById('vault-model-select');
+      if (!select) return;
+
+      const countsByModel = new Map();
+      cachedVaultFiles.forEach(f => {
+        const eco = resolveModelEconomics(f);
+        const name = eco.modelName || 'Unknown Engine';
+        countsByModel.set(name, (countsByModel.get(name) || 0) + 1);
+      });
+
+      const currentVal = select.value;
+      select.innerHTML = `<option value="all">⚡ All AI Models — كل المحركات (${cachedVaultFiles.length} ملف)</option>`;
+
+      const modelList = Array.from(countsByModel.entries()).sort((a, b) => b[1] - a[1]);
+      modelList.forEach(([mName, count]) => {
+        const opt = document.createElement('option');
+        opt.value = mName;
+        opt.textContent = `🤖 ${mName} (${count} ملف)`;
+        select.appendChild(opt);
+      });
+
+      if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) {
+        select.value = currentVal;
+      }
+    }
+
     function renderVaultGrid(items, targetGridId, targetEmptyId) {
       const grid = document.getElementById(targetGridId);
       const empty = document.getElementById(targetEmptyId);
@@ -2402,15 +2956,33 @@
       const typeLabel = item.isVideo ? '🎥 MP4' : '📷 IMG';
       const ext = item.fileName.split('.').pop()?.toUpperCase() || 'FILE';
 
+      const eco = resolveModelEconomics(item);
+
+      // Determine initial aspect ratio & dimension info if provided in input
+      let initialDimHtml = '📐 قياس...';
+      let initialDimTitle = 'أبعاد الصورة: جاري قياس البكسلات والنسبة بدقة';
+      if (item.input?.aspect_ratio) {
+        const ar = item.input.aspect_ratio;
+        const desc = getAspectRatioDescription(ar);
+        initialDimHtml = `📐 <b>${ar}</b>`;
+        initialDimTitle = `نسبة العرض للارتفاع: ${ar}${desc ? ' (' + desc + ')' : ''}`;
+      } else if (item.input?.width && item.input?.height) {
+        const ar = getStandardAspectRatio(item.input.width, item.input.height);
+        const desc = getAspectRatioDescription(ar);
+        initialDimHtml = `📐 ${ar ? '<b>' + ar + '</b> • ' : ''}${item.input.width}×${item.input.height}px`;
+        initialDimTitle = `الأبعاد: ${item.input.width}×${item.input.height}px${desc ? ' | ' + desc : ''}`;
+      }
+
       const previewMedia = item.isVideo
-        ? `<video class="media-thumb-video" preload="metadata" muted playsinline src="${item.publicUrl}"></video>`
-        : `<img class="media-thumb-img" src="${item.publicUrl}" loading="lazy" alt="${item.fileName}" onerror="this.src='https://placehold.co/400x300/18181d/71717a?text=Preview+Unavailable'">`;
+        ? `<video class="media-thumb-video" preload="metadata" muted playsinline src="${item.publicUrl}" onloadedmetadata="onMediaThumbLoad(this, '${item.id}')"></video>`
+        : `<img class="media-thumb-img" src="${item.publicUrl}" loading="lazy" alt="${item.fileName}" onload="onMediaThumbLoad(this, '${item.id}')" onerror="this.src='https://placehold.co/400x300/18181d/71717a?text=Preview+Unavailable'">`;
 
       return `
         <div class="media-card" id="card-${item.id}">
           <div class="media-thumb-box" onclick="openLightbox('${item.id}')">
             <span class="media-type-badge ${typeBadgeClass}">${typeLabel} (${ext})</span>
             <span class="media-size-badge">${sizeText}</span>
+            <span id="dim-float-${item.id}" class="media-dim-float">${item.input?.aspect_ratio ? '📐 ' + item.input.aspect_ratio : ''}</span>
             ${previewMedia}
             <div class="media-zoom-overlay">
               <div class="media-zoom-icon">${item.isVideo ? '▶' : '🔍'}</div>
@@ -2432,10 +3004,33 @@
               </span>
             </div>
 
+            <!-- Economics & AI Engine & Dimensions Meta Badges -->
+            <div class="media-meta-badges">
+              <div class="media-badge-group">
+                <span class="media-model-pill" title="محرك الذكاء الاصطناعي: ${eco.modelName} (${eco.vendor}) | كود الموديل: ${eco.modelKey}">
+                  ${eco.icon} ${eco.modelName}
+                </span>
+                <span id="dim-text-${item.id}" class="media-dim-pill" title="${initialDimTitle}">
+                  ${initialDimHtml}
+                </span>
+              </div>
+              <div class="media-badge-group">
+                <span class="media-credit-pill" title="الرصيد المخصوم من المستخدم: ${eco.credits} رصيد (ما يعادل $${eco.revenueUsd.toFixed(2)} USD)">
+                  🪙 ${eco.credits} Credits
+                </span>
+                <span class="media-cost-pill" title="تكلفة التوليد المدفوعة لموقع Replicate: $${eco.costUsd.toFixed(3)} USD">
+                  💵 Replicate: $${eco.costUsd.toFixed(3)}
+                </span>
+                <span class="media-margin-pill" title="هامش الربح التشغيلي: ${eco.profitMargin}%">
+                  📈 ${eco.profitMargin}%
+                </span>
+              </div>
+            </div>
+
             ${item.prompt ? `<div class="media-prompt" title="${item.prompt}">✨ "${item.prompt}"</div>` : ''}
 
             <div class="media-actions-row">
-              <button class="btn-media-action" onclick="openLightbox('${item.id}')" title="معاينة كبيرة">
+              <button class="btn-media-action" onclick="openLightbox('${item.id}')" title="معاينة كبيرة مع تفاصيل التكلفة والمحرك والأبعاد">
                 🔍 عرض
               </button>
               <button class="btn-media-action" onclick="copyMediaLink('${item.publicUrl}', this)" title="نسخ رابط Supabase العام">
@@ -2479,46 +3074,50 @@
 
       let userFiles = [];
 
-      // 1. Direct RPC for this specific user (instant & bypasses Storage RLS)
-      try {
-        const { data: rpcFiles, error: rpcErr } = await activeClient.rpc('get_admin_storage_media', { p_user_id: userId });
-        if (!rpcErr && Array.isArray(rpcFiles) && rpcFiles.length > 0) {
-          userFiles = rpcFiles.map(item => {
-            const parts = item.name.split('/');
-            const folderName = parts.length > 2 ? parts[1] : 'root';
-            const fileName = parts[parts.length - 1];
-            const isVid = /\.(mp4|webm|mov)$/i.test(fileName);
-            let timestamp = item.created_at || item.updated_at;
-            const ghostMatch = folderName.match(/ghost-(\d+)/);
-            if (ghostMatch) {
-              const parsedMs = Number(ghostMatch[1]);
-              if (!isNaN(parsedMs) && parsedMs > 1000000000000) {
-                timestamp = new Date(parsedMs).toISOString();
-              }
-            }
-            return {
-              id: `${userId}_${folderName}_${fileName}`,
-              userId,
-              userEmail: displayEmail,
-              folderName,
-              fileName,
-              fullPath: item.name,
-              publicUrl: `${SUPABASE_URL}/storage/v1/object/public/generated-images/${item.name}`,
-              size: item.size || 0,
-              createdAt: timestamp || new Date().toISOString(),
-              isVideo: isVid,
-              prompt: null,
-              model: null,
-            };
-          });
-        }
-      } catch (rpcEx) {
-        console.warn('RPC in openUserMediaModal error:', rpcEx);
+      // 1. Check cached vault files first (already enriched with predictions & economics)
+      if (cachedVaultFiles && cachedVaultFiles.length > 0) {
+        userFiles = cachedVaultFiles.filter(f => f.userId === userId);
       }
 
-      // 2. Check cached vault files
+      // 2. Direct RPC for this specific user if not in cache (instant & bypasses Storage RLS)
       if (userFiles.length === 0) {
-        userFiles = cachedVaultFiles.filter(f => f.userId === userId);
+        try {
+          const { data: rpcFiles, error: rpcErr } = await activeClient.rpc('get_admin_storage_media', { p_user_id: userId });
+          if (!rpcErr && Array.isArray(rpcFiles) && rpcFiles.length > 0) {
+            userFiles = rpcFiles.map(item => {
+              const parts = item.name.split('/');
+              const folderName = parts.length > 2 ? parts[1] : 'root';
+              const fileName = parts[parts.length - 1];
+              const isVid = /\.(mp4|webm|mov)$/i.test(fileName);
+              let timestamp = item.created_at || item.updated_at;
+              const ghostMatch = folderName.match(/ghost-(\d+)/);
+              if (ghostMatch) {
+                const parsedMs = Number(ghostMatch[1]);
+                if (!isNaN(parsedMs) && parsedMs > 1000000000000) {
+                  timestamp = new Date(parsedMs).toISOString();
+                }
+              }
+              return {
+                id: `${userId}_${folderName}_${fileName}`,
+                userId,
+                userEmail: displayEmail,
+                folderName,
+                fileName,
+                fullPath: item.name,
+                publicUrl: `${SUPABASE_URL}/storage/v1/object/public/generated-images/${item.name}`,
+                size: item.size || 0,
+                createdAt: timestamp || new Date().toISOString(),
+                isVideo: isVid,
+                prompt: null,
+                model: null,
+                input: null,
+                creditAmount: null,
+              };
+            });
+          }
+        } catch (rpcEx) {
+          console.warn('RPC in openUserMediaModal error:', rpcEx);
+        }
       }
 
       // 3. Fallback: try direct crawl for this specific userId
@@ -2562,6 +3161,8 @@
                       isVideo: isVid,
                       prompt: null,
                       model: null,
+                      input: null,
+                      creditAmount: null,
                     });
                   }
                 }
@@ -2606,6 +3207,7 @@
         }
       } else {
         if (emptyEl) emptyEl.style.display = 'none';
+        window.currentUserModalFiles = userFiles;
         renderVaultGrid(userFiles, 'modal-gallery-grid', 'modal-empty-state');
       }
     }
@@ -2623,7 +3225,10 @@
     }
 
     function openLightbox(itemId) {
-      const item = cachedVaultFiles.find(f => f.id === itemId);
+      let item = cachedVaultFiles.find(f => f.id === itemId);
+      if (!item && window.currentUserModalFiles) {
+        item = window.currentUserModalFiles.find(f => f.id === itemId);
+      }
       if (!item) return;
 
       currentLightboxItem = item;
@@ -2631,14 +3236,49 @@
       const container = document.getElementById('lightbox-media-container');
       const filenameEl = document.getElementById('lb-filename');
       const metaEl = document.getElementById('lb-meta');
+      const econStrip = document.getElementById('lb-econ-strip');
 
       filenameEl.textContent = item.fileName;
       metaEl.textContent = `${getUserEmail(item.userId)} • ${formatFileSize(item.size)} • ${new Date(item.createdAt).toLocaleString()}`;
 
+      // Populate economics strip
+      const eco = resolveModelEconomics(item);
+      if (econStrip) {
+        let dimLabel = item.input?.aspect_ratio ? `📐 ${item.input.aspect_ratio}` : '📐 جاري القياس...';
+        econStrip.style.display = 'flex';
+        econStrip.innerHTML = `
+          <span class="media-model-pill" style="font-size: 12px; padding: 4px 10px;" title="محرك الذكاء الاصطناعي: ${eco.modelName} (${eco.vendor}) | كود الموديل: ${eco.modelKey}">
+            ${eco.icon} <b>المحرك:</b> ${eco.modelName} (${eco.vendor})
+          </span>
+          <span id="lb-dim-pill" class="media-dim-pill" style="font-size: 12px; padding: 4px 10px;" title="أبعاد الصورة ونسبة العرض">
+            ${dimLabel}
+          </span>
+          <span class="media-credit-pill" style="font-size: 12px; padding: 4px 10px;" title="الرصيد المخصوم من المستخدم">
+            🪙 <b>الخصم:</b> ${eco.credits} رصيد ($${eco.revenueUsd.toFixed(2)})
+          </span>
+          <span class="media-cost-pill" style="font-size: 12px; padding: 4px 10px;" title="التكلفة الفعلية المدفوعة لموقع Replicate">
+            💵 <b>تكلفة Replicate:</b> $${eco.costUsd.toFixed(3)} USD
+          </span>
+          <span class="media-margin-pill" style="font-size: 12px; padding: 4px 10px;" title="هامش الربح التشغيلي">
+            📈 <b>الربحية:</b> ${eco.profitMargin}% هامش
+          </span>
+          ${item.prompt ? `
+            <div style="flex-basis: 100%; margin-top: 6px; display: flex; align-items: center; justify-content: space-between; background: rgba(245, 158, 11, 0.08); padding: 8px 12px; border-radius: 6px; border-right: 3px solid #f59e0b;">
+              <span style="font-size: 12px; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+                ✨ <b>Prompt:</b> "${item.prompt}"
+              </span>
+              <button class="mini-btn" onclick="copyPromptText('${encodeURIComponent(item.prompt)}', this)" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); font-size: 11px;">
+                نسخ البرومبت 📋
+              </button>
+            </div>
+          ` : ''}
+        `;
+      }
+
       if (item.isVideo) {
-        container.innerHTML = `<video class="lightbox-media" controls autoplay playsinline src="${item.publicUrl}"></video>`;
+        container.innerHTML = `<video class="lightbox-media" controls autoplay playsinline src="${item.publicUrl}" onloadedmetadata="onLightboxMediaLoad(this)"></video>`;
       } else {
-        container.innerHTML = `<img class="lightbox-media" src="${item.publicUrl}" alt="${item.fileName}">`;
+        container.innerHTML = `<img class="lightbox-media" src="${item.publicUrl}" alt="${item.fileName}" onload="onLightboxMediaLoad(this)">`;
       }
 
       modal.style.display = 'flex';
