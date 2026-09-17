@@ -204,6 +204,10 @@ export class ReplicateService {
       const finalUserId = effectiveUserId || 'user';
       const finalNodeId = (nodeId || input.node_id || input.nodeId || 'canvas-node') as string;
       let webhookWithParams = `${activeWebhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(modelId)}`;
+      const promptText = (input.prompt || input.prompt_template || '') as string;
+      if (promptText) {
+        webhookWithParams += `&prompt=${encodeURIComponent(promptText.slice(0, 1500))}`;
+      }
       const workflowIdVal = (input.workflow_id || input.workflowId) as string | undefined;
       if (workflowIdVal) {
         webhookWithParams += `&workflow_id=${encodeURIComponent(workflowIdVal)}`;
@@ -321,6 +325,10 @@ export class ReplicateService {
 
     if (this.webhookUrl) {
       webhookWithParams = `${this.webhookUrl}?node_id=${encodeURIComponent(finalNodeId)}&user_id=${encodeURIComponent(finalUserId)}&model=${encodeURIComponent(model)}`;
+      const promptText = (input.prompt || input.prompt_template || '') as string;
+      if (promptText) {
+        webhookWithParams += `&prompt=${encodeURIComponent(promptText.slice(0, 1500))}`;
+      }
       if (metadata.workflowId) {
         webhookWithParams += `&workflow_id=${encodeURIComponent(metadata.workflowId)}`;
       }
