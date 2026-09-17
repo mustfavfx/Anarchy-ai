@@ -135,12 +135,13 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     creditError,
     setCreditError,
     isTrial,
+    expiresAt,
   } = useBuilderCredits(authUser?.id);
 
   const setUserCreditsInStore = useAIConfigStore((s) => s.setUserCreditsInStore);
   useEffect(() => {
-    setUserCreditsInStore(userCredits ?? 0, isTrial);
-  }, [userCredits, isTrial, setUserCreditsInStore]);
+    setUserCreditsInStore(userCredits ?? 0, isTrial, expiresAt);
+  }, [userCredits, isTrial, expiresAt, setUserCreditsInStore]);
 
   const studioMode = useAIConfigStore(state => state.config.studioMode || 'edit');
   const selectedTool = useAIConfigStore(state => state.config.selectedTool || 'image-editor');
@@ -278,6 +279,7 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
   const setWorkflowSnapshot = useAIConfigStore((state) => state.setWorkflowSnapshot);
   const setFocusNodeFn = useAIConfigStore((state) => state.setFocusNodeFn);
   const setNodeImageUpdateFn = useAIConfigStore((state) => state.setNodeImageUpdateFn);
+  const setNodePromptUpdateFn = useAIConfigStore((state) => state.setNodePromptUpdateFn);
   const enableWatermark = useAIConfigStore((state) => state.config.enableWatermark);
 
   const applyWatermarkToSource = useCallback(async (url: string): Promise<string> => {
@@ -393,6 +395,16 @@ export const BuilderContent: React.FC<BuilderContentProps> = ({
     });
     return () => setNodeImageUpdateFn(null);
   }, [setNodeImageUpdateFn, updateNodeImageAndPropagate]);
+
+  useEffect(() => {
+    setNodePromptUpdateFn((nodeId: string, newPrompt: string) => {
+      if (nodeId) {
+        updateNodeData(nodeId, { prompt: newPrompt });
+      }
+      setPrompt(newPrompt);
+    });
+    return () => setNodePromptUpdateFn(null);
+  }, [setNodePromptUpdateFn, updateNodeData, setPrompt]);
 
   useEffect(() => {
     const focusFn = (nodeId: string) => {

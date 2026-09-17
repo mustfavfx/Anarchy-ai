@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext';
 import './LoginPage.css';
 
 export const LoginPage: React.FC = () => {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, error, clearError, isConfigured } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInAsGuest, error, clearError, isConfigured } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -61,6 +61,33 @@ export const LoginPage: React.FC = () => {
             <span>Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to enable real login.</span>
           </div>
         )}
+
+        {/* Instant Access without Account */}
+        <button
+          type="button"
+          className="guest-login-btn"
+          onClick={() => signInAsGuest()}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            width: '100%',
+            height: '42px',
+            background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+            border: 'none',
+            borderRadius: '10px',
+            color: '#ffffff',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginBottom: '12px',
+            boxShadow: '0 2px 10px rgba(225, 29, 72, 0.35)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span>Continue without Account (الدخول المباشر بدون حساب)</span>
+        </button>
 
         <div className="login-tabs">
           <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>

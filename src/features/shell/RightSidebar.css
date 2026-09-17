@@ -5,11 +5,15 @@
   align-items: stretch;
   flex-shrink: 0;
   position: relative;
+  height: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
 }
 
 .right-sidebar {
   width: 380px;
   height: 100%;
+  max-height: 100%;
   background: #0a0a0b;
   border-left: 1px solid rgba(255, 255, 255, 0.04);
   display: flex;
@@ -17,6 +21,7 @@
   transition: width 0.2s ease;
   overflow-y: auto;
   overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .right-sidebar::-webkit-scrollbar {
