@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { PRESET_PROMPTS, VIDEO_PRESET_PROMPTS, GENERATE_PRESET_PROMPTS } from '../presetPrompts';
 import { FillPromptModal } from './FillPromptModal';
+import { AgentRefineButton } from './AgentRefineButton';
 import { getUnifiedCost } from '../../../services/credit/creditService';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
 
@@ -234,6 +235,13 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
           rows={1}
         />
         <div className="builder-prompt-actions">
+          {/* Architectural AI Agent — Active in Developer Mode */}
+          {import.meta.env.DEV && (
+            <AgentRefineButton
+              prompt={prompt}
+              onApplyPrompt={(newPrompt) => setPrompt(newPrompt)}
+            />
+          )}
           {!isUpscaleMode && (
             <div className="prompt-presets-wrapper">
               <button
