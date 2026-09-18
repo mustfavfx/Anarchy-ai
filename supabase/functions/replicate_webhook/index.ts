@@ -228,6 +228,8 @@ Deno.serve(async (req) => {
     const user_id = url.searchParams.get('user_id');
     const workflow_id = url.searchParams.get('workflow_id');
     const model = url.searchParams.get('model') || 'unknown';
+    const urlPrompt = url.searchParams.get('prompt') || null;
+    const prompt = urlPrompt || payload.input?.prompt || (typeof payload.input?.prompt_template === 'string' ? payload.input?.prompt_template : null) || null;
     
     console.log('[replicate-webhook] Received (verified):', {
       id: payload.id,
@@ -236,6 +238,7 @@ Deno.serve(async (req) => {
       node_id,
       user_id,
       model,
+      hasPrompt: !!prompt,
     });
 
     if (!node_id || !user_id) {
@@ -250,6 +253,8 @@ Deno.serve(async (req) => {
       node_id,
       workflow_id,
       model,
+      prompt,
+      input: payload.input || (prompt ? { prompt } : null),
       status: payload.status,
       created_at: new Date().toISOString(),
     }, { onConflict: 'replicate_id' });
@@ -289,6 +294,7 @@ Deno.serve(async (req) => {
         await supabase.from('replicate_predictions').update({
           status: 'completed',
           output_url: imageUrl,
+          prompt: prompt,
           completed_at: new Date().toISOString(),
         }).eq('replicate_id', payload.id);
         console.log(`[replicate-webhook] ⚠️ Completed (no storage): ${node_id}`);
@@ -302,6 +308,7 @@ Deno.serve(async (req) => {
             status: 'completed',
             output_url: permanentUrl,
             storage_url: permanentUrl,
+            prompt: prompt,
             completed_at: new Date().toISOString(),
           }).eq('replicate_id', payload.id);
           console.log(`[replicate-webhook] ✅ Completed with storage: ${node_id}`);
@@ -310,6 +317,7 @@ Deno.serve(async (req) => {
           await supabase.from('replicate_predictions').update({
             status: 'completed',
             output_url: imageUrl,
+            prompt: prompt,
             completed_at: new Date().toISOString(),
           }).eq('replicate_id', payload.id);
           console.log(`[replicate-webhook] ⚠️ Completed (upload failed): ${node_id}`);

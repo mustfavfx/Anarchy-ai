@@ -65,6 +65,7 @@ export function useBuilderNodeCallbacks({
         image: imageKey, 
         originalImage: imageKey, 
         thumbnail: thumbKey,
+        prompt: '',
         state: 'ready', 
         isVideo: isVid,
         outputData: makeSourceOutput(imageKey, isVid, thumbKey) 

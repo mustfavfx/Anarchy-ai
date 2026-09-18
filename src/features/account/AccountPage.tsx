@@ -266,6 +266,21 @@ export const AccountPage: React.FC = () => {
                 ? <Loader2 size={16} className="spin" />
                 : (credit?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+            {credit?.totalPurchased === 0 && credit?.expiresAt && (
+              <span
+                className="sp-stat-sub"
+                style={{
+                  fontSize: '11px',
+                  marginTop: '2px',
+                  color: Date.now() > new Date(credit.expiresAt).getTime() ? '#f87171' : '#f59e0b',
+                  fontWeight: 600,
+                }}
+              >
+                {Date.now() > new Date(credit.expiresAt).getTime()
+                  ? 'Trial Expired (7 days)'
+                  : `Free Trial (7 days) • ${Math.max(0, Math.ceil((new Date(credit.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}d left`}
+              </span>
+            )}
           </div>
         </div>
 

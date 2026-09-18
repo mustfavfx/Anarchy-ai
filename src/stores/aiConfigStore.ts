@@ -319,14 +319,20 @@ interface AIConfigState {
   nodeImageUpdateFn: ((nodeId: string, image?: string, layout?: any) => void) | null;
   setNodeImageUpdateFn: (fn: ((nodeId: string, image?: string, layout?: any) => void) | null) => void;
 
+  // Node prompt update callback — registered by BuilderPage, called when agent/studio updates node prompt
+  nodePromptUpdateFn: ((nodeId: string, prompt: string) => void) | null;
+  setNodePromptUpdateFn: (fn: ((nodeId: string, prompt: string) => void) | null) => void;
+  updateNodePrompt: (nodeId: string, prompt: string) => void;
+
   // Workspace shared prompt
   workspacePrompt: string;
   setWorkspacePrompt: (prompt: string) => void;
 
   // User credits — synced from useBuilderCredits so any panel can read it
   userCredits: number;
-  setUserCreditsInStore: (credits: number, isTrial?: boolean) => void;
-  setUserCredits: (credits: number, isTrial?: boolean) => void;
+  trialExpiresAt?: string | null;
+  setUserCreditsInStore: (credits: number, isTrial?: boolean, expiresAt?: string | null) => void;
+  setUserCredits: (credits: number, isTrial?: boolean, expiresAt?: string | null) => void;
   isTrial: boolean;
   setIsTrial: (isTrial: boolean) => void;
 }
@@ -477,19 +483,41 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   nodeImageUpdateFn: null,
   setNodeImageUpdateFn: (fn) => set({ nodeImageUpdateFn: fn }),
 
+  // Node prompt update callback
+  nodePromptUpdateFn: null,
+  setNodePromptUpdateFn: (fn) => set({ nodePromptUpdateFn: fn }),
+  updateNodePrompt: (nodeId: string, prompt: string) => {
+    const fn = get().nodePromptUpdateFn;
+    if (fn) {
+      fn(nodeId, prompt);
+    }
+    const currentSelected = get().selectedNode;
+    if (currentSelected && (!nodeId || currentSelected.id === nodeId)) {
+      set({
+        selectedNode: { ...currentSelected, prompt },
+        workspacePrompt: prompt,
+      });
+    } else {
+      set({ workspacePrompt: prompt });
+    }
+  },
+
   // Workspace shared prompt
   workspacePrompt: '',
   setWorkspacePrompt: (prompt) => set({ workspacePrompt: prompt }),
 
   // User credits — synced from useBuilderCredits
   userCredits: 0,
-  setUserCreditsInStore: (credits, isTrial) => set((_state) => ({ 
+  trialExpiresAt: null,
+  setUserCreditsInStore: (credits, isTrial, expiresAt) => set((_state) => ({ 
     userCredits: credits,
-    ...(typeof isTrial === 'boolean' ? { isTrial } : {})
+    ...(typeof isTrial === 'boolean' ? { isTrial } : {}),
+    ...(expiresAt !== undefined ? { trialExpiresAt: expiresAt } : {}),
   })),
-  setUserCredits: (credits, isTrial) => set((_state) => ({ 
+  setUserCredits: (credits, isTrial, expiresAt) => set((_state) => ({ 
     userCredits: credits,
-    ...(typeof isTrial === 'boolean' ? { isTrial } : {})
+    ...(typeof isTrial === 'boolean' ? { isTrial } : {}),
+    ...(expiresAt !== undefined ? { trialExpiresAt: expiresAt } : {}),
   })),
   isTrial: true,
   setIsTrial: (isTrial) => set({ isTrial }),

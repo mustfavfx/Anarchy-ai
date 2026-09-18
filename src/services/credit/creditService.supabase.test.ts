@@ -13,6 +13,10 @@ import {
   refundCredits,
   cacheCreditBalance,
   getCachedCreditBalance,
+  getLocalTrialCredit,
+  deductLocalTrialCredit,
+  TRIAL_CREDITS_AMOUNT,
+  TRIAL_DURATION_DAYS,
 } from './creditService';
 
 // ---------------------------------------------------------------------------
@@ -285,5 +289,98 @@ describe('refundCredits', () => {
       p_amount: 30,
       p_description: 'Refund',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7-Day Free Trial (20 credits) & Automatic Expiration Tests
+// ---------------------------------------------------------------------------
+
+describe('7-Day Free Trial Credits (20 credits) and Expiration', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('initializes local guest user with 20 free trial credits valid for 7 days', () => {
+    expect(TRIAL_CREDITS_AMOUNT).toBe(20);
+    expect(TRIAL_DURATION_DAYS).toBe(7);
+
+    const credit = getLocalTrialCredit('guest-architect-id');
+    expect(credit.balance).toBe(20);
+    expect(credit.totalPurchased).toBe(0);
+    expect(credit.expiresAt).toBeDefined();
+
+    const expiryTime = new Date(credit.expiresAt!).getTime();
+    const now = Date.now();
+    const diffDays = Math.round((expiryTime - now) / (1000 * 60 * 60 * 24));
+    expect(diffDays).toBe(7);
+  });
+
+  it('expires unconsumed local trial credits to 0 if 7 days have passed', () => {
+    // Simulate trial granted 8 days ago (unconsumed)
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+    localStorage.setItem('anarchy_trial_credit_guest-test', JSON.stringify({
+      userId: 'guest-test',
+      balance: 20,
+      totalPurchased: 0,
+      totalUsed: 0,
+      lastPurchaseAt: eightDaysAgo,
+      expiresAt: oneDayAgo,
+    }));
+
+    const credit = getLocalTrialCredit('guest-test');
+    expect(credit.balance).toBe(0); // Unconsumed credits disappeared!
+  });
+
+  it('rejects credit deduction when 7-day trial has expired', () => {
+    const pastDate = new Date(Date.now() - 1000).toISOString();
+    localStorage.setItem('anarchy_trial_credit_guest-test', JSON.stringify({
+      userId: 'guest-test',
+      balance: 15,
+      totalPurchased: 0,
+      totalUsed: 5,
+      expiresAt: pastDate,
+    }));
+
+    const result = deductLocalTrialCredit('guest-test', 2);
+    expect(result.success).toBe(false);
+    expect(result.remaining).toBe(0);
+    expect(result.error).toContain('انتهت صلاحية الـ 20 رصيد');
+  });
+
+  it('allows deduction when trial is within the 7-day window', () => {
+    const futureDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    localStorage.setItem('anarchy_trial_credit_guest-test', JSON.stringify({
+      userId: 'guest-test',
+      balance: 20,
+      totalPurchased: 0,
+      totalUsed: 0,
+      expiresAt: futureDate,
+    }));
+
+    const result = deductLocalTrialCredit('guest-test', 3);
+    expect(result.success).toBe(true);
+    expect(result.remaining).toBe(17);
+  });
+
+  it('zeros out unconsumed trial credits in Supabase getUserCredit when expires_at has passed', async () => {
+    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const query: any = supabase.from('user_credits');
+    query.single.mockResolvedValueOnce({
+      data: mockDbRow({
+        user_id: 'user-trial-expired',
+        balance: 20,
+        total_purchased: 0,
+        total_used: 0,
+        expires_at: pastDate,
+      }),
+      error: null,
+    });
+
+    const credit = await getUserCredit('user-trial-expired');
+    expect(credit).not.toBeNull();
+    expect(credit?.balance).toBe(0); // Disappeared!
+    expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ balance: 0 }));
   });
 });

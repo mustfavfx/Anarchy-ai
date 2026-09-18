@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { PRESET_PROMPTS, VIDEO_PRESET_PROMPTS, GENERATE_PRESET_PROMPTS } from '../presetPrompts';
 import { FillPromptModal } from './FillPromptModal';
-import { AutoPromptButton } from './AutoPromptButton';
 import { getUnifiedCost } from '../../../services/credit/creditService';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
 
@@ -81,13 +80,23 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   const aiConfig = useAIConfigStore((s) => s.config);
 
   // ── Recent Prompts History ──────────────────────────────────────────────────
-  const [_recentPrompts, setRecentPrompts] = useState<{ text: string; label: string; icon?: string }[]>([]);
+  const [recentPrompts, setRecentPrompts] = useState<{ text: string; label: string; icon?: string }[]>([]);
+  const trialExpiresAt = useAIConfigStore((s) => s.trialExpiresAt);
+
+  const trialDaysRemaining = useMemo(() => {
+    if (!isTrial || !trialExpiresAt) return null;
+    const diff = new Date(trialExpiresAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [isTrial, trialExpiresAt]);
+
+  const isTrialExpired = Boolean(isTrial && trialExpiresAt && Date.now() > new Date(trialExpiresAt).getTime());
 
   useEffect(() => {
     (window as any).__anarchyCurrentPrompt = prompt;
     useAIConfigStore.getState().setWorkspacePrompt(prompt);
   }, [prompt]);
 
+  // Load recent prompts on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem('anarchy_recent_prompts');
@@ -171,7 +180,7 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      const newHeight = Math.min(Math.max(textarea.scrollHeight, 40), 100);
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 32), 90);
       textarea.style.height = `${newHeight}px`;
     }
   }, [prompt]);
@@ -224,21 +233,17 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
           onContextMenu={onPromptContextMenu}
           rows={1}
         />
-        <AutoPromptButton
-          prompt={prompt}
-          onApplyPrompt={(newPrompt) => setPrompt(newPrompt)}
-          mode={isInpaintMode ? 'inpaint' : (isUpscaleMode ? 'upscale' : 'generate')}
-        />
-        {!isUpscaleMode && (
-          <div className="prompt-presets-wrapper">
-            <button
-              type="button"
-              className="prompt-presets-btn"
-              onClick={() => setShowPresets(prev => !prev)}
-              title="Preset Prompts"
-            >
-              <BookOpen size={16} />
-            </button>
+        <div className="builder-prompt-actions">
+          {!isUpscaleMode && (
+            <div className="prompt-presets-wrapper">
+              <button
+                type="button"
+                className="prompt-presets-btn"
+                onClick={() => setShowPresets(prev => !prev)}
+                title="Preset Prompts"
+              >
+                <BookOpen size={15} />
+              </button>
             {showPresets && (
               <div className="prompt-presets-popup">
                 <div className="presets-header">
@@ -369,9 +374,10 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
           onClick={handleGenerateClick}
           disabled={!canGenerate || (!prompt.trim() && !(isUpscaler && hasUpscaleFactor && hasSourceWithImage))}
         >
-          <Sparkles size={16} />
+          <Sparkles size={15} />
           <span>Generate</span>
         </button>
+        </div>
       </div>
 
       <div className="prompt-bottom-badges-container">
@@ -380,9 +386,23 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
           Cost: {cost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
         </span>
         {userCredits !== null && (
-          <span className="user-balance-badge" title="Your available credits">
+          <span
+            className={`user-balance-badge ${isTrialExpired ? 'expired' : ''}`}
+            title={
+              isTrial
+                ? (isTrialExpired
+                    ? '20 Free trial credits expired after 7 days'
+                    : `20 Free trial credits (${trialDaysRemaining !== null ? trialDaysRemaining : 7} days remaining)`)
+                : 'Your available credits'
+            }
+          >
             <Coins size={10} className="balance-icon" />
             Balance: {userCredits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            {isTrial && (
+              <span className="trial-days-tag">
+                {isTrialExpired ? 'Expired' : (trialDaysRemaining !== null ? `${trialDaysRemaining}d left` : '7d left')}
+              </span>
+            )}
           </span>
         )}
       </div>

@@ -537,20 +537,106 @@ export function getUnifiedCost(config: any, isTrial: boolean = true, overrideMod
 // Set to false to enforce credit system for production
 export const DEV_MODE = false;
 
+// ── Trial Credit Constants ───────────────────────────────────────────────────
+export const TRIAL_CREDITS_AMOUNT = 20;
+export const TRIAL_DURATION_DAYS = 7;
+export const TRIAL_DURATION_MS = TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000;
+
+export function isGuestUserId(userId?: string): boolean {
+  if (!userId) return true;
+  return userId === 'default_user' || userId === 'guest-architect-id' || userId.startsWith('guest-');
+}
+
+/**
+ * Local trial credits storage for guest users or when Supabase is not configured
+ */
+export function getLocalTrialCredit(userId: string = 'guest-architect-id'): UserCredit {
+  const key = `anarchy_trial_credit_${userId}`;
+  const now = Date.now();
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed: UserCredit = JSON.parse(raw);
+      const expiresAtMs = parsed.expiresAt ? new Date(parsed.expiresAt).getTime() : 0;
+      const grantedMs = parsed.lastPurchaseAt ? new Date(parsed.lastPurchaseAt).getTime() : 0;
+      const isPast7Days = (grantedMs > 0 && now - grantedMs > TRIAL_DURATION_MS) || (expiresAtMs > 0 && now > expiresAtMs);
+
+      // Check 7-day trial expiration: if unconsumed, trial credits disappear!
+      if (parsed.totalPurchased === 0 && isPast7Days) {
+        if (parsed.balance > 0) {
+          logger.log(`[Credit] 20 Free trial credits expired for user ${userId} after 7 days. Balance disappearing.`);
+          parsed.balance = 0;
+          localStorage.setItem(key, JSON.stringify(parsed));
+        }
+      }
+      return parsed;
+    }
+  } catch (err) {
+    logger.warn('[Credit] Error reading local trial credit:', err);
+  }
+
+  // First time initialization: 20 free trial credits valid for 7 days
+  const expiresAt = new Date(now + TRIAL_DURATION_MS).toISOString();
+  const initialCredit: UserCredit = {
+    userId,
+    balance: TRIAL_CREDITS_AMOUNT,
+    totalPurchased: 0,
+    totalUsed: 0,
+    lastPurchaseAt: new Date(now).toISOString(),
+    expiresAt,
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(initialCredit));
+  } catch {}
+  return initialCredit;
+}
+
+export function saveLocalTrialCredit(userId: string, credit: UserCredit): void {
+  try {
+    localStorage.setItem(`anarchy_trial_credit_${userId}`, JSON.stringify(credit));
+  } catch {}
+}
+
+export function deductLocalTrialCredit(
+  userId: string,
+  cost: number
+): { success: boolean; remaining: number; error?: string } {
+  const credit = getLocalTrialCredit(userId);
+  const now = Date.now();
+  const expiresAtMs = credit.expiresAt ? new Date(credit.expiresAt).getTime() : 0;
+
+  if (credit.totalPurchased === 0 && expiresAtMs > 0 && now > expiresAtMs) {
+    credit.balance = 0;
+    saveLocalTrialCredit(userId, credit);
+    return {
+      success: false,
+      remaining: 0,
+      error: 'انتهت صلاحية الـ 20 رصيد المجانية بعد مرور 7 أيام. يرجى شحن الرصيد للاستمرار.',
+    };
+  }
+
+  if (credit.balance < cost) {
+    return {
+      success: false,
+      remaining: credit.balance,
+      error: `رصيد غير كافٍ. المطلوب: ${cost}، المتبقي: ${credit.balance}`,
+    };
+  }
+
+  credit.balance = Math.max(0, Number((credit.balance - cost).toFixed(2)));
+  credit.totalUsed = Number(((credit.totalUsed || 0) + cost).toFixed(2));
+  saveLocalTrialCredit(userId, credit);
+  return { success: true, remaining: credit.balance };
+}
+
 // ── API ──────────────────────────────────────────────────────────────────────
 
 /**
  * Get user credit balance
  */
 export async function getUserCredit(userId: string): Promise<UserCredit | null> {
-  if (!isSupabaseConfigured) {
-    return {
-      userId,
-      balance: 1000,
-      totalPurchased: 1000,
-      totalUsed: 0,
-      lastPurchaseAt: new Date().toISOString(),
-    };
+  if (isGuestUserId(userId) || !isSupabaseConfigured) {
+    return getLocalTrialCredit(userId || 'guest-architect-id');
   }
 
   const { data, error } = await supabase
@@ -560,7 +646,7 @@ export async function getUserCredit(userId: string): Promise<UserCredit | null> 
     .single();
 
   if (error?.code === 'PGRST116') {
-    // No record, create with 0 balance
+    // No record, create with 20 free trial credits valid for 7 days
     return createUserCredit(userId);
   }
 
@@ -569,20 +655,48 @@ export async function getUserCredit(userId: string): Promise<UserCredit | null> 
     return null;
   }
 
-  return data ? mapDbToUserCredit(data) : null;
+  if (!data) return null;
+
+  const credit = mapDbToUserCredit(data);
+  const now = Date.now();
+
+  // If user has not purchased paid credits, check the 7-day expiration
+  if (credit.totalPurchased === 0) {
+    let expiresAtMs = credit.expiresAt ? new Date(credit.expiresAt).getTime() : 0;
+    const createdMs = data.created_at ? new Date(data.created_at).getTime() : 0;
+
+    // Backward compatibility: If existing user didn't have expires_at set, compute from created_at + 7 days
+    if (!expiresAtMs && createdMs > 0) {
+      expiresAtMs = createdMs + TRIAL_DURATION_MS;
+      credit.expiresAt = new Date(expiresAtMs).toISOString();
+      supabase.from('user_credits').update({ expires_at: credit.expiresAt }).eq('user_id', userId).then();
+    }
+
+    // Expiration check: if user joined > 7 days ago OR expires_at has passed, unconsumed trial credits disappear!
+    const isPast7Days = (createdMs > 0 && now - createdMs > TRIAL_DURATION_MS) || (expiresAtMs > 0 && now > expiresAtMs);
+    if (isPast7Days && credit.balance > 0) {
+      logger.log(`[Credit] 20 Free trial credits expired for user ${userId} (> 7 days). Balance disappearing to 0.`);
+      credit.balance = 0;
+      supabase.from('user_credits').update({ balance: 0, expires_at: credit.expiresAt }).eq('user_id', userId).then();
+    }
+  }
+
+  return credit;
 }
 
 /**
- * Create initial credit record
+ * Create initial credit record (20 free trial credits valid for 7 days)
  */
 async function createUserCredit(userId: string): Promise<UserCredit | null> {
+  const expiresAt = new Date(Date.now() + TRIAL_DURATION_MS).toISOString();
   const { data, error } = await supabase
     .from('user_credits')
     .insert({
       user_id: userId,
-      balance: 20,
+      balance: TRIAL_CREDITS_AMOUNT,
       total_purchased: 0,
       total_used: 0,
+      expires_at: expiresAt,
     })
     .select()
     .single();
@@ -624,8 +738,8 @@ export async function deductCredits(
   cost: number,
   description: string
 ): Promise<{ success: boolean; remaining: number; error?: string }> {
-  if (!isSupabaseConfigured) {
-    return { success: true, remaining: 1000 - cost };
+  if (isGuestUserId(userId) || !isSupabaseConfigured) {
+    return deductLocalTrialCredit(userId || 'guest-architect-id', cost);
   }
 
   try {
@@ -643,16 +757,24 @@ export async function deductCredits(
     // 2. Direct table fallback if RPC is not present
     const { data: current, error: getErr } = await supabase
       .from('user_credits')
-      .select('balance, total_used')
+      .select('balance, total_used, total_purchased, expires_at')
       .eq('user_id', userId)
       .single();
 
     if (!getErr && current) {
+      if (current.total_purchased === 0 && current.expires_at && Date.now() > new Date(current.expires_at).getTime()) {
+        await supabase.from('user_credits').update({ balance: 0 }).eq('user_id', userId);
+        return {
+          success: false,
+          remaining: 0,
+          error: 'انتهت صلاحية الـ 20 رصيد المجانية بعد مرور 7 أيام. يرجى شحن الرصيد للاستمرار.',
+        };
+      }
       if (current.balance < cost) {
         return { success: false, remaining: current.balance, error: 'Insufficient credit balance' };
       }
-      const newBal = Math.max(0, current.balance - cost);
-      const newUsed = (current.total_used || 0) + cost;
+      const newBal = Math.max(0, Number((current.balance - cost).toFixed(2)));
+      const newUsed = Number(((current.total_used || 0) + cost).toFixed(2));
       const { error: updateErr } = await supabase
         .from('user_credits')
         .update({ balance: newBal, total_used: newUsed })
@@ -734,7 +856,10 @@ export async function refundCredits(
   credits: number,
   description: string
 ): Promise<boolean> {
-  if (!isSupabaseConfigured) {
+  if (isGuestUserId(userId) || !isSupabaseConfigured) {
+    const credit = getLocalTrialCredit(userId || 'guest-architect-id');
+    credit.balance = Number((credit.balance + credits).toFixed(2));
+    saveLocalTrialCredit(userId || 'guest-architect-id', credit);
     return true;
   }
 

@@ -15,6 +15,7 @@ interface AuthContextValue {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, fullName: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInAsGuest: () => void;
   updatePassword: (password: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -27,6 +28,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [guestMode, setGuestMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('anarchy_guest_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const signInAsGuest = () => {
+    try {
+      localStorage.setItem('anarchy_guest_mode', 'true');
+    } catch {}
+    setGuestMode(true);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -201,42 +216,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    try {
+      localStorage.removeItem('anarchy_guest_mode');
+    } catch {}
+    setGuestMode(false);
     setError(null);
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) {
-      setError(signOutError.message);
-      throw signOutError;
+    if (isSupabaseConfigured) {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        setError(signOutError.message);
+        throw signOutError;
+      }
     }
   };
 
   const value = useMemo<AuthContextValue>(() => {
     const mockUser: User = {
-      id: 'mock-user-id',
-      email: 'mock@example.com',
-      user_metadata: { full_name: 'Mock User' },
+      id: 'guest-architect-id',
+      email: 'architect@anarchy.local',
+      user_metadata: { full_name: 'Anarchy Architect' },
       app_metadata: {},
       aud: 'authenticated',
       created_at: new Date().toISOString()
     } as any;
 
-    const actualUser = isSupabaseConfigured ? (session?.user ?? null) : mockUser;
-    const actualSession = isSupabaseConfigured ? session : ({ user: mockUser } as any);
+    const actualUser = guestMode ? mockUser : (isSupabaseConfigured ? (session?.user ?? null) : mockUser);
+    const actualSession = guestMode ? ({ user: mockUser } as any) : (isSupabaseConfigured ? session : ({ user: mockUser } as any));
 
     return {
       user: actualUser,
       session: actualSession,
-      loading: isSupabaseConfigured ? loading : false,
+      loading: isSupabaseConfigured && !guestMode ? loading : false,
       error,
       isConfigured: isSupabaseConfigured,
       signInWithEmail,
       signUpWithEmail,
       signInWithGoogle,
+      signInAsGuest,
       updatePassword,
       deleteAccount,
       signOut,
       clearError: () => setError(null),
     };
-  }, [session, loading, error]);
+  }, [session, loading, error, guestMode]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
