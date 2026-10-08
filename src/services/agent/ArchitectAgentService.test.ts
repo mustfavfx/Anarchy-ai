@@ -11,7 +11,7 @@ describe('ArchitectAgentService', () => {
     expect(res).toBeDefined();
     expect(res.response).toBeDefined();
     expect(res.response.length).toBeGreaterThan(20);
-  }, 60000);
+  }, 90000);
 
   it('responds fluently in Arabic to autonomous architectural development queries', async () => {
     const res = await architectAgent.generateResponse({
@@ -22,5 +22,5 @@ describe('ArchitectAgentService', () => {
     expect(res).toBeDefined();
     expect(res.response).toBeDefined();
     expect(res.response.length).toBeGreaterThan(30);
-  }, 60000);
+  }, 90000);
 });

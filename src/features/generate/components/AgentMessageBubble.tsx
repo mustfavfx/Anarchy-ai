@@ -16,11 +16,15 @@ import {
 import type { ChatMessage } from '../hooks/useAgentChat';
 import { ArchitecturalDossier } from './ArchitecturalDossier';
 import { DeepThinkingTrace } from './DeepThinkingTrace';
+import { ArchitecturalMaterialPaletteCard } from './ArchitecturalMaterialPaletteCard';
+import { DesignDNAComplianceCard } from './DesignDNAComplianceCard';
+import { InteractiveFloorPlanViewer } from './InteractiveFloorPlanViewer';
 
 interface AgentMessageBubbleProps {
   message: ChatMessage;
   onDeleteMessage?: (id: string) => void;
   onPreviewImage?: (url: string, title?: string) => void;
+  onExecute3DModeling?: (software: '3dsmax' | 'blender') => void;
   selectedModelLabel?: string;
 }
 
@@ -28,6 +32,7 @@ export const AgentMessageBubble: React.FC<AgentMessageBubbleProps> = ({
   message,
   onDeleteMessage,
   onPreviewImage,
+  onExecute3DModeling,
   selectedModelLabel,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -212,6 +217,27 @@ export const AgentMessageBubble: React.FC<AgentMessageBubbleProps> = ({
             </div>
             <span className="attached-img-caption">Architectural Sketch / Reference Image</span>
           </div>
+        )}
+
+        {/* Interactive Architectural Floor Plan Viewer & DXF Exporter */}
+        {!isUser && data && (data.interactive_floorplan || data.dxf_download_url) && (
+          <InteractiveFloorPlanViewer
+            buaM2={data.interactive_floorplan?.buaM2 || data.bim_total_bua || 286}
+            floors={data.interactive_floorplan?.floors || 2}
+            dxfUrl={data.dxf_download_url}
+            dxfFilename={data.dxf_filename}
+            onExecute3DModeling={onExecute3DModeling}
+          />
+        )}
+
+        {/* Tectonic Architectural Material Palette Card */}
+        {!isUser && data?.material_palette && (
+          <ArchitecturalMaterialPaletteCard palette={data.material_palette} />
+        )}
+
+        {/* Local Building Code & Design DNA Compliance Card */}
+        {!isUser && data?.compliance_audit && (
+          <DesignDNAComplianceCard report={data.compliance_audit} />
         )}
 
         {/* Architectural Deliverables Dossier (Tabs) */}

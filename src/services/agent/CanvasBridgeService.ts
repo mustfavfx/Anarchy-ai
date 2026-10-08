@@ -650,6 +650,99 @@ export class CanvasBridgeService {
         };
       }
 
+      case 'multi_branch': {
+        const parentId = action.parentId || action.nodeId || store.selectedNode?.id;
+        if (!parentId) {
+          return { success: false, message: 'No target parent node specified for multi-branching.' };
+        }
+        const defaultBranches = [
+          {
+            label: 'Travertine & Glass',
+            materialFocus: 'Natural travertine limestone and low-iron crystal glass',
+            prompt: `${action.prompt || 'Architectural redesign'}, honed natural travertine stone panels, expansive floor-to-ceiling curtain glass, champagne aluminum mullions, warm architectural lighting`,
+          },
+          {
+            label: 'Board-Formed Concrete',
+            materialFocus: 'Exposed textured architectural concrete',
+            prompt: `${action.prompt || 'Architectural redesign'}, tactile board-formed raw concrete walls with visible grain, blackened steel brise-soleil accents, minimalist landscaping`,
+          },
+          {
+            label: 'Modern Salmani Mashrabiya',
+            materialFocus: 'Salmani limestone and geometric mashrabiya screens',
+            prompt: `${action.prompt || 'Architectural redesign'}, authentic Riyadh limestone cladding, parametric bronze mashrabiya solar screens, recessed shaded openings, water courtyard feature`,
+          },
+          {
+            label: 'Mass Timber & Greenery',
+            materialFocus: 'Cross-laminated timber (CLT) & biophilic integration',
+            prompt: `${action.prompt || 'Architectural redesign'}, sustainable mass timber structure, slatted cedar cladding, integrated biophilic planter terraces, warm Scandinavian ambient daylight`,
+          },
+        ];
+
+        const branchesToCreate = (action.branches && action.branches.length > 0) ? action.branches : defaultBranches;
+        const createdIds: string[] = [];
+
+        for (const branch of branchesToCreate) {
+          const childId = await this.forkNode(parentId, undefined, branch.label, branch.prompt);
+          if (childId) {
+            createdIds.push(childId);
+          }
+        }
+
+        if (createdIds.length > 0) {
+          if (action.autoExecute) {
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('anarchy:trigger-generate'));
+            }, 300);
+          }
+
+          hindsightMemory.retain({
+            category: 'design_decision',
+            content: `Multi-branch architectural study initiated from #${parentId.slice(0, 6)} with ${createdIds.length} material variations: ${branchesToCreate.map(b => b.label).join(', ')}.`,
+            context: {
+              parentNodeId: parentId,
+              childNodeIds: createdIds,
+              action: 'multi_branch_orchestration',
+            },
+            importance: 5,
+          }).catch(() => {});
+
+          return {
+            success: true,
+            message: `Orchestrated ${createdIds.length} architectural design branches (${branchesToCreate.map(b => b.label).join(', ')}).`,
+            resultNodeId: createdIds[0],
+          };
+        }
+        return { success: false, message: 'Failed to create multi-branch nodes.' };
+      }
+
+      case 'chain_upscale': {
+        const targetId = action.nodeId || store.selectedNode?.id;
+        if (!targetId) {
+          return { success: false, message: 'No target node specified for upscale chaining.' };
+        }
+        const scale = action.upscaleFactor || 2;
+        const prompt = action.prompt || 'Masterpiece 8K architectural render, micro-surface texture enhancement, pristine material clarity';
+        const childId = await this.forkNode(targetId, undefined, `Upscale ${scale}x`, prompt);
+        if (childId) {
+          store.setConfig(prev => ({
+            ...prev,
+            selectedTool: 'image-upscaler',
+            upscaleFactor: scale as any,
+          }));
+          if (action.autoExecute) {
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('anarchy:trigger-generate'));
+            }, 300);
+          }
+          return {
+            success: true,
+            message: `Created chained ${scale}x Super-Resolution node #${childId.slice(0, 6)}.`,
+            resultNodeId: childId,
+          };
+        }
+        return { success: false, message: 'Failed to create upscale chain node.' };
+      }
+
       default:
         return { success: false, message: `Unknown canvas action type: ${(action as any).type}` };
     }

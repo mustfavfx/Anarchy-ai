@@ -1,0 +1,239 @@
+/* ── ArchitecturalMaterialPaletteCard.css ── */
+
+.arch-palette-card {
+  margin-top: 10px;
+  background: rgba(18, 18, 22, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease;
+}
+
+.arch-palette-card:hover {
+  border-color: rgba(225, 29, 72, 0.3);
+}
+
+.arch-palette-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.arch-palette-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arch-palette-icon {
+  color: #e11d48;
+}
+
+.arch-palette-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f3f4f6;
+  letter-spacing: -0.01em;
+}
+
+.arch-palette-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(225, 29, 72, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.arch-palette-temp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.arch-palette-summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+/* Swatches Grid */
+.arch-swatches-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.arch-swatch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.arch-swatch-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.arch-swatch-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arch-swatch-check {
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+}
+
+.arch-swatch-meta {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.arch-swatch-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: #e5e7eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arch-swatch-hex {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: monospace;
+}
+
+/* Materials List */
+.arch-materials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.arch-material-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
+
+.arch-mat-box-icon {
+  color: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+.arch-material-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.arch-material-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #f3f4f6;
+}
+
+.arch-material-finish {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.arch-material-loc {
+  font-style: normal;
+  color: #fb7185;
+}
+
+.arch-material-reflect {
+  font-size: 9.5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.arch-material-reflect.matte { color: #a3e635; background: rgba(163, 230, 53, 0.1); }
+.arch-material-reflect.rough { color: #facc15; background: rgba(250, 204, 21, 0.1); }
+.arch-material-reflect.specular { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+.arch-material-reflect.semi-gloss { color: #c084fc; background: rgba(192, 132, 252, 0.1); }
+
+/* Actions */
+.arch-palette-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.arch-palette-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.arch-palette-btn.primary {
+  background: #e11d48;
+  color: #fff;
+}
+
+.arch-palette-btn.primary:hover {
+  background: #be123c;
+}
+
+.arch-palette-btn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.arch-palette-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}

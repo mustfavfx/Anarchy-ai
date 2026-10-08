@@ -1,0 +1,215 @@
+/* ── DesignDNAComplianceCard.css ── */
+
+.arch-dna-card {
+  margin-top: 10px;
+  background: rgba(18, 18, 22, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease;
+}
+
+.arch-dna-card:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.arch-dna-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.arch-dna-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arch-dna-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f3f4f6;
+}
+
+.arch-dna-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f3f4f6;
+}
+
+.arch-compliance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.arch-compliance-pill.fully-compliant {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.arch-compliance-pill.minor-deviations {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.arch-dna-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: -6px;
+}
+
+/* Metrics Grid */
+.arch-dna-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.arch-dna-metric-box {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 7px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-lbl {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.metric-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f3f4f6;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-sub {
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Checks */
+.arch-dna-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.arch-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.chk-icon {
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.chk-icon.passed { color: #10b981; }
+.chk-icon.warning { color: #f59e0b; }
+
+.chk-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.chk-name {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #e5e7eb;
+}
+
+.chk-en {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-style: normal;
+}
+
+.chk-status {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Recommendations */
+.arch-dna-recs {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.recs-title {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.arch-dna-recs ul {
+  margin: 0;
+  padding-left: 16px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}
+
+/* Actions */
+.arch-dna-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.arch-dna-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.arch-dna-btn.primary {
+  background: #10b981;
+  color: #fff;
+}
+
+.arch-dna-btn.primary:hover {
+  background: #059669;
+}

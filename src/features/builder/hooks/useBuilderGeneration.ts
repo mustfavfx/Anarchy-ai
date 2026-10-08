@@ -323,6 +323,14 @@ export function useBuilderGeneration({
     getNodes,
   ]);
 
+  useEffect(() => {
+    const handleTrigger = () => {
+      handleGenerate();
+    };
+    window.addEventListener('anarchy:trigger-generate', handleTrigger);
+    return () => window.removeEventListener('anarchy:trigger-generate', handleTrigger);
+  }, [handleGenerate]);
+
   return {
     prompt,
     setPrompt,

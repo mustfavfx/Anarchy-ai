@@ -8,6 +8,8 @@ import { computerUseAgent, detectAutodeskIntent, formatCuaOutputMessage } from '
 import { cometApiService } from '../../../services/comet/CometApiService';
 import { useAuth } from '../../auth/AuthContext';
 import { logger } from '../../../utils/logger';
+import { architecturalMaterialExtractor, type ArchitecturalMaterialPalette } from '../../../services/agent/ArchitecturalMaterialExtractor';
+import { designDNAService, type ComplianceAuditReport } from '../../../services/agent/DesignDNAService';
 
 export type ChatRole = 'user' | 'assistant';
 
@@ -23,6 +25,12 @@ export interface ChatMessageData extends DesignResponseData {
   cua_script?: string;
   cua_status?: 'success' | 'queued' | 'failed' | 'idle';
   cua_output?: string;
+  material_palette?: ArchitecturalMaterialPalette;
+  compliance_audit?: ComplianceAuditReport;
+  interactive_floorplan?: {
+    buaM2?: number;
+    floors?: number;
+  };
 }
 
 export { formatCuaOutputMessage };
@@ -849,6 +857,59 @@ export function useAgentChat() {
           .replace(/AutodeskAction:\s*\{[\s\S]*?\}/gi, '')
           .trim();
 
+        // 1. Material Extractor & Palette Detection
+        let extractedPalette: ArchitecturalMaterialPalette | undefined = undefined;
+        const wantsMaterials = actions.some(a => a.type === 'extract_materials') ||
+          /material|خامات|مواد|palette|باليت|ترافرتين|رخام|حجر|خرسانة|كسوة/i.test(content) ||
+          /material|خامات|مواد|palette|باليت/i.test(cleanedText);
+
+        if (wantsMaterials) {
+          if (fileBase64) {
+            try {
+              extractedPalette = await architecturalMaterialExtractor.extractFromImage(fileBase64, content);
+            } catch {
+              extractedPalette = architecturalMaterialExtractor.getDefaultPalette();
+            }
+          } else {
+            extractedPalette = architecturalMaterialExtractor.getDefaultPalette();
+          }
+        }
+
+        // 2. Local Building Code & Design DNA Compliance Audit Detection
+        let complianceReport: ComplianceAuditReport | undefined = undefined;
+        const wantsCompliance = actions.some(a => a.type === 'audit_compliance') ||
+          /compliance|كود|كود البناء|sbc|ارتداد|setback|تغطية|coverage|بلدية|municipality|كود وادي حنيفة|كود الرياض/i.test(content) ||
+          /compliance|كود|sbc|ارتداد|setback/i.test(cleanedText);
+
+        if (wantsCompliance) {
+          let dnaId = 'salmani';
+          if (/dubai|دبي|luxury/i.test(content) || selectedStyle.toLowerCase().includes('luxury')) {
+            dnaId = 'dubai_luxury';
+          } else if (/zaha|بارامتري|parametric/i.test(content) || selectedStyle.toLowerCase().includes('parametric')) {
+            dnaId = 'zaha_parametric';
+          } else if (/japandi|scandinavian|minimal/i.test(content) || selectedStyle.toLowerCase().includes('minimalist')) {
+            dnaId = 'japandi_minimalist';
+          }
+
+          const codeId = dnaId === 'dubai_luxury' ? 'DUBAI_MUNICIPALITY' : 'SBC_1101';
+          complianceReport = designDNAService.auditCompliance(dnaId, codeId, {
+            siteAreaM2: siteAreaSqm || 650,
+          });
+        }
+
+        // 3. Interactive Floor Plan & CAD Vector Viewer Detection
+        let floorPlanData: { buaM2?: number; floors?: number } | undefined = undefined;
+        const wantsFloorPlan = selectedMode === 'cad' ||
+          /مخطط|مسقط|floor plan|dxf|توزيع الفراغات|فراغات|توزيع معماري|مساقط/i.test(content) ||
+          /مخطط|مسقط|floor plan|dxf/i.test(cleanedText);
+
+        if (wantsFloorPlan) {
+          floorPlanData = {
+            buaM2: Math.round((siteAreaSqm || 500) * 0.58),
+            floors: 2,
+          };
+        }
+
         const assistantMessage: ChatMessage = {
           id: assistantMsgId,
           role: 'assistant',
@@ -864,6 +925,9 @@ export function useAgentChat() {
             cua_script: autodeskActions.map(a => a.tool_name || a.script || '').filter(Boolean).join(' | ') || autodeskIntent?.script,
             cua_status: autodeskRan ? (allSuccess ? 'success' : 'failed') : (actions.length > 0 ? 'success' : 'idle'),
             cua_output: executedOutputs.map(o => formatCuaOutputMessage(o) || o).join('\n') || undefined,
+            ...(extractedPalette ? { material_palette: extractedPalette } : {}),
+            ...(complianceReport ? { compliance_audit: complianceReport } : {}),
+            ...(floorPlanData ? { interactive_floorplan: floorPlanData } : {}),
           },
         };
 
@@ -1014,6 +1078,86 @@ export function useAgentChat() {
     }
   }, [isExportingBim, siteAreaSqm, selectedTypology]);
 
+  /**
+   * Dispatches parametric 3D modeling scripts to Autodesk 3ds Max or Blender 4.x
+   */
+  const execute3DModeling = useCallback(async (software: '3dsmax' | 'blender') => {
+    if (software === '3dsmax') {
+      const maxScript = `
+-- Anarchy AI Autonomous Massing Generator
+resetMaxFile #noPrompt
+units.DisplayType = #Metric
+units.MetricType = #Meters
+
+b_site = Box length:30 width:25 height:0.2 pos:[0,0,0] name:"Site_Podium"
+b_site.wirecolor = color 180 175 165
+
+b_gf_west = Box length:14 width:11 height:3.8 pos:[-5,2,0.2] name:"Ground_West_Wing"
+b_gf_west.wirecolor = color 225 218 205
+b_gf_east = Box length:14 width:11 height:3.8 pos:[8,2,0.2] name:"Ground_East_Wing"
+b_gf_east.wirecolor = color 225 218 205
+
+pool = Box length:8 width:7 height:0.4 pos:[1.5,2,0.1] name:"Central_Courtyard_Pool"
+pool.wirecolor = color 60 130 180
+
+b_ff = Box length:15 width:18 height:3.6 pos:[1,0,4.0] name:"FirstFloor_Cantilever"
+b_ff.wirecolor = color 240 235 228
+
+c = TargetCamera pos:[28,-26,14] target:(Targetobject pos:[0,0,3])
+viewport.setCamera c
+max select all
+completeredraw()
+`;
+      try {
+        await computerUseAgent.executeAutodeskCommand({
+          software: '3dsmax',
+          action: 'execute_script',
+          script: maxScript,
+          autoLaunch: true,
+        });
+      } catch (err) {
+        logger.warn('[AgentChat] Failed to launch 3ds Max script:', err);
+      }
+    } else {
+      const blenderScript = `# Anarchy AI Autonomous Floorplan Generator for Blender 4.x
+import bpy
+
+bpy.ops.wm.read_factory_settings(use_empty=True)
+
+# Ground Floor Wings
+bpy.ops.mesh.primitive_cube_add(size=1, location=(-2.5, 1, 1.9))
+gf_west = bpy.context.active_object
+gf_west.name = "Ground_West_Wing"
+gf_west.scale = (11, 14, 3.8)
+
+bpy.ops.mesh.primitive_cube_add(size=1, location=(4, 1, 1.9))
+gf_east = bpy.context.active_object
+gf_east.name = "Ground_East_Wing"
+gf_east.scale = (11, 14, 3.8)
+
+# Cantilever First Floor
+bpy.ops.mesh.primitive_cube_add(size=1, location=(0.5, 0, 5.8))
+ff = bpy.context.active_object
+ff.name = "FirstFloor_Cantilever"
+ff.scale = (18, 15, 3.6)
+
+# Sun & Camera
+bpy.ops.object.camera_add(location=(22, -20, 12), rotation=(1.1, 0, 0.8))
+bpy.context.scene.camera = bpy.context.active_object
+bpy.ops.object.light_add(type='SUN', location=(10, -10, 15))
+`;
+      const blob = new Blob([blenderScript], { type: 'text/x-python' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'anarchy_blender_massing.py';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  }, []);
+
   return {
     // Backend Connectivity
     agentOnline,
@@ -1068,5 +1212,6 @@ export function useAgentChat() {
     exportCadPlan,
     isExportingBim,
     exportBimModel,
+    execute3DModeling,
   };
 }

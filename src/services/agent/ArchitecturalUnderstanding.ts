@@ -177,7 +177,20 @@ export type CanvasActionType =
   | 'update_prompt'
   | 'compare_nodes'
   | 'critique_node'
-  | 'rearrange_canvas';
+  | 'rearrange_canvas'
+  | 'multi_branch'
+  | 'chain_upscale'
+  | 'extract_materials'
+  | 'audit_compliance';
+
+export interface BranchDefinition {
+  label: string;
+  prompt: string;
+  model?: string;
+  processingType?: 'render' | 'variation' | 'upscale';
+  materialFocus?: string;
+  parameters?: Record<string, any>;
+}
 
 export interface CanvasAction {
   type: CanvasActionType;
@@ -188,5 +201,9 @@ export interface CanvasAction {
   prompt?: string;
   label?: string;
   parameters?: Record<string, any>;
+  branches?: BranchDefinition[];
+  autoExecute?: boolean;
+  upscaleFactor?: number;
+  roiBox?: { ymin: number; xmin: number; ymax: number; xmax: number };
 }
 

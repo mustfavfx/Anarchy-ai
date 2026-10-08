@@ -79,6 +79,7 @@ export const GeneratePage: React.FC = () => {
     exportCadPlan,
     isExportingBim,
     exportBimModel,
+    execute3DModeling,
   } = useAgentChat();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -401,6 +402,7 @@ export const GeneratePage: React.FC = () => {
                       message={message}
                       onDeleteMessage={deleteMessage}
                       onPreviewImage={(url, title) => setPreviewImage({ url, title })}
+                      onExecute3DModeling={execute3DModeling}
                       selectedModelLabel={selectedModelInfo?.label}
                     />
                   ))}
