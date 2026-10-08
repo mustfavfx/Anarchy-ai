@@ -719,3 +719,34 @@
     display: none; /* Hide hints on very small screens */
   }
 }
+
+/* ── Loading Preview State ── */
+.ep-loading-preview {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  user-select: none;
+}
+
+.ep-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #e11d48;
+  border-radius: 50%;
+  animation: ep-spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes ep-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

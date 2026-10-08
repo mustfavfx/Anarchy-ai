@@ -3,6 +3,8 @@ import { X, Download, Maximize2, Minimize2 } from 'lucide-react';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { downloadImage } from '../../utils/imageExport';
 import { useResolvedImage } from '../../hooks';
+import { getLocalImage } from '../../services/history/HistoryService';
+import { getCachedCanvasThumbnail } from '../../services/image/memoryThumbnailCache';
 import { isVideoUrl } from '../builder/utils/builderHelpers';
 import { MaskCanvas } from './MaskCanvas';
 import { LayoutEditor } from '../builder/components/LayoutEditor';
@@ -93,19 +95,79 @@ export const EnlargedPreview: React.FC = () => {
   const previewMode      = useAIConfigStore(s => s.previewMode);
   const setIsEnlargedView = useAIConfigStore(s => s.setIsEnlargedView);
 
-  const image = (selectedNode as any)?.data?.image ?? selectedNode?.image ?? null;
-  const originalImage = (selectedNode as any)?.data?.originalImage || (selectedNode as any)?.data?.image || selectedNode?.image || null;
+  const workflowSnapshot = useAIConfigStore(s => s.workflowSnapshot);
+  const snapshotNode = (workflowSnapshot?.nodes || []).find((n: any) => n.id === selectedNode?.id);
+  const nodeData = (selectedNode as any)?.data || snapshotNode?.data || {};
+
+  const fullImageCandidate =
+    (selectedNode as any)?.image ||
+    nodeData.image ||
+    (selectedNode as any)?.outputData?.image ||
+    nodeData.outputData?.image ||
+    null;
+
+  const thumbCandidate =
+    (selectedNode as any)?.thumbnail ||
+    nodeData.thumbnail ||
+    (selectedNode as any)?.outputData?.thumbnail ||
+    nodeData.outputData?.thumbnail ||
+    null;
+
+  const image = fullImageCandidate || thumbCandidate || null;
+  const originalImage =
+    (selectedNode as any)?.originalImage ||
+    nodeData.originalImage ||
+    (selectedNode as any)?.data?.originalImage ||
+    image;
+
   const resolvedImage = useResolvedImage(image);
+  const resolvedThumb = useResolvedImage(thumbCandidate);
   const resolvedOriginalImage = useResolvedImage(originalImage);
   const resolvedCompareA = useResolvedImage(compareImages.A);
   const resolvedCompareB = useResolvedImage(compareImages.B);
   const resolvedCompareImages = { A: resolvedCompareA, B: resolvedCompareB };
+
+  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!image || typeof image !== 'string' || !image.startsWith('idb://')) {
+      setFallbackSrc(null);
+      return;
+    }
+
+    const cached = getCachedCanvasThumbnail(image) || (thumbCandidate ? getCachedCanvasThumbnail(thumbCandidate) : undefined);
+    if (cached) {
+      setFallbackSrc(cached);
+      return;
+    }
+
+    (async () => {
+      try {
+        const b64 = await getLocalImage(image) || (thumbCandidate ? await getLocalImage(thumbCandidate) : null);
+        if (active && b64) {
+          setFallbackSrc(b64);
+        }
+      } catch {}
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [image, thumbCandidate]);
 
   const getSafeSrc = (resolved: string | null | undefined, raw: string | null | undefined) => {
     if (resolved && !resolved.startsWith('idb://')) return resolved;
     if (raw && !raw.startsWith('idb://')) return raw;
     return undefined;
   };
+
+  const activeDisplaySrc =
+    getSafeSrc(resolvedImage, image) ||
+    getSafeSrc(resolvedThumb, thumbCandidate) ||
+    fallbackSrc ||
+    getCachedCanvasThumbnail(image) ||
+    (thumbCandidate ? getCachedCanvasThumbnail(thumbCandidate) : undefined);
 
   const [tab, setTab]         = useState<'preview' | 'compare' | 'draw' | 'enhance' | 'layout'>('preview');
   const [zoom, setZoom]         = useState(1);
@@ -278,13 +340,13 @@ export const EnlargedPreview: React.FC = () => {
               Revert Image
             </button>
           )}
-          {resolvedImage && (
+          {activeDisplaySrc && (
             <button className="ep-icon-btn" onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
               {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
           )}
-          {resolvedImage && (
-            <button className="ep-icon-btn" onClick={() => downloadImage(resolvedImage, selectedNode?.type ?? 'image')} title="Download">
+          {activeDisplaySrc && (
+            <button className="ep-icon-btn" onClick={() => downloadImage(activeDisplaySrc, selectedNode?.type ?? 'image')} title="Download">
               <Download size={13} />
             </button>
           )}
@@ -298,10 +360,10 @@ export const EnlargedPreview: React.FC = () => {
       {/* Fullscreen overlay */}
       {isFullscreen && image && (
         <div className="ep-fullscreen-overlay" onClick={() => setIsFullscreen(false)}>
-          {(selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage)) ? (
-            <video src={getSafeSrc(resolvedImage, image)} controls autoPlay loop muted playsInline className="ep-fullscreen-img" onClick={e => e.stopPropagation()} />
+          {(selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(activeDisplaySrc)) ? (
+            <video src={activeDisplaySrc || getSafeSrc(resolvedImage, image)} controls autoPlay loop muted playsInline className="ep-fullscreen-img" onClick={e => e.stopPropagation()} />
           ) : (
-            <img src={getSafeSrc(resolvedImage, image)} alt="Fullscreen" className="ep-fullscreen-img" onClick={e => e.stopPropagation()} />
+            <img src={activeDisplaySrc || getSafeSrc(resolvedImage, image)} alt="Fullscreen" className="ep-fullscreen-img" onClick={e => e.stopPropagation()} />
           )}
           <button className="ep-fullscreen-close" onClick={() => setIsFullscreen(false)} title="Close (Esc)">
             <X size={16} />
@@ -316,9 +378,9 @@ export const EnlargedPreview: React.FC = () => {
         {tab === 'preview' && (
           <div className={`ep-zoom-stage ${isPanning ? 'panning' : ''}`} onWheel={handleWheel} onMouseDown={onPanStart} onMouseMove={onPanMove} onMouseUp={onPanEnd} onMouseLeave={onPanEnd}>
             {image ? (
-              (selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(resolvedImage)) ? (
+              (selectedNode?.isVideo || isVideoUrl(image) || isVideoUrl(activeDisplaySrc)) ? (
                 <video
-                  src={getSafeSrc(resolvedImage, image)}
+                  src={activeDisplaySrc || getSafeSrc(resolvedImage, image)}
                   controls
                   autoPlay
                   loop
@@ -329,15 +391,26 @@ export const EnlargedPreview: React.FC = () => {
                   style={{ transform: `translate(${panX}px,${panY}px) scale(${zoom})`, pointerEvents: isPanning ? 'none' : 'auto' }}
                   onLoadedMetadata={e => setImgMeta({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
                 />
-              ) : (
+              ) : activeDisplaySrc ? (
                 <img
-                  src={getSafeSrc(resolvedImage, image)}
+                  src={activeDisplaySrc}
                   alt="Preview"
                   className="ep-zoom-img"
                   draggable={false}
                   style={{ transform: `translate(${panX}px,${panY}px) scale(${zoom})` }}
                   onLoad={e => setImgMeta({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                  onError={async () => {
+                    if (image.startsWith('idb://')) {
+                      const b64 = await getLocalImage(image) || (thumbCandidate ? await getLocalImage(thumbCandidate) : null);
+                      if (b64) setFallbackSrc(b64);
+                    }
+                  }}
                 />
+              ) : (
+                <div className="ep-loading-preview">
+                  <div className="ep-loading-spinner" />
+                  <span>Loading preview...</span>
+                </div>
               )
             ) : (
               <div className="ep-empty"><span>No image selected</span><small>Click a node on the canvas</small></div>

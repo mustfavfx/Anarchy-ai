@@ -9,10 +9,11 @@ import { useResolvedImage } from './useResolvedImage';
 // Mock HistoryService
 vi.mock('../services/history/HistoryService', () => ({
   getLocalImageAsObjectURL: vi.fn(),
+  getLocalImage: vi.fn(),
   revokeObjectUrl: vi.fn(),
 }));
 
-import { getLocalImageAsObjectURL } from '../services/history/HistoryService';
+import { getLocalImageAsObjectURL, getLocalImage } from '../services/history/HistoryService';
 
 
 describe('useResolvedImage', () => {
@@ -133,5 +134,23 @@ describe('useResolvedImage', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
     });
     expect(result.current).toBe('https://example.com/img2.png');
+  });
+
+  it('should fall back to getLocalImage base64 when getLocalImageAsObjectURL returns null', async () => {
+    const idbKey = 'idb://test-fallback';
+    const base64Data = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+    vi.mocked(getLocalImageAsObjectURL).mockResolvedValueOnce(null);
+    vi.mocked(getLocalImage).mockResolvedValueOnce(base64Data);
+
+    const { result } = renderHook(() => useResolvedImage(idbKey));
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    expect(getLocalImageAsObjectURL).toHaveBeenCalledWith(idbKey);
+    expect(getLocalImage).toHaveBeenCalledWith(idbKey);
+    expect(result.current).toBe(base64Data);
   });
 });
