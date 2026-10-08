@@ -318,7 +318,7 @@ class ArchitectAgentService {
             usedModelName = `${spec?.label || request.model} (CometAPI)`;
           } catch (cometErr: any) {
             logger.error(`[ArchitectAgentService] CometAPI model ${request.model} failed:`, cometErr);
-            throw new Error(`تعذر معالجة الطلب بالنموذج المختار [${spec?.label || request.model}]: ${cometErr.message || 'خطأ في مزود الخدمة'}`);
+            throw new Error(`Failed to process request with selected model [${spec?.label || request.model}]: ${cometErr.message || 'Provider error'}`);
           }
         } else {
           const targetGemini = request.model === 'google/gemini-3.5-flash' ? 'gemini-3.5-flash' : 'gemini-3.6-flash';

@@ -660,7 +660,7 @@ export function deductLocalTrialCredit(
     return {
       success: false,
       remaining: 0,
-      error: 'انتهت صلاحية الـ 20 رصيد المجانية بعد مرور 7 أيام. يرجى شحن الرصيد للاستمرار.',
+      error: 'The 20 free trial credits have expired after 7 days. Please recharge your balance to continue.',
     };
   }
 
@@ -668,7 +668,7 @@ export function deductLocalTrialCredit(
     return {
       success: false,
       remaining: credit.balance,
-      error: `رصيد غير كافٍ. المطلوب: ${cost}، المتبقي: ${credit.balance}`,
+      error: `Insufficient credit balance. Required: ${cost}, available: ${credit.balance}`,
     };
   }
 
@@ -816,7 +816,7 @@ export async function deductCredits(
         return {
           success: false,
           remaining: 0,
-          error: 'انتهت صلاحية الـ 20 رصيد المجانية بعد مرور 7 أيام. يرجى شحن الرصيد للاستمرار.',
+          error: 'The 20 free trial credits have expired after 7 days. Please recharge your balance to continue.',
         };
       }
       if (current.balance < cost) {

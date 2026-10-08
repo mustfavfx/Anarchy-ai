@@ -30,10 +30,8 @@ export const AutoPromptButton: React.FC<AutoPromptButtonProps> = ({
     if (!trimmed) {
       addNotification({
         type: 'info',
-        title: isArabicUI ? 'AutoPrompt' : 'AutoPrompt',
-        message: isArabicUI 
-          ? 'يرجى كتابة فكرة أولاً لتحسينها (بالعربية أو الإنجليزية).' 
-          : 'Please enter a prompt or keywords first to enhance.',
+        title: 'AutoPrompt',
+        message: 'Please enter a prompt or keywords first to enhance.',
         duration: 3000,
       });
       return;
@@ -55,21 +53,15 @@ export const AutoPromptButton: React.FC<AutoPromptButtonProps> = ({
 
         addNotification({
           type: 'success',
-          title: isArabicUI ? 'تم تحسين البروموت' : 'Prompt Enhanced',
-          message: isArabicUI
-            ? (result.detectedLanguage === 'ar'
-                ? 'تمت ترقية البروموت العربي بصياغة معمارية احترافية.'
-                : 'تمت ترقية البروموت الإنجليزي بمصطلحات معمارية دقيقة.')
-            : (result.detectedLanguage === 'ar'
-                ? 'Enhanced Arabic architectural prompt successfully.'
-                : 'Enhanced with architectural visual cues.'),
+          title: 'Prompt Enhanced',
+          message: 'Enhanced with architectural visual cues.',
           duration: 3500,
         });
       } else {
         addNotification({
           type: 'info',
           title: 'AutoPrompt',
-          message: isArabicUI ? 'البروموت مفصل وغني بالفعل.' : 'Prompt is already well-detailed.',
+          message: 'Prompt is already well-detailed.',
           duration: 2500,
         });
       }
@@ -77,8 +69,8 @@ export const AutoPromptButton: React.FC<AutoPromptButtonProps> = ({
       console.error('[AutoPromptButton] Enhancement failed:', err);
       addNotification({
         type: 'error',
-        title: isArabicUI ? 'خطأ' : 'Error',
-        message: isArabicUI ? 'تعذر تحسين البروموت حالياً.' : 'Failed to enhance prompt.',
+        title: 'Error',
+        message: 'Failed to enhance prompt.',
         duration: 3000,
       });
     } finally {
@@ -92,16 +84,14 @@ export const AutoPromptButton: React.FC<AutoPromptButtonProps> = ({
       setPreviousPrompt(null);
       addNotification({
         type: 'info',
-        title: isArabicUI ? 'تراجع' : 'Reverted',
-        message: isArabicUI ? 'تمت استعادة النص الأصلي.' : 'Restored original prompt.',
+        title: 'Reverted',
+        message: 'Restored original prompt.',
         duration: 2500,
       });
     }
   };
 
-  const buttonTitle = isArabicUI 
-    ? 'تحسين البروموت بذكاء (يدعم العربي والإنجليزي)' 
-    : 'AutoPrompt: Enhance prompt with architectural keywords (Supports AR & EN)';
+  const buttonTitle = 'AutoPrompt: Enhance prompt with architectural keywords';
 
   return (
     <div className={`auto-prompt-wrapper ${className}`}>
@@ -125,7 +115,7 @@ export const AutoPromptButton: React.FC<AutoPromptButtonProps> = ({
           type="button"
           className={`auto-prompt-undo-btn ${compact ? 'compact' : ''}`}
           onClick={handleUndo}
-          title={isArabicUI ? 'تراجع عن التحسين واستعادة النص الأصلي' : 'Undo AutoPrompt and restore original prompt'}
+          title="Undo AutoPrompt and restore original prompt"
           aria-label="Undo AutoPrompt"
         >
           <RotateCcw size={compact ? 12 : 13} />

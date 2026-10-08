@@ -28,86 +28,86 @@ export interface UpdateSlide {
 const UPDATE_SLIDES: UpdateSlide[] = [
   {
     id: 'archvision-studio-2',
-    badge: 'تحديث رئيسي v0.3.96 | ArchVision AI Studio',
-    title: 'استوديو الوكيل المعماري الذكي 2.0 وعارض الكتل ثلاثي الأبعاد WebGL',
-    subtitle: 'بيئة استشارية متكاملة: عارض 3D تفاعلي، استدلال معماري عميق، وإدارة جلسات احترافية',
-    description: 'ترقية كبرى لواجهة الوكيل المعماري (ArchVision Studio): إضافة عارض كتل ثلاثي الأبعاد تفاعلي مدمج بـ Three.js WebGL، وسلسلة استدلال معماري عميق (Deep Chain-of-Thought) من 5 مراحل تدقيقية، ونظام جلسات محادثة متطور (Multi-Session Sidebar) مع الحفظ التلقائي، وتحويل واجهة الوكيل بالكامل للغة الإنجليزية التخصصية مع مزامنة الكانفس وتنفيذ 3ds Max المباشر.',
+    badge: 'Major Release v0.3.96 | ArchVision AI Studio',
+    title: 'ArchVision AI Agent Studio 2.0 & Interactive WebGL 3D Viewport',
+    subtitle: 'Comprehensive Generative Studio: Interactive 3D Viewport, Deep Chain-of-Thought & Multi-Session Management',
+    description: 'Major evolution for ArchVision AI Agent Studio: featuring an embedded interactive 3D WebGL massing viewport powered by Three.js, a 5-phase Deep Architectural Chain-of-Thought reasoning trace, persistent multi-session chat management with instant search, and autonomous 3ds Max and Canvas execution.',
     features: [
-      'عارض كتل 3D تفاعلي مدمج (Three.js WebGL) مع إضاءة شمسية متحركة ووايرفريم ودوران سلس',
-      'سلسلة استدلال وتدقيق معماري عميق (Deep Chain-of-Thought) تدقق الارتدادات والكود ومسار الشمس',
-      'شريط جلسات جانبي احترافي (Sessions Sidebar) مع بحث فوري، إعادة تسمية، وتخزين محلي آمن',
-      'تنفيذ مباشر لأوامر 3ds Max عبر CUA، تصدير مخططات AutoCAD DXF، وحساب جداول كميات BOQ Excel',
-      'تحويل كامل لواجهة الوكيل المعماري إلى اللغة الإنجليزية المتخصصة مع تكامل فوري لعقد الكانفاس',
+      'Embedded Three.js WebGL 3D massing viewport with dynamic sun cycles, wireframe mode, and auto-rotation',
+      'Deep Architectural Chain-of-Thought auditing site constraints, building codes, and solar orientation',
+      'Professional multi-session chat sidebar with real-time search, inline rename, and local persistence',
+      'Direct procedural 3ds Max execution via CUA, AutoCAD DXF export, and automated BOQ Excel schedules',
+      'Full English studio environment with one-click canvas node synchronization and visual prompt tuning',
     ],
     graphicType: 'agent',
     accentColor: '#ec4899',
   },
   {
     id: 'studio-workspace',
-    badge: 'الاستوديو المتكامل v0.07',
-    title: 'مساحة العمل اللانهائية والذكاء المعماري',
-    subtitle: 'بيئة تصميم تفاعلية مبنية بالكامل على النودات والذكاء البصري الفائق',
-    description: 'تحكم لا محدود في بناء وتفريغ ومقارنة الأفكار المعمارية، مع نظام حفظ سحابي دائم عبر Cloudflare وSupabase Storage يمنع فقدان أو انكسار روابط الصور نهائياً.',
+    badge: 'Studio Workspace v0.07',
+    title: 'Infinite Canvas & Architectural Intelligence',
+    subtitle: 'Interactive node-based workspace built for boundless creative exploration',
+    description: 'Unlimited control over architectural ideation, branching, and comparison with high-performance GPU acceleration and permanent asset persistence via Cloudflare R2 and Supabase Storage.',
     features: [
-      'كانفاس لا نهائي مع تسريع العتاد بالكامل (GPU Acceleration)',
-      'تفريغ وتوليد النودات وتفرعاتها بضغطة زر واحدة',
-      'حفظ الصور بشكل دائم ومباشر دون الاعتماد على روابط مؤقتة',
+      'Hardware-accelerated infinite canvas with smooth 60+ FPS navigation',
+      'Instant node branching, image generation, and multi-version comparison',
+      'Direct permanent cloud storage ensuring image URLs never expire or break',
     ],
     graphicType: 'canvas',
     accentColor: '#e11d48',
   },
   {
     id: 'studio-canvas-layers',
-    badge: 'استوديو الطبقات والعزل',
-    title: 'محرر الاستوديو (Studio Canvas) فائق السرعة',
-    subtitle: 'لوحة تحكم جانبية قابلة للطي مع أدوات احترافية لا تحجب مساحة العمل',
-    description: 'تمت ترقية محرر الماسك والعزل ليعمل بسرعة فائقة (120 FPS)، مع لوحة تحكم مدمجة وقابلة للطي بنقرة واحدة، ومحرك تعديل لوني حي يدعم المنحنيات والمستويات.',
+    badge: 'Studio Layers & Inpainting',
+    title: 'Ultra-Fast Studio Canvas & Adjustment Dock',
+    subtitle: 'Collapsible dock with professional retouching tools that never obscure your canvas',
+    description: 'Upgraded mask and layer editor running at 120 FPS with direct ref-based drawing capture, zero-latency hardware cursor tracking, and live color adjustment curves (Levels, Exposure, Curves, Hue/Sat).',
     features: [
-      'لوحة استوديو مدمجة قابلة للطي (Collapsible Dock) لا تغطي الصورة أبداً',
-      'تعديلات لونية حية: Levels، Curves، Exposure، وHue/Saturation',
-      'رسم فوري بدون أي تأخير عبر تحسين نواة العرض المباشر',
+      'Collapsible Photoshop-style dock keeping your primary canvas unobstructed',
+      'Real-time adjustment layers: Levels, Curves, Exposure, and Hue/Saturation',
+      'Instant zero-latency drawing with GPU offscreen history snapshots',
     ],
     graphicType: 'layers',
     accentColor: '#38bdf8',
   },
   {
     id: 'architect-agent',
-    badge: 'الوكيل المعماري المقيم',
-    title: 'وكيل ذكاء معماري بنموذج فردي صارم',
-    subtitle: 'تنفيذ ذكي للنموذج المختار فقط دون استهلاك غير مرغوب في الرصيد',
-    description: 'تم حصر توجيه أوامر الوكيل المعماري في النموذج الذي تختاره أنت بدقة (مثل Claude Sonnet 5.5 أو Grok 4.1)، مع إلغاء حلقات التراجع التلقائي وتفعيل النمذجة المباشرة مع 3ds Max.',
+    badge: 'Resident Architectural Agent',
+    title: 'Autonomous Architectural Agent with Strict Single-Model Routing',
+    subtitle: 'Intelligent execution exclusively on your selected model with zero token waste',
+    description: 'Agent inference is strictly dedicated to your chosen reasoning engine (Claude Sonnet 5.5, GPT-6.1 Sol, Grok 4.1), eliminating wasteful fallback loops while enabling live 3D procedural modeling in 3ds Max.',
     features: [
-      'تنفيذ حصري لنموذجك المختار ومنع أي طلبات متوازية توفيراً للرصيد',
-      'تدقيق كود البناء الحقيقي بالأرقام (السعودي، بغداد، ومسقط)',
-      'تحكم مباشر ونمذجة ثلاثية الأبعاد متصلة ببرنامج 3ds Max',
+      'Dedicated routing to your selected model preventing parallel token consumption',
+      'Deterministic building code and zoning audit (SBC, IBC, Municipal FAR/Setbacks)',
+      'Direct bidirectional computer-use integration with Autodesk 3ds Max',
     ],
     graphicType: 'agent',
     accentColor: '#a855f7',
   },
   {
     id: 'rendering-engines',
-    badge: 'محركات الرندر الفائقة',
-    title: 'FLUX 3 وميدجيرني تيربو (Midjourney Turbo)',
-    subtitle: 'أعلى دقة تفاصيل معمارية ورفع جودة حقيقي وفوري',
-    description: 'تم حل مشكلة تداخل الطلبات مع ريبليكيت وتفعيل محرك Midjourney Turbo Upscaler ليعمل عبر السيرفرات السريعة مع عرض النتائج فوراً داخل النود دون أي انكسار للصور.',
+    badge: 'Ultra Rendering Engines',
+    title: 'FLUX 3 & Midjourney Turbo High-Resolution Upscaling',
+    subtitle: 'Highest architectural fidelity with real-time super-resolution upscaling',
+    description: 'Integrated high-throughput FLUX 3 and Midjourney Turbo engines delivering crisp 8K textures, razor-sharp building facades, and photorealistic daylighting without CDN expiration.',
     features: [
-      'بدء فوري بدقة Auto 1:1 في محرك FLUX 3 مع تحسين تلقائي',
-      'رفع جودة فائق السرعة عبر Midjourney Turbo دون أي تحويل خارجي',
-      'معالجة ذكية لتجاوز قيود Discord CDN والحفاظ على جودة الـ 8K',
+      'Instant Auto 1:1 initialization with FLUX 3 adaptive detail preservation',
+      'Rapid super-resolution upscaling via Midjourney Turbo',
+      'Bypasses CDN expiration limits while retaining 8K print-ready resolution',
     ],
     graphicType: 'rendering',
     accentColor: '#f59e0b',
   },
   {
     id: 'prompt-engineering',
-    badge: 'هندسة البرومبتات',
-    title: 'صياغة وهندسة برومبتات رندر فوتوغرافية معمارية',
-    subtitle: 'تراكيب بصرية احترافية مبنية على أصول التصوير المعماري العالمي',
-    description: 'تم تحديث مصفوفة توليد البرومبتات لتشمل مواصفات العدسات المعمارية (Tilt-Shift 35mm)، درجات حرارة الإضاءة بالكلفن (Kelvin Daylight & Coves)، وخامات حقيقية ملموسة.',
+    badge: 'Prompt Engineering',
+    title: 'Photographic Architectural Prompt Synthesis',
+    subtitle: 'Professional visual composition grounded in architectural photography standards',
+    description: 'Updated prompt matrix calibrated with real architectural optics: 35mm Tilt-Shift lenses, Kelvin daylight balance (3200K–5600K), and authentic material textures (Travertine, Timber, Low-E glass).',
     features: [
-      'توليد برومبتات معمارية تلقائية خالية من الحشو الروبوتي',
-      'تحديد نوعية الحجر (ترافرتين مقطوع مع العرق، خشب البلوط، زجاج Low-E)',
-      'توزيع واقعي للإضاءة النهارية وزوايا الظلال المعمارية',
+      'Automated architectural prompt generation free of robotic filler words',
+      'Precise material specifications: vein-cut travertine, white oak, anodized aluminum',
+      'Realistic daylight distribution, bounce lighting, and geometric architectural shadows',
     ],
     graphicType: 'prompts',
     accentColor: '#10b981',
@@ -200,14 +200,14 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             <div className="anarchy-wn-logo-badge">A</div>
             <div>
               <div className="anarchy-wn-app-title">Anarchy AI Studio</div>
-              <div className="anarchy-wn-version-tag">تحديثات الإصدار 0.07</div>
+              <div className="anarchy-wn-version-tag">Release v0.3.96 Updates</div>
             </div>
           </div>
           <button
             type="button"
             className="anarchy-wn-close-btn"
             onClick={handleClose}
-            title="إغلاق النافذة (Esc)"
+            title="Close Window (Esc)"
           >
             <X size={18} />
           </button>
@@ -370,7 +370,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
 
             {/* Slide Index Pill */}
             <div className="anarchy-wn-step-indicator">
-              صفحة {activeIndex + 1} من {UPDATE_SLIDES.length}
+              Slide {activeIndex + 1} of {UPDATE_SLIDES.length}
             </div>
           </div>
 
@@ -432,8 +432,8 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
                 className="anarchy-wn-prev-btn"
                 onClick={handlePrev}
               >
-                <ChevronRight size={16} />
-                <span>السابق</span>
+                <ChevronLeft size={16} />
+                <span>Previous</span>
               </button>
             )}
 
@@ -446,11 +446,11 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
               }}
               onClick={handleNext}
             >
-              <span>{activeIndex === UPDATE_SLIDES.length - 1 ? 'بدء العمل الآن' : 'التالي'}</span>
+              <span>{activeIndex === UPDATE_SLIDES.length - 1 ? 'Get Started' : 'Next'}</span>
               {activeIndex === UPDATE_SLIDES.length - 1 ? (
                 <Rocket size={16} />
               ) : (
-                <ChevronLeft size={16} />
+                <ChevronRight size={16} />
               )}
             </button>
           </div>

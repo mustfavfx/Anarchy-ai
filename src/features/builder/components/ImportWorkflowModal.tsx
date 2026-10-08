@@ -26,7 +26,7 @@ export const ImportWorkflowModal: React.FC<ImportWorkflowModalProps> = ({
       <div 
         className="import-workflow-modal" 
         onClick={(e) => e.stopPropagation()}
-        style={{ direction: isArabic ? 'rtl' : 'ltr' }}
+        style={{ direction: 'ltr' }}
       >
         {/* Header */}
         <div className="import-workflow-header">
@@ -36,12 +36,10 @@ export const ImportWorkflowModal: React.FC<ImportWorkflowModalProps> = ({
             </div>
             <div className="import-workflow-text">
               <span className="import-main-title">
-                {isArabic ? 'تم اكتشاف شجرة نودات في الصورة' : 'Workflow Graph Detected in File'}
+                Workflow Graph Detected in File
               </span>
               <span className="import-sub-title">
-                {isArabic 
-                  ? 'تحتوي هذه الصورة على هيكل توليد وتسليك نودات سابق' 
-                  : 'This image contains embedded workflow node tree metadata'}
+                This image contains embedded workflow node tree metadata
               </span>
             </div>
           </div>
@@ -57,7 +55,7 @@ export const ImportWorkflowModal: React.FC<ImportWorkflowModalProps> = ({
               <img src={imagePreviewUrl} alt="Import Preview" className="import-preview-img" />
               <div className="import-preview-overlay-badge">
                 <Network size={12} />
-                <span>{isArabic ? 'صورة مع شجرة نودات' : 'Workflow Image'}</span>
+                <span>Workflow Image</span>
               </div>
             </div>
           )}
@@ -70,12 +68,10 @@ export const ImportWorkflowModal: React.FC<ImportWorkflowModalProps> = ({
               </div>
               <div className="import-card-content">
                 <span className="import-card-title">
-                  {isArabic ? '🌳 استدعاء مع شجرة النودات الكاملة' : 'Restore Full Node Tree'}
+                  🌳 Restore Full Node Tree
                 </span>
                 <span className="import-card-desc">
-                  {isArabic 
-                    ? 'إعادة بناء شجرة التوليد بالكامل على الكانفاس مع كافة النودات والمحركات المرتبطة' 
-                    : 'Reconstruct the complete project graph with connected parent/child nodes on canvas'}
+                  Reconstruct the complete project graph with connected parent/child nodes on canvas
                 </span>
               </div>
             </div>
@@ -87,12 +83,10 @@ export const ImportWorkflowModal: React.FC<ImportWorkflowModalProps> = ({
               </div>
               <div className="import-card-content">
                 <span className="import-card-title">
-                  {isArabic ? '🖼️ إضافة كصورة واحدة مستقلة' : 'Add Standalone Image Only'}
+                  🖼️ Add Standalone Image Only
                 </span>
                 <span className="import-card-desc">
-                  {isArabic 
-                    ? 'إضافة هذه الصورة فقط كنود مصدري (Source Node) دون استرجاع بقية النودات' 
-                    : 'Add this image as a single independent source node without restoring node graph'}
+                  Add this image as a single independent source node without restoring node graph
                 </span>
               </div>
             </div>

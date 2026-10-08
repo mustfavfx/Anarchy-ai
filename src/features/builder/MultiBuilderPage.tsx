@@ -78,21 +78,19 @@ export const MultiBuilderPage: React.FC = () => {
     <div className="multi-builder-container">
       {/* Auto-Recovery Crash Protection Floating Alert Island */}
       {pendingRecovery && (
-        <div className="builder-recovery-banner" role="alert" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="builder-recovery-banner" role="alert" dir="ltr">
           <div className="recovery-banner-glow" />
           <div className="recovery-banner-main">
             <div className="recovery-badge">
               <ShieldAlert size={14} className="recovery-badge-icon" />
               <span className="recovery-badge-text">
-                {isAr ? 'استرداد تلقائي' : 'Auto-Recovery'}
+                Auto-Recovery
               </span>
             </div>
 
             <div className="recovery-banner-content">
               <span className="recovery-lead-text">
-                {isAr
-                  ? 'نسخة احتياطية غير محفوظة:'
-                  : 'Unsaved backup:'}
+                Unsaved backup:
               </span>
               <span className="recovery-project-pill" title={pendingRecovery.projectPath || pendingRecovery.title}>
                 <FileText size={12} className="pill-icon" />
@@ -101,7 +99,7 @@ export const MultiBuilderPage: React.FC = () => {
               <span className="recovery-time-pill" title={new Date(pendingRecovery.timestamp).toLocaleString()}>
                 <Clock size={11} className="pill-icon" />
                 <span>
-                  {new Date(pendingRecovery.timestamp).toLocaleTimeString(isAr ? 'ar-EG' : [], {
+                  {new Date(pendingRecovery.timestamp).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
@@ -115,25 +113,25 @@ export const MultiBuilderPage: React.FC = () => {
               type="button"
               className="recovery-action-btn restore"
               onClick={handleRestoreSnapshot}
-              title={isAr ? 'استعادة الجلسة ومتابعة العمل' : 'Restore session and resume work'}
+              title="Restore session and resume work"
             >
               <RotateCcw size={13} className="btn-icon" />
-              <span>{isAr ? 'استعادة الجلسة' : 'Restore Session'}</span>
+              <span>Restore Session</span>
             </button>
             <button
               type="button"
               className="recovery-action-btn discard"
               onClick={handleDiscardSnapshot}
-              title={isAr ? 'حذف هذه النسخة الاحتياطية' : 'Discard this backup'}
+              title="Discard this backup"
             >
               <Trash2 size={13} className="btn-icon" />
-              <span>{isAr ? 'تجاهل' : 'Discard'}</span>
+              <span>Discard</span>
             </button>
             <button
               type="button"
               className="recovery-dismiss-btn"
               onClick={handleDismissSnapshot}
-              title={isAr ? 'إغلاق الإشعار' : 'Dismiss notice'}
+              title="Dismiss notice"
             >
               <X size={14} />
             </button>

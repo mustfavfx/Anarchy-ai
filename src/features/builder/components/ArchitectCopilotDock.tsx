@@ -75,8 +75,8 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
     setPlannerProviderState(prov);
     addNotification({
       type: 'info',
-      title: 'محرك التخطيط المزدوج (Multi-Provider)',
-      message: prov === 'openai' ? 'تم التبديل إلى OpenAI GPT-4o Vision Planner' : 'تم التبديل إلى Google Gemini Flash Engine',
+      title: 'Multi-Provider Planner Engine',
+      message: prov === 'openai' ? 'Switched to OpenAI GPT-4o Vision Planner' : 'Switched to Google Gemini Flash Engine',
       duration: 3000,
     });
   };
@@ -86,8 +86,8 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
       id: 'welcome',
       role: 'assistant',
       content:
-        '**مرحباً بك.** أنا **الوكيل المعماري الذكي (Antigravity Resident Architect & CUA)** المدمج مباشرة داخل Anarchy AI.\n\n' +
-        'أمتلك وعياً شاملاً بليرات الكانفاس، تفرعات التصميم، ونظام التحكم التام ببرامج **Autodesk (3ds Max / AutoCAD / Revit)** وسطح المكتب.',
+        '**Welcome.** I am your **Autonomous Architectural Agent & CUA** integrated directly into Anarchy AI.\n\n' +
+        'I maintain comprehensive awareness of canvas layers, design lineage, and full computer-use integration with **Autodesk (3ds Max / AutoCAD / Revit)** and desktop CAD workflows.',
       timestamp: Date.now(),
     },
   ]);
@@ -339,7 +339,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
           onClick={() => setActiveTab('advisor')}
         >
           <Compass size={13} />
-          <span>المستشار المعماري</span>
+          <span>Architect Advisor</span>
         </button>
         <button
           type="button"
@@ -347,7 +347,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
           onClick={() => setActiveTab('cua')}
         >
           <Monitor size={13} />
-          <span>التحكم الذاتي (CUA)</span>
+          <span>Autonomous Control (CUA)</span>
           <span className="copilot-tab-live-pulse" />
         </button>
       </div>
@@ -661,22 +661,22 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
         <div className="cua-status-item">
           <span className={`cua-dot ${cuaObservation?.autodesk.is3dsMaxRunning ? 'online' : 'offline'}`} />
           <span className="cua-label">3ds Max:</span>
-          <span className="cua-val">{cuaObservation?.autodesk.is3dsMaxRunning ? 'متصل' : 'غير مشغل'}</span>
+          <span className="cua-val">{cuaObservation?.autodesk.is3dsMaxRunning ? 'Connected' : 'Offline'}</span>
         </div>
         <div className="cua-status-item">
           <span className={`cua-dot ${cuaObservation?.autodesk.isRevitRunning ? 'online' : 'offline'}`} />
           <span className="cua-label">Revit:</span>
-          <span className="cua-val">{cuaObservation?.autodesk.isRevitRunning ? 'متصل' : 'غير مشغل'}</span>
+          <span className="cua-val">{cuaObservation?.autodesk.isRevitRunning ? 'Connected' : 'Offline'}</span>
         </div>
         <div className="cua-status-item">
           <span className={`cua-dot ${cuaObservation?.autodesk.isAutoCADRunning ? 'online' : 'offline'}`} />
           <span className="cua-label">AutoCAD:</span>
-          <span className="cua-val">{cuaObservation?.autodesk.isAutoCADRunning ? 'متصل' : 'غير مشغل'}</span>
+          <span className="cua-val">{cuaObservation?.autodesk.isAutoCADRunning ? 'Connected' : 'Offline'}</span>
         </div>
         <div className="cua-status-item">
           <span className="cua-dot online" />
-          <span className="cua-label">الكانفاس:</span>
-          <span className="cua-val">{workflowSnapshot.nodes?.length || 0} عقد</span>
+          <span className="cua-label">Canvas:</span>
+          <span className="cua-val">{workflowSnapshot.nodes?.length || 0} nodes</span>
         </div>
         <div className="cua-planner-switch" style={{ display: 'flex', alignItems: 'center', gap: 4, marginInlineStart: 'auto' }}>
           <button
@@ -700,7 +700,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
           type="button"
           className="cua-refresh-btn"
           onClick={handleRefreshObservation}
-          title="تحديث فحص البيئة"
+          title="Refresh Environment Inspection"
         >
           <RefreshCw size={11} />
         </button>
@@ -718,18 +718,18 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
           color: '#cbd5e1'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontWeight: 600, color: '#38bdf8' }}>
-            <span>🏢 بيانات BIM/CAD الحية ({bimMetadata.software})</span>
-            <span>{bimMetadata.project_name || 'مشروع نشط'}</span>
+            <span>🏢 Live BIM/CAD Metadata ({bimMetadata.software})</span>
+            <span>{bimMetadata.project_name || 'Active Project'}</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
-            {bimMetadata.levels !== undefined && <span>الطوابق: <b style={{ color: '#f8fafc' }}>{bimMetadata.levels}</b></span>}
-            {bimMetadata.walls !== undefined && <span>الجدران: <b style={{ color: '#f8fafc' }}>{bimMetadata.walls}</b></span>}
-            {bimMetadata.doors !== undefined && <span>الأبواب: <b style={{ color: '#f8fafc' }}>{bimMetadata.doors}</b></span>}
-            {bimMetadata.windows !== undefined && <span>النوافذ: <b style={{ color: '#f8fafc' }}>{bimMetadata.windows}</b></span>}
-            {bimMetadata.rooms !== undefined && <span>الفراغات: <b style={{ color: '#f8fafc' }}>{bimMetadata.rooms}</b></span>}
-            {bimMetadata.layers !== undefined && <span>الطبقات: <b style={{ color: '#f8fafc' }}>{bimMetadata.layers}</b></span>}
-            {bimMetadata.blocks !== undefined && <span>البلوكات: <b style={{ color: '#f8fafc' }}>{bimMetadata.blocks}</b></span>}
-            {bimMetadata.element_count !== undefined && <span>إجمالي العناصر: <b style={{ color: '#f8fafc' }}>{bimMetadata.element_count}</b></span>}
+            {bimMetadata.levels !== undefined && <span>Levels: <b style={{ color: '#f8fafc' }}>{bimMetadata.levels}</b></span>}
+            {bimMetadata.walls !== undefined && <span>Walls: <b style={{ color: '#f8fafc' }}>{bimMetadata.walls}</b></span>}
+            {bimMetadata.doors !== undefined && <span>Doors: <b style={{ color: '#f8fafc' }}>{bimMetadata.doors}</b></span>}
+            {bimMetadata.windows !== undefined && <span>Windows: <b style={{ color: '#f8fafc' }}>{bimMetadata.windows}</b></span>}
+            {bimMetadata.rooms !== undefined && <span>Rooms: <b style={{ color: '#f8fafc' }}>{bimMetadata.rooms}</b></span>}
+            {bimMetadata.layers !== undefined && <span>Layers: <b style={{ color: '#f8fafc' }}>{bimMetadata.layers}</b></span>}
+            {bimMetadata.blocks !== undefined && <span>Blocks: <b style={{ color: '#f8fafc' }}>{bimMetadata.blocks}</b></span>}
+            {bimMetadata.element_count !== undefined && <span>Total Elements: <b style={{ color: '#f8fafc' }}>{bimMetadata.element_count}</b></span>}
           </div>
         </div>
       ) : (
@@ -745,86 +745,86 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <span>🏢 بانتظار اتصال Revit / AutoCAD • لا توجد بيانات مستلمة</span>
+          <span>🏢 Waiting for Revit / AutoCAD Connection • No Data Received</span>
           <span style={{ fontSize: 9.5, color: '#38bdf8' }}>Send to Anarchy</span>
         </div>
       )}
 
       {/* Quick Autonomous Action Presets */}
       <div className="cua-presets-deck">
-        <div className="cua-presets-title">⚡ مهام معمارية وحاسوبية شاملة (CUA & Architectural Engine):</div>
+        <div className="cua-presets-title">⚡ Comprehensive Architectural & CAD Automations (CUA):</div>
         <div className="cua-presets-grid">
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('دراسة شاملة لقطعة أرض 500م: حساب الارتدادات، تحليل التشميس للرياض، توليد مخطط كاد 2D، مودل 3D سبيكل، جدول كميات Excel، وعرض تقديمي')}
+            onClick={() => handleStartCuaTask('Comprehensive Feasibility & Design for 500m² Plot: setbacks, solar analysis, 2D CAD layout, 3D Speckle model, BOQ Excel schedule, and presentation deck')}
           >
             <Sparkles size={12} style={{ color: '#ec4899' }} />
-            <span>دراسة شاملة وتصميم كامل (All-in-One)</span>
+            <span>All-in-One Comprehensive Feasibility</span>
           </button>
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('تصدير جدول حصر كميات تنفيذي شامل بصيغة Excel (BOQ Schedule) لفيلا 500م')}
+            onClick={() => handleStartCuaTask('Export detailed BOQ Schedule Excel spreadsheet for 500m² villa')}
           >
             <Layers size={12} style={{ color: '#10b981' }} />
-            <span>جدول كميات تنفيذي Excel (BOQ)</span>
+            <span>BOQ Schedule Export (Excel)</span>
           </button>
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('توليد مخطط معماري 2D بصيغة AutoCAD DXF لقطعة 20x25م مع الارتدادات')}
+            onClick={() => handleStartCuaTask('Generate 2D architectural AutoCAD DXF drawing for 20x25m plot with regulatory setbacks')}
           >
             <Compass size={12} style={{ color: '#06b6d4' }} />
-            <span>توليد مخطط AutoCAD 2D DXF</span>
+            <span>AutoCAD 2D DXF Generation</span>
           </button>
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('إنشاء نموذج معماري ثلاثي الأبعاد 3D BIM مع صفحة فيور تفاعلية WebGL')}
+            onClick={() => handleStartCuaTask('Create interactive 3D BIM model with WebGL interactive viewport')}
           >
             <Box size={12} style={{ color: '#8b5cf6' }} />
-            <span>مودل 3D BIM تفاعلي (Speckle)</span>
+            <span>Interactive 3D BIM Model</span>
           </button>
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('تحليل مسار الشمس وزوايا التشميس لمدينة الرياض وتوجيه الفتحات والكواسر')}
+            onClick={() => handleStartCuaTask('Analyze solar path, daylight angles, and facade shading geometry')}
           >
             <Sun size={12} style={{ color: '#f59e0b' }} />
-            <span>دراسة التشميس والتوجيه المناخي</span>
+            <span>Solar Analysis & Climate Orientation</span>
           </button>
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('توليد عرض تقديمي معماري احترافي كامل PowerPoint (.pptx) للعميل')}
+            onClick={() => handleStartCuaTask('Generate full architectural presentation deck PowerPoint (.pptx)')}
           >
             <Brain size={12} style={{ color: '#38bdf8' }} />
-            <span>عرض تقديمي PowerPoint Deck</span>
+            <span>Presentation Deck (PowerPoint)</span>
           </button>
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('التقط منظور الكاميرا من 3ds Max ونقله للكانفاس مع تطوير إضاءة معمارية واقعية')}
+            onClick={() => handleStartCuaTask('Capture camera perspective from 3ds Max to canvas with realistic architectural lighting')}
           >
             <Monitor size={12} style={{ color: '#34d399' }} />
-            <span>مزامنة منظور 3ds Max</span>
+            <span>Sync 3ds Max Viewport</span>
           </button>
           <button
             type="button"
             className="cua-preset-btn"
             disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
-            onClick={() => handleStartCuaTask('التقط لقطة شاشة للشاشة بأكملها وحلل عناصر التصميم الحالية')}
+            onClick={() => handleStartCuaTask('Capture full desktop screenshot and analyze active CAD design elements')}
           >
             <Eye size={12} style={{ color: '#38bdf8' }} />
-            <span>فحص الشاشة (Screen Vision SoM)</span>
+            <span>Screen Vision Inspection (SoM)</span>
           </button>
         </div>
       </div>
@@ -834,9 +834,9 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
         {cuaSteps.length === 0 ? (
           <div className="cua-empty-state">
             <Bot size={32} style={{ color: 'rgba(255,255,255,0.2)' }} />
-            <div className="cua-empty-title">جاهز لتنفيذ الأوامر الذاتية (CUA & Architectural Engine)</div>
+            <div className="cua-empty-title">Ready for Autonomous Execution (CUA & Architectural Engine)</div>
             <div className="cua-empty-text">
-              أمر الوكيل بالتحكم بـ 3ds Max، حساب الاشتراطات والارتدادات، توليد مخططات DXF، تصدير جداول كميات Excel، والعروض التقديمية ذاتياً.
+              Command the agent to control 3ds Max, compute building codes & setbacks, generate DXF layouts, export Excel BOQ schedules, and create presentations autonomously.
             </div>
           </div>
         ) : (
@@ -845,10 +845,10 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
             return (
               <div key={step.step} className="cua-step-card">
                 <div className="cua-step-header">
-                  <span className="cua-step-badge">خطوة {step.step}</span>
+                  <span className="cua-step-badge">Step {step.step}</span>
                   <span className="cua-action-type">{step.action.type}</span>
                   <span className={`cua-step-status ${step.result.success ? 'success' : 'pending'}`}>
-                    {step.result.success ? '✓ تم بنجاح' : '⟳ قيد التنفيذ'}
+                    {step.result.success ? '✓ Completed' : '⟳ Running'}
                   </span>
                 </div>
                 <div className="cua-step-thought">{step.thought}</div>
@@ -905,7 +905,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
         {cuaStatus !== 'idle' && cuaStatus !== 'completed' && cuaStatus !== 'aborted' && (
           <div className="cua-running-hud">
             <RefreshCw size={13} className="spin-slow" style={{ color: '#34d399' }} />
-            <span>الوكيل ينفذ المهمة الذاتية ({cuaStatus})...</span>
+            <span>Agent executing autonomous task ({cuaStatus})...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -916,7 +916,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
         <div className="copilot-input-row">
           <textarea
             className="copilot-textarea"
-            placeholder="وجه الوكيل بمهمة حاسوبية: مثلاً (التقط منظور الكاميرا من 3ds Max، اعمل تفرع بالكانفاس، وطبق خامة ترافرتين مع إضاءة دافئة ورندر)..."
+            placeholder="Command the agent with a computer task: e.g. (Sync camera from 3ds Max, branch canvas node, apply travertine texture with warm sunlight, and render)..."
             value={cuaGoal}
             onChange={(e) => setCuaGoal(e.target.value)}
             onKeyDown={(e) => {
@@ -933,7 +933,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
               type="button"
               className="copilot-send-btn abort-btn"
               onClick={handleAbortCua}
-              title="إيقاف طارئ للوكيل"
+              title="Emergency Stop Agent"
             >
               <Square size={13} />
             </button>
@@ -943,7 +943,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
               className="copilot-send-btn cua-exec-btn"
               disabled={!cuaGoal.trim()}
               onClick={() => handleStartCuaTask()}
-              title="تنفيذ ذاتي (CUA Run)"
+              title="Run Autonomous Task (CUA)"
             >
               <Play size={13} />
             </button>

@@ -1105,88 +1105,88 @@ export class ComputerUseAgentService {
     if (wantsCodes) {
       subGoals.push({
         id: sgId++,
-        title: 'فحص اشتراطات كود البناء السعودي والمعايير الفنية (Building Code Compliance)',
+        title: 'Building Code Compliance & Technical Standards Audit',
         status: 'pending',
         targetTool: 'query_codes',
-        expectedOutcome: 'استرجاع متطلبات كود البناء ذات الصلة بالمشروع',
+        expectedOutcome: 'Retrieve applicable building code compliance requirements',
       });
     }
 
     if (wantsZoning) {
       subGoals.push({
         id: sgId++,
-        title: 'حساب الاشتراطات البلدية والارتدادات ونسبة البناء (Zoning & FAR)',
+        title: 'Calculate Municipal Zoning, Setbacks & FAR',
         status: 'pending',
         targetTool: 'calculate_zoning',
-        expectedOutcome: 'تحديد الحد الأقصى للمسقط الأرضي ومساحة البناء الإجمالية والارتدادات',
+        expectedOutcome: 'Determine maximum footprint, gross floor area, and regulatory setbacks',
       });
     }
 
     if (wantsSolar) {
       subGoals.push({
         id: sgId++,
-        title: 'دراسة مسار الشمس والكتل والتوجيه المناخي (Solar Analysis)',
+        title: 'Solar Analysis, Sun Angles & Climate Orientation',
         status: 'pending',
         targetTool: 'analyze_solar',
-        expectedOutcome: 'تحديد زوايا الشمس وتوصيات الكواسر الشمسية والفتحات',
+        expectedOutcome: 'Calculate solar angles and recommend shading and aperture orientations',
       });
     }
 
     if (wantsCad) {
       subGoals.push({
         id: sgId++,
-        title: 'توليد المخطط المعماري 2D بصيغة AutoCAD DXF',
+        title: 'Generate 2D Architectural AutoCAD DXF Layout',
         status: 'pending',
         targetTool: 'export_cad',
-        expectedOutcome: 'إنتاج ملف مخطط أوتوكاد DXF متوافق مع الارتدادات النظامية',
+        expectedOutcome: 'Produce AutoCAD DXF layout conforming to statutory setbacks',
       });
     }
 
     if (wantsBim) {
       subGoals.push({
         id: sgId++,
-        title: 'إنشاء النموذج المعماري ثلاثي الأبعاد 3D BIM & Speckle Viewer',
+        title: 'Generate 3D Architectural BIM Model & Speckle Viewer',
         status: 'pending',
         targetTool: 'export_bim',
-        expectedOutcome: 'توليد مودل 3D تفاعلي يمكن معاينته مباشرة في المتصفح والماكس',
+        expectedOutcome: 'Generate interactive 3D model viewable in browser and 3ds Max',
       });
     }
 
     if (wantsBoq) {
       subGoals.push({
         id: sgId++,
-        title: 'تصدير جدول حصر الكميات والمواصفات التنفيذية Excel (BOQ Schedule)',
+        title: 'Export Detailed BOQ Schedule (Excel)',
         status: 'pending',
         targetTool: 'export_boq',
-        expectedOutcome: 'إنتاج جدول كميات مفصل لكافة الأعمال الإنشائية والمعمارية',
+        expectedOutcome: 'Produce comprehensive schedule of quantities for all structural and architectural work',
       });
     }
 
     if (wantsDeck) {
       subGoals.push({
         id: sgId++,
-        title: 'توليد العرض التقديمي الشامل للعميل PowerPoint (.pptx)',
+        title: 'Generate Comprehensive Presentation Deck PowerPoint (.pptx)',
         status: 'pending',
         targetTool: 'create_presentation',
-        expectedOutcome: 'إنشاء ملف عرض تقديمي كامل باللغة العربية مع كافة الشرائح',
+        expectedOutcome: 'Create full presentation deck with complete slides and visuals',
       });
     }
 
     if (subGoals.length === 0) {
       subGoals.push({
         id: 1,
-        title: 'تنفيذ الإجراء المطلوب عبر التفاعل البصري والتحكم بالسطح',
+        title: 'Execute Action via Computer Vision and UI Control',
         status: 'pending',
-        expectedOutcome: 'تحقيق هدف المستخدم المباشر والتحقق من النتيجة بصرياً',
+        expectedOutcome: 'Accomplish user objective and verify outcome visually',
       });
     }
 
     subGoals.push({
       id: sgId++,
-      title: 'المعاينة النهائية والتحقق البصري واعتماد المخرجات (Verification & Sync)',
+      title: 'Final Verification & Canvas Synchronization',
       status: 'pending',
       targetTool: 'complete',
-      expectedOutcome: 'اكتمال كافة المخرجات وربطها بالكانفاس بنجاح',
+      expectedOutcome: 'Complete all deliverables and synchronize with canvas successfully',
     });
 
     return {
@@ -1604,7 +1604,7 @@ Respond strictly in JSON format:
             thought: 'OpenAI API key is missing. No silent fallback to ensure transparency.',
             action: {
               type: 'fail',
-              failureReason: 'مفتاح OpenAI API غير متوفر في مخزن المفاتيح الآمن (secure keyring). يرجى حفظ المفتاح باستخدام save_secure_key.',
+              failureReason: 'OpenAI API key not found in secure keyring. Please configure your key in settings.',
             },
           };
         }
@@ -1651,7 +1651,7 @@ Respond strictly in JSON format:
               thought: `OpenAI API returned HTTP ${response.status}. Execution stopped to avoid silent fallback.`,
               action: {
                 type: 'fail',
-                failureReason: `فشل استدعاء OpenAI GPT-4o (رمز الخطأ HTTP ${response.status}). لن يتم التبديل الصامت إلى Gemini لضمان دقة التنفيذ وعدم تضليل المستخدم.`,
+                failureReason: `OpenAI GPT-4o request failed (HTTP error ${response.status}). Execution halted to prevent unselected fallback.`,
               },
             };
           }
@@ -1664,7 +1664,7 @@ Respond strictly in JSON format:
             thought: `OpenAI network error: ${fetchErr?.message || fetchErr}`,
             action: {
               type: 'fail',
-              failureReason: `تعذر الاتصال بـ OpenAI API: ${fetchErr?.message || fetchErr}`,
+              failureReason: `Unable to connect to OpenAI API: ${fetchErr?.message || fetchErr}`,
             },
           };
         }

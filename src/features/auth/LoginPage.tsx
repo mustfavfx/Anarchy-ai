@@ -86,7 +86,7 @@ export const LoginPage: React.FC = () => {
             transition: 'all 0.2s ease',
           }}
         >
-          <span>Continue without Account (الدخول المباشر بدون حساب)</span>
+          <span>Continue without Account</span>
         </button>
 
         <div className="login-tabs">

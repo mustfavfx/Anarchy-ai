@@ -573,7 +573,7 @@ export const BaseNode = memo(({ id, data, selected = false }: BaseNodeProps) => 
                   ) : imgError ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '24px 12px', background: 'rgba(225, 29, 72, 0.08)', borderRadius: '6px', textAlign: 'center', width: '100%', height: '100%' }}>
                       <AlertCircle size={22} style={{ color: '#e11d48' }} />
-                      <span style={{ fontSize: '11px', color: '#f8fafc', fontWeight: 600 }}>تعذر تحميل الصورة</span>
+                      <span style={{ fontSize: '11px', color: '#f8fafc', fontWeight: 600 }}>Failed to load image</span>
                       <button
                         type="button"
                         style={{ fontSize: '10px', background: '#e11d48', color: '#fff', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -623,13 +623,13 @@ export const BaseNode = memo(({ id, data, selected = false }: BaseNodeProps) => 
                         }}
                       >
                         <RefreshCw size={10} />
-                        إعادة محاولة
+                        Retry
                       </button>
                     </div>
                   ) : (
                     <img
                       src={displayImage}
-                      alt={nodeData.label || 'صورة النود'}
+                      alt={nodeData.label || 'Node image'}
                       referrerPolicy="no-referrer"
                       onLoad={(e) => {
                         const img = e.currentTarget;

@@ -215,7 +215,7 @@ export const EnlargedPreview: React.FC = () => {
       {/* ── Top bar: Hidden in Mask mode since MaskCanvas has its own top toolbar ── */}
       {tab !== 'draw' && (
         <div className="ep-topbar">
-          {/* Tabs: Hidden in expand mode (preview) as requested (وتابات لا حاجة لها للظهور في وضع الاكسباند) */}
+          {/* Tabs: Hidden in expand mode (preview) as requested */}
           {tab !== 'preview' && (
             <div className="ep-tabs">
               {(['preview', 'compare', 'draw', 'layout'] as const).map(t => {

@@ -227,15 +227,15 @@ function getQuotaErrorMessage(type: 'generations' | 'storage' | 'projects', curr
   const messages: Record<typeof type, { en: string; ar: string }> = {
     generations: {
       en: `You've reached your monthly generation limit. Upgrade to ${getPlan(upgradePlan).name} for more.`,
-      ar: `لقد بلغت الحد الشهري للتوليدات. قم بالترقية إلى ${getPlan(upgradePlan).nameAr} للمزيد.`,
+      ar: `You've reached your monthly generation limit. Upgrade to ${getPlan(upgradePlan).name} for more.`,
     },
     storage: {
       en: 'Storage limit reached. Delete old projects or upgrade your plan.',
-      ar: 'تم بلوغ حد التخزين. احذف المشاريع القديمة أو قم بترقية خطتك.',
+      ar: 'Storage limit reached. Delete old projects or upgrade your plan.',
     },
     projects: {
       en: 'Project limit reached. Delete old projects or upgrade your plan.',
-      ar: 'تم بلوغ حد المشاريع. احذف المشاريع القديمة أو قم بترقية خطتك.',
+      ar: 'Project limit reached. Delete old projects or upgrade your plan.',
     },
   };
 
@@ -247,22 +247,22 @@ export function getQuotaError(type: 'generations' | 'storage' | 'projects', curr
   const messages: Record<typeof type, { en: string; ar: string }> = {
     generations: {
       en: `You've reached your monthly generation limit.`,
-      ar: 'لقد بلغت الحد الشهري للتوليدات.',
+      ar: `You've reached your monthly generation limit.`,
     },
     storage: {
       en: 'Storage limit reached.',
-      ar: 'تم بلوغ حد التخزين.',
+      ar: 'Storage limit reached.',
     },
     projects: {
       en: 'Project limit reached.',
-      ar: 'تم بلوغ حد المشاريع.',
+      ar: 'Project limit reached.',
     },
   };
 
   return {
     type,
     message: messages[type].en,
-    messageAr: messages[type].ar,
+    messageAr: messages[type].en,
     current: 0,
     limit: 0,
     upgradePlan,

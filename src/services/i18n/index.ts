@@ -30,7 +30,7 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Settings
     'settings.title': 'Settings',
-    'settings.language': 'Language / اللغة',
+    'settings.language': 'Language',
     'settings.languageDesc': 'Select your preferred interface language',
     'settings.clearCache': 'Clear Local Cache & Preferences',
     'settings.clearCacheDesc': 'Clears local preferences, session cache, and resets settings to defaults. Project files (.ana) on disk remain untouched.',
@@ -132,9 +132,9 @@ export const translations: Record<Language, Record<string, string>> = {
   }
 };
 
-// One-time automatic migration of any legacy 'ar' settings to English
+// One-time automatic migration of any legacy settings to English
 try {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem(LANGUAGE_STORAGE_KEY) === 'ar') {
+  if (typeof localStorage !== 'undefined') {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
   }
 } catch {}
@@ -142,57 +142,49 @@ try {
 let currentLanguage: Language = 'en';
 
 export function getLanguage(): Language {
-  try {
-    const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language;
-    if (saved === 'en' || saved === 'ar') {
-      currentLanguage = saved;
-      return saved;
-    }
-  } catch {}
-  return currentLanguage;
+  return 'en';
 }
 
-export function setLanguage(lang: Language) {
-  currentLanguage = lang;
+export function setLanguage(_lang?: Language) {
+  currentLanguage = 'en';
   try {
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
-    window.dispatchEvent(new CustomEvent('anarchy:language-changed', { detail: lang }));
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
+    window.dispatchEvent(new CustomEvent('anarchy:language-changed', { detail: 'en' }));
   } catch {}
 }
 
 export function t(key: string, fallback?: string): string {
-  const lang = getLanguage();
-  return translations[lang]?.[key] || translations.en?.[key] || fallback || key;
+  return translations.en?.[key] || fallback || key;
 }
 
 export function useTranslation() {
-  const [lang, setLangState] = useState<Language>(() => getLanguage());
+  const [lang, setLangState] = useState<Language>('en');
 
   useEffect(() => {
     const handler = (e: Event) => {
       const customEvent = e as CustomEvent<Language>;
       if (customEvent.detail) {
-        setLangState(customEvent.detail);
+        setLangState('en');
       }
     };
     window.addEventListener('anarchy:language-changed', handler);
     return () => window.removeEventListener('anarchy:language-changed', handler);
   }, []);
 
-  const changeLanguage = useCallback((newLang: Language) => {
-    setLanguage(newLang);
-    setLangState(newLang);
+  const changeLanguage = useCallback((_newLang: Language) => {
+    setLanguage('en');
+    setLangState('en');
   }, []);
 
   const translate = useCallback((key: string, fallback?: string) => {
-    return translations[lang]?.[key] || translations.en?.[key] || fallback || key;
-  }, [lang]);
+    return translations.en?.[key] || fallback || key;
+  }, []);
 
   return {
     t: translate,
-    language: lang,
+    language: 'en' as Language,
     setLanguage: changeLanguage,
-    isRTL: lang === 'ar',
-    isAr: lang === 'ar',
+    isRTL: false,
+    isAr: false,
   };
 }

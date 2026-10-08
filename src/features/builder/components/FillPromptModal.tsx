@@ -61,7 +61,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
             className={`fill-prompt-custom-trigger ${isOpen ? 'active' : ''} ${value ? 'has-value' : ''}`}
             onClick={() => setIsOpen(prev => !prev)}
           >
-            <span className="trigger-value">{value || `-- ${isArabic ? 'اختر' : 'Select'} --`}</span>
+            <span className="trigger-value">{value || '-- Select --'}</span>
             <ChevronDown size={15} className={`trigger-arrow ${isOpen ? 'open' : ''}`} />
           </button>
 
@@ -71,7 +71,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
                 className={`dropdown-option ${!value ? 'selected' : ''}`}
                 onClick={() => { onChange(''); setIsOpen(false); }}
               >
-                <span>-- {isArabic ? 'إلغاء التحديد' : 'Clear selection'} --</span>
+                <span>-- Clear selection --</span>
               </div>
               {options.map((opt) => {
                 const isSelected = opt === value;
@@ -310,7 +310,7 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
       <div 
         className="fill-prompt-modal" 
         onClick={(e) => e.stopPropagation()} 
-        style={{ direction: isArabic ? 'rtl' : 'ltr' }}
+        style={{ direction: 'ltr' }}
       >
         {/* Header */}
         <div className="fill-prompt-header">
@@ -319,14 +319,14 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
               <Wand2 size={18} className="fill-prompt-sparkle" />
             </div>
             <div className="fill-prompt-header-text">
-              <span className="fill-prompt-main-title">{isArabic ? 'تركيب البروموت المعماري' : 'Fill Prompt Generator'}</span>
-              <span className="fill-prompt-sub-title">{isArabic ? 'مولد المعايير المعمارية التفاعلي' : 'Interactive Architectural Parameter Synthesizer'}</span>
+              <span className="fill-prompt-main-title">Fill Prompt Generator</span>
+              <span className="fill-prompt-sub-title">Interactive Architectural Parameter Synthesizer</span>
             </div>
           </div>
 
           <div className="fill-prompt-header-actions">
             <span className="fill-prompt-counter-badge">
-              {activeParameters.length}/10 {isArabic ? 'معيار نشط' : 'Active'}
+              {activeParameters.length}/10 Active
             </span>
             <button className="fill-prompt-close-btn" onClick={onClose} title="Close">
               <X size={18} />
@@ -341,7 +341,7 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
             <div className="fill-prompt-preview-header">
               <div className="fill-prompt-preview-live-tag">
                 <span className="fill-prompt-live-dot" />
-                <span>{isArabic ? 'معاينة مباشرة' : 'LIVE PROMPT PREVIEW'}</span>
+                <span>LIVE PROMPT PREVIEW</span>
               </div>
 
               <div className="fill-prompt-preview-controls">
@@ -374,7 +374,7 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
                   title="Copy prompt text"
                 >
                   {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                  <span>{copied ? (isArabic ? 'تم النسخ!' : 'Copied!') : (isArabic ? 'نسخ' : 'Copy')}</span>
+                  <span>{copied ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
             </div>
@@ -401,7 +401,7 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
           <div className="fill-prompt-section-divider">
             <div className="fill-prompt-section-tag">
               <Building2 size={13} style={{ color: '#fb7185' }} />
-              <span>{isArabic ? 'التكتل والمعايير الهيكلية' : 'Core Architecture & Volume'}</span>
+              <span>Core Architecture & Volume</span>
             </div>
             <div className="fill-prompt-section-line" />
           </div>
@@ -409,57 +409,51 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
           {/* Form Fields Grid — Category 1 */}
           <div className="fill-prompt-grid">
             <CustomSelect
-              label={isArabic ? 'نوع المبنى' : 'Building type'}
+              label="Building type"
               icon={<Building2 size={13} style={{ color: '#fb7185' }} />}
               value={buildingType}
               options={BUILDING_TYPES}
               onChange={setBuildingType}
-              isArabic={isArabic}
             />
 
             <CustomSelect
-              label={isArabic ? 'سياق الموقع' : 'Location context'}
+              label="Location context"
               icon={<MapPin size={13} style={{ color: '#f59e0b' }} />}
               value={locationContext}
               options={LOCATION_CONTEXTS}
               onChange={setLocationContext}
-              isArabic={isArabic}
             />
 
             <CustomSelect
-              label={isArabic ? 'النمط المعماري' : 'Architectural style'}
+              label="Architectural style"
               icon={<Sparkles size={13} style={{ color: '#38bdf8' }} />}
               value={architecturalStyle}
               options={ARCHITECTURAL_STYLES}
               onChange={setArchitecturalStyle}
-              isArabic={isArabic}
             />
 
             <CustomSelect
-              label={isArabic ? 'عدد الطوابق' : 'Floors'}
+              label="Floors"
               icon={<Layers size={13} style={{ color: '#c084fc' }} />}
               value={floors}
               options={FLOORS_OPTIONS}
               onChange={setFloors}
-              isArabic={isArabic}
             />
 
             <CustomSelect
-              label={isArabic ? 'التكتل المعماري' : 'Massing'}
+              label="Massing"
               icon={<Box size={13} style={{ color: '#34d399' }} />}
               value={massing}
               options={MASSING_OPTIONS}
               onChange={setMassing}
-              isArabic={isArabic}
             />
 
             <CustomSelect
-              label={isArabic ? 'الهندسة والتشكيل' : 'Geometry'}
+              label="Geometry"
               icon={<Shapes size={13} style={{ color: '#60a5fa' }} />}
               value={geometry}
               options={GEOMETRY_OPTIONS}
               onChange={setGeometry}
-              isArabic={isArabic}
             />
           </div>
 
@@ -467,7 +461,7 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
           <div className="fill-prompt-section-divider">
             <div className="fill-prompt-section-tag">
               <Palette size={13} style={{ color: '#fb923c' }} />
-              <span>{isArabic ? 'الخامات والتشطيبات والواجهة' : 'Materials, Facade & Envelope'}</span>
+              <span>Materials, Facade & Envelope</span>
             </div>
             <div className="fill-prompt-section-line" />
           </div>
@@ -475,21 +469,19 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
           {/* Form Fields Grid — Category 2 */}
           <div className="fill-prompt-grid">
             <CustomSelect
-              label={isArabic ? 'الخامة الأساسية' : 'Primary material'}
+              label="Primary material"
               icon={<Hammer size={13} style={{ color: '#f472b6' }} />}
               value={primaryMaterial}
               options={MATERIAL_OPTIONS}
               onChange={setPrimaryMaterial}
-              isArabic={isArabic}
             />
 
             <CustomSelect
-              label={isArabic ? 'لون الواجهة' : 'Facade color'}
+              label="Facade color"
               icon={<Palette size={13} style={{ color: '#fb923c' }} />}
               value={facadeColor}
               options={COLOR_OPTIONS}
               onChange={setFacadeColor}
-              isArabic={isArabic}
               extraAction={
                 <div style={{ position: 'relative' }}>
                   <button
@@ -504,7 +496,7 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
 
                   {showRalPicker && (
                     <div className="ral-picker-popup">
-                      <div className="ral-picker-title">{isArabic ? 'ألوان RAL المعمارية القياسية' : 'Standard Architectural RAL Swatches'}</div>
+                      <div className="ral-picker-title">Standard Architectural RAL Swatches</div>
                       <div className="ral-grid">
                         {RAL_COLORS.map((c) => (
                           <div
@@ -528,21 +520,19 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
             />
 
             <CustomSelect
-              label={isArabic ? 'السقف والغلاف' : 'Roof'}
+              label="Roof"
               icon={<Home size={13} style={{ color: '#a7f3d0' }} />}
               value={roof}
               options={ROOF_OPTIONS}
               onChange={setRoof}
-              isArabic={isArabic}
             />
 
             <CustomSelect
-              label={isArabic ? 'العنصر المميز البصري' : 'Signature element'}
+              label="Signature element"
               icon={<Crown size={13} style={{ color: '#e879f9' }} />}
               value={signatureElement}
               options={SIGNATURE_ELEMENTS}
               onChange={setSignatureElement}
-              isArabic={isArabic}
             />
           </div>
         </div>
@@ -552,7 +542,7 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
           <div className="fill-prompt-left-actions">
             <button className="fill-prompt-btn-secondary" onClick={handleClearAll} title="Clear all fields">
               <RotateCcw size={13} />
-              <span>{isArabic ? 'تفريغ' : 'Clear'}</span>
+              <span>Clear</span>
             </button>
             <button 
               className={`fill-prompt-btn-secondary ${isRandomizing ? 'spinning' : ''}`} 
@@ -560,12 +550,12 @@ export const FillPromptModal: React.FC<FillPromptModalProps> = ({
               title="Randomize all fields"
             >
               <Dices size={13} className={isRandomizing ? 'animate-spin' : ''} />
-              <span>{isArabic ? 'توليد عشوائي' : 'Randomize'}</span>
+              <span>Randomize</span>
             </button>
           </div>
           <button className="fill-prompt-btn-primary" onClick={handleUse}>
             <Check size={16} />
-            <span>{isArabic ? 'تطبيق واستخدام البروموت' : 'Use Prompt'}</span>
+            <span>Use Prompt</span>
           </button>
         </div>
       </div>

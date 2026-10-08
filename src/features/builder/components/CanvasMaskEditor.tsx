@@ -352,7 +352,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
             title="Paint Mask Region"
           >
             <Paintbrush size={15} />
-            <span>{isArabic ? 'رسم يدوي' : 'Draw'}</span>
+            <span>Draw</span>
           </button>
 
           {/* Snap to Element Mode */}
@@ -363,7 +363,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
             title="Snap-to-Element Auto Masking"
           >
             <MousePointerClick size={15} />
-            <span>{isArabic ? 'الانجذاب التلقائي (Snap-to-Element)' : 'Snap-to-Element'}</span>
+            <span>Snap-to-Element</span>
           </button>
 
           {/* Erase Mode */}
@@ -374,7 +374,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
             title="Erase Mask Region"
           >
             <Eraser size={15} />
-            <span>{isArabic ? 'محاية' : 'Erase'}</span>
+            <span>Erase</span>
           </button>
         </div>
 
@@ -426,7 +426,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
             disabled={strokes.length === 0}
           >
             <Check size={16} />
-            <span>{isArabic ? 'تطبيق الماسك' : 'Apply Mask'}</span>
+            <span>Apply Mask</span>
           </button>
         </div>
       </div>
@@ -435,7 +435,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
       <div className="mask-presets-bar">
         <div className="presets-label">
           <Sparkles size={13} className="text-rose-400" />
-          <span>{isArabic ? `البرومتات المعمارية الـ 62 (${filteredPresets.length}):` : `Architectural Presets 62 (${filteredPresets.length}):`}</span>
+          <span>{`Architectural Presets 62 (${filteredPresets.length}):`}</span>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -453,7 +453,7 @@ export const CanvasMaskEditor: React.FC<CanvasMaskEditorProps> = ({
           >
             {categories.map(c => (
               <option key={c} value={c}>
-                {c === 'all' ? (isArabic ? 'الكل (62)' : 'All (62)') : c}
+                {c === 'all' ? 'All (62)' : c}
               </option>
             ))}
           </select>

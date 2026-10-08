@@ -85,19 +85,19 @@ export const EnlargeRegionTool: React.FC<EnlargeRegionToolProps> = ({
   };
 
   return (
-    <div className="enlarge-tool-container" ref={containerRef} style={{ direction: isArabic ? 'rtl' : 'ltr' }}>
+    <div className="enlarge-tool-container" ref={containerRef} style={{ direction: 'ltr' }}>
       {/* Floating Control Bar */}
       <div className="enlarge-tool-toolbar">
         <div className="enlarge-tool-title">
           <Maximize2 size={15} className="text-rose-400" />
-          <span>{isArabic ? 'التكبير الذكي (Smart Architectural Enlarge)' : 'Smart Architectural Enlarge'}</span>
+          <span>Smart Architectural Enlarge</span>
         </div>
 
         {/* Semantic Surface Badge */}
         {analysis && (
           <div className="semantic-surface-badge">
             <Cpu size={13} className="text-rose-400" />
-            <span>{isArabic ? analysis.labelAr : analysis.label}</span>
+            <span>{analysis.label}</span>
           </div>
         )}
 
@@ -109,11 +109,11 @@ export const EnlargeRegionTool: React.FC<EnlargeRegionToolProps> = ({
           title="Locks architectural line segments and contours during upscale"
         >
           <Shield size={14} />
-          <span>{isArabic ? 'حماية الخطوط الإنشائية (Preserve Geometry)' : 'Preserve Geometry'}</span>
+          <span>Preserve Geometry</span>
         </button>
 
         <div className="enlarge-scale-selector">
-          <span className="scale-label">{isArabic ? 'النسبة:' : 'Scale:'}</span>
+          <span className="scale-label">Scale:</span>
           <button 
             type="button" 
             className={`scale-btn ${scaleMultiplier === 2.0 ? 'active' : ''}`}
@@ -136,7 +136,7 @@ export const EnlargeRegionTool: React.FC<EnlargeRegionToolProps> = ({
           </button>
           <button type="button" className="enlarge-apply-btn" onClick={handleConfirm} disabled={isAnalyzing}>
             <Sparkles size={15} />
-            <span>{isArabic ? 'توليد المجموعات (Ghost Set)' : `Enlarge (${scaleMultiplier}x)`}</span>
+            <span>{`Enlarge (${scaleMultiplier}x)`}</span>
           </button>
         </div>
       </div>
@@ -145,7 +145,7 @@ export const EnlargeRegionTool: React.FC<EnlargeRegionToolProps> = ({
       {analysis && (
         <div className="recommended-engine-banner">
           <Activity size={13} className="text-rose-400" />
-          <span>{isArabic ? 'المحرك المقترح تلقائياً للخامة المحددة:' : 'Auto-suggested surface engine:'}</span>
+          <span>Auto-suggested surface engine:</span>
           <span className="engine-name-chip">{analysis.recommendedEngineName}</span>
         </div>
       )}

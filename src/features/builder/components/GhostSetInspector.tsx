@@ -38,15 +38,15 @@ export const GhostSetInspector: React.FC<GhostSetInspectorProps> = ({
   const selectedCandidate = candidates.find(c => c.id === selectedCandidateId) || candidates[0];
 
   return (
-    <div className="ghost-inspector-overlay" style={{ direction: isArabic ? 'rtl' : 'ltr' }}>
+    <div className="ghost-inspector-overlay" style={{ direction: 'ltr' }}>
       <div className="ghost-inspector-modal">
         {/* Header */}
         <div className="ghost-inspector-header">
           <div className="header-title">
             <Sparkles size={18} className="text-rose-400" />
             <div>
-              <h3>{isArabic ? 'مجموعة المرشحين (Ghost Set Candidate Selection)' : 'Ghost Set Candidate Selection'}</h3>
-              <p>{isArabic ? 'اختر النتيجة الأفضل لتثبيتها وحساب الكريدت عليها فقط' : 'Compare generated variants. Credits are charged only on confirmed selection.'}</p>
+              <h3>Ghost Set Candidate Selection</h3>
+              <p>Compare generated variants. Credits are charged only on confirmed selection.</p>
             </div>
           </div>
 
@@ -58,7 +58,7 @@ export const GhostSetInspector: React.FC<GhostSetInspectorProps> = ({
               title="Split Slider Comparison"
             >
               <Split size={15} />
-              <span>{isArabic ? 'مقارنة سحب' : 'Split Slider'}</span>
+              <span>Split Slider</span>
             </button>
             <button 
               type="button" 
@@ -67,7 +67,7 @@ export const GhostSetInspector: React.FC<GhostSetInspectorProps> = ({
               title="Side by Side"
             >
               <Layers size={15} />
-              <span>{isArabic ? 'جنباً إلى جنب' : 'Side-by-Side'}</span>
+              <span>Side-by-Side</span>
             </button>
             <button type="button" className="close-btn" onClick={onCancel} title="Close">
               <X size={16} />
@@ -100,13 +100,13 @@ export const GhostSetInspector: React.FC<GhostSetInspectorProps> = ({
                 </div>
               </div>
 
-              <span className="slider-badge left">{isArabic ? 'الأصل' : 'Original'}</span>
+              <span className="slider-badge left">Original</span>
               <span className="slider-badge right">{selectedCandidate?.label || 'Candidate'}</span>
             </div>
           ) : (
             <div className="side-by-side-stage">
               <div className="side-card">
-                <span className="card-badge">{isArabic ? 'الأصل' : 'Original'}</span>
+                <span className="card-badge">Original</span>
                 <img src={originalImageUrl} alt="Original" />
               </div>
               <div className="side-card active">
@@ -140,13 +140,13 @@ export const GhostSetInspector: React.FC<GhostSetInspectorProps> = ({
           <div className="ghost-confirm-footer">
             <div className="credit-guarantee">
               <ShieldCheck size={16} className="text-emerald-400" />
-              <span>{isArabic ? 'ضمان الكريدت: يُخصم الكريدت فقط عند التثبيت' : 'Credit Protection: Deduction occurs only on confirmed winner.'}</span>
+              <span>Credit Protection: Deduction occurs only on confirmed winner.</span>
               <span className="cost-tag"><Zap size={12} /> {selectedCandidate?.creditCost || 1} Credit</span>
             </div>
 
             <div className="footer-actions">
               <button type="button" className="ghost-cancel-btn" onClick={onCancel}>
-                {isArabic ? 'إلغاء' : 'Cancel'}
+                Cancel
               </button>
               <button 
                 type="button" 
@@ -154,7 +154,7 @@ export const GhostSetInspector: React.FC<GhostSetInspectorProps> = ({
                 onClick={() => selectedCandidate && onConfirmWinner(selectedCandidate)}
               >
                 <Check size={16} />
-                <span>{isArabic ? 'تثبيت النتيجة في المشجر' : 'Confirm & Lock Winner'}</span>
+                <span>Confirm & Lock Winner</span>
               </button>
             </div>
           </div>
