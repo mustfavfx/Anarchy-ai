@@ -427,3 +427,22 @@ export const CustomConnectionLine = memo(({ fromX, fromY, toX, toY }: { fromX: n
 });
 
 CustomConnectionLine.displayName = 'CustomConnectionLine';
+
+/**
+ * Generates a lightweight, fixed-size identity token for an image string.
+ * For massive data: URIs, avoids holding or concatenating multi-megabyte strings,
+ * preventing V8 Large Object Space heap exhaustion during drag/render loops.
+ */
+export function getImageFingerprint(img?: string | null): string {
+  if (!img) return '';
+  if (img.startsWith('data:')) {
+    const len = img.length;
+    let hash = 0;
+    const step = Math.max(1, Math.floor(len / 32));
+    for (let i = 0; i < len; i += step) {
+      hash = ((hash << 5) - hash + img.charCodeAt(i)) | 0;
+    }
+    return `data_${len}_${hash}`;
+  }
+  return img;
+}

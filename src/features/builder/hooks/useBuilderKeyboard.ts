@@ -103,6 +103,23 @@ export function useBuilderKeyboard({
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!isActive) return;
+
+      const ctrl = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+
+      // Universal Save Shortcuts: Ctrl+S (Save) & Ctrl+Shift+S (Save As)
+      // Must trigger anywhere on the canvas, even if prompt or input is focused!
+      if (ctrl && key === 's') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.shiftKey) {
+          await handleSaveAs();
+        } else {
+          await handleSave();
+        }
+        return;
+      }
+
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
@@ -119,10 +136,7 @@ export function useBuilderKeyboard({
         return;
       }
 
-      const ctrl = e.ctrlKey || e.metaKey;
       if (!ctrl) return;
-
-      const key = e.key.toLowerCase();
 
       switch (key) {
         case 'c':
@@ -154,14 +168,6 @@ export function useBuilderKeyboard({
         case 'y':
           e.preventDefault();
           if (canRedo) redo();
-          break;
-        case 's':
-          e.preventDefault();
-          if (e.shiftKey) {
-            await handleSaveAs();
-          } else {
-            await handleSave();
-          }
           break;
         case 'o':
           e.preventDefault();

@@ -1,11 +1,19 @@
 import { logger } from '@/utils/logger';
 
-// Track active Object URLs to prevent memory leaks
+// Track active Object URLs to prevent memory leaks and reuse identical URLs
 const objectUrlRegistry = new Set<string>();
+const keyToObjectUrlMap = new Map<string, string>();
 
-export function registerObjectUrl(url: string): string {
+export function registerObjectUrl(url: string, key?: string): string {
   objectUrlRegistry.add(url);
+  if (key) {
+    keyToObjectUrlMap.set(key, url);
+  }
   return url;
+}
+
+export function getCachedObjectUrl(key: string): string | undefined {
+  return keyToObjectUrlMap.get(key);
 }
 
 export function getObjectUrlRegistrySize(): number {
@@ -21,6 +29,7 @@ export function revokeAllObjectUrls(): void {
     }
   });
   objectUrlRegistry.clear();
+  keyToObjectUrlMap.clear();
 }
 
 export function revokeObjectUrl(url: string): void {
@@ -29,18 +38,39 @@ export function revokeObjectUrl(url: string): void {
       URL.revokeObjectURL(url);
     } catch {}
     objectUrlRegistry.delete(url);
+    for (const [k, v] of keyToObjectUrlMap.entries()) {
+      if (v === url) {
+        keyToObjectUrlMap.delete(k);
+      }
+    }
   }
 }
 
 export function dataURLtoBlob(dataUrl: string): Blob {
-  const arr = dataUrl.split(',');
-  const mimeMatch = arr[0].match(/:(.*?);/);
+  const commaIdx = dataUrl.indexOf(',');
+  const header = commaIdx !== -1 ? dataUrl.slice(0, commaIdx) : 'data:image/png;base64';
+  const base64 = commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+  const mimeMatch = header.match(/:(.*?);/);
   const mime = mimeMatch ? mimeMatch[1] : 'image/png';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
+
+  // 1. Native C++ SIMD decoding where supported (Chromium 128+)
+  if (typeof (Uint8Array as any).fromBase64 === 'function') {
+    try {
+      const u8arr = (Uint8Array as any).fromBase64(base64);
+      return new Blob([u8arr], { type: mime });
+    } catch {}
+  }
+
+  // 2. High-speed chunked decoding avoiding single-byte thread locks
+  const bstr = atob(base64);
+  const len = bstr.length;
+  const u8arr = new Uint8Array(len);
+  const BLOCK_SIZE = 65536;
+  for (let offset = 0; offset < len; offset += BLOCK_SIZE) {
+    const end = Math.min(offset + BLOCK_SIZE, len);
+    for (let i = offset; i < end; i++) {
+      u8arr[i] = bstr.charCodeAt(i);
+    }
   }
   return new Blob([u8arr], { type: mime });
 }

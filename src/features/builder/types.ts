@@ -27,6 +27,32 @@ export type ProcessingType =
   | 'variation';  // Style variation
 
 // ============================================================================
+// SEMANTIC NODE CLASSIFICATION - Agent Scene Perception
+// ============================================================================
+
+export type SemanticCategory =
+  | 'building'    // Architecture, facades, residential/commercial buildings
+  | 'interior'    // Rooms, decor, living spaces, furniture layouts
+  | 'person'      // Humans, portraits, figures, characters
+  | 'landscape'   // Outdoors, nature, gardens, environment, terrain
+  | 'material'    // Textures, raw materials, concrete, wood, marble
+  | 'object'      // Standalone products, assets, cars, isolated objects
+  | 'art'         // Artwork, stylized illustrations, digital art
+  | 'unknown';    // Unclassified or pending analysis
+
+export interface SemanticClassification {
+  category: SemanticCategory;
+  label: string;          // Human-readable title e.g. "Residential Villa", "Modern Living Room", "Female Portrait"
+  confidence: number;     // 0.0 to 1.0
+  tags: string[];         // Key features e.g. ["concrete", "minimalist", "sunset"]
+  analyzedAt: number;     // Timestamp of analysis
+  subTypology?: string;
+  description?: string;
+  architecturalStyle?: string;
+  lightingCondition?: string;
+}
+
+// ============================================================================
 // DATA PACKET - Flows through edges
 // ============================================================================
 
@@ -47,6 +73,9 @@ export interface DataPacket {
     width: number;
     height: number;
   };
+  taskId?: string;
+  midjourneyTaskId?: string;
+  customId?: string;
 }
 
 // ============================================================================
@@ -78,12 +107,17 @@ export interface BuilderNodeData extends Record<string, unknown> {
   originalImage?: string;
   thumbnail?: string;
   prompt?: string;
+  semantic?: SemanticClassification;
+  structuredAnalysis?: any;
   
   // Processing metadata
   createdAt: number;
   processedAt?: number;
+  modelUsed?: string;
   errorMessage?: string;
   predictionId?: string;    // Replicate prediction ID for tracking generation
+  midjourneyTaskId?: string;
+  midjourneyCustomId?: string;
   userId?: string;          // User ID for Realtime subscription
   historyEntryId?: string;  // Links the canvas node to its history entry ID
   dimensions?: {

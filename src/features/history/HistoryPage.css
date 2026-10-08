@@ -820,6 +820,8 @@
   cursor: col-resize;
   user-select: none;
   background: #000;
+  contain: paint layout;
+  transform: translateZ(0);
 }
 
 /* Both images fill the container identically */
@@ -834,6 +836,8 @@
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  transform: translateZ(0);
+  image-rendering: auto;
 }
 
 /* After image sits below clip */
@@ -846,29 +850,38 @@
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
   height: 100%;
   overflow: hidden;
   z-index: 2;
+  clip-path: inset(0 calc(100% - var(--slider-pos, 50%)) 0 0);
+  will-change: clip-path;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .compare-clip .compare-img {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
+  width: 100%;
   height: 100%;
   object-fit: contain;
   object-position: center;
+  transform: translateZ(0);
+  image-rendering: auto;
 }
 
 .compare-handle {
   position: absolute;
   top: 0;
   height: 100%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateZ(0);
   z-index: 10;
   pointer-events: none;
   width: 0;
   overflow: visible;
+  left: var(--slider-pos, 50%);
+  will-change: left;
 }
 
 .compare-handle-line {

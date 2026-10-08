@@ -8,6 +8,9 @@
   width: auto;
   position: relative;
   border-radius: 14px;
+  overflow: visible !important;
+  contain: none !important;
+  transform: translateZ(0);
   background: 
     linear-gradient(135deg, rgba(25, 28, 35, 0.85) 0%, rgba(18, 20, 28, 0.9) 50%, rgba(14, 16, 22, 0.95) 100%);
   border: 1px solid rgba(200, 220, 255, 0.15);
@@ -18,7 +21,6 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.3),
     0 0 30px rgba(200, 220, 255, 0.05);
   transition: border-color 0.15s ease;
-  overflow: visible;
   backdrop-filter: none;
   transform-style: flat;
   animation: ghostPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -36,7 +38,7 @@
 }
 
 .ghost-node:hover {
-  transform: translateY(-4px) rotateX(2deg);
+  transform: translateY(-1px);
   border-color: rgba(200, 220, 255, 0.3);
   background: 
     linear-gradient(135deg, rgba(30, 35, 45, 0.9) 0%, rgba(22, 26, 35, 0.95) 50%, rgba(18, 20, 28, 1) 100%);
@@ -59,7 +61,7 @@
     0 0 50px rgba(200, 220, 255, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5);
-  transform: translateY(-4px) rotateX(2deg);
+  transform: none;
 }
 
 .ghost-node.connecting {
@@ -121,68 +123,87 @@
    ================================================================ */
 
 .ghost-handle {
-  width: 12px;
-  height: 12px;
-  background: rgba(59, 130, 246, 0.2);
-  border: 2px solid rgba(59, 130, 246, 0.5);
-  border-radius: 50%;
-  transition: all 0.15s ease;
-}
-
-.ghost-handle:hover {
-  background: rgba(59, 130, 246, 0.5);
-  border-color: rgba(59, 130, 246, 0.9);
-  transform: scale(1.2);
-}
-
-.ghost-handle--input {
-  left: -6px !important;
-  transform: translateY(-50%) !important;
   width: 12px !important;
   height: 12px !important;
-  background: rgba(225, 29, 72, 0.4) !important;
-  border: 2px solid rgba(225, 29, 72, 0.8) !important;
   border-radius: 50% !important;
+  box-sizing: border-box !important;
+  cursor: crosshair !important;
+  z-index: 50 !important;
+  position: absolute !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease !important;
+}
+
+.ghost-handle::after {
+  display: none !important;
+}
+
+/* Expanded invisible hover target for effortless cable pulling */
+.ghost-handle::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: -8px;
+  right: -8px;
+  border-radius: 50%;
+  pointer-events: auto;
+}
+
+/* Input handles - Positioned on outer boundary at -12px */
+.ghost-handle--input {
+  left: -12px !important;
+  right: auto !important;
+  transform: translateY(-50%) !important;
+  background: #1e222d !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5) !important;
   opacity: 1 !important;
   visibility: visible !important;
-  z-index: 10 !important;
 }
 
 .ghost-handle--input:hover {
-  background: rgba(225, 29, 72, 0.7) !important;
-  border-color: #e11d48 !important;
-  transform: translateY(-50%) scale(1.2) !important;
+  border-color: #ffffff !important;
+  transform: translateY(-50%) scale(1.25) !important;
+  box-shadow: 0 0 10px rgba(255, 42, 109, 0.8) !important;
 }
 
-/* Connected handle style */
+/* Connected handle style - solid clean neon pink */
 .ghost-handle--input.connected {
-  background: #e11d48 !important;
-  border-color: #e11d48 !important;
+  background: #ff2a6d !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 8px rgba(255, 42, 109, 0.7) !important;
 }
 
-/* Output handle - Force right side positioning */
+/* Output handle - Force right side positioning at -12px */
 .ghost-handle--output {
-  right: -6px !important;
+  right: -12px !important;
   left: auto !important;
   top: 50% !important;
   bottom: auto !important;
   transform: translateY(-50%) !important;
-  background: rgba(16, 185, 129, 0.3) !important;
-  border-color: rgba(16, 185, 129, 0.6) !important;
+  background: #10b981 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7) !important;
 }
 
-/* Override any inline styles */
+.ghost-handle--output:hover {
+  transform: translateY(-50%) scale(1.25) !important;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 1) !important;
+}
+
+/* Override any inline styles to keep handles outside */
 .ghost-node .react-flow__handle[type="source"] {
-  right: -6px !important;
+  right: -12px !important;
   left: auto !important;
   top: 50% !important;
   bottom: auto !important;
+  transform: translateY(-50%) !important;
 }
 
-/* Override target handles to force left positioning */
 .ghost-node .react-flow__handle[type="target"] {
-  left: -6px !important;
+  left: -12px !important;
   right: auto !important;
+  transform: translateY(-50%) !important;
 }
 
 /* Hide any edge labels */
@@ -192,11 +213,6 @@
 
 .react-flow__edge-label {
   display: none !important;
-}
-
-.ghost-handle--output:hover {
-  background: rgba(16, 185, 129, 0.5);
-  border-color: rgba(16, 185, 129, 0.9);
 }
 
 /* ================================================================

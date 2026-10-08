@@ -362,7 +362,7 @@ export const MaskStage: React.FC<MaskStageProps> = ({
       )}
 
       {/* 5. Precision Dynamic Feather & Softness Circular Brush Cursor */}
-      {showBrushCursor && !isSpacebarDown && !isPanning && maskTool !== 'hand' && ((maskTool === 'brush' && (drawSubTool === 'brush' || drawSubTool === 'line')) || maskTool === 'eraser') && cursorPos && (() => {
+      {showBrushCursor && !isSpacebarDown && !isPanning && maskTool !== 'hand' && ((maskTool === 'brush' && (drawSubTool === 'brush' || drawSubTool === 'line')) || maskTool === 'eraser') && (() => {
         const isEraser = maskTool === 'eraser';
         const innerRatio = Math.max(0.06, brushHardness / 100);
         const innerCoreDiameter = Math.max(4, Math.round(brushSize * innerRatio));
@@ -374,6 +374,10 @@ export const MaskStage: React.FC<MaskStageProps> = ({
           ? `radial-gradient(circle at center, ${primaryColor} 0%, ${midColor} ${Math.round(brushHardness * 0.85)}%, ${transparentEdge} 100%)`
           : (isEraser ? 'rgba(245, 158, 11, 0.22)' : hexToRgba(brushColor, 0.26));
 
+        const initTransform = cursorPos
+          ? `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`
+          : 'translate3d(-9999px, -9999px, 0)';
+
         return (
           <div
             ref={cursorRef}
@@ -383,7 +387,7 @@ export const MaskStage: React.FC<MaskStageProps> = ({
               top: 0,
               width: brushSize,
               height: brushSize,
-              transform: `translate3d(${cursorPos.x}px, ${cursorPos.y}px, 0) translate(-50%, -50%)`,
+              transform: cursorRef.current?.style?.transform || initTransform,
               willChange: 'transform',
               position: 'absolute',
               pointerEvents: 'none',

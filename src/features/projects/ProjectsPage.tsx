@@ -65,12 +65,18 @@ export const ProjectsPage: React.FC = () => {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await listProjects();
+      const list = await Promise.race([
+        listProjects(),
+        new Promise<ProjectMeta[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Projects list timeout')), 4000)
+        ),
+      ]);
       setProjects(list);
     } catch (err) {
       logger.error('[Projects] Failed to list:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {

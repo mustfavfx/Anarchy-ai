@@ -144,16 +144,26 @@ export function useHistoryFilters() {
         list = semanticResults;
       }
     } else if (searchQuery.trim()) {
-      if (trieResults !== null) {
-        list = trieResults;
+      const q = searchQuery.toLowerCase().trim();
+      const textMatches = list.filter(e => 
+        (e.prompt && e.prompt.toLowerCase().includes(q)) ||
+        (e.label && e.label.toLowerCase().includes(q)) ||
+        (e.model && e.model.toLowerCase().includes(q)) ||
+        (e.id && e.id.toLowerCase().includes(q)) ||
+        (e.tags && e.tags.some(t => t.toLowerCase().includes(q)))
+      );
+      if (trieResults && trieResults.length > 0) {
+        const idMap = new Set(trieResults.map(t => t.id));
+        const combined = [...trieResults];
+        textMatches.forEach(m => {
+          if (!idMap.has(m.id)) {
+            combined.push(m);
+            idMap.add(m.id);
+          }
+        });
+        list = combined;
       } else {
-        const q = searchQuery.toLowerCase().trim();
-        list = list.filter(e => 
-          (e.prompt && e.prompt.toLowerCase().includes(q)) ||
-          (e.model && e.model.toLowerCase().includes(q)) ||
-          (e.id && e.id.toLowerCase().includes(q)) ||
-          (e.tags && e.tags.some(t => t.toLowerCase().includes(q)))
-        );
+        list = textMatches;
       }
     }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Layers } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { type AIControlPanelProps, type ToolType, PanelSelect } from './panelTypes';
 
 export interface AnarchyCreatorSectionProps {

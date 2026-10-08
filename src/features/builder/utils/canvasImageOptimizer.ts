@@ -1,49 +1,23 @@
 import { logger } from '@/utils/logger';
-import { cacheLocalImage, getLocalImageAsObjectURL } from '@/services/history/HistoryService';
+import { cacheLocalImage, getLocalImage, getLocalImageAsObjectURL, dataURLtoBlob, blobToDataURL } from '@/services/history/HistoryService';
 import { isVideoUrl } from './builderHelpers';
+import {
+  memoryThumbnailCache,
+  inFlightThumbnails,
+  trimMemoryCache,
+  invalidateCanvasThumbnail,
+  primeCanvasThumbnail,
+  getCachedCanvasThumbnail,
+} from '@/services/image/memoryThumbnailCache';
 
-const memoryThumbnailCache = new Map<string, string>();
-const inFlightThumbnails = new Map<string, Promise<string>>();
-
-const MAX_CACHE_ENTRIES = 200;
-
-function trimMemoryCache() {
-  if (memoryThumbnailCache.size > MAX_CACHE_ENTRIES) {
-    const keysToDelete = Array.from(memoryThumbnailCache.keys()).slice(0, 50);
-    keysToDelete.forEach(k => {
-      const url = memoryThumbnailCache.get(k);
-      if (url && url.startsWith('blob:')) {
-        try {
-          URL.revokeObjectURL(url);
-        } catch {}
-      }
-      memoryThumbnailCache.delete(k);
-    });
-  }
-}
-
-/**
- * Invalidates any cached thumbnail in memory or in-flight promises for the given key.
- */
-export function invalidateCanvasThumbnail(rawKeyOrUrl?: string | null): void {
-  if (!rawKeyOrUrl) return;
-  const cleanKey = rawKeyOrUrl.replace(/^idb:\/\//, '').replace(/_canvas_thumb$/, '');
-  const keysToPurge = [
-    rawKeyOrUrl,
-    `idb://${cleanKey}`,
-    `idb://${cleanKey}_canvas_thumb`
-  ];
-  for (const k of keysToPurge) {
-    const url = memoryThumbnailCache.get(k);
-    if (url && url.startsWith('blob:')) {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {}
-    }
-    memoryThumbnailCache.delete(k);
-    inFlightThumbnails.delete(k);
-  }
-}
+export {
+  memoryThumbnailCache,
+  inFlightThumbnails,
+  trimMemoryCache,
+  invalidateCanvasThumbnail,
+  primeCanvasThumbnail,
+  getCachedCanvasThumbnail,
+};
 
 let activeThumbnailJobs = 0;
 const thumbnailQueue: Array<() => void> = [];
@@ -80,63 +54,89 @@ export async function createOptimizedThumbnailBlob(
   await acquireThumbnailSlot();
   try {
     let blob: Blob | null = null;
+    let imageSource: any = null;
+
     if (typeof source === 'string') {
       if (source.startsWith('data:')) {
-        // Safe in-memory decoding to avoid CSP connect-src issues with fetch(data:...)
         try {
-          const [header, base64] = source.split(',');
-          const mimeMatch = header.match(/data:([^;]+)/);
-          const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          blob = new Blob([bytes], { type: mime });
+          blob = dataURLtoBlob(source);
         } catch {
           return null;
         }
-      } else if (source.startsWith('blob:') || source.startsWith('http')) {
-        const res = await fetch(source);
-        blob = await res.blob();
-      } else {
-        return null;
+      } else if (source.startsWith('blob:')) {
+        try {
+          const res = await fetch(source);
+          if (res.ok) blob = await res.blob();
+        } catch {}
+      } else if (source.startsWith('http://') || source.startsWith('https://')) {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          const b64 = await invoke<string>('url_to_base64', { url: source });
+          if (b64 && b64.startsWith('data:')) {
+            blob = dataURLtoBlob(b64);
+          }
+        } catch {}
+        if (!blob) {
+          try {
+            const res = await fetch(source, { referrerPolicy: 'no-referrer' });
+            if (res.ok) blob = await res.blob();
+          } catch {}
+        }
+      }
+
+      if (!blob && typeof Image !== 'undefined') {
+        try {
+          const img = new Image();
+          img.referrerPolicy = 'no-referrer';
+          img.src = source;
+          if (typeof img.decode === 'function') {
+            await img.decode();
+          } else {
+            await new Promise<void>((res, rej) => {
+              img.onload = () => res();
+              img.onerror = rej;
+            });
+          }
+          imageSource = img;
+        } catch {
+          // Fall through
+        }
       }
     } else {
       blob = source;
     }
 
-    if (!blob) return null;
+    const bitmapSource = imageSource || blob;
+    if (!bitmapSource) return null;
 
-    // Use native createImageBitmap with browser-side hardware downsampling
+    // Use native createImageBitmap with browser-side hardware downsampling in a single decode pass
     if (typeof createImageBitmap !== 'undefined') {
       try {
-        const probeBitmap = await createImageBitmap(blob);
+        const probeBitmap = await createImageBitmap(bitmapSource);
         const w = probeBitmap.width;
         const h = probeBitmap.height;
-        probeBitmap.close();
 
         // If image is already smaller or equal to maxDimension, use as-is
         if (w <= maxDimension && h <= maxDimension) {
-          return blob;
+          probeBitmap.close();
+          if (blob) return blob;
+          if (typeof source === 'string' && source.startsWith('data:')) {
+            return dataURLtoBlob(source);
+          }
         }
 
         const scale = Math.min(maxDimension / w, maxDimension / h);
         const targetW = Math.max(1, Math.round(w * scale));
         const targetH = Math.max(1, Math.round(h * scale));
 
-        const resizedBitmap = await createImageBitmap(blob, {
-          resizeWidth: targetW,
-          resizeHeight: targetH,
-          resizeQuality: 'high'
-        });
-
         if (typeof OffscreenCanvas !== 'undefined') {
           const canvas = new OffscreenCanvas(targetW, targetH);
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            ctx.drawImage(resizedBitmap, 0, 0);
-            resizedBitmap.close();
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(probeBitmap, 0, 0, targetW, targetH);
+            probeBitmap.close();
             return await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
           }
         }
@@ -147,14 +147,16 @@ export async function createOptimizedThumbnailBlob(
           canvas.height = targetH;
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            ctx.drawImage(resizedBitmap, 0, 0);
-            resizedBitmap.close();
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(probeBitmap, 0, 0, targetW, targetH);
+            probeBitmap.close();
             return await new Promise<Blob | null>((resolve) => {
               canvas.toBlob(resolve, 'image/jpeg', 0.85);
             });
           }
         }
-        resizedBitmap.close();
+        probeBitmap.close();
       } catch (bitmapErr) {
         logger.warn('[canvasImageOptimizer] createImageBitmap failed, falling back to HTMLImageElement:', bitmapErr);
       }
@@ -162,6 +164,7 @@ export async function createOptimizedThumbnailBlob(
 
     // Fallback: HTMLImageElement
     if (typeof document !== 'undefined') {
+      if (!blob) return null;
       return new Promise<Blob | null>((resolve) => {
         const img = new Image();
         const objectUrl = URL.createObjectURL(blob);
@@ -229,7 +232,7 @@ export async function resolveCanvasThumbnail(
   if (!rawKeyOrUrl) return '';
   if (isVideoUrl(rawKeyOrUrl)) return rawKeyOrUrl;
 
-  const cached = memoryThumbnailCache.get(rawKeyOrUrl);
+  const cached = getCachedCanvasThumbnail(rawKeyOrUrl);
   if (cached) return cached;
 
   const inFlight = inFlightThumbnails.get(rawKeyOrUrl);
@@ -242,48 +245,53 @@ export async function resolveCanvasThumbnail(
         const thumbKey = `idb://${cleanKey}_canvas_thumb`;
 
         // Check memory cache under alternate keys
-        const altCached = memoryThumbnailCache.get(thumbKey) || memoryThumbnailCache.get(`idb://${cleanKey}`);
+        const altCached = getCachedCanvasThumbnail(thumbKey) || getCachedCanvasThumbnail(`idb://${cleanKey}`) || getCachedCanvasThumbnail(cleanKey);
         if (altCached) {
-          memoryThumbnailCache.set(rawKeyOrUrl, altCached);
+          primeCanvasThumbnail(rawKeyOrUrl, altCached);
           return altCached;
         }
 
-        // Check if thumbnail is already cached in IndexedDB
-        const cachedThumbUrl = await getLocalImageAsObjectURL(thumbKey);
-        if (cachedThumbUrl) {
+        // 1. Check if thumbnail is already cached in IndexedDB - fetch as Base64 Data URL
+        // (30KB JPEG Base64 is immune to revocation, renders instantly in Chromium WebView2)
+        const cachedThumbBase64 = await getLocalImage(thumbKey);
+        if (cachedThumbBase64) {
           trimMemoryCache();
-          memoryThumbnailCache.set(rawKeyOrUrl, cachedThumbUrl);
-          memoryThumbnailCache.set(thumbKey, cachedThumbUrl);
-          memoryThumbnailCache.set(`idb://${cleanKey}`, cachedThumbUrl);
-          return cachedThumbUrl;
+          primeCanvasThumbnail(rawKeyOrUrl, cachedThumbBase64);
+          primeCanvasThumbnail(thumbKey, cachedThumbBase64);
+          primeCanvasThumbnail(`idb://${cleanKey}`, cachedThumbBase64);
+          return cachedThumbBase64;
         }
 
-        // Load full image to generate the thumbnail
-        let fullUrl = await getLocalImageAsObjectURL(`idb://${cleanKey}`);
-        if (!fullUrl && rawKeyOrUrl !== `idb://${cleanKey}`) {
-          fullUrl = await getLocalImageAsObjectURL(rawKeyOrUrl);
+        // 2. Load full image from IndexedDB
+        let fullData = await getLocalImage(`idb://${cleanKey}`);
+        if (!fullData && rawKeyOrUrl !== `idb://${cleanKey}`) {
+          fullData = await getLocalImage(rawKeyOrUrl);
         }
-        if (!fullUrl) return '';
+        if (!fullData) {
+          const objUrl = await getLocalImageAsObjectURL(`idb://${cleanKey}`) || await getLocalImageAsObjectURL(rawKeyOrUrl);
+          if (objUrl) fullData = objUrl;
+        }
+        if (!fullData) return '';
 
-        const thumbBlob = await createOptimizedThumbnailBlob(fullUrl, maxDimension);
+        const thumbBlob = await createOptimizedThumbnailBlob(fullData, maxDimension);
         if (thumbBlob) {
           await cacheLocalImage(thumbKey, thumbBlob).catch(() => {});
-          const thumbUrl = URL.createObjectURL(thumbBlob);
+          const thumbUrl = await blobToDataURL(thumbBlob);
           trimMemoryCache();
-          memoryThumbnailCache.set(rawKeyOrUrl, thumbUrl);
-          memoryThumbnailCache.set(thumbKey, thumbUrl);
-          memoryThumbnailCache.set(`idb://${cleanKey}`, thumbUrl);
+          primeCanvasThumbnail(rawKeyOrUrl, thumbUrl);
+          primeCanvasThumbnail(thumbKey, thumbUrl);
+          primeCanvasThumbnail(`idb://${cleanKey}`, thumbUrl);
           return thumbUrl;
         }
-        return fullUrl;
+        return fullData;
       }
 
       // For data:, blob:, or remote URLs
       const thumbBlob = await createOptimizedThumbnailBlob(rawKeyOrUrl, maxDimension);
       if (thumbBlob) {
-        const thumbUrl = URL.createObjectURL(thumbBlob);
+        const thumbUrl = await blobToDataURL(thumbBlob);
         trimMemoryCache();
-        memoryThumbnailCache.set(rawKeyOrUrl, thumbUrl);
+        primeCanvasThumbnail(rawKeyOrUrl, thumbUrl);
         return thumbUrl;
       }
       return rawKeyOrUrl;
@@ -291,8 +299,8 @@ export async function resolveCanvasThumbnail(
       logger.warn('[canvasImageOptimizer] resolveCanvasThumbnail failed:', err);
       if (rawKeyOrUrl.startsWith('idb://')) {
         const cleanKey = rawKeyOrUrl.replace(/^idb:\/\//, '').replace(/_canvas_thumb$/, '');
-        const fallbackUrl = await getLocalImageAsObjectURL(`idb://${cleanKey}`);
-        return fallbackUrl || '';
+        const fallback = (await getLocalImage(`idb://${cleanKey}`)) || (await getLocalImageAsObjectURL(`idb://${cleanKey}`));
+        return fallback || '';
       }
     }
     return rawKeyOrUrl.startsWith('idb://') ? '' : rawKeyOrUrl;

@@ -20,44 +20,102 @@ export async function proxyPost(
   proxyUrl: string,
   replicatePath: string,
   body: unknown,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  timeoutMs = 60_000
 ): Promise<ReplicatePrediction> {
   const anonKey = supabaseAnonKey;
-  const res = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': anonKey,
-      'Authorization': `Bearer ${anonKey}`,
-      'x-replicate-path': replicatePath,
-      'x-replicate-method': 'POST',
-    },
-    body: JSON.stringify(body),
-    signal,
-  });
-  if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
-  return res.json();
+  const timeoutCtrl = new AbortController();
+  const timer = setTimeout(() => {
+    timeoutCtrl.abort(new Error(`Proxy request timed out after ${Math.round(timeoutMs / 1000)}s`));
+  }, timeoutMs);
+
+  let effectiveSignal: AbortSignal;
+  if (signal) {
+    if (typeof (AbortSignal as any).any === 'function') {
+      effectiveSignal = (AbortSignal as any).any([signal, timeoutCtrl.signal]);
+    } else {
+      const combined = new AbortController();
+      signal.addEventListener('abort', () => combined.abort(signal.reason), { once: true });
+      timeoutCtrl.signal.addEventListener('abort', () => combined.abort(timeoutCtrl.signal.reason), { once: true });
+      effectiveSignal = combined.signal;
+    }
+  } else {
+    effectiveSignal = timeoutCtrl.signal;
+  }
+
+  try {
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
+        'x-replicate-path': replicatePath,
+        'x-replicate-method': 'POST',
+      },
+      body: JSON.stringify(body),
+      signal: effectiveSignal,
+    });
+    if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
+    return await res.json();
+  } catch (err: any) {
+    if (timeoutCtrl.signal.aborted && (!signal || !signal.aborted)) {
+      throw new Error(`Connection to AI model timed out after ${Math.round(timeoutMs / 1000)}s. Please check your internet connection and try again.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function proxyGet(
   proxyUrl: string,
   replicatePath: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  timeoutMs = 30_000
 ): Promise<ReplicatePrediction> {
   const anonKey = supabaseAnonKey;
-  const res = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': anonKey,
-      'Authorization': `Bearer ${anonKey}`,
-      'x-replicate-path': replicatePath,
-      'x-replicate-method': 'GET',
-    },
-    signal,
-  });
-  if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
-  return res.json();
+  const timeoutCtrl = new AbortController();
+  const timer = setTimeout(() => {
+    timeoutCtrl.abort(new Error(`Proxy request timed out after ${Math.round(timeoutMs / 1000)}s`));
+  }, timeoutMs);
+
+  let effectiveSignal: AbortSignal;
+  if (signal) {
+    if (typeof (AbortSignal as any).any === 'function') {
+      effectiveSignal = (AbortSignal as any).any([signal, timeoutCtrl.signal]);
+    } else {
+      const combined = new AbortController();
+      signal.addEventListener('abort', () => combined.abort(signal.reason), { once: true });
+      timeoutCtrl.signal.addEventListener('abort', () => combined.abort(timeoutCtrl.signal.reason), { once: true });
+      effectiveSignal = combined.signal;
+    }
+  } else {
+    effectiveSignal = timeoutCtrl.signal;
+  }
+
+  try {
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
+        'x-replicate-path': replicatePath,
+        'x-replicate-method': 'GET',
+      },
+      signal: effectiveSignal,
+    });
+    if (!res.ok) throw new Error(`Proxy ${res.status}: ${await res.text()}`);
+    return await res.json();
+  } catch (err: any) {
+    if (timeoutCtrl.signal.aborted && (!signal || !signal.aborted)) {
+      throw new Error(`Polling request timed out after ${Math.round(timeoutMs / 1000)}s.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── Upload a base64 data URI to Replicate Files API via proxy ──────────────

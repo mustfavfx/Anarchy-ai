@@ -2,6 +2,7 @@ import React from 'react';
 
 import type { HistoryEntry, HistoryGroup } from '../types';
 import { useLazyImage } from '../hooks/useLazyImage';
+import { useResolvedImage } from '@/hooks/useResolvedImage';
 import { useHistoryStore } from '@/stores/historyStore';
 import { 
   CheckSquare, Square, Star, FolderOpen, Eye, 
@@ -38,8 +39,34 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
     collections
   } = useHistoryStore();
 
-  const targetId = isGroup ? group!.sourceImageId : entry!.id;
+  const primaryChild = isGroup
+    ? (group?.children?.find(c => c.outputImage || c.outputImageKey || c.thumbnailUrl || c.url || c.rootSourceImage) || group?.children?.[0])
+    : undefined;
+
+  const targetId = isGroup ? (group!.sourceImageId || primaryChild?.id || group!.id) : entry!.id;
   const { containerRef, src: imageSrc, isLoading, error } = useLazyImage(targetId, isGroup ? 'root_source' : 'output');
+
+  const nodeImageCandidate = !isGroup && entry?.nodeTree?.nodes
+    ? (entry.nodeTree.nodes.find(n => n.id === entry.nodeTree?.activeNodeId && (n.image || (n as any).outputData?.image))?.image ||
+       entry.nodeTree.nodes.find(n => (n.type === 'result' || (n.data as any)?.type === 'result') && (n.image || (n.data as any)?.image))?.image ||
+       entry.nodeTree.nodes.find(n => n.image || (n.data as any)?.image)?.image)
+    : undefined;
+
+  const rawCandidate = isGroup
+    ? (group?.sourceImage || primaryChild?.outputImage || primaryChild?.outputImageKey || primaryChild?.thumbnailUrl || primaryChild?.url || (targetId ? `idb://${targetId}_output` : ''))
+    : (entry?.outputImage || entry?.outputImageKey || entry?.thumbnailUrl || entry?.url || entry?.rootSourceImage || nodeImageCandidate || entry?.inputImage || (entry?.id ? `idb://${entry.id}_output` : ''));
+
+  const resolvedFallback = useResolvedImage(rawCandidate);
+
+  const effectiveSrc = imageSrc || resolvedFallback || (
+    rawCandidate && (rawCandidate.startsWith('http://') || rawCandidate.startsWith('https://') || rawCandidate.startsWith('data:') || rawCandidate.startsWith('blob:'))
+      ? rawCandidate
+      : ''
+  ) || (
+    nodeImageCandidate && (nodeImageCandidate.startsWith('http://') || nodeImageCandidate.startsWith('https://') || nodeImageCandidate.startsWith('data:') || nodeImageCandidate.startsWith('blob:'))
+      ? nodeImageCandidate
+      : ''
+  );
   
   const isSelected = isGroup
     ? Array.from(selectedIds).some(id => group!.children.some(c => c.id === id))
@@ -121,12 +148,12 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
         ) : (
           <>
             <div className="grid-image-container group-image-stack">
-              {error || !imageSrc ? (
+              {(!effectiveSrc && (error || !imageSrc)) ? (
                 <div className="grid-img-error">
                   <ImageIcon size={22} style={{ opacity: 0.25, color: '#ffffff' }} />
                 </div>
               ) : (
-                <img src={imageSrc} alt={group!.sourceImageLabel} className="grid-img-out" loading="lazy" />
+                <img src={effectiveSrc} alt={group!.sourceImageLabel} className="grid-img-out" loading="lazy" />
               )}
               
               <div className="group-badge">
@@ -186,12 +213,12 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
       ) : (
         <>
           <div className="grid-image-container single-image">
-            {error || !imageSrc ? (
+            {(!effectiveSrc && (error || !imageSrc)) ? (
               <div className="grid-img-error">
                 <ImageIcon size={22} style={{ opacity: 0.25, color: '#ffffff' }} />
               </div>
             ) : (
-              <img src={imageSrc} alt={entry!.label} className="grid-img-out" loading="lazy" />
+              <img src={effectiveSrc} alt={entry!.label} className="grid-img-out" loading="lazy" />
             )}
 
             {isAnarchyGeneration && (

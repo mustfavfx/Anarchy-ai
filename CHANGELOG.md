@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.96] - 2026-10-08
+
+### ArchVision AI Agent Studio 2.0 & 3D WebGL Integration
+- **Interactive Three.js 3D WebGL Massing Viewport**:
+  - Embedded an interactive 3D massing and volumetric viewport directly into agent deliverables using Three.js and WebGL.
+  - Enabled orbital camera controls, mouse drag rotate/pan/zoom, dynamic shadow planes, and ground grid axes.
+  - Implemented interactive sun simulation cycles (`Day`, `Golden Hour`, `Night`), wireframe mode toggling, smooth auto-rotation, and instant PNG viewport capture.
+  - Dual-mode support allowing toggle between procedural 3D massing canvas and live Speckle BIM WebGL viewports.
+
+- **Deep Architectural Chain-of-Thought (5-Phase Sequential Reasoning)**:
+  - Added a collapsible deep reasoning trace providing transparency into the AI agent's architectural design decisions.
+  - Structured into 5 rigorous architectural phases:
+    1. **Site Constraints & Spatial Program**: Plot area computations, built-up coverage ratio (45–60%), setback verification.
+    2. **Building Code & FAR Compliance**: FAR calculations, SBC/IBC fire safety separation, egress path audit, parking requirements.
+    3. **3D Volumetric Massing & Cantilever Strategy**: Structural articulation, cantilever depth (3.2m), curtain wall glazing spans.
+    4. **Environmental Solar Orientation & Shading Logic**: Solar path calculations, western facade louvers, glare mitigation.
+    5. **Autonomous CUA 3ds Max Scripting & Automation**: MaxScript generation, two-point perspective cameras, PBR materials.
+  - Added direct autonomous action buttons inside the trace:
+    - **Send to Canvas (Node)**: Pushes enhanced prompt directly to active canvas node or toolbar.
+    - **Execute in 3ds Max**: Direct procedural execution in 3ds Max via Computer-Use Agent and MaxScript.
+    - **Sync Camera**: Synchronizes active 3ds Max camera with ArchVision Studio viewport.
+    - **Export BOQ (Excel)**: Generates and downloads full Architectural Bill of Quantities spreadsheet.
+
+- **ChatGPT/Claude-Style Multi-Session Management**:
+  - Replaced single-thread chat with a persistent multi-session sidebar (`AgentSessionsSidebar.tsx`).
+  - Added real-time session search with instant title filtering.
+  - Chronological time grouping (`Today`, `Yesterday`, `Last 7 Days`, `Older`).
+  - Inline session renaming, individual session deletion, and safe full session resets.
+  - Automatic session naming based on initial user prompts.
+
+- **100% English UI Localization**:
+  - Standardized all UI controls, tooltips, dialogs, zero-state cards, inspectors, and status indicators in the AI Agent Studio into professional English.
+  - Translated all model badges, focus descriptions, and preset architectural concepts.
+
+---
+
 ## [0.3.95] - 2026-09-16
 
 ### Performance & Smoothness

@@ -78,7 +78,6 @@ export function useLazyImage(
           setIsLoading(false);
         }
       } catch (err) {
-        console.error('[HistoryLazyImage] Failed to load thumbnail:', err);
         if (active) {
           setError(true);
           setIsLoading(false);
@@ -90,10 +89,6 @@ export function useLazyImage(
 
     return () => {
       active = false;
-      if (resolvedUrl) {
-        // Revoke the Object URL on cleanup to prevent memory leaks
-        revokeObjectUrl(resolvedUrl);
-      }
     };
   }, [entryId, imageSlot, isIntersecting]);
 

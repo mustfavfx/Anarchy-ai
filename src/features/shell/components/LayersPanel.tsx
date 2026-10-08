@@ -1,11 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { 
   X, Eye, EyeOff, Lock, Plus, Trash2, Loader2, 
-  Link2, Contrast, ChevronDown, ChevronRight, Paintbrush2,
-  Layers, Sliders
+  Link2, Contrast, ChevronDown, ChevronRight, ChevronLeft, Paintbrush2,
+  Sliders, Layers, RotateCcw, RotateCw, PanelRightClose, PanelRightOpen
 } from 'lucide-react';
 import { useResolvedImage } from '../../../hooks';
-import { useTranslation } from '../../../services/i18n';
 import { PhotoshopColorPanel } from './PhotoshopColorPanel';
 import { PhotoshopAdjustmentsPanel } from './PhotoshopAdjustmentsPanel';
 import type { AdjustmentParams } from '../mask/utils/adjustmentEngine';
@@ -114,7 +113,7 @@ export interface InpaintLayer {
 export interface LayersPanelProps {
   onClose: () => void;
   layers: InpaintLayer[];
-  activeLayerId: string;
+  activeLayerId: string | null;
   onSelectLayer: (id: string, target?: 'image' | 'mask') => void;
   onToggleLayerVisibility: (id: string) => void;
   onDeleteLayer: (id: string) => void;
@@ -152,6 +151,12 @@ export interface LayersPanelProps {
   onCommitAdjustment?: (params: AdjustmentParams) => void;
   onCancelAdjustment?: () => void;
   onCreateAdjustmentLayer?: (key: string, name: string, initialParams: AdjustmentParams) => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
@@ -162,12 +167,12 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   onToggleLayerVisibility,
   onDeleteLayer,
   onAddLayer,
-  onDuplicateLayer,
+  onDuplicateLayer: _onDuplicateLayer,
   onInvertMask,
   onChangeBlendMode,
   onChangeOpacity,
-  onToggleLock,
-  onReorderLayers,
+  onToggleLock: _onToggleLock,
+  onReorderLayers: _onReorderLayers,
   onRenameLayer,
   baseImage,
   baseImageVisible,
@@ -185,7 +190,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   generatingPrompt = '',
   activeMaskColor = 'white',
   onToggleMaskColor,
-  onExportPsd,
+  onExportPsd: _onExportPsd,
   brushColor = '#e11d48',
   onChangeBrushColor,
   onOpenColorRange,
@@ -195,8 +200,17 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   onCommitAdjustment,
   onCancelAdjustment,
   onCreateAdjustmentLayer,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  isCollapsed,
+  onToggleCollapse,
 }) => {
-  const { isAr } = useTranslation();
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = isCollapsed !== undefined ? isCollapsed : internalCollapsed;
+  const toggleCollapse = onToggleCollapse || (() => setInternalCollapsed((prev) => !prev));
+
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string>('');
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -205,8 +219,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   const [isColorOpen, setIsColorOpen] = useState(true);
   const [isAdjustmentsOpen, setIsAdjustmentsOpen] = useState(true);
   const [isLayersOpen, setIsLayersOpen] = useState(true);
-
-
 
   const isMaskActive = activeLayerId === 'active-mask';
   const isBaseActive = activeLayerId === 'base';
@@ -230,9 +242,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   }
 
   const isLayerLocked = Boolean(activeLayer?.locked);
-  const activeIndex = layers.findIndex(l => l.id === activeLayerId);
-  const canMoveUp = activeIndex > 0;
-  const canMoveDown = activeIndex >= 0 && activeIndex < layers.length - 1;
 
   const showActiveMaskRow = Boolean(currentMaskPreviewUrl || hasActiveMask);
   const totalLayerCount = layers.length + (showActiveMaskRow ? 1 : 0) + 1;
@@ -255,20 +264,130 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     (!isBaseActive && activeLayer && !isLayerLocked)
   );
 
+  if (collapsed) {
+    return (
+      <div className="mask-layers-docked-panel ps-layers-panel ps-layers-panel-collapsed">
+        <button
+          type="button"
+          className="ps-collapsed-rail-btn active"
+          onClick={toggleCollapse}
+          title="Expand Studio"
+        >
+          <PanelRightOpen size={16} />
+        </button>
+
+        <div className="ps-collapsed-rail-divider" />
+
+        <button
+          type="button"
+          className="ps-collapsed-rail-btn"
+          onClick={() => {
+            toggleCollapse();
+            setIsColorOpen(true);
+          }}
+          title="Color"
+        >
+          <div
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: 3,
+              background: brushColor || '#ffffff',
+              border: '1.5px solid rgba(255,255,255,0.7)',
+              boxShadow: '0 0 6px rgba(0,0,0,0.5)',
+            }}
+          />
+        </button>
+
+        <button
+          type="button"
+          className="ps-collapsed-rail-btn"
+          onClick={() => {
+            toggleCollapse();
+            setIsAdjustmentsOpen(true);
+          }}
+          title="Adjustments"
+        >
+          <Contrast size={15} />
+        </button>
+
+        <button
+          type="button"
+          className="ps-collapsed-rail-btn"
+          onClick={() => {
+            toggleCollapse();
+            setIsLayersOpen(true);
+          }}
+          title="Layers"
+        >
+          <Layers size={15} />
+        </button>
+
+        {(onUndo || onRedo) && <div className="ps-collapsed-rail-divider" />}
+
+        {onUndo && (
+          <button
+            type="button"
+            className="ps-collapsed-rail-btn"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            style={{ opacity: canUndo ? 1 : 0.35 }}
+          >
+            <RotateCcw size={14} />
+          </button>
+        )}
+
+        {onRedo && (
+          <button
+            type="button"
+            className="ps-collapsed-rail-btn"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+            style={{ opacity: canRedo ? 1 : 0.35 }}
+          >
+            <RotateCw size={14} />
+          </button>
+        )}
+
+        <button
+          type="button"
+          className="ps-collapsed-rail-btn ps-collapsed-rail-close"
+          onClick={onClose}
+          title="Close Studio (Esc)"
+          style={{ marginTop: 'auto', color: 'rgba(255,255,255,0.7)' }}
+        >
+          <X size={15} />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mask-layers-docked-panel ps-layers-panel">
       {/* Studio Dock Master Header */}
       <div className="ps-dock-master-bar">
         <div className="ps-dock-title-group">
           <Sliders size={13} style={{ color: '#38bdf8' }} />
-          <span className="ps-dock-title-text">{isAr ? 'استوديو التحكم والطبقات' : 'Studio Canvas'}</span>
-          <span className="ps-layer-count-badge" title={isAr ? `${totalLayerCount} طبقات نشطة` : `${totalLayerCount} Layers Active`}>
+          <span className="ps-dock-title-text">Studio Canvas</span>
+          <span className="ps-layer-count-badge" title={`${totalLayerCount} Layers Active`}>
             {totalLayerCount}
           </span>
         </div>
-        <button type="button" className="mask-layers-close-btn" onClick={onClose} title={isAr ? 'إغلاق لوحة الاستوديو' : 'Close Studio'}>
-          <X size={13} />
-        </button>
+        <div className="ps-dock-header-actions">
+          <button
+            type="button"
+            className="ps-dock-header-btn"
+            onClick={toggleCollapse}
+            title="Collapse to Rail"
+          >
+            <PanelRightClose size={13} />
+          </button>
+          <button type="button" className="mask-layers-close-btn" onClick={onClose} title="Close Studio">
+            <X size={13} />
+          </button>
+        </div>
       </div>
 
       <div className="ps-dock-scrollable-body">
@@ -277,10 +396,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           <div 
             className="ps-dock-accordion-header" 
             onClick={() => setIsColorOpen(prev => !prev)}
-            title={isAr ? 'طي / توسيع لوحة الألوان' : 'Toggle Color Panel'}
+            title="Toggle Color Panel"
           >
             {isColorOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span className="ps-accordion-title">{isAr ? 'اللون' : 'Color'}</span>
+            <span className="ps-accordion-title">Color</span>
           </div>
           {isColorOpen && (
             <PhotoshopColorPanel
@@ -300,17 +419,17 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           <div 
             className="ps-dock-accordion-header" 
             onClick={() => setIsAdjustmentsOpen(prev => !prev)}
-            title={isAr ? 'طي / توسيع لوحة التعديلات' : 'Toggle Adjustments Panel'}
+            title="Toggle Adjustments Panel"
           >
             {isAdjustmentsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span className="ps-accordion-title">{isAr ? 'التعديلات والتأثيرات' : 'Adjustments'}</span>
+            <span className="ps-accordion-title">Adjustments</span>
           </div>
           {isAdjustmentsOpen && (
             <PhotoshopAdjustmentsPanel
               baseImage={baseImage}
-              onInvertMask={onInvertMask ? () => onInvertMask(activeLayerId) : undefined}
+              onInvertMask={onInvertMask && activeLayerId ? () => onInvertMask(activeLayerId) : undefined}
               onOpenColorRange={onOpenColorRange}
-              activeLayerId={activeLayerId}
+              activeLayerId={activeLayerId || undefined}
               activeLayer={layers.find(l => l.id === activeLayerId)}
               onCreateAdjustmentLayer={onCreateAdjustmentLayer}
               onApplyAdjustment={onApplyAdjustment}
@@ -327,10 +446,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
           <div 
             className="ps-dock-accordion-header" 
             onClick={() => setIsLayersOpen(prev => !prev)}
-            title={isAr ? 'طي / توسيع لوحة الطبقات' : 'Toggle Layers Panel'}
+            title="Toggle Layers Panel"
           >
             {isLayersOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span className="ps-accordion-title">{isAr ? 'الطبقات' : 'Layers'}</span>
+            <span className="ps-accordion-title">Layers</span>
           </div>
 
           {isLayersOpen && (
@@ -351,7 +470,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                           }
                         }}
                         disabled={(!isMaskActive && (!activeLayerId || isBaseActive || isLayerLocked))}
-                        title={isAr ? 'وضع دمج الطبقة (Blend Mode)' : 'Layer Blend Mode'}
+                        title="Layer Blend Mode"
                       >
                         {BLEND_MODE_GROUPS.map(group => (
                           <optgroup key={group.groupName} label={`── ${group.groupName} ──`}>
@@ -364,8 +483,8 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                         ))}
                       </select>
 
-                      <div className="ps-opacity-control" title={`${isAr ? 'الشفافية' : 'Opacity'}: ${currentOpacity}%`}>
-                        <span className="ps-opacity-label">{isAr ? 'الشفافية:' : 'Opacity:'}</span>
+                      <div className="ps-opacity-control" title={`Opacity: ${currentOpacity}%`}>
+                        <span className="ps-opacity-label">Opacity:</span>
                         <input
                           type="range"
                           min="5"
@@ -484,10 +603,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
 
                         <div className="ps-layer-info">
                           <span className="vizmaker-layer-title ps-layer-title">
-                            {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : (isAr ? 'قناع الطبقة' : 'Layer Mask')}
+                            {generatingPrompt ? (generatingPrompt.length > 18 ? generatingPrompt.slice(0, 18) + '...' : generatingPrompt) : 'Layer Mask'}
                           </span>
                           <span className="ps-layer-blend-badge">
-                            {maskBlendMode && maskBlendMode !== 'normal' ? maskBlendMode : (isAr ? 'قناع نشط' : 'Active Stencil')}
+                            {maskBlendMode && maskBlendMode !== 'normal' ? maskBlendMode : 'Active Stencil'}
                           </span>
                         </div>
                       </div>
@@ -566,9 +685,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                               {layer.maskPreviewUrl || layer.maskDataUrl ? (
                                 <img src={layer.maskPreviewUrl || layer.maskDataUrl || ''} alt="Mask" className="vizmaker-layer-img-preview" />
                               ) : (
-                                <div className="ps-mask-empty-thumb" title={layer.layerType === 'adjustment' ? (isAr ? 'قناع طبقة الضبط' : 'Adjustment Layer Mask') : (isAr ? 'قناع فارغ' : 'Empty Mask')}>
+                                <div className="ps-mask-empty-thumb" title={layer.layerType === 'adjustment' ? 'Adjustment Layer Mask' : 'Empty Mask'}>
                                   {layer.layerType === 'adjustment' ? (
-                                    <div className="ps-mask-white-fill" title={isAr ? 'قناع كامل (يؤثر على كل البيكسلات)' : 'Full White Mask'} />
+                                    <div className="ps-mask-white-fill" title="Full White Mask" />
                                   ) : (
                                     <Paintbrush2 size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
                                   )}
@@ -606,7 +725,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                                 </span>
                                 {layer.layerType === 'adjustment' && (
                                   <span className="ps-adj-layer-tag">
-                                    {isAr ? 'ضبط' : 'Adj'}
+                                    Adj
                                   </span>
                                 )}
                               </div>
@@ -656,7 +775,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                         </div>
                       </div>
 
-                      <span className="vizmaker-layer-title ps-layer-title">{isAr ? 'الخلفية' : 'Background Base'}</span>
+                      <span className="vizmaker-layer-title ps-layer-title">Background Base</span>
                       <Lock size={13} className="vizmaker-layer-lock-icon" />
                     </div>
                   </div>
@@ -667,7 +786,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   type="button"
                   className="ps-dock-action-btn"
                   onClick={() => onSelectLayer(activeLayerId && activeLayerId !== 'base' ? activeLayerId : 'active-mask', 'mask')}
-                  title={isAr ? 'تفعيل / إضافة قناع الطبقة (Add / Select Layer Mask)' : 'Add / Select layer mask'}
+                  title="Add / Select layer mask"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -679,7 +798,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   type="button"
                   className="ps-dock-action-btn"
                   onClick={() => setIsAdjustmentsOpen(true)}
-                  title={isAr ? 'إنشاء طبقة ضبط جديدة (New Adjustment Layer)' : 'Create new fill or adjustment layer'}
+                  title="Create new fill or adjustment layer"
                 >
                   <Contrast size={13} />
                 </button>
@@ -688,7 +807,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   type="button"
                   className="ps-dock-action-btn"
                   onClick={onAddLayer}
-                  title={isAr ? 'إنشاء طبقة جديدة (Create New Layer)' : 'Create a new layer'}
+                  title="Create a new layer"
                 >
                   <Plus size={14} />
                 </button>
@@ -697,12 +816,12 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   type="button"
                   className="ps-dock-action-btn delete"
                   onClick={() => {
-                    if (isDeleteEnabled) {
+                    if (isDeleteEnabled && activeLayerId) {
                       onDeleteLayer(activeLayerId);
                     }
                   }}
                   disabled={!isDeleteEnabled}
-                  title={isAr ? 'حذف الطبقة (Delete Layer)' : 'Delete layer'}
+                  title="Delete layer"
                 >
                   <Trash2 size={13} />
                 </button>

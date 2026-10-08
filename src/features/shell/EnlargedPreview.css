@@ -236,6 +236,8 @@
   inset: 0;
   overflow: hidden;
   user-select: none;
+  contain: paint layout;
+  transform: translateZ(0);
 }
 
 .ep-compare-base {
@@ -244,30 +246,42 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transform: translateZ(0);
+  image-rendering: auto;
+  backface-visibility: hidden;
 }
 
 .ep-compare-clip {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  clip-path: inset(0 calc(100% - var(--compare-split, 50%)) 0 0);
+  will-change: clip-path;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
-.ep-compare-clip img {
+.ep-compare-clip img,
+.ep-compare-clip video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transform: translateZ(0);
+  image-rendering: auto;
 }
 
 .ep-compare-handle {
   position: absolute;
   top: 0;
   bottom: 0;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateZ(0);
   width: 2px;
   z-index: 5;
   pointer-events: none;
+  left: var(--compare-split, 50%);
+  will-change: left;
 }
 
 .ep-compare-line {

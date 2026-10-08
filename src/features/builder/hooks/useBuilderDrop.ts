@@ -33,15 +33,19 @@ export function useBuilderDrop({
 
   const handleFileProcess = useCallback(async (file: File) => {
     try {
-      const dataUrl = await imageFileToDataUrl(file);
-      const arrayBuffer = await file.arrayBuffer();
-      const metadata = extractPngMetadata(new Uint8Array(arrayBuffer));
-
-      if (metadata && (metadata.nodeTree || metadata.rootId || metadata.entryId) && onFileWorkflowDetected) {
-        onFileWorkflowDetected(dataUrl, metadata);
-      } else {
-        await spawnFromImage(dataUrl);
+      // Fast path: Only PNG files can contain embedded workflow metadata
+      if (file.type === 'image/png' && onFileWorkflowDetected) {
+        const arrayBuffer = await file.arrayBuffer();
+        const metadata = extractPngMetadata(new Uint8Array(arrayBuffer));
+        if (metadata && (metadata.nodeTree || metadata.rootId || metadata.entryId)) {
+          const dataUrl = await imageFileToDataUrl(file);
+          onFileWorkflowDetected(dataUrl, metadata);
+          return;
+        }
       }
+
+      const dataUrl = await imageFileToDataUrl(file);
+      await spawnFromImage(dataUrl);
     } catch (err) {
       logger.error('[Drag & Drop] Failed file processing:', err);
     }
@@ -68,6 +72,8 @@ export function useBuilderDrop({
     setIsDraggingFile(false);
     if (dropHandledRef.current) return;
     if (isTauri()) return;
+    dropHandledRef.current = true;
+    setTimeout(() => { dropHandledRef.current = false; }, 350);
     
     const imageFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     for (const file of imageFiles.slice(0, 5)) {
@@ -94,7 +100,10 @@ export function useBuilderDrop({
   const handleWindowDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
     setIsDraggingFile(false);
-    if (!e.dataTransfer) return;
+    if (!e.dataTransfer || e.defaultPrevented || dropHandledRef.current) return;
+    dropHandledRef.current = true;
+    setTimeout(() => { dropHandledRef.current = false; }, 350);
+
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     for (const file of files.slice(0, 5)) {
       await handleFileProcess(file);

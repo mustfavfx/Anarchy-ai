@@ -39,10 +39,24 @@ export const INPAINT_ENGINE_REGISTRY: AIModelEngine[] = [
     maskCapability: 'semantic_text',
   },
   {
+    id: 'google/nano-banana-2.1',
+    name: 'Nano Banana 2.1',
+    role: 'inpaint',
+    creditCost: 1,
+    maskCapability: 'hybrid',
+  },
+  {
     id: 'google/nano-banana-pro',
     name: 'Nano Banana Pro',
     role: 'inpaint',
     creditCost: 3,
+    maskCapability: 'hybrid',
+  },
+  {
+    id: 'black-forest-labs/flux-3-image',
+    name: 'FLUX 3 Image',
+    role: 'inpaint',
+    creditCost: 1,
     maskCapability: 'hybrid',
   },
   {
@@ -71,8 +85,8 @@ export const INPAINT_ENGINE_REGISTRY: AIModelEngine[] = [
 // ── Upscale Engines ──────────────────────────────────────────────────────────
 export const UPSCALE_ENGINE_REGISTRY: AIModelEngine[] = [
   {
-    id: 'philz1337x/clarity-pro-upscaler',
-    name: 'Anarchy Upscale',
+    id: 'midjourney/mj-turbo-upscale',
+    name: 'Midjourney Upscale',
     role: 'upscale',
     creditCost: 3,
   },

@@ -86,6 +86,17 @@ export const GroupNode: React.FC<NodeProps> = memo(({ data, selected }) => {
       />
     </div>
   );
+}, (prev, next) => {
+  if (prev.id !== next.id) return false;
+  if (Boolean(prev.selected) !== Boolean(next.selected)) return false;
+  const pData = prev.data as unknown as BuilderNodeData;
+  const nData = next.data as unknown as BuilderNodeData;
+  return (
+    pData?.groupTitle === nData?.groupTitle &&
+    pData?.label === nData?.label &&
+    pData?.groupColor === nData?.groupColor &&
+    pData?.groupChildren?.length === nData?.groupChildren?.length
+  );
 });
 
 GroupNode.displayName = 'GroupNode';

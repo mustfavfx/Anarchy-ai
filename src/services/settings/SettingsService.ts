@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   notifications: true,
   soundEffects: false,
   saveLocation: '',
-  defaultModel: 'black-forest-labs/flux-2-pro',
+  defaultModel: 'google/nano-banana-2.1',
   defaultUpscale: false,
   maxHistory: 500,
   clearOnExit: false,

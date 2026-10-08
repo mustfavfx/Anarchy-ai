@@ -31,13 +31,13 @@ export function salvageCorruptHistoryJSON(corruptStr: string): HistoryEntry[] {
 
   // Regex-based salvage: find JSON-like object blocks
   try {
-    const objectRegex = /\{[^{}]*"id"\s*:\s*"h_\d+_[a-z0-9]+"[^{}]*\}/g;
+    const objectRegex = /\{[^{}]*"id"\s*:\s*"(?:h_\d+_[a-z0-9]+|[0-9a-f-]{36})"[^{}]*\}/gi;
     const matches = corruptStr.match(objectRegex);
     if (matches) {
       for (const match of matches) {
         try {
           const entry = JSON.parse(match);
-          if (entry && typeof entry.id === 'string' && entry.id.startsWith('h_')) {
+          if (entry && typeof entry.id === 'string' && (entry.id.startsWith('h_') || entry.id.length >= 32)) {
             salvaged.push(entry);
           }
         } catch {}
@@ -189,7 +189,11 @@ export async function selfHealHistory(): Promise<SelfHealReport> {
     const slots: Array<'output' | 'input' | 'root_source'> = ['output', 'input', 'root_source'];
     for (const slot of slots) {
       try {
-        const fullImageBlob = await loadRawData(`${id}_${slot}`);
+        const fullImageBlob = await loadRawData(`${id}_${slot}`) || (
+          slot === 'output' ? entry.outputImage :
+          slot === 'input' ? entry.inputImage :
+          (entry.rootSourceImage || entry.outputImage)
+        );
         if (fullImageBlob) {
           const thumbImageBlob = await loadRawData(`${id}_thumb_${slot}`);
           if (!thumbImageBlob) {
@@ -198,7 +202,7 @@ export async function selfHealHistory(): Promise<SelfHealReport> {
               const dataUrl = await blobToDataURL(fullImageBlob);
               await saveThumbnail(id, slot, dataUrl);
               report.reconstructedThumbnailsCount++;
-            } else if (typeof fullImageBlob === 'string' && fullImageBlob.startsWith('data:')) {
+            } else if (typeof fullImageBlob === 'string' && (fullImageBlob.startsWith('data:') || fullImageBlob.startsWith('http://') || fullImageBlob.startsWith('https://') || fullImageBlob.startsWith('blob:'))) {
               await saveThumbnail(id, slot, fullImageBlob);
               report.reconstructedThumbnailsCount++;
             } else {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { costClarityUpscale } from '../../../services/credit/creditService';
-import { useAIConfigStore } from '../../../stores/aiConfigStore';
 import { PanelSelect } from './panelTypes';
 import type { AIControlPanelProps } from './panelTypes';
 
@@ -21,13 +20,65 @@ export const UpscalerSettingsSection: React.FC<UpscalerSettingsSectionProps> = (
   onParamsChange,
   topazDims,
   prunaDims,
-  anarchyDims,
+  anarchyDims: _anarchyDims,
 }) => {
-  const config = useAIConfigStore((state) => state.config);
-  const setConfig = useAIConfigStore((state) => state.setConfig);
+
+  const renderMidjourneySettings = () => {
+    const isFast = (selectedModel as string).includes('mj-fast') || (selectedModel as string).includes('fast');
+    const isCreative = (selectedModel as string).includes('creative');
+    const isSubtle = (selectedModel as string).includes('subtle');
+    const style = isCreative ? 'creative' : isSubtle ? 'subtle' : 'standard';
+    const mode = isFast ? 'fast' : 'turbo';
+
+    const factor = style === 'standard' ? (params.upscaleFactor ?? 2) : 2;
+    const resText = factor === 4 ? '~4096×4096 (16.8 MP)' : '~2048×2048 (4.2 MP)';
+
+    let creditCost = 3;
+    if (mode === 'turbo') {
+      if (style === 'standard') creditCost = 3;
+      else creditCost = 6;
+    } else {
+      if (style === 'standard') creditCost = 1;
+      else creditCost = 2;
+    }
+
+    return (
+      <div className="control-section">
+        <label className="section-label">Upscale Factor</label>
+        <div className="upscale-factor-row" style={{ gridTemplateColumns: style === 'standard' ? 'repeat(2, 1fr)' : '1fr' }}>
+          {(style === 'standard' ? [2, 4] : [2]).map(f => (
+            <button
+              key={f}
+              type="button"
+              className={`upscale-factor-btn ${factor === f ? 'active' : ''}`}
+              onClick={() => updateParam('upscaleFactor', f)}
+            >
+              {f}x
+            </button>
+          ))}
+        </div>
+        <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Output: {resText}</span>
+          <span style={{ color: '#e11d48', fontWeight: 700 }}>
+            {creditCost} {creditCost === 1 ? 'Credit' : 'Credits'}
+          </span>
+        </div>
+        <span className="param-hint">
+          {style === 'creative' 
+            ? 'Native 2x generative detail synthesis'
+            : style === 'subtle'
+            ? 'Native 2x geometry and structural preservation'
+            : 'Direct super-resolution scaling (2x rapid · 4x high resolution)'}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <>
+      {/* Midjourney Upscale Engines (Turbo & Fast / Standard, Subtle, Creative) */}
+      {(selectedModel as string).startsWith('midjourney/') && renderMidjourneySettings()}
+
           {/* Clarity Upscaler Advanced Settings */}
           {(selectedModel as string) === 'philz1337x/clarity-upscaler' && (
             <>
@@ -37,10 +88,10 @@ export const UpscalerSettingsSection: React.FC<UpscalerSettingsSectionProps> = (
                 <div className="upscale-factor-row">
                   {[2, 4, 8, 12].map(factor => {
                     const presets: Record<number, Partial<typeof params>> = {
-                      2:  { clarityScale: 2,  clarityDynamic: 6,  clarityCreativity: 0.35, clarityResemblance: 0.6,  clarityTilingWidth: 112, clarityTilingHeight: 144, claritySteps: 18, claritySharpen: 0, clarityDownscaling: false },
-                      4:  { clarityScale: 4,  clarityDynamic: 6,  clarityCreativity: 0.35, clarityResemblance: 0.6,  clarityTilingWidth: 96,  clarityTilingHeight: 112, claritySteps: 20, claritySharpen: 0, clarityDownscaling: false },
-                      8:  { clarityScale: 8,  clarityDynamic: 8,  clarityCreativity: 0.4,  clarityResemblance: 0.8,  clarityTilingWidth: 64,  clarityTilingHeight: 80,  claritySteps: 25, claritySharpen: 2, clarityDownscaling: false },
-                      12: { clarityScale: 12, clarityDynamic: 9,  clarityCreativity: 0.45, clarityResemblance: 1.0, clarityTilingWidth: 48,  clarityTilingHeight: 64,  claritySteps: 30, claritySharpen: 3, clarityDownscaling: false },
+                      2:  { clarityScale: 2,  clarityDynamic: 6,  clarityCreativity: 0.35, clarityResemblance: 0.6,  clarityTilingWidth: 112, clarityTilingHeight: 144, claritySteps: 10, claritySharpen: 0, clarityDownscaling: false },
+                      4:  { clarityScale: 4,  clarityDynamic: 6,  clarityCreativity: 0.35, clarityResemblance: 0.6,  clarityTilingWidth: 112, clarityTilingHeight: 144, claritySteps: 12, claritySharpen: 0, clarityDownscaling: false },
+                      8:  { clarityScale: 8,  clarityDynamic: 8,  clarityCreativity: 0.4,  clarityResemblance: 0.8,  clarityTilingWidth: 96,  clarityTilingHeight: 112, claritySteps: 15, claritySharpen: 2, clarityDownscaling: false },
+                      12: { clarityScale: 12, clarityDynamic: 9,  clarityCreativity: 0.45, clarityResemblance: 1.0, clarityTilingWidth: 80,  clarityTilingHeight: 96,  claritySteps: 18, claritySharpen: 3, clarityDownscaling: false },
                     };
                     return (
                       <button
@@ -58,7 +109,7 @@ export const UpscalerSettingsSection: React.FC<UpscalerSettingsSectionProps> = (
                   <span>Clarity Scale: {params.clarityScale ?? 2}x (Nvidia A100)</span>
                   <span style={{ color: '#e11d48', fontWeight: 700 }}>{costClarityUpscale(params.clarityScale ?? 2)} Credits</span>
                 </div>
-                <span className="param-hint">Nvidia A100 GPU compute: 2x (3cr) · 4x (10cr) · 8x (20cr) · 12x (30cr)</span>
+                <span className="param-hint">⚠️ Heavy Diffusion Model: Generates new details (30-90s)</span>
               </div>
               
               {/* Dynamic - HDR */}
@@ -530,53 +581,6 @@ export const UpscalerSettingsSection: React.FC<UpscalerSettingsSectionProps> = (
                   </label>
                 </div>
                 <span className="param-hint">Improve realism (on by default, recommended for AI images)</span>
-              </div>
-            </>
-          )}
-
-          {/* Anarchy Upscale (Clarity Pro) Settings */}
-          {(selectedModel as string) === 'philz1337x/clarity-pro-upscaler' && (
-            <>
-              {/* Scale Factor */}
-              <div className="control-section">
-                <label className="section-label">Scale Factor</label>
-                <div className="upscale-factor-row">
-                  {[2, 4, 8, 16].map(factor => (
-                    <button
-                      key={factor}
-                      type="button"
-                      className={`upscale-factor-btn ${(params.anarchyUpscaleScale ?? 2) === factor ? 'active' : ''}`}
-                      onClick={() => updateParam('anarchyUpscaleScale', factor)}
-                    >
-                      {factor}x
-                    </button>
-                  ))}
-                </div>
-                <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Output: ~{anarchyDims.outW}×{anarchyDims.outH} (~{anarchyDims.mp.toFixed(1)} MP{anarchyDims.mp >= 64 ? ' max' : ''})</span>
-                  <span style={{ color: '#e11d48', fontWeight: 700 }}>{anarchyDims.cost} Credits</span>
-                </div>
-                <span className="param-hint">$0.03 per million output image pixels (capped at 64 MP)</span>
-              </div>
-
-              {/* Creativity Slider */}
-              <div className="control-section">
-                <div className="param-header">
-                  <label className="section-label">Creativity</label>
-                  <span className="param-value">{params.anarchyUpscaleCreativity ?? 4}</span>
-                </div>
-                <input
-                  type="range"
-                  min="-10"
-                  max="10"
-                  step="1"
-                  value={params.anarchyUpscaleCreativity ?? 4}
-                  onChange={(e) => updateParam('anarchyUpscaleCreativity', Number.parseInt(e.target.value))}
-                  className="param-slider"
-                />
-                <span className="param-hint">
-                  Creativity level for upscaling. Negative values stay closer to the original image; positive values let the model add more detail. (Default: 4)
-                </span>
               </div>
             </>
           )}

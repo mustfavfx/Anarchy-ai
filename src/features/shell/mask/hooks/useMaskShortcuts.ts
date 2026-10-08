@@ -49,7 +49,7 @@ export interface UseMaskShortcutsOptions {
   updateMaskPreview: () => void;
 
   // Photoshop Layers & Masks
-  activeLayerId: string;
+  activeLayerId: string | null;
   setPsMaskColor: React.Dispatch<React.SetStateAction<'white' | 'black'>>;
   handleInvertMask: (layerId: string) => void;
   handleDuplicateLayer: (layerId: string) => void;
@@ -206,7 +206,7 @@ export function useMaskShortcuts(options: UseMaskShortcutsOptions) {
         e.preventDefault();
         if (e.shiftKey) {
           invertCurrentMask();
-        } else {
+        } else if (activeLayerId) {
           handleInvertMask(activeLayerId);
         }
         return;
@@ -236,7 +236,9 @@ export function useMaskShortcuts(options: UseMaskShortcutsOptions) {
       // Layer Duplicate (Ctrl + J)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
         e.preventDefault();
-        handleDuplicateLayer(activeLayerId);
+        if (activeLayerId) {
+          handleDuplicateLayer(activeLayerId);
+        }
         return;
       }
 

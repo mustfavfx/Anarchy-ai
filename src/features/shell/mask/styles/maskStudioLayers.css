@@ -1,0 +1,1412 @@
+/* ── Docked Right Layers Panel (Desktop Studio Layout) ─────────────────────── */
+
+.mask-layers-docked-panel {
+  position: relative;
+  width: 320px;
+  min-width: 320px;
+  height: 100%;
+  box-sizing: border-box;
+  background: #18181b;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 30;
+  overflow: hidden;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  animation: maskLayersDockSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes maskLayersDockSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.mask-layers-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(18, 20, 26, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.mask-layers-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mask-layers-header-icon {
+  color: #ffffff;
+}
+
+.mask-layers-title-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.mask-layers-close-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.mask-layers-close-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mask-layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.mask-layers-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mask-layers-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.mask-layers-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mask-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.mask-layer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.mask-layer-item.active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
+}
+
+.mask-layer-item.active-mask-layer {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.mask-layer-item.active-mask-layer.active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.vizmaker-layer-eye-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.vizmaker-layer-eye {
+  color: #ffffff;
+}
+
+.vizmaker-layer-eye.off {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.vizmaker-layer-title {
+  font-size: 12px;
+  color: #ffffff;
+  font-weight: 500;
+  flex: 1;
+}
+
+.vizmaker-layer-pin-icon,
+.vizmaker-layer-lock-icon {
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: auto;
+}
+
+.mask-layers-dock-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(14, 16, 22, 0.98);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.mask-layer-action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.mask-layer-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.mask-layer-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.mask-layer-action-btn.delete-btn:hover:not(:disabled) {
+  background: rgba(244, 63, 94, 0.18);
+  border-color: rgba(244, 63, 94, 0.4);
+  color: #fb7185;
+}
+
+
+/* ── Photoshop Layer Mask Styles (Exact Replication) ─────────────────────────── */
+
+.ps-layers-panel {
+  width: 335px;
+  min-width: 335px;
+  height: 100%;
+  background: #11131a;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 35;
+  flex-shrink: 0;
+}
+
+.ps-layers-panel-collapsed {
+  width: 44px !important;
+  min-width: 44px !important;
+  padding: 8px 0;
+  align-items: center;
+  background: rgba(12, 14, 22, 0.98);
+  gap: 5px;
+}
+
+.ps-collapsed-rail-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.ps-collapsed-rail-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ps-collapsed-rail-btn.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+
+.ps-collapsed-rail-divider {
+  width: 22px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+
+.ps-dock-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-dock-header-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.ps-dock-header-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.ps-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.ps-layer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.ps-layer-item.active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
+}
+
+.ps-thumb-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.ps-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background: #000000;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ps-thumb:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.ps-thumb.selected-target {
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), inset 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.ps-thumb-image {
+  background-color: #0b0c10;
+  background-image: 
+    linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%), 
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%), 
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%);
+  background-size: 6px 6px;
+  background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
+}
+
+.ps-thumb-mask {
+  background: #000000;
+}
+
+.ps-thumb img,
+.vizmaker-layer-img-preview {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  image-rendering: auto;
+}
+
+.vizmaker-empty-thumb {
+  width: 100%;
+  height: 100%;
+  background: #090a0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ps-mask-empty-thumb {
+  width: 100%;
+  height: 100%;
+  background: #090a0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  transition: all 0.15s ease;
+}
+
+.ps-mask-empty-thumb:hover {
+  background: #14151f;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.ps-mask-white-fill {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+}
+
+.ps-adj-thumb-icon-box {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1e2230 0%, #0f1117 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ps-adj-icon-glyph {
+  color: #38bdf8;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.4));
+}
+
+.ps-adj-layer-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  letter-spacing: 0.2px;
+  flex-shrink: 0;
+}
+
+.mask-layer-item.adjustment-layer {
+  border-left: 2.5px solid #38bdf8;
+}
+
+.mask-layer-item.adjustment-layer.active {
+  background: rgba(56, 189, 248, 0.08) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  border-left-color: #38bdf8 !important;
+}
+
+.ps-thumb-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0 1px;
+}
+
+.ps-layer-title {
+  font-size: 12px;
+  color: #ffffff;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.ps-layer-rename-input {
+  background: #0d0e12;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: 11px;
+  padding: 2px 6px;
+  width: 100%;
+  outline: none;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+}
+
+.ps-layer-item.active-mask-layer {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.ps-layer-item.active-mask-layer.active {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+.ps-layer-count-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.ps-layers-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(14, 16, 22, 0.98);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ps-layer-color-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  transition: all 0.16s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.ps-layer-color-switch:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ps-color-chips-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ps-color-chip {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.15s ease;
+}
+
+.ps-color-chip.white {
+  background: #ffffff;
+}
+
+.ps-color-chip.white.active {
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+  transform: scale(1.1);
+}
+
+.ps-color-chip.black {
+  background: #000000;
+  border-color: #555;
+}
+
+.ps-color-chip.black.active {
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+  transform: scale(1.1);
+}
+
+.ps-color-swap-icon {
+  color: rgba(255, 255, 255, 0.45);
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.ps-layer-color-switch:hover .ps-color-swap-icon {
+  color: #ffffff;
+  transform: rotate(180deg);
+}
+
+.ps-color-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.ps-color-shortcut {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: inherit;
+}
+
+.ps-footer-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+.ps-footer-buttons {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.vizmaker-layer-action-btn {
+  width: 27px;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.vizmaker-layer-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.vizmaker-layer-action-btn:active:not(:disabled) {
+  transform: scale(0.93);
+}
+
+.vizmaker-layer-action-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+.vizmaker-layer-action-btn.delete-btn:hover:not(:disabled) {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.5);
+  color: #fb7185;
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.3);
+}
+
+/* Photoshop Toolbar Color Switcher (Top Toolbar) */
+.ps-toolbar-color-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ps-toolbar-chips {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+
+.ps-toolbar-chip-fg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #222;
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.ps-toolbar-chip-bg {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #222;
+  border-radius: 2px;
+  z-index: 1;
+}
+
+/* ── Photoshop Advanced Layers Panel Controls ────────────────────────────── */
+
+.ps-layers-top-controls {
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ps-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ps-blend-mode-select {
+  flex: 1;
+  min-width: 0;
+  background: #18181f;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 6px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.ps-blend-mode-select:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: #202028;
+}
+
+.ps-blend-mode-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ps-blend-mode-select optgroup {
+  background: #121218;
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 4px 2px;
+}
+
+.ps-blend-mode-select option {
+  background: #1c1c24;
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+}
+
+.ps-opacity-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #18181f;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.ps-opacity-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.ps-opacity-slider {
+  width: 44px;
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ps-opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.ps-opacity-val {
+  font-size: 10px;
+  font-weight: 600;
+  color: #ffffff;
+  min-width: 25px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ps-layer-sub-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 2px;
+}
+
+.ps-reorder-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-mini-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 3px;
+  padding: 2px 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ps-mini-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.ps-mini-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.ps-mini-btn.active-lock {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ps-layer-count-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.ps-layer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ps-layer-blend-badge {
+  font-size: 9px;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* ── Photoshop Studio Dock Header & Accordion Structure ─────────────────────── */
+
+.ps-dock-master-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #14161f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.ps-dock-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ps-dock-title-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #e2e8f0;
+}
+
+.ps-dock-scrollable-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar-track {
+  background: #11131a;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+}
+
+.ps-dock-scrollable-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.ps-dock-accordion-group {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: #151720;
+}
+
+.ps-dock-accordion-group.ps-layers-accordion-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+}
+
+.ps-layers-section-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: #11131a;
+}
+
+.ps-layers-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  background: #0d0f16;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+}
+
+.ps-layers-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ps-layers-list::-webkit-scrollbar-track {
+  background: #0a0b10;
+}
+
+.ps-layers-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+}
+
+.ps-layers-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.ps-dock-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  background: #1a1c26;
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  transition: all 0.14s ease;
+}
+
+.ps-dock-accordion-header:hover {
+  background: #222634;
+  color: #ffffff;
+}
+
+.ps-accordion-title {
+  flex: 1;
+  letter-spacing: 0.4px;
+}
+
+/* ── Photoshop Panel Tabs ─────────────────────────────────────────────────── */
+
+.ps-dock-panel-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a1a1e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0 4px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.ps-dock-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.ps-dock-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #888894;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.ps-dock-tab:hover {
+  color: #e2e8f0;
+}
+
+.ps-dock-tab.active {
+  color: #ffffff;
+  border-bottom-color: #3b82f6;
+  font-weight: 600;
+}
+
+.ps-dock-tab-menu-btn {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: color 0.14s ease;
+}
+
+.ps-dock-tab-menu-btn:hover {
+  color: #ffffff;
+}
+
+.ps-empty-tab-note {
+  padding: 24px 16px;
+  text-align: center;
+  color: #71717a;
+  font-size: 11px;
+}
+
+
+/* ── GROUP 3: Layers Section Container & Filter Bar ──────────────────────── */
+
+.ps-layers-section-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ps-layers-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #1a1a1e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ps-kind-dropdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #131317;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: #cbd5e1;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.ps-kind-search-icon {
+  color: #71717a;
+}
+
+.ps-kind-text {
+  font-weight: 500;
+}
+
+.ps-kind-arrow {
+  color: #71717a;
+}
+
+.ps-filter-icons-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ps-filter-icon-btn {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.ps-filter-icon-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ps-filter-icon-btn.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.ps-filter-toggle-pill {
+  width: 22px;
+  height: 12px;
+  background: #27272f;
+  border-radius: 6px;
+  position: relative;
+  cursor: pointer;
+  margin-left: 5px;
+  transition: background 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ps-filter-pill-thumb {
+  width: 8px;
+  height: 8px;
+  background: #71717a;
+  border-radius: 50%;
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  transition: all 0.15s ease;
+}
+
+.ps-filter-toggle-pill.on {
+  background: #2563eb;
+  border-color: #3b82f6;
+}
+
+.ps-filter-toggle-pill.on .ps-filter-pill-thumb {
+  left: 11px;
+  background: #ffffff;
+}
+
+/* ── Lock & Fill Controls Row ────────────────────────────────────────────── */
+
+.ps-lock-fill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ps-lock-icons-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ps-lock-prefix {
+  font-size: 10px;
+  color: #71717a;
+  margin-right: 2px;
+  font-weight: 500;
+}
+
+.ps-lock-icon-btn {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s ease;
+}
+
+.ps-lock-icon-btn:hover {
+  color: #ffffff;
+}
+
+.ps-lock-icon-btn.active {
+  color: #38bdf8;
+}
+
+.ps-fill-control-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ps-fill-label {
+  font-size: 10px;
+  color: #71717a;
+  font-weight: 500;
+}
+
+.ps-fill-select {
+  background: #141418;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: #cbd5e1;
+  font-size: 10px;
+  padding: 1px 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ── Channels List Tab ───────────────────────────────────────────────────── */
+
+.ps-channels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: #18181c;
+  flex: 1;
+}
+
+.ps-channel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.12s ease;
+}
+
+.ps-channel-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.ps-channel-item.active {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+}
+
+.ps-channel-eye {
+  color: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.ps-channel-thumb {
+  width: 26px;
+  height: 20px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+}
+
+.ps-channel-thumb.rgb {
+  background: linear-gradient(135deg, #ef4444 33%, #22c55e 33% 66%, #3b82f6 66%);
+}
+
+.ps-channel-thumb.red {
+  background: #ef4444;
+}
+
+.ps-channel-thumb.green {
+  background: #22c55e;
+}
+
+.ps-channel-thumb.blue {
+  background: #3b82f6;
+}
+
+.ps-channel-thumb.mask-stencil {
+  background: #ffffff;
+}
+
+.ps-channel-name {
+  flex: 1;
+}
+
+.ps-channel-shortcut {
+  font-size: 9.5px;
+  color: #64748b;
+  font-family: monospace;
+}
+
+/* ── Studio Action Footer Toolbar ────────────────────────────────────────── */
+
+.ps-photoshop-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 8px 10px;
+  background: #14161f;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.ps-dock-action-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px 9px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.14s ease;
+}
+
+.ps-dock-action-btn:hover:not(:disabled) {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+  transform: translateY(-1px);
+}
+
+.ps-dock-action-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.ps-dock-action-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.ps-dock-action-btn.delete:hover:not(:disabled) {
+  color: #f43f5e;
+  border-color: rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.15);
+}
+
+
+/* ── Photoshop Adjustment Layer Styling ───────────────────────────────────── */
+
+.ps-adj-thumb-icon-box {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38bdf8;
+  border-radius: 2px;
+}
+
+.ps-adj-icon-glyph {
+  color: #38bdf8;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.5));
+}
+
+.ps-adj-layer-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  margin-inline-start: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mask-layer-item.adjustment-layer {
+  border-left: 2px solid #38bdf8;
+}
+
+.mask-layer-item.adjustment-layer.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+

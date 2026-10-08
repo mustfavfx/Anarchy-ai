@@ -1,10 +1,12 @@
 // Replicate Webhook Handler
 // Receives predictions when generation completes
-// Downloads image from Replicate and uploads to Supabase Storage
+// Downloads image from Replicate, compresses it, and uploads to Cloudflare R2 / Supabase Storage
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
+import { Image } from 'https://deno.land/x/imagescript@v1.3.0/mod.ts';
+import { AwsClient } from 'https://esm.sh/aws4fetch@1.0.20';
 
-const supabaseUrl = Deno.env.get('FUNCTION_URL') ?? Deno.env.get('SUPABASE_URL') ?? 'https://ejzsblxopqmhpjuqmzsxd.supabase.co';
+const supabaseUrl = Deno.env.get('FUNCTION_URL') ?? Deno.env.get('SUPABASE_URL') ?? 'https://ejzsbkxpqmhpjuqmszvd.supabase.co';
 const supabaseKey = Deno.env.get('SERVICE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -15,6 +17,13 @@ const STORAGE_BUCKET = 'generated-images';
 // Webhook signing key from Replicate (set in Supabase Edge Function secrets)
 // Get from: https://replicate.com/account/webhooks
 const WEBHOOK_SIGNING_KEY = Deno.env.get('REPLICATE_WEBHOOK_SIGNING_KEY') ?? '';
+
+// Cloudflare R2 Configuration (Optional - if set, uploads directly to R2)
+const R2_ACCOUNT_ID = Deno.env.get('CLOUDFLARE_R2_ACCOUNT_ID') || Deno.env.get('R2_ACCOUNT_ID') || '';
+const R2_ACCESS_KEY_ID = Deno.env.get('CLOUDFLARE_R2_ACCESS_KEY_ID') || Deno.env.get('R2_ACCESS_KEY_ID') || '';
+const R2_SECRET_ACCESS_KEY = Deno.env.get('CLOUDFLARE_R2_SECRET_ACCESS_KEY') || Deno.env.get('R2_SECRET_ACCESS_KEY') || '';
+const R2_BUCKET = Deno.env.get('CLOUDFLARE_R2_BUCKET') || Deno.env.get('R2_BUCKET') || 'anarchy-images';
+const R2_PUBLIC_DOMAIN = Deno.env.get('CLOUDFLARE_R2_PUBLIC_DOMAIN') || Deno.env.get('R2_PUBLIC_DOMAIN') || '';
 
 // Helper: Verify webhook signature from Replicate
 async function verifyWebhookSignature(
@@ -75,7 +84,6 @@ async function downloadImage(url: string): Promise<Blob | null> {
     console.log('[replicate-webhook] Downloading image from:', url.substring(0, 60) + '...');
     const response = await fetch(url, {
       method: 'GET',
-      // Some services require specific headers
       headers: {
         'Accept': 'image/*,*/*',
       },
@@ -95,46 +103,149 @@ async function downloadImage(url: string): Promise<Blob | null> {
   }
 }
 
-// Helper: Upload image to Supabase Storage
-async function uploadToStorage(
+// Helper: Compress image to JPEG (quality 82) to reduce size by ~80%
+async function compressImageIfNeeded(
+  rawBlob: Blob,
+  targetQuality = 82
+): Promise<{ blob: Blob; ext: string; contentType: string }> {
+  const type = (rawBlob.type || '').toLowerCase();
+
+  // If video or svg, do not process with ImageScript
+  if (type.includes('video') || type.includes('mp4') || type.includes('webm') || type.includes('svg')) {
+    const ext = type.includes('mp4') ? 'mp4' : (type.includes('webm') ? 'webm' : 'bin');
+    return { blob: rawBlob, ext, contentType: rawBlob.type };
+  }
+
+  // If already WebP and reasonably sized (under 750 KB), keep as is
+  if (type.includes('webp') && rawBlob.size <= 750 * 1024) {
+    return { blob: rawBlob, ext: 'webp', contentType: 'image/webp' };
+  }
+
+  try {
+    const originalSizeKb = (rawBlob.size / 1024).toFixed(1);
+    console.log(`[replicate-webhook] Compressing image (Original: ${originalSizeKb} KB, Type: ${type})...`);
+
+    const arrayBuffer = await rawBlob.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+
+    // Decode image
+    const image = await Image.decode(uint8);
+
+    // Resize if excessive resolution (e.g. over 2048px on longest side)
+    const MAX_DIM = 2048;
+    if (image.width > MAX_DIM || image.height > MAX_DIM) {
+      if (image.width >= image.height) {
+        image.resize(MAX_DIM, Image.RESIZE_AUTO);
+      } else {
+        image.resize(Image.RESIZE_AUTO, MAX_DIM);
+      }
+    }
+
+    // Encode as high-quality compressed JPEG (quality 82 provides crystal clarity with 75-90% reduction from PNG)
+    const compressedBytes = await image.encodeJPEG(targetQuality);
+    const compressedBlob = new Blob([compressedBytes], { type: 'image/jpeg' });
+    const compressedSizeKb = (compressedBlob.size / 1024).toFixed(1);
+    const savedPercent = (((rawBlob.size - compressedBlob.size) / rawBlob.size) * 100).toFixed(1);
+
+    console.log(`[replicate-webhook] ✅ Compression done: ${originalSizeKb} KB -> ${compressedSizeKb} KB (Saved ${savedPercent}%)`);
+    return { blob: compressedBlob, ext: 'jpg', contentType: 'image/jpeg' };
+  } catch (err) {
+    console.warn('[replicate-webhook] ⚠️ Compression failed, fallback to original:', err);
+    let fallbackExt = 'jpg';
+    if (type.includes('png')) fallbackExt = 'png';
+    else if (type.includes('webp')) fallbackExt = 'webp';
+    return { blob: rawBlob, ext: fallbackExt, contentType: rawBlob.type || 'image/jpeg' };
+  }
+}
+
+// Helper: Upload to Cloudflare R2
+async function uploadToCloudflareR2(
   blob: Blob,
+  path: string,
+  contentType: string
+): Promise<string | null> {
+  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    return null;
+  }
+
+  try {
+    const aws = new AwsClient({
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+      service: 's3',
+      region: 'auto',
+    });
+
+    const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}/${path}`;
+    const res = await aws.fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+      },
+      body: blob,
+    });
+
+    if (!res.ok) {
+      console.error('[replicate-webhook] R2 upload failed with status:', res.status, await res.text());
+      return null;
+    }
+
+    if (R2_PUBLIC_DOMAIN) {
+      const base = R2_PUBLIC_DOMAIN.endsWith('/') ? R2_PUBLIC_DOMAIN.slice(0, -1) : R2_PUBLIC_DOMAIN;
+      return `${base}/${path}`;
+    }
+
+    return `https://${R2_BUCKET}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${path}`;
+  } catch (err) {
+    console.error('[replicate-webhook] R2 upload exception:', err);
+    return null;
+  }
+}
+
+// Helper: Upload image to Cloudflare R2 or Supabase Storage
+async function uploadToStorage(
+  rawBlob: Blob,
   userId: string,
   nodeId: string,
   predictionId: string
 ): Promise<string | null> {
   try {
-    // Determine file extension from content type
-    let ext: string;
-    if (blob.type.includes('png')) {
-      ext = 'png';
-    } else if (blob.type.includes('webp')) {
-      ext = 'webp';
-    } else {
-      ext = 'jpg';
-    }
-    
+    // 1. Compress image if needed
+    const { blob, ext, contentType } = await compressImageIfNeeded(rawBlob);
+
     // Create path: user_id/node_id/prediction_id.ext
     const path = `${userId}/${nodeId}/${predictionId}.${ext}`;
-    
-    console.log('[replicate-webhook] Uploading to storage:', path);
-    
+
+    // 2. Check if Cloudflare R2 is configured
+    if (R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) {
+      console.log('[replicate-webhook] Uploading to Cloudflare R2:', path);
+      const r2Url = await uploadToCloudflareR2(blob, path, contentType);
+      if (r2Url) {
+        console.log('[replicate-webhook] Uploaded to R2 successfully:', r2Url);
+        return r2Url;
+      }
+      console.warn('[replicate-webhook] R2 upload failed, falling back to Supabase Storage...');
+    }
+
+    // 3. Fallback: Upload to Supabase Storage
+    console.log('[replicate-webhook] Uploading to Supabase Storage:', path);
     const { error } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(path, blob, {
-        contentType: blob.type || 'image/jpeg',
+        contentType,
         upsert: true,
       });
-    
+
     if (error) {
       console.error('[replicate-webhook] Storage upload error:', error);
       return null;
     }
-    
+
     // Get public URL
     const { data: publicUrlData } = supabase.storage
       .from(STORAGE_BUCKET)
       .getPublicUrl(path);
-    
+
     console.log('[replicate-webhook] Uploaded successfully, public URL:', publicUrlData.publicUrl.substring(0, 60) + '...');
     return publicUrlData.publicUrl;
   } catch (err) {

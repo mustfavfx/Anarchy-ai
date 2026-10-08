@@ -13,9 +13,36 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.96',
+    date: 'October 8, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'feature',
+        title: 'ArchVision AI Agent Studio 2.0 & Interactive Three.js 3D WebGL Viewport',
+        description: 'Embedded an interactive 3D massing and volumetric viewport directly inside the agent deliverables using Three.js WebGL. Supports real-time camera orbit controls, solar lighting cycles (Day/Golden/Night), wireframe toggling, auto-rotation, and instant PNG viewport capture.'
+      },
+      {
+        type: 'feature',
+        title: 'Deep Architectural Chain-of-Thought & Autonomous Execution',
+        description: 'Integrated a 5-phase sequential architectural reasoning trace (Spatial Programming, FAR & Code Compliance, 3D Massing & Cantilevers, Solar Orientation, and Autodesk CUA Automation) with direct action triggers for Canvas nodes, 3ds Max execution, camera synchronization, and BOQ Excel export.'
+      },
+      {
+        type: 'feature',
+        title: 'ChatGPT/Claude-Style Multi-Session Management Sidebar',
+        description: 'Engineered a full-featured collapsible sessions sidebar with instant search, chronological grouping (Today, Yesterday, Last 7 Days, Older), inline session renaming, and persistent local storage.'
+      },
+      {
+        type: 'improvement',
+        title: '100% English UI Localization for AI Agent Studio',
+        description: 'Fully translated all UI controls, tooltips, dialogs, zero-state cards, inspectors, and status indicators in the AI Agent Studio into professional English.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.95',
     date: 'September 16, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'improvement',

@@ -1,10 +1,8 @@
 import { useCallback, useEffect } from 'react';
 import type { Edge, XYPosition } from '@xyflow/react';
-import { invoke } from '@tauri-apps/api/core';
 import { logger } from '../../../utils/logger';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
-import { watermarkService } from '../../../services/watermark/WatermarkService';
 import {
   getUnifiedCost,
   deductCredits,
@@ -13,7 +11,6 @@ import {
   DEV_MODE,
 } from '../../../services/credit/creditService';
 import {
-  addHistoryEntry,
   cacheLocalImage,
   resolveUrlToBlob,
 } from '../../../services/history/HistoryService';
@@ -22,7 +19,6 @@ import { getCurrentUserId } from '../../../services/supabase/supabaseClient';
 import type { BuilderNode, BuilderNodeData } from '../types';
 import {
   uploadImageIfLocal,
-  persistImageLocally,
   resolveImageIfCached,
   createDataPacket,
   createEdge,

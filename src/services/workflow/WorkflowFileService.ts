@@ -264,6 +264,22 @@ export async function saveWorkflow(
     const safeName = workflow.name.replace(/[^\p{L}\p{N}_\-\s]/gu, '').trim() || 'untitled';
     const projectCopy = `${projectsDir}\\${safeName}.ana`;
     await invoke('save_file', { path: projectCopy, contents: json });
+
+    // Also save lightweight metadata sidecar for instant Projects page listing
+    const metaCopy = `${projectsDir}\\${safeName}.meta.json`;
+    const metaPayload = {
+      name: workflow.name || safeName,
+      createdAt: workflow.createdAt,
+      updatedAt: workflow.updatedAt,
+      totalNodes: workflow.nodes.length,
+      sourceCount: workflow.nodes.filter(n => n.type === 'source' || n.data?.type === 'source').length,
+      outputCount: workflow.nodes.filter(n => n.type === 'result' || n.data?.outputData?.image).length,
+      refCount: workflow.edges.length,
+      thumbnailUrl: options?.thumbnail,
+      status: workflow.edges.length > 0 || workflow.nodes.some(n => n.type === 'result') ? 'completed' : 'active',
+      hasImage: !!options?.thumbnail,
+    };
+    await invoke('save_file', { path: metaCopy, contents: JSON.stringify(metaPayload, null, 2) }).catch(() => {});
   } catch { /* non-critical */ }
 
   lastSavePath = filePath;

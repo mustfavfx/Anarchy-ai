@@ -35,8 +35,14 @@ describe('Credit Service', () => {
   describe('getModelCost', () => {
     describe('Trial Mode (isTrial = true or default)', () => {
       it('should return correct cost for FLUX models', () => {
-        expect(getModelCost('black-forest-labs/flux-2-pro')).toBe(0.5);
+        expect(getModelCost('black-forest-labs/flux-3-image')).toBe(0.5);
         expect(getModelCost('black-forest-labs/flux-kontext-pro')).toBe(1);
+      });
+      
+      it('should return correct cost for Nano Banana 2.1', () => {
+        expect(getModelCost('google/nano-banana-2.1', { resolution: '1024x1024' })).toBe(0.7);
+        expect(getModelCost('google/nano-banana-2.1', { resolution: '2048x2048' })).toBe(1.0);
+        expect(getModelCost('google/nano-banana-2.1', { resolution: '4096x4096' })).toBe(1.5);
       });
       
       it('should return correct cost for other models', () => {
@@ -149,10 +155,12 @@ describe('Credit Service', () => {
 
     describe('Paid Mode (isTrial = false)', () => {
       it('should return correct cost for FLUX models', () => {
-        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '512x512', isTrial: false })).toBe(0.5);
-        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '1024x1024', isTrial: false })).toBe(0.5);
-        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '2048x2048', isTrial: false })).toBe(0.5);
-        expect(getModelCost('black-forest-labs/flux-2-pro', { resolution: '4096x4096', isTrial: false })).toBe(0.5);
+        expect(getModelCost('black-forest-labs/flux-3-image', { resolution: '768sq', isTrial: false })).toBe(0.5);
+        expect(getModelCost('black-forest-labs/flux-3-image', { resolution: '768px', isTrial: false })).toBe(0.5);
+        expect(getModelCost('black-forest-labs/flux-3-image', { resolution: '1k', isTrial: false })).toBe(0.5);
+        expect(getModelCost('black-forest-labs/flux-3-image', { resolution: '1.5k', isTrial: false })).toBe(0.7);
+        expect(getModelCost('black-forest-labs/flux-3-image', { resolution: '2048x2048', isTrial: false })).toBe(1.0);
+        expect(getModelCost('black-forest-labs/flux-3-image', { resolution: '4096x4096', isTrial: false })).toBe(4.0);
         expect(getModelCost('black-forest-labs/flux-kontext-pro', { isTrial: false })).toBe(1.0);
       });
       
@@ -205,6 +213,11 @@ describe('Credit Service', () => {
       });
       
       it('should return correct cost for upscale models', () => {
+        // Fast AI Upscaler (Real-ESRGAN: nightmareai/real-esrgan) -> flat 1 credit
+        expect(getModelCost('nightmareai/real-esrgan', { upscaleFactor: 2, isTrial: false })).toBe(1);
+        expect(getModelCost('nightmareai/real-esrgan', { upscaleFactor: 4, isTrial: false })).toBe(1);
+        expect(getModelCost('nightmareai/real-esrgan', { upscaleFactor: 8, isTrial: true })).toBe(1);
+
         // Topaz Labs Upscale (dynamic Megapixels aligned with real A100 execution costs)
         // Default base image (1024x1024 = 1 MP):
         // 2x upscale -> 4.19 MP (<= 24 MP) -> 3 credits

@@ -195,6 +195,8 @@ export const HistoryPage: React.FC = () => {
 
   const handleOpenWorkflow = async (entry: HistoryEntry) => {
     try {
+      setPreviewEntry(null);
+      setActiveGroup(null);
       await restoreViaEngine(entry);
     } catch (err) {
       console.error('[HistoryPage] Failed to restore workflow:', err);
@@ -205,6 +207,8 @@ export const HistoryPage: React.FC = () => {
   // Pipeline: GraphValidation → AutoRepair → CanvasSessionManager → navigate('/builder')
   const handleSendToCanvas = useCallback(async (url: string, entry: HistoryEntry) => {
     try {
+      setPreviewEntry(null);
+      setActiveGroup(null);
       // Attempt engine restore (validates graph, repairs, sets session, navigates)
       const success = await restoreViaEngine(entry);
       if (success) return;

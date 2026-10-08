@@ -25,7 +25,7 @@ export interface UseMaskDrawingParams {
   isOrthoMode: boolean;
   isSpacebarDown: boolean;
   isPanning: boolean;
-  activeLayerId: string;
+  activeLayerId: string | null;
   psMaskColor: 'white' | 'black';
   wandTolerance: number;
   smartHoverMask: Uint8Array | null;
@@ -34,7 +34,7 @@ export interface UseMaskDrawingParams {
   pushHistory: () => void;
   updateMaskPreview: () => void;
   setHasSelectionContent: Dispatch<SetStateAction<boolean>>;
-  setActiveLayerId: Dispatch<SetStateAction<string>>;
+  setActiveLayerId: Dispatch<SetStateAction<string | null>>;
   setInpaintLayers: Dispatch<SetStateAction<InpaintLayer[]>>;
 }
 

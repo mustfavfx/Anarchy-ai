@@ -265,8 +265,7 @@ export class ReplicateService {
         const errMsg = err?.message || String(err);
         const isHighDemand = errMsg.includes('E003')
           || errMsg.includes('high demand')
-          || errMsg.includes('currently unavailable')
-          || errMsg.includes('422');
+          || errMsg.includes('currently unavailable');
         const isRetryable = isHighDemand
           || errMsg.includes('429')
           || errMsg.includes('Connection aborted')

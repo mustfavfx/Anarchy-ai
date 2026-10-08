@@ -1,51 +1,46 @@
 import React, { memo, useRef, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { 
-  FileInput, Wand2, X, Sun, Moon, Users, 
-  Maximize, Palette, Scissors, RefreshCw, Loader2, AlertCircle, Download, Copyright,
-  Eye, Copy, Volume2, VolumeX, Play, Pause, Clapperboard, Sparkles, Paintbrush2
+  X, RefreshCw, AlertCircle, Copyright,
+  Eye, Volume2, VolumeX, Play, Pause, Paintbrush2, Loader2
 } from 'lucide-react';
 import { pdfToImages } from '../../services/pdf/PdfService';
 import { ExportModal } from '../../shared/components/ExportModal';
-import { getLocalImageAsObjectURL, revokeObjectUrl } from '../../services/history/HistoryService';
+import { getLocalImageAsObjectURL, getLocalImage, cacheLocalImage } from '../../services/history/HistoryService';
 import { anarchyService } from '../../services/anarchy/AnarchyService';
 import { NodeLightbox } from './components/NodeLightbox';
 import { NodeUploadPlaceholder } from './components/NodeUploadPlaceholder';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { isVideoNode, isVideoUrl } from './utils/builderHelpers';
-import { resolveCanvasThumbnail, invalidateCanvasThumbnail } from './utils/canvasImageOptimizer';
+import { resolveCanvasThumbnail, invalidateCanvasThumbnail, getCachedCanvasThumbnail, primeCanvasThumbnail } from './utils/canvasImageOptimizer';
+import { canvasSuperResolution } from '../../services/upscalers/MidjourneyTurboUpscaler';
 import { downloadImage } from '../../utils/imageExport';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
+import { canvasBridge } from '../../services/agent/CanvasBridgeService';
 import './BaseNode.css';
 import './BaseNode.glass.css';
-import type { ProcessingType, BuilderNodeData } from './types';
+import type { BuilderNodeData } from './types';
+
+import { BaseNodeHeader } from './components/node/BaseNodeHeader';
+import { BaseNodePromptBar } from './components/node/BaseNodePromptBar';
+import { PROCESSING_CONFIG } from './components/node/nodeConstants';
 
 interface BaseNodeProps extends NodeProps {
   data: BuilderNodeData;
 }
 
-// Processing type configuration (all use brand red for unified identity)
-const PROCESSING_CONFIG: Record<ProcessingType, { icon: React.ReactNode; color: string; desc: string }> = {
-  source: { icon: <FileInput size={12} />, color: '#e11d48', desc: 'Original input' },
-  render: { icon: <Wand2 size={12} />, color: '#e11d48', desc: 'AI generation' },
-  detail: { icon: <Maximize size={12} />, color: '#e11d48', desc: 'Detail enhancement' },
-  upscale: { icon: <Maximize size={12} />, color: '#e11d48', desc: 'Resolution increase' },
-  people: { icon: <Users size={12} />, color: '#e11d48', desc: 'Add/remove people' },
-  daynight: { icon: <Moon size={12} />, color: '#e11d48', desc: 'Day to night' },
-  lighting: { icon: <Sun size={12} />, color: '#e11d48', desc: 'Lighting adjust' },
-  material: { icon: <Palette size={12} />, color: '#e11d48', desc: 'Material change' },
-  local: { icon: <Scissors size={12} />, color: '#e11d48', desc: 'Local edit' },
-  video: { icon: <Clapperboard size={12} />, color: '#e11d48', desc: 'Video generation' },
-  variation: { icon: <RefreshCw size={12} />, color: '#e11d48', desc: 'Style variation' }
-};
-
-
-export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
-  const isSelected = Boolean(selected);
+export const BaseNode = memo(({ id, data, selected = false }: BaseNodeProps) => {
   const nodeData = data;
+  const nodeDataRef = useRef(nodeData);
+  nodeDataRef.current = nodeData;
+  const classifiedKeyRef = useRef<string | null>(null);
   const fullImageRaw = nodeData.image || nodeData.outputData?.image;
   const displayImageRaw = nodeData.thumbnail || nodeData.outputData?.thumbnail || fullImageRaw;
-  const [resolvedImageUrl, setResolvedImageUrl] = useState<string | undefined>(undefined);
+  const targetKey = displayImageRaw || fullImageRaw;
+  const initialSyncImage = targetKey
+    ? (getCachedCanvasThumbnail(targetKey) || (targetKey.startsWith('data:') || targetKey.startsWith('blob:') ? targetKey : undefined))
+    : undefined;
+  const [resolvedImageUrl, setResolvedImageUrl] = useState<string | undefined>(initialSyncImage);
   const [fullResolvedUrl, setFullResolvedUrl] = useState<string | undefined>(undefined);
   const [copied, setCopied] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -86,14 +81,20 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
   const [imgError, setImgError] = useState(false);
 
   // Sync dimensions from node data when available
+  const outputW = nodeData.outputData?.dimensions?.width;
+  const outputH = nodeData.outputData?.dimensions?.height;
+  const nodeW = nodeData.dimensions?.width;
+  const nodeH = nodeData.dimensions?.height;
+
   React.useEffect(() => {
-    const d = (nodeData.outputData?.dimensions ?? nodeData.dimensions) as { width: number; height: number } | undefined;
-    if (d && d.width && d.height) {
-      setImgDims({ w: d.width, h: d.height });
+    const w = outputW ?? nodeW;
+    const h = outputH ?? nodeH;
+    if (w && h) {
+      setImgDims(prev => (prev?.w === w && prev?.h === h ? prev : { w, h }));
     } else {
-      setImgDims(null);
+      setImgDims(prev => (prev === null ? null : null));
     }
-  }, [nodeData.outputData?.dimensions, nodeData.dimensions]);
+  }, [outputW, outputH, nodeW, nodeH]);
 
   React.useEffect(() => {
     setImgError(false);
@@ -107,9 +108,14 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
       return;
     }
 
+    const syncCached = getCachedCanvasThumbnail(targetKey);
+    if (syncCached) {
+      setResolvedImageUrl(syncCached);
+    }
+
     const resolveImage = async () => {
       // For videos, resolve directly without thumbnailing
-      if (isVideoNode(nodeData) || isVideoUrl(targetKey)) {
+      if (isVideoNode(nodeDataRef.current) || isVideoUrl(targetKey)) {
         if (targetKey.startsWith('idb://')) {
           const cachedUrl = await getLocalImageAsObjectURL(targetKey);
           if (!active) return;
@@ -128,28 +134,104 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
         if (!thumbUrl || thumbUrl.startsWith('idb://')) {
           const fallbackSource = fullImageRaw || targetKey;
           if (fallbackSource.startsWith('idb://')) {
-            thumbUrl = (await getLocalImageAsObjectURL(fallbackSource)) || '';
+            const b64 = await getLocalImage(fallbackSource);
+            if (b64) {
+              thumbUrl = b64;
+            } else {
+              thumbUrl = (await getLocalImageAsObjectURL(fallbackSource)) || '';
+            }
           } else {
             thumbUrl = fallbackSource;
           }
+        }
+
+        // AUTO-HEAL: If image key is missing from IndexedDB (e.g. from prior aborted transaction),
+        // automatically restore it from inputData.image or parent node's image in the lineage!
+        if (!thumbUrl || thumbUrl.startsWith('idb://')) {
+          const currentData = nodeDataRef.current;
+          const parentKey: string | null = (currentData.inputData?.image as string) ||
+            (currentData.lineage?.parentId 
+              ? ((useAIConfigStore.getState().workflowSnapshot?.nodes || []).find((n: any) => n.id === currentData.lineage?.parentId)?.data as any)?.image || null
+              : null);
+
+          if (parentKey && parentKey !== targetKey) {
+            let parentUrl = await getLocalImageAsObjectURL(parentKey);
+            if (!parentUrl) {
+              const b64 = await getLocalImage(parentKey);
+              if (b64) parentUrl = b64;
+            }
+
+            if (parentUrl && !parentUrl.startsWith('idb://')) {
+              try {
+                const targetW = currentData.dimensions?.width || currentData.outputData?.dimensions?.width || 2048;
+                const targetH = currentData.dimensions?.height || currentData.outputData?.dimensions?.height || 2048;
+                const healed = await canvasSuperResolution(parentUrl, 2, { width: targetW, height: targetH });
+                if (healed && healed.imageUrl) {
+                  thumbUrl = healed.imageUrl;
+                  await cacheLocalImage(targetKey, healed.imageUrl).catch(() => {});
+                  if (fullImageRaw && fullImageRaw !== targetKey) {
+                    await cacheLocalImage(fullImageRaw, healed.imageUrl).catch(() => {});
+                  }
+                  primeCanvasThumbnail(targetKey, healed.imageUrl);
+                  if (fullImageRaw) primeCanvasThumbnail(fullImageRaw, healed.imageUrl);
+                }
+              } catch (healErr) {
+                console.warn('[BaseNode] Auto-heal resolution error:', healErr);
+                thumbUrl = parentUrl;
+              }
+            }
+          }
+        }
+
+        // If thumbUrl is a remote URL that needs bypass (e.g. CometAPI, Midjourney, or Discord CDN), convert via Tauri url_to_base64
+        const needsRemoteBypass = thumbUrl &&
+          (thumbUrl.startsWith('http://') || thumbUrl.startsWith('https://')) &&
+          (thumbUrl.includes('api.cometapi.com') ||
+           thumbUrl.includes('midjourney') ||
+           thumbUrl.includes('discordapp.com') ||
+           thumbUrl.includes('discordapp.net'));
+
+        if (needsRemoteBypass) {
+          try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            const b64 = await invoke<string>('url_to_base64', { url: thumbUrl });
+            if (b64 && b64.startsWith('data:')) {
+              thumbUrl = b64;
+            }
+          } catch {}
         }
 
         if (!active) return;
 
         if (thumbUrl && !thumbUrl.startsWith('idb://')) {
           setResolvedImageUrl(thumbUrl);
+          setImgError(false);
         } else {
+          setResolvedImageUrl(undefined);
           setImgError(true);
         }
       } catch {
         if (!active) return;
         const fallbackSource = fullImageRaw || targetKey;
         if (fallbackSource.startsWith('idb://')) {
-          const cachedUrl = await getLocalImageAsObjectURL(fallbackSource);
+          let cachedUrl = await getLocalImageAsObjectURL(fallbackSource);
+          if (!cachedUrl) {
+            cachedUrl = await getLocalImage(fallbackSource);
+          }
           if (!active) return;
-          setResolvedImageUrl(cachedUrl || undefined);
-        } else {
+          if (cachedUrl && !cachedUrl.startsWith('idb://')) {
+            setResolvedImageUrl(cachedUrl);
+            setImgError(false);
+          } else {
+            setResolvedImageUrl(undefined);
+            setImgError(true);
+          }
+        } else if (fallbackSource && !fallbackSource.startsWith('idb://')) {
           setResolvedImageUrl(fallbackSource);
+          setImgError(false);
+        } else {
+          setResolvedImageUrl(undefined);
+          setImgError(true);
         }
       }
     };
@@ -161,6 +243,41 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
       // Do not revoke thumbnail blob URLs; memoryThumbnailCache manages its own lifecycle
     };
   }, [displayImageRaw, fullImageRaw]);
+
+  // Auto-classify node image with ArchVision AI Agent when image is present
+  React.useEffect(() => {
+    const currentData = nodeDataRef.current;
+    const isGenericDefault = currentData.semantic && (
+      currentData.semantic.label === 'Architectural Asset' ||
+      currentData.semantic.category === 'unknown' ||
+      currentData.semantic.subTypology === 'Contemporary Residential Villa' ||
+      currentData.semantic.subTypology === 'Architectural Asset'
+    );
+    // Automatically re-evaluate tags from earlier heuristic runs with the Gemini Multimodal Vision Engine
+    const VISION_SCHEMA_EPOCH = 1790199000000;
+    const isStale = currentData.semantic && (!currentData.semantic.analyzedAt || currentData.semantic.analyzedAt < VISION_SCHEMA_EPOCH);
+    const shouldClassify = !currentData.semantic || isGenericDefault || isStale;
+
+    if (!targetKey || !shouldClassify || isVideoNode(currentData) || isVideoUrl(targetKey)) {
+      return;
+    }
+
+    // Guard against repeated classification runs for the same image
+    if (classifiedKeyRef.current === targetKey) {
+      return;
+    }
+
+    classifiedKeyRef.current = targetKey;
+    const visionImageKey = fullImageRaw || targetKey;
+
+    const timer = setTimeout(() => {
+      canvasBridge.classifyCanvasNode(id, false, visionImageKey, nodeDataRef.current.prompt).catch((err) => {
+        console.debug('[BaseNode] Semantic classification deferred:', err);
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [id, targetKey, fullImageRaw]);
 
   const displayImage = resolvedImageUrl;
   const nodeType = nodeData.type;
@@ -349,7 +466,19 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
       
       {/* Target handle only for non-source nodes (Result nodes can receive connections) */}
       {!isSource && (
-        <Handle type="target" position={Position.Left} id="target" className="anarchy-handle" />
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="target"
+          className="anarchy-handle"
+          style={{
+            left: '-12px',
+            right: 'auto',
+            top: '50%',
+            bottom: 'auto',
+            transform: 'translateY(-50%)',
+          }}
+        />
       )}
       
       <div className="node-wrapper">
@@ -357,54 +486,19 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
         <div className="node-inner-shadow" />
         
         {/* Header Section */}
-        <div className="node-header">
-          <div className="node-identity">
-            <div className="node-title-group">
-              <span className="node-type-label">{nodeData.label}</span>
-              {isAnalyzed && (
-                <span className="node-status-badge analyzed" title="Scene Analyzed — Layout & Objects Extracted">
-                  <Sparkles size={10} />
-                  Analyzed
-                </span>
-              )}
-              {isProcessing && (
-                <span className="node-status-badge processing">
-                  <Loader2 size={10} className="spin" />
-                  Processing...
-                </span>
-              )}
-              {isError && (
-                <span className="node-status-badge error">
-                  <AlertCircle size={10} />
-                  Error
-                </span>
-              )}
-              {isCancelled && (
-                <span className="node-status-badge cancelled">
-                  <X size={10} />
-                  Cancelled
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="node-actions">
-            {displayImage && (
-              <button
-                type="button"
-                className="node-action-btn download"
-                onClick={handleExportClick}
-                title="Export Image"
-              >
-                <Download size={12} />
-              </button>
-            )}
-            {!isSource && nodeData.onDelete && (
-              <button type="button" className="node-action-btn delete" onClick={(e) => { e.stopPropagation(); nodeData.onDelete?.(); }} title="Delete">
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        </div>
+        <BaseNodeHeader
+          id={id}
+          nodeData={nodeData}
+          displayImage={displayImage}
+          fullImageRaw={fullImageRaw}
+          targetKey={targetKey}
+          isSource={isSource}
+          isAnalyzed={isAnalyzed}
+          isProcessing={isProcessing}
+          isError={isError}
+          isCancelled={isCancelled}
+          onExportClick={handleExportClick}
+        />
 
         {/* Content Section */}
         <div className="node-body" style={{ position: 'relative' }}>
@@ -451,12 +545,12 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               style={
-                displayImage
+                displayImage && !displayImage.startsWith('idb://')
                   ? { minHeight: 'unset', ...(imgDims ? { aspectRatio: `${imgDims.w} / ${imgDims.h}` } : {}) }
                   : undefined
               }
             >
-              {displayImage ? (
+              {displayImage && !displayImage.startsWith('idb://') ? (
                 <>
                   {(isVideoNode(nodeData) || uploadedIsVideo) ? (
                     <video
@@ -488,14 +582,43 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                           setImgError(false);
                           if (displayImageRaw) invalidateCanvasThumbnail(displayImageRaw);
                           if (fullImageRaw) invalidateCanvasThumbnail(fullImageRaw);
-                          const key = fullImageRaw || displayImageRaw;
+                          const key = fullImageRaw || displayImageRaw || targetKey;
                           if (key) {
+                            let u: string | null = null;
                             if (key.startsWith('idb://')) {
-                              const u = await getLocalImageAsObjectURL(key);
-                              if (u) setResolvedImageUrl(u);
+                              u = await getLocalImageAsObjectURL(key);
+                              if (!u) u = await getLocalImage(key);
                             } else {
-                              setResolvedImageUrl(key);
+                              u = key;
                             }
+                            if (u && !u.startsWith('idb://')) {
+                              setResolvedImageUrl(u);
+                              return;
+                            }
+                            // Auto-heal on retry if image missing from IDB
+                            const parentKey: string | null = (nodeDataRef.current.inputData?.image as string) ||
+                              (nodeDataRef.current.lineage?.parentId 
+                                ? ((useAIConfigStore.getState().workflowSnapshot?.nodes || []).find((n: any) => n.id === nodeDataRef.current.lineage?.parentId)?.data as any)?.image || null
+                                : null);
+                            if (parentKey) {
+                              let parentUrl = await getLocalImageAsObjectURL(parentKey);
+                              if (!parentUrl) parentUrl = await getLocalImage(parentKey);
+                              if (parentUrl && !parentUrl.startsWith('idb://')) {
+                                try {
+                                  const targetW = nodeDataRef.current.dimensions?.width || 2048;
+                                  const targetH = nodeDataRef.current.dimensions?.height || 2048;
+                                  const healed = await canvasSuperResolution(parentUrl, 2, { width: targetW, height: targetH });
+                                  if (healed && healed.imageUrl) {
+                                    await cacheLocalImage(key, healed.imageUrl).catch(() => {});
+                                    primeCanvasThumbnail(key, healed.imageUrl);
+                                    setResolvedImageUrl(healed.imageUrl);
+                                    setImgError(false);
+                                    return;
+                                  }
+                                } catch {}
+                              }
+                            }
+                            setImgError(true);
                           }
                         }}
                       >
@@ -507,8 +630,7 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                     <img
                       src={displayImage}
                       alt={nodeData.label || 'صورة النود'}
-                      loading="lazy"
-                      decoding="async"
+                      referrerPolicy="no-referrer"
                       onLoad={(e) => {
                         const img = e.currentTarget;
                         if (!nodeData.dimensions && !nodeData.outputData?.dimensions) {
@@ -520,7 +642,74 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                         }
                       }}
                       onError={async () => {
-                        // Resilient fallback: If displayImage (e.g. thumbnail) failed, try fullImageRaw directly
+                        // 1. If displayImage or fallbackKey is in IndexedDB, fetch base64 data URI directly (100% reliable)
+                        const fallbackKey = fullImageRaw || displayImageRaw || targetKey;
+                        if (fallbackKey && fallbackKey.startsWith('idb://')) {
+                          try {
+                            const b64 = await getLocalImage(fallbackKey);
+                            if (b64 && (b64.startsWith('data:') || b64.startsWith('blob:'))) {
+                              setResolvedImageUrl(b64);
+                              setImgError(false);
+                              return;
+                            }
+                            const objUrl = await getLocalImageAsObjectURL(fallbackKey);
+                            if (objUrl && !objUrl.startsWith('idb://')) {
+                              setResolvedImageUrl(objUrl);
+                              setImgError(false);
+                              return;
+                            }
+                          } catch {}
+                        }
+
+                        // 2. Auto-heal: If node image missing, restore from parent source
+                        const parentKey: string | null = (nodeDataRef.current.inputData?.image as string) ||
+                          (nodeDataRef.current.lineage?.parentId 
+                            ? ((useAIConfigStore.getState().workflowSnapshot?.nodes || []).find((n: any) => n.id === nodeDataRef.current.lineage?.parentId)?.data as any)?.image || null
+                            : null);
+                        if (parentKey && parentKey !== targetKey) {
+                          try {
+                            let parentUrl = await getLocalImageAsObjectURL(parentKey);
+                            if (!parentUrl) parentUrl = await getLocalImage(parentKey);
+                            if (parentUrl && !parentUrl.startsWith('idb://')) {
+                              const targetW = nodeDataRef.current.dimensions?.width || 2048;
+                              const targetH = nodeDataRef.current.dimensions?.height || 2048;
+                              const healed = await canvasSuperResolution(parentUrl, 2, { width: targetW, height: targetH });
+                              if (healed && healed.imageUrl) {
+                                if (targetKey) {
+                                  await cacheLocalImage(targetKey, healed.imageUrl).catch(() => {});
+                                }
+                                if (fullImageRaw && fullImageRaw !== targetKey) {
+                                  await cacheLocalImage(fullImageRaw, healed.imageUrl).catch(() => {});
+                                }
+                                if (targetKey) primeCanvasThumbnail(targetKey, healed.imageUrl);
+                                if (fullImageRaw) primeCanvasThumbnail(fullImageRaw, healed.imageUrl);
+                                setResolvedImageUrl(healed.imageUrl);
+                                setImgError(false);
+                                return;
+                              }
+                            }
+                          } catch {}
+                        }
+
+                        // 3. If displayImage is a remote URL that hit CORS or hotlink protection, recover via Tauri url_to_base64
+                        const remoteUrl = (displayImage && (displayImage.startsWith('http://') || displayImage.startsWith('https://'))) 
+                          ? displayImage 
+                          : (fallbackKey && (fallbackKey.startsWith('http://') || fallbackKey.startsWith('https://'))) 
+                            ? fallbackKey 
+                            : null;
+                        if (remoteUrl) {
+                          try {
+                            const { invoke } = await import('@tauri-apps/api/core');
+                            const b64 = await invoke<string>('url_to_base64', { url: remoteUrl });
+                            if (b64 && b64.startsWith('data:')) {
+                              setResolvedImageUrl(b64);
+                              setImgError(false);
+                              return;
+                            }
+                          } catch {}
+                        }
+
+                        // 4. Resilient fallback: If displayImage (e.g. thumbnail) failed, try fullImageRaw directly
                         if (fullImageRaw && resolvedImageUrl !== fullImageRaw) {
                           if (displayImageRaw) invalidateCanvasThumbnail(displayImageRaw);
                           if (fullImageRaw) invalidateCanvasThumbnail(fullImageRaw);
@@ -528,10 +717,12 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
                             const fallbackUrl = await getLocalImageAsObjectURL(fullImageRaw);
                             if (fallbackUrl && !fallbackUrl.startsWith('idb://')) {
                               setResolvedImageUrl(fallbackUrl);
+                              setImgError(false);
                               return;
                             }
                           } else {
                             setResolvedImageUrl(fullImageRaw);
+                            setImgError(false);
                             return;
                           }
                         }
@@ -652,7 +843,7 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
         id="source" 
         className="anarchy-handle"
         style={{
-          right: '-5px',
+          right: '-12px',
           left: 'auto',
           top: '50%',
           bottom: 'auto',
@@ -676,33 +867,56 @@ export const BaseNode = memo(({ id, data, selected }: BaseNodeProps) => {
           displayImage={fullResolvedUrl || displayImage || ''}
           isVideo={isVideoNode(nodeData) || uploadedIsVideo}
           label={nodeData.label}
+          nodeId={id}
+          prompt={nodeData.prompt}
+          onImageUpdate={(newUrl: string) => {
+            setFullResolvedUrl(newUrl);
+            setResolvedImageUrl(newUrl);
+            if (nodeData.onImageUpload) {
+              nodeData.onImageUpload(newUrl);
+            }
+            const updateFn = useAIConfigStore.getState().nodeImageUpdateFn;
+            if (updateFn) {
+              updateFn(id, newUrl);
+            }
+          }}
           onClose={() => setLightbox(null)}
         />
       )}
-      {nodeData.prompt && (
-        <div
-          className="node-prompt-bar"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <div className="node-prompt-content-wrap">
-            <button
-              type="button"
-              className={`node-prompt-copy-btn ${copied ? 'copied' : ''}`}
-              onClick={handleCopyPrompt}
-              title={copied ? "Copied!" : "Copy Prompt"}
-            >
-              <Copy size={10} />
-            </button>
-            <span
-              className="node-prompt-text"
-              style={{ userSelect: 'text', cursor: 'text' }}
-              title={String(nodeData.prompt)}
-            >
-              {nodeData.prompt.length > 80 ? nodeData.prompt.slice(0, 80) + '...' : nodeData.prompt}
-            </span>
-          </div>
-        </div>
-      )}
+      <BaseNodePromptBar
+        prompt={nodeData.prompt}
+        copied={copied}
+        onCopyPrompt={handleCopyPrompt}
+      />
     </div>
   );
+}, (prevProps, nextProps) => {
+  if (prevProps.id !== nextProps.id) return false;
+  if (Boolean(prevProps.selected) !== Boolean(nextProps.selected)) return false;
+
+  const prevData = prevProps.data;
+  const nextData = nextProps.data;
+  if (prevData === nextData) return true;
+  if (!prevData || !nextData) return false;
+
+  return (
+    prevData.state === nextData.state &&
+    prevData.image === nextData.image &&
+    prevData.thumbnail === nextData.thumbnail &&
+    prevData.prompt === nextData.prompt &&
+    prevData.label === nextData.label &&
+    prevData.type === nextData.type &&
+    prevData.processingType === nextData.processingType &&
+    prevData.updatedAt === nextData.updatedAt &&
+    prevData.semantic === nextData.semantic &&
+    prevData.enableWatermark === nextData.enableWatermark &&
+    prevData.isVideo === nextData.isVideo &&
+    prevData.outputData?.image === nextData.outputData?.image &&
+    prevData.outputData?.thumbnail === nextData.outputData?.thumbnail &&
+    prevData.outputData?.dimensions?.width === nextData.outputData?.dimensions?.width &&
+    prevData.outputData?.dimensions?.height === nextData.outputData?.dimensions?.height &&
+    prevData.dimensions?.width === nextData.dimensions?.width &&
+    prevData.dimensions?.height === nextData.dimensions?.height
+  );
 });
+

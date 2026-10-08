@@ -1,0 +1,982 @@
+/* ImageEditorToolbar.css — Anarchy AI Signature Dark Luxury Image Studio Suite */
+
+.chatgpt-image-toolbar-container {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10005;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  animation: anarchyToolbarFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes anarchyToolbarFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+/* ── Anarchy AI Signature Floating Pill Toolbar ── */
+.chatgpt-pill-toolbar {
+  display: flex;
+  align-items: center;
+  background: rgba(14, 14, 20, 0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 5px 8px;
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.75), 
+    0 2px 8px rgba(0, 0, 0, 0.4), 
+    0 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 0 24px rgba(225, 29, 72, 0.16);
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+
+.chatgpt-pill-toolbar:hover {
+  border-color: rgba(225, 29, 72, 0.35);
+  box-shadow: 
+    0 18px 48px rgba(0, 0, 0, 0.85), 
+    0 2px 10px rgba(0, 0, 0, 0.5), 
+    0 0 28px rgba(225, 29, 72, 0.28);
+}
+
+.anarchy-pill-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px 0 6px;
+}
+
+.chatgpt-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px 0 6px;
+  color: #71717a;
+  cursor: grab;
+  transition: color 0.15s ease;
+}
+
+.chatgpt-drag-handle:hover {
+  color: #e4e4e7;
+}
+
+.anarchy-brand-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff2a6d;
+  box-shadow: 0 0 8px rgba(255, 42, 109, 0.8), 0 0 2px #ffffff;
+  animation: brandDotPulse 2s infinite ease-in-out;
+}
+
+@keyframes brandDotPulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 12px rgba(255, 42, 109, 1), 0 0 4px #ffffff; }
+}
+
+/* Subtle separator between buttons */
+.chatgpt-pill-separator {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 1px;
+}
+
+.chatgpt-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.chatgpt-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.chatgpt-tool-btn:hover svg {
+  stroke: #ff2a6d;
+  filter: drop-shadow(0 0 6px rgba(255, 42, 109, 0.5));
+}
+
+.chatgpt-tool-btn.active {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
+  font-weight: 600;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    0 2px 10px rgba(225, 29, 72, 0.5), 
+    0 0 18px rgba(244, 63, 94, 0.35);
+}
+
+.chatgpt-tool-btn.active svg {
+  stroke: #ffffff !important;
+  filter: none !important;
+}
+
+.chatgpt-tool-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.chatgpt-tool-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  transition: stroke 0.16s ease, filter 0.16s ease;
+}
+
+/* ── Tool Control Sub-Bar (Floats directly above the pill) ── */
+.chatgpt-subtoolbar-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(13, 13, 19, 0.94);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(225, 29, 72, 0.28);
+  border-radius: 16px;
+  padding: 8px 14px;
+  box-shadow: 
+    0 16px 48px rgba(0, 0, 0, 0.8), 
+    0 0 24px rgba(225, 29, 72, 0.2);
+  color: #ffffff;
+  font-size: 13px;
+  animation: subtoolbarSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes subtoolbarSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Subtoolbar action buttons */
+.subtool-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.subtool-action-btn.apply {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 12px rgba(225, 29, 72, 0.45);
+}
+
+.subtool-action-btn.apply:hover {
+  background: linear-gradient(135deg, #fb7185 0%, #be123c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.6);
+}
+
+.subtool-action-btn.fork {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #34d399;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
+}
+
+.subtool-action-btn.fork:hover {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: #10b981;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45);
+}
+
+.subtool-action-btn.cancel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e4e4e7;
+}
+
+.subtool-action-btn.cancel:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.subtool-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4f4f5;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.subtool-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.subtool-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Color swatches */
+.subtool-colors-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.color-swatch-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.color-swatch-dot:hover {
+  transform: scale(1.18);
+}
+
+.color-swatch-dot.active {
+  border-color: #ffffff;
+  transform: scale(1.24);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+}
+
+/* Slider */
+.subtool-slider {
+  accent-color: #e11d48;
+  height: 4px;
+  width: 80px;
+  cursor: pointer;
+}
+
+/* ── Anarchy AI Resize Aspect Ratio Popover Card (Matches Screenshot) ── */
+.anarchy-resize-card {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  right: 0;
+  width: 250px;
+  background: rgba(14, 14, 20, 0.96);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.85),
+    0 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 0 30px rgba(225, 29, 72, 0.2);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: resizeCardFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10010;
+}
+
+@keyframes resizeCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.anarchy-resize-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1.45;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.ratio-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ratio-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.ratio-item-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ratio-item-row.active {
+  background: rgba(225, 29, 72, 0.18);
+  border-color: rgba(225, 29, 72, 0.45);
+}
+
+.ratio-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #f4f4f5;
+  flex: 1;
+}
+
+.ratio-number {
+  font-size: 12.5px;
+  color: #71717a;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.ratio-item-row.active .ratio-name {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ratio-item-row.active .ratio-number {
+  color: #fca5a5;
+}
+
+.ratio-check-icon {
+  color: #ff2a6d;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(255, 42, 109, 0.7));
+  margin-left: auto;
+}
+
+/* Aspect ratio wireframe outlines */
+.ratio-wireframe-box {
+  border: 1.8px solid #94a3b8;
+  border-radius: 3.5px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ratio-wireframe-box.wf-square {
+  width: 16px;
+  height: 16px;
+}
+
+.ratio-wireframe-box.wf-portrait {
+  width: 14px;
+  height: 18px;
+}
+
+.ratio-wireframe-box.wf-story {
+  width: 11px;
+  height: 20px;
+}
+
+.ratio-wireframe-box.wf-landscape {
+  width: 18px;
+  height: 14px;
+}
+
+.ratio-wireframe-box.wf-widescreen {
+  width: 20px;
+  height: 12px;
+}
+
+.ratio-item-row:hover .ratio-wireframe-box {
+  border-color: #ff2a6d;
+  box-shadow: 0 0 8px rgba(255, 42, 109, 0.45);
+}
+
+.ratio-item-row.active .ratio-wireframe-box {
+  border-color: #ff2a6d;
+  background: rgba(255, 42, 109, 0.25);
+  box-shadow: 0 0 10px rgba(255, 42, 109, 0.7);
+}
+
+.resize-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.subtool-action-btn.generate-ai {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.subtool-action-btn.generate-ai:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: #ff2a6d;
+  box-shadow: 0 0 10px rgba(255, 42, 109, 0.4);
+}
+
+/* ── Interactive Overlay Layers On Image ── */
+.image-editor-canvas-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.image-editor-canvas-layer.cursor-pen {
+  cursor: crosshair;
+}
+
+.image-editor-canvas-layer.cursor-eraser {
+  cursor: none;
+}
+
+.image-editor-canvas-layer.cursor-comment {
+  cursor: pointer;
+}
+
+/* Checkered background pattern for transparent Remove BG preview */
+.checkered-transparent-bg {
+  background-image: 
+    linear-gradient(45deg, #222 25%, transparent 25%), 
+    linear-gradient(-45deg, #222 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #222 75%), 
+    linear-gradient(-45deg, transparent 75%, #222 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #141414;
+}
+
+/* ── Comment Pin Badge & Card ── */
+.comment-pin-marker {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e11d48;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(225, 29, 72, 0.6), 0 0 0 2px #ffffff;
+  transition: transform 0.15s ease;
+  z-index: 10003;
+}
+
+.comment-pin-marker:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.comment-pin-marker::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(225, 29, 72, 0.4);
+  animation: pinPulse 2s infinite;
+}
+
+@keyframes pinPulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.comment-card-popover {
+  position: absolute;
+  z-index: 10004;
+  background: rgba(18, 18, 24, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  border-radius: 14px;
+  padding: 12px;
+  width: 270px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.8), 0 0 24px rgba(225, 29, 72, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: popoverFade 0.15s ease;
+}
+
+@keyframes popoverFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.comment-card-textarea {
+  width: 100%;
+  min-height: 60px;
+  background: #202028;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px;
+  color: #ffffff;
+  font-size: 12.5px;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.comment-card-textarea:focus {
+  outline: none;
+  border-color: #e11d48;
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.3);
+}
+
+.comment-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* ── Interactive Crop Overlay ── */
+.crop-overlay-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.crop-scrim {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.crop-box {
+  position: absolute;
+  border: 1.5px solid #ff2a6d;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 42, 109, 0.35);
+  box-sizing: border-box;
+  cursor: move;
+}
+
+/* Rule of thirds grid lines */
+.crop-grid-line-h1, .crop-grid-line-h2,
+.crop-grid-line-v1, .crop-grid-line-v2 {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.crop-grid-line-h1 { top: 33.333%; left: 0; right: 0; height: 1px; }
+.crop-grid-line-h2 { top: 66.666%; left: 0; right: 0; height: 1px; }
+.crop-grid-line-v1 { left: 33.333%; top: 0; bottom: 0; width: 1px; }
+.crop-grid-line-v2 { left: 66.666%; top: 0; bottom: 0; width: 1px; }
+
+/* Crop handles */
+.crop-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border: 2px solid #ff2a6d;
+  border-radius: 2px;
+  box-sizing: border-box;
+  box-shadow: 0 0 6px rgba(255, 42, 109, 0.6);
+}
+
+.crop-handle.tl { top: -5px; left: -5px; cursor: nwse-resize; }
+.crop-handle.tr { top: -5px; right: -5px; cursor: nesw-resize; }
+.crop-handle.bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.crop-handle.br { bottom: -5px; right: -5px; cursor: nwse-resize; }
+.crop-handle.t  { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+.crop-handle.b  { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+.crop-handle.l  { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
+.crop-handle.r  { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
+ 
+/* ── Erase Mode: Top Floating Capsule & Left Vertical Slider (ChatGPT Style) ── */
+
+.anarchy-erase-top-bar {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(14, 14, 20, 0.92);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  padding: 6px 12px 6px 20px;
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.8),
+    0 0 24px rgba(225, 29, 72, 0.2);
+  color: #ffffff;
+  z-index: 10006;
+  animation: eraseBarSlideDown 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+@keyframes eraseBarSlideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.anarchy-erase-text {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #f4f4f5;
+  white-space: nowrap;
+  letter-spacing: 0.15px;
+}
+
+.anarchy-erase-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  transition: all 0.18s ease;
+  min-width: 260px;
+}
+
+.anarchy-erase-input-wrap:focus-within {
+  border-color: rgba(255, 42, 109, 0.65);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 12px rgba(255, 42, 109, 0.35);
+}
+
+.anarchy-erase-prompt-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 12.5px;
+  width: 100%;
+}
+
+.anarchy-erase-prompt-input::placeholder {
+  color: #a1a1aa;
+}
+
+.anarchy-erase-sparkle-icon {
+  color: #ff2a6d;
+  flex-shrink: 0;
+}
+
+.subtool-inline-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 4px 10px;
+  min-width: 220px;
+  transition: border-color 0.16s ease;
+}
+
+.subtool-inline-input-wrap:focus-within {
+  border-color: rgba(255, 42, 109, 0.6);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.subtool-inline-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 12px;
+  width: 100%;
+}
+
+.subtool-inline-input::placeholder {
+  color: #a1a1aa;
+}
+
+.anarchy-erase-undo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f4f5;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.anarchy-erase-undo-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.anarchy-erase-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  letter-spacing: 0.2px;
+}
+
+.anarchy-erase-send-btn:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.35);
+  cursor: not-allowed;
+}
+
+.anarchy-erase-send-btn:not(:disabled) {
+  background: linear-gradient(135deg, #ff2a6d 0%, #e11d48 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 14px rgba(255, 42, 109, 0.55);
+}
+
+.anarchy-erase-send-btn:not(:disabled):hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 4px 18px rgba(255, 42, 109, 0.75);
+}
+
+.anarchy-erase-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.anarchy-erase-close-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+/* ── Vertical Brush Size Slider (Left Side Capsule) ── */
+.anarchy-erase-slider-pill {
+  position: fixed;
+  left: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 190px;
+  background: rgba(14, 14, 20, 0.92);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(225, 29, 72, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+  z-index: 10006;
+  animation: eraseSliderFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  touch-action: none;
+  cursor: pointer;
+}
+
+@keyframes eraseSliderFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+.anarchy-erase-slider-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.anarchy-erase-slider-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1px;
+}
+
+.anarchy-erase-slider-thumb {
+  position: absolute;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #ff2a6d;
+  box-shadow: 
+    0 0 10px rgba(255, 42, 109, 0.7),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, 50%);
+  transition: transform 0.08s ease, box-shadow 0.15s ease;
+  pointer-events: none;
+}
+
+.anarchy-erase-slider-pill:hover .anarchy-erase-slider-thumb {
+  box-shadow: 
+    0 0 14px rgba(255, 42, 109, 0.95),
+    0 2px 8px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, 50%) scale(1.15);
+}
+
+/* ── Circular Brush Cursor Ring Following Mouse ── */
+.erase-brush-circle-cursor {
+  position: absolute;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 0 8px rgba(255, 42, 109, 0.8),
+    inset 0 0 4px rgba(255, 42, 109, 0.3);
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 10004;
+  transition: width 0.06s ease, height 0.06s ease;
+}
+
+/* ── Fork to Child Node (Design Iteration Branching) ── */
+.anarchy-erase-fork-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #34d399;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  letter-spacing: 0.15px;
+}
+
+.anarchy-erase-fork-btn:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.35);
+  border-color: transparent;
+  cursor: not-allowed;
+}
+
+.anarchy-erase-fork-btn:not(:disabled):hover {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: #10b981;
+  color: #ffffff;
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.5);
+}
+
+.chatgpt-tool-btn.fork-direct-btn:hover {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #34d399 !important;
+}
+
+.chatgpt-tool-btn.fork-direct-btn:hover svg {
+  stroke: #34d399 !important;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.6)) !important;
+}
+
+.node-branch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  padding: 1.5px 7px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.node-action-btn.fork:hover {
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+}

@@ -11,7 +11,6 @@ import {
   type ImageAdjustments,
   type CropBounds,
   type LayoutEditorProps,
-  type TreeNode,
   type ChatMessage,
   DEFAULT_ADJUSTMENTS,
   DEFAULT_CROP_BOUNDS,
@@ -27,8 +26,8 @@ export const useLayoutEditorState = ({
   initialLayout,
   onApplyResult,
   onLayoutExtracted,
-  className = '',
-  isEnlargedView = false,
+  className: _className = '',
+  isEnlargedView: _isEnlargedView = false,
 }: LayoutEditorProps) => {
   const rawImage = rawImageProp || imageProp || null;
   const { user: authUser } = useAuth();
@@ -156,7 +155,7 @@ export const useLayoutEditorState = ({
   // Scene Discovery and Caching Hook
   const {
     savedScenesList,
-    setSavedScenesList,
+    setSavedScenesList: _setSavedScenesList,
     saveSceneToLibrary,
     deleteSavedScene,
     availableImages,
@@ -173,7 +172,7 @@ export const useLayoutEditorState = ({
   const {
     handleExtractLayout,
     handleApplyEdits,
-    exportBinaryInpaintMask,
+    exportBinaryInpaintMask: _exportBinaryInpaintMask,
     handleApplyMaskEdit,
     handleApplyReframe,
     handleSendAskAnarchy

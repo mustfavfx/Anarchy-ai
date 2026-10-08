@@ -154,6 +154,62 @@ const ARCHITECTURAL_MAPPINGS: KeywordMapping[] = [
     expansionEn: 'moody overcast lighting, wet pavement reflections, ethereal atmospheric fog, diffused ambient occlusion',
     expansionAr: 'إضاءة غائمة دراماتيكية، انعكاسات أسطح مبللة وضباب جوي ساحر يعزز العمق البصري',
   },
+
+  // Styles & Movements
+  {
+    matchers: ['مودرن', 'معاصر', 'modern', 'contemporary', 'minimalist'],
+    expansionEn: 'ultra-clean minimalist geometric volumes, deep cantilevered concrete overhangs, seamless indoor-outdoor floor integration, 15mm negative shadow reveals',
+    expansionAr: 'كتل هندسية معاصرة بخطوط نقية، أسقف كابولية خرسانية طافية، تداخل فراغي بين الداخل والخارج وفواصل ظل غائرة 15mm',
+  },
+  {
+    matchers: ['مشربية', 'إسلامي', 'mashrabiya', 'islamic', 'oriental'],
+    expansionEn: 'contemporary parametric geometric mashrabiya screen panels, cast shadow patterns grazing polished stone surfaces, modern oriental luxury',
+    expansionAr: 'واجهات مشربية هندسية معاصرة بارامترية، ظلال شمسية ساحرة مسقطة على الأرضيات الحجرية وفخامة شرقية حديثة',
+  },
+  {
+    matchers: ['ياباني', 'وابي سابي', 'جاباندي', 'japandi', 'wabi sabi', 'zen'],
+    expansionEn: 'warm Japandi wabi-sabi architectural aesthetic, tactile micro-cement stucco walls, raw organic timber joinery, quiet serene negative space',
+    expansionAr: 'طراز جاباندي ووابي سابي معماري دافئ، جدران ميكروسمنت ناعمة، أخشاب عضوية طبيعية وفراغات هادئة تأملية',
+  },
+  {
+    matchers: ['كلاسيك', 'نيوكلاسيك', 'classic', 'neoclassic'],
+    expansionEn: 'monumental neoclassical architectural proportions, refined fluted stone pilasters, symmetrical arched openings, understated grand cornice details',
+    expansionAr: 'تناسب كلاسيكي حديث متزن، أعمدة حجرية مضلعة أنيقة، فتحات مقوسة متناظرة وتفاصيل كورنيش فخمة رصينة',
+  },
+
+  // Commercial & Hospitality Typologies
+  {
+    matchers: ['مقهى', 'كوفي', 'كافيه', 'cafe', 'coffee shop'],
+    expansionEn: 'bespoke specialty cafe interior, fluted terrazzo bar counter, sculptural acoustic pendant lamps, cozy warm 2700K hospitality lighting',
+    expansionAr: 'مقهى عصري فاخر، كاونتر رئيسي من التيرازو الإيطالي، وحدات إضاءة معلقة نحتية وأجواء ضيافة دافئة بحرارة 2700K',
+  },
+  {
+    matchers: ['مكتب', 'مقر', 'شركة', 'office', 'headquarters', 'workspace'],
+    expansionEn: 'state-of-the-art biophilic corporate headquarters, open flexible collaborative lounges, acoustic slatted ceilings, floor-to-ceiling curtain wall views',
+    expansionAr: 'مقر شركات عصري بتصميم بيوفيليك حيوي، صالات عمل مرنة، أسقف خشبية عازلة للصوت وإطلالات زجاجية بانورامية واسعة',
+  },
+  {
+    matchers: ['مطعم', 'restaurant', 'dining'],
+    expansionEn: 'luxurious fine-dining restaurant interior, intimate architectural booth seating, ambient dramatic warm spot-lighting, textured ribbed glass screens',
+    expansionAr: 'مطعم راقٍ بتصميم معماري استثنائي، جلسات خاصة مريحة، إضاءات بؤرية دافئة وواجهات زجاجية مضلعة فاخرة',
+  },
+  {
+    matchers: ['فندق', 'منتجع', 'hotel', 'resort'],
+    expansionEn: 'five-star luxury architectural resort pavilion, floating timber cabanas, integrated reflecting water mirrors, lush native tropical flora',
+    expansionAr: 'منتجع فندقي خمس نجوم فائق الفخامة، مظلات خشبية عائمة، مسطحات مائية عاكسة وأشجار طبيعية منسقة بعناية',
+  },
+
+  // Photometrics & Optics
+  {
+    matchers: ['إضاءة مخفية', 'ليد', 'cove', 'indirect lighting'],
+    expansionEn: 'concealed linear 3000K LED coves, indirect warm ambient glow washing monolithic wall planes, trimless architectural downlights',
+    expansionAr: 'إضاءة خطية مخفية بحرارة 3000K، توهج دافئ يغسل الجدران الحجرية ووحدات إضاءة سقفية غائرة بدون إطار',
+  },
+  {
+    matchers: ['كاميرا', 'منظور', 'عدسة', 'camera', 'lens', 'perspective'],
+    expansionEn: '35mm architectural tilt-shift lens, medium format sensor fidelity, two-point perspective with corrected vertical lines, unclipped dynamic range',
+    expansionAr: 'عدسة إمالة وإزاحة معمارية 35mm، دقة مستشعر متوسط الحجم، تصحيح المنظور الرأسي ثنائي النقاط وتوازن ضوئي ديناميكي عالي',
+  },
 ];
 
 /**
@@ -183,12 +239,12 @@ function enhanceWithOfflineEngine(rawPrompt: string, options?: AutoPromptOptions
 
   // Base photography & rendering quality standards for both languages
   const qualityTokensAr = mode === 'inpaint'
-    ? 'دمج سلس ومتناسق، إضاءة محيطية متطابقة مع المشهد، ظلال واقعية وتفاصيل حواف متناغمة، دقة فائقة 8k'
-    : 'تصوير فوتوغرافي معماري احترافي، عدسة 35 مم، إضاءة حجمية متوازنة، واقعية فائقة وتفاصيل بصرية ملموسة بدقة 8k';
+    ? 'دمج سلس ومتناسق، دمج حواف متناهي الدقة، إضاءة محيطية وظلال مطابقة للمشهد بدقة كلفن، انعكاسات متجانسة وتفاصيل مادية ملموسة، تصوير فوتوغرافي معماري احترافي 8k'
+    : 'تصوير فوتوغرافي معماري معتمد من Architectural Digest، عدسة إمالة وإزاحة Tilt-Shift 35mm، تصحيح المنظور العمودي ثنائي النقاط، إضاءة حجمية طبيعية متوازنة بحرارة 5200K، فواصل ظل غائرة 15mm، واقعية مادية ملموسة وتفاصيل دقيقة فائقة الجودة 8k';
 
   const qualityTokensEn = mode === 'inpaint'
-    ? 'seamless edge blending, matching ambient lighting, high detail photographic consistency, realistic depth-of-field integration'
-    : 'professional architectural photography, 35mm Hasselblad lens, photorealistic 8k, crisp tactile textures, Unreal Engine 5 render fidelity, perfectly balanced composition';
+    ? 'seamless edge blending, flawless edge cohesion, matching ambient lighting, matched scene irradiance and Kelvin color temperature, specular reflection alignment, subtle contact ambient occlusion, Architectural Digest photography standard'
+    : 'masterpiece architectural photography, 35mm tilt-shift lens, two-point perspective with corrected vertical lines, global illumination bounce lighting, 5200K natural daylight balanced with 3000K warm interior accents, 15mm negative shadow reveals, tactile honed stone and timber tectonics, crisp Hasselblad medium format fidelity';
 
   let enhancedText = '';
 
@@ -197,9 +253,9 @@ function enhanceWithOfflineEngine(rawPrompt: string, options?: AutoPromptOptions
       enhancedText = `${rawPrompt.trim()}، ${collectedTokens.join('، ')}، ${qualityTokensAr}`;
     } else {
       if (mode === 'inpaint') {
-        enhancedText = `${rawPrompt.trim()}، عنصر معماري مدمج بسلاسة، إضاءة محيطية وظلال مطابقة للمشهد، واقعية فائقة بدقة 8k`;
+        enhancedText = `${rawPrompt.trim()}، عنصر معماري مدمج بسلاسة تامة، إضاءة محيطية وظلال وانعكاسات مطابقة لعمق المشهد، جودة تصوير معماري فائق 8k`;
       } else {
-        enhancedText = `${rawPrompt.trim()} بتصميم معماري عصري فاخر، مواد إكساء راقية، إضاءة متوازنة، ${qualityTokensAr}`;
+        enhancedText = `${rawPrompt.trim()} بتصميم معماري عصري فريد، كتل هندسية متوازنة، مواد إكساء طبيعية راقية، ${qualityTokensAr}`;
       }
     }
   } else {
@@ -207,9 +263,9 @@ function enhanceWithOfflineEngine(rawPrompt: string, options?: AutoPromptOptions
       enhancedText = `${rawPrompt.trim()}, ${collectedTokens.join(', ')}, ${qualityTokensEn}`;
     } else {
       if (mode === 'inpaint') {
-        enhancedText = `${rawPrompt.trim()}, seamlessly integrated architectural element, matching ambient lighting and shadows, photorealistic finish, crisp edge cohesion`;
+        enhancedText = `${rawPrompt.trim()}, seamlessly integrated architectural element, matching ambient irradiance and scene shadows, photorealistic finish, crisp edge cohesion`;
       } else {
-        enhancedText = `Bespoke architectural masterpiece of ${rawPrompt.trim()}, premium material articulation, dynamic volumetric lighting, elegant geometry, ${qualityTokensEn}`;
+        enhancedText = `Bespoke architectural composition of ${rawPrompt.trim()}, premium material articulation, balanced volumetric massing, ${qualityTokensEn}`;
       }
     }
   }
@@ -259,7 +315,7 @@ class AutoPromptService {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       const mode = options?.mode || 'generate';
 
-      const systemPrompt = `You are AutoPrompt, the premier AI prompt engineer for Anarchy AI (specializing in architectural visualization, photorealistic design, and modern diffusion models).
+      const systemPrompt = `You are AutoPrompt, the elite AI prompt engineer for Anarchy AI (specializing in architectural visualization, photorealistic design, and modern diffusion models including FLUX, Midjourney, and SDXL).
 
 User prompt: "${cleanPrompt}"
 Detected language: ${isArabic ? 'Arabic' : 'English'}
@@ -271,12 +327,12 @@ ${isArabic
   : `The user's prompt is in ENGLISH. You MUST generate the enhanced prompt STRICTLY in HIGH-END PROFESSIONAL ENGLISH.`}
 
 OBJECTIVE:
-Enrich and expand the user's prompt into an elite, photorealistic architectural prompt:
-1. Maintain the user's core concept, style, and intent.
-2. Add specific architectural materials and textures (e.g. exposed concrete, teak wood louvers, low-iron glass, travertine stone).
-3. Add lighting and atmosphere (e.g. golden hour sunbeams, twilight blue hour, ambient reflections).
-4. Add camera and composition specs (e.g. 35mm architectural photography, photorealistic 8k, crisp depth-of-field).
-${mode === 'inpaint' ? '5. For Inpainting: Ensure seamless edge integration, matching surrounding lighting and shadows.' : ''}
+Enrich and expand the user's prompt into an elite, photorealistic architectural prompt that maximizes diffusion model fidelity:
+1. Preserve the user's exact concept, typology, and intent.
+2. Detail authentic architectural materials and tectonics (e.g., vein-cut Roman travertine, fair-faced post-tensioned concrete, quarter-sawn oak louvers, 20mm slimline aluminum profiles, 15mm negative shadow beads).
+3. Establish precise lighting optics and Kelvin temperatures (e.g., 5200K daylight with balanced 3000K interior warm coves, diffuse bounce global illumination, twilight blue hour contrast).
+4. Specify professional architectural photography camera parameters: 35mm tilt-shift lens, 2-point perspective with perfectly straight vertical lines, crisp Hasselblad medium-format detail.
+${mode === 'inpaint' ? '5. For Inpainting: Ensure seamless edge cohesion, matching ambient scene irradiance, realistic contact shadows, and unified depth of field.' : ''}
 
 OUTPUT:
 Return ONLY the final enhanced prompt in ${isArabic ? 'ARABIC' : 'ENGLISH'}. No intro, no conversational text, no quotation marks.`;

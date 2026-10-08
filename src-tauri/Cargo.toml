@@ -1,6 +1,6 @@
 [package]
 name = "anarchy-ai"
-version = "0.3.95"
+version = "0.3.96"
 description = "Anarchy AI - AI Image Builder Desktop App"
 authors = ["Anarchy AI Team"]
 edition = "2021"
@@ -31,6 +31,15 @@ tauri-plugin-dialog = "2.7.0"
 dirs = "5"
 tauri-plugin-drag = "2.1.1"
 tauri-plugin-http = "2"
-image = { version = "0.25", default-features = false, features = ["bmp", "png"] }
+image = { version = "0.25", default-features = false, features = ["bmp", "png", "jpeg"] }
 open = "5"
 keyring = "2.1.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_Graphics_Gdi",
+] }
+

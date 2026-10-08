@@ -6,6 +6,7 @@ import { groupHistoryEntries } from './HistoryGroupingService';
 // Re-export all storage primitives and helpers for 100% backward compatibility
 export {
   registerObjectUrl,
+  getCachedObjectUrl,
   getObjectUrlRegistrySize,
   revokeAllObjectUrls,
   revokeObjectUrl,
@@ -22,6 +23,7 @@ export {
   IDB_CACHE_STORE,
   IDB_EMBEDDINGS_STORE,
   openImageDB,
+  openNamedDB,
   saveRawData,
   loadRawData,
   deleteRawData,
@@ -83,7 +85,7 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateId(): string {
+export function generateHistoryId(): string {
   return `h_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -92,7 +94,7 @@ function generateId(): string {
 let addHistoryLock: Promise<any> = Promise.resolve();
 
 /** Add a new history entry, writing large image binaries into IndexedDB Blobs asynchronously and atomically */
-export async function addHistoryEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'>): Promise<HistoryEntry> {
+export async function addHistoryEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'> & { id?: string }): Promise<HistoryEntry> {
   const currentLock = addHistoryLock;
   
   // Create a new promise to chain the next operation
@@ -105,7 +107,7 @@ export async function addHistoryEntry(entry: Omit<HistoryEntry, 'id' | 'timestam
     // Wait for the previous add operation to complete fully (including its storage writes)
     await currentLock;
 
-    const id = generateId();
+    const id = entry.id || generateHistoryId();
     const timestamp = Date.now();
 
     const isSaveable = (url?: string) => 
@@ -154,9 +156,9 @@ export async function addHistoryEntry(entry: Omit<HistoryEntry, 'id' | 'timestam
       id,
       timestamp,
       rootId: resolvedRootId,
-      outputImage: undefined,      // Stripped base64, loaded dynamically via useLazyImage
-      inputImage: undefined,       // Stripped base64, loaded dynamically via useLazyImage
-      rootSourceImage: undefined,  // Stripped base64, loaded dynamically via useLazyImage
+      outputImage: entry.outputImage && (entry.outputImage.startsWith('http://') || entry.outputImage.startsWith('https://') || entry.outputImage.startsWith('idb://')) ? entry.outputImage : undefined,
+      inputImage: entry.inputImage && (entry.inputImage.startsWith('http://') || entry.inputImage.startsWith('https://') || entry.inputImage.startsWith('idb://')) ? entry.inputImage : undefined,
+      rootSourceImage: entry.rootSourceImage && (entry.rootSourceImage.startsWith('http://') || entry.rootSourceImage.startsWith('https://') || entry.rootSourceImage.startsWith('idb://')) ? entry.rootSourceImage : undefined,
       nodeTree: undefined,         // Stripped tree structure, loaded dynamically
     };
 

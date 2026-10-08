@@ -25,9 +25,34 @@
 .group-node-handle {
   width: 12px !important;
   height: 12px !important;
-  background: #e11d48 !important;
+  border-radius: 50% !important;
+  background: #ff2a6d !important;
   border: 2px solid #ffffff !important;
-  box-shadow: 0 0 10px #e11d48 !important;
+  box-shadow: 0 0 6px rgba(255, 42, 109, 0.6) !important;
+  z-index: 50 !important;
+  position: absolute !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.group-node-handle::after {
+  display: none !important;
+}
+
+.group-node-handle.target {
+  left: -12px !important;
+  right: auto !important;
+  transform: translateY(-50%) !important;
+}
+
+.group-node-handle.source {
+  right: -12px !important;
+  left: auto !important;
+  transform: translateY(-50%) !important;
+}
+
+.group-node-handle:hover {
+  transform: translateY(-50%) scale(1.25) !important;
+  box-shadow: 0 0 12px rgba(255, 42, 109, 1) !important;
 }
 
 /* Header */

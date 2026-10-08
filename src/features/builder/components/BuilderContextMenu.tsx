@@ -88,9 +88,10 @@ const STATIONS: MenuStation[] = [
     icon: <Wand2 size={14} className="context-icon" />,
     engines: [
       { id: 'google/nano-banana-2', name: 'Nano Banana 2', badge: 'New' },
+      { id: 'google/nano-banana-2.1', name: 'Nano Banana 2.1', badge: '2.1' },
       { id: 'google/nano-banana-2-lite', name: 'Nano Banana 2 Lite', badge: 'Lite' },
       { id: 'bytedance/seedream-5-pro', name: 'Seedream 5 Pro', badge: 'Pro' },
-      { id: 'black-forest-labs/flux-2-pro', name: 'FLUX 2 Pro', badge: '8 Refs' },
+      { id: 'black-forest-labs/flux-3-image', name: 'FLUX 3 Image', badge: '10 Refs' },
       { id: 'openai/gpt-image-2', name: 'GPT Image 2' },
       { id: 'openai/gpt-image-2.5-flare', name: 'GPT Image 2.5 (Flare)', badge: '2.5' },
       { id: 'openai/gpt-image-2.5-sunburst', name: 'GPT Image 2.5 (Sunburst)', badge: '2.5' },
@@ -104,7 +105,7 @@ const STATIONS: MenuStation[] = [
     name: 'Image Upscaling',
     icon: <Maximize2 size={14} className="context-icon" />,
     engines: [
-      { id: 'philz1337x/clarity-pro-upscaler', name: 'Anarchy Upscale', badge: 'Pro' },
+      { id: 'midjourney/mj-turbo-upscale', name: 'Midjourney Upscale', badge: 'v6.1' },
       { id: 'prunaai/p-image-upscale', name: 'Pruna AI Upscale' },
       { id: 'topazlabs/image-upscale', name: 'Topaz Labs Upscale' },
       { id: 'philz1337x/clarity-upscaler', name: 'Clarity Upscaler' }

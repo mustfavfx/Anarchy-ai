@@ -1,0 +1,170 @@
+/* ── GROUP 1: Photoshop Color Panel ───────────────────────────────────────── */
+
+.ps-color-panel {
+  display: flex;
+  flex-direction: column;
+  background: #1c1c20;
+}
+
+.ps-color-content {
+  padding: 6px 10px;
+}
+
+.ps-color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 82px;
+}
+
+.ps-fg-bg-box {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.ps-chip-swatch {
+  width: 23px;
+  height: 23px;
+  border-radius: 2px;
+  position: absolute;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+.ps-chip-swatch.foreground {
+  top: 0;
+  left: 0;
+  z-index: 2;
+  border-color: #ffffff;
+}
+
+.ps-chip-swatch.background {
+  bottom: 0;
+  right: 0;
+  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ps-chip-swap-arrow {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 3;
+  width: 15px;
+  height: 15px;
+  background: #27272f;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+
+.ps-chip-swap-arrow:hover {
+  background: #383844;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.ps-spectrum-field {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+  cursor: crosshair;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+.ps-spectrum-white {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #ffffff, transparent);
+}
+
+.ps-spectrum-black {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, #000000, transparent);
+}
+
+.ps-spectrum-reticle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.9), inset 0 0 1px rgba(0, 0, 0, 0.9);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ps-hue-slider {
+  width: 18px;
+  height: 100%;
+  position: relative;
+  border-radius: 3px;
+  cursor: pointer;
+  background: linear-gradient(
+    to bottom,
+    #ff0000 0%,
+    #ffff00 17%,
+    #00ff00 33%,
+    #00ffff 50%,
+    #0000ff 67%,
+    #ff00ff 83%,
+    #ff0000 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.ps-hue-thumb {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 4px;
+  border: 1.5px solid #ffffff;
+  background: transparent;
+  transform: translateY(-50%);
+  pointer-events: none;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+  border-radius: 1px;
+}
+
+.ps-swatches-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  padding: 4px 0;
+}
+
+.ps-swatch-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.ps-swatch-cell:hover {
+  transform: scale(1.25);
+  border-color: #ffffff;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.ps-swatch-cell.selected {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.7);
+  transform: scale(1.15);
+}

@@ -19,25 +19,14 @@ import { logger } from '../../../utils/logger';
 import { replicateService } from '../../../services/replicate';
 import { anarchyService } from '../../../services/anarchy/AnarchyService';
 import { UpscalerFactory } from '../../../services/upscalers/UpscalerFactory';
+import { primeCanvasThumbnail, createOptimizedThumbnailBlob } from '../utils/canvasImageOptimizer';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
-import { useNotificationStore } from '../../../stores/notificationStore';
 import { useBuilderQueueStore } from '../../../stores/builderQueueStore';
 import { watermarkService } from '../../../services/watermark/WatermarkService';
 import {
-  getUnifiedCost,
-  deductCredits,
-  refundCredits,
-  getUserCredit,
-  DEV_MODE,
-} from '../../../services/credit/creditService';
-import {
   addHistoryEntry,
   cacheLocalImage,
-  getLocalImage,
-  deleteLocalImage,
-  revokeObjectUrl,
   dataURLtoBlob,
-  resolveUrlToBlob,
 } from '../../../services/history/HistoryService';
 import type { NodeTreeData } from '../../../types/history';
 import { track } from '../../../services/tracking/trackingService';
@@ -69,7 +58,7 @@ export const useWorkflowExecution = ({
   propagateNodeUpdate,
   pushHistory,
   abortControllers,
-  tabId,
+  tabId: _tabId,
   userId,
   spawnGhostNode,
 }: UseWorkflowExecutionParams) => {
@@ -93,110 +82,113 @@ export const useWorkflowExecution = ({
       throw new Error('Node is already processing');
     }
 
-    const _execStartTime = Date.now();
-    const model = config?.model || 'google/nano-banana-2';
-    
-    // Get source image(s) from connected parent nodes
-    // Include edges both with and without explicit targetHandle
-    const incomingEdges = edgesRef.current
-      .filter(e => e.target === nodeId)
-      .sort((a, b) => {
-        const matchA = a.targetHandle ? a.targetHandle.match(/ghost-target-(\d+)/) : null;
-        const matchB = b.targetHandle ? b.targetHandle.match(/ghost-target-(\d+)/) : null;
-        const idxA = matchA ? parseInt(matchA[1], 10) : 0;
-        const idxB = matchB ? parseInt(matchB[1], 10) : 0;
-        return idxA - idxB;
-      });
-
-    const allParentImages: string[] = [];
-    incomingEdges.forEach(edge => {
-      const parentNode = nodesRef.current.find(n => n.id === edge.source);
-      if (parentNode) {
-        const parentData = parentNode.data as BuilderNodeData;
-        const img = (typeof parentData.outputData?.image === 'string' ? parentData.outputData.image : undefined) || 
-                    (typeof parentData.image === 'string' ? parentData.image : undefined) || 
-                    parentData.previewUrl || 
-                    (typeof parentData.inputData?.image === 'string' ? parentData.inputData.image : undefined);
-        if (img && typeof img === 'string' && !allParentImages.includes(img)) {
-          allParentImages.push(img);
-        }
-      }
-    });
-
-    // Fallback 1: check lineage parentId if no image found via edges
-    if (allParentImages.length === 0 && (nodeData as BuilderNodeData)?.lineage?.parentId) {
-      const lineageParent = nodesRef.current.find(n => n.id === (nodeData as BuilderNodeData).lineage?.parentId);
-      if (lineageParent) {
-        const pData = lineageParent.data as BuilderNodeData;
-        const img = (typeof pData.outputData?.image === 'string' ? pData.outputData.image : undefined) || 
-                    (typeof pData.image === 'string' ? pData.image : undefined) || 
-                    pData.previewUrl || 
-                    (typeof pData.inputData?.image === 'string' ? pData.inputData.image : undefined);
-        if (img && typeof img === 'string') allParentImages.push(img);
-      }
-    }
-
-    // Fallback 2: check node's own inputData
-    if (allParentImages.length === 0 && nodeData.inputData?.image) {
-      allParentImages.push(nodeData.inputData.image);
-    }
-    
-    // Resolve any IndexedDB image references to actual base64/URL data
-    const resolvedParentResults = await Promise.allSettled(
-      allParentImages.map(img => resolveImageIfCached(img))
-    );
-    const resolvedParentImages = resolvedParentResults.map(r => r.status === 'fulfilled' ? r.value : undefined);
-    const validResolvedParentImages = resolvedParentImages.filter((img): img is string => !!img);
-
-    // Upload images based on model requirements
-    const uploadedResults = await Promise.allSettled(
-      validResolvedParentImages.map(img => uploadImageIfLocal(img, model as string))
-    );
-    const uploadedImages = uploadedResults.map(r => r.status === 'fulfilled' ? r.value : undefined).filter((img): img is string => !!img);
-
-    // Primary source image is the first connected one
-    const sourceImage = uploadedImages[0];
-    
-    // Check if using an upscale model (Replicate upscale models)
-    const isUpscaleModel = (model as string) === 'topazlabs/image-upscale'
-      || (model as string) === 'philz1337x/clarity-upscaler'
-      || (model as string) === 'prunaai/p-image-upscale'
-      || (model as string) === 'philz1337x/clarity-pro-upscaler';
-    if (isUpscaleModel && !sourceImage) {
-      throw new Error('Upscaling engines require a source image. Please upload or connect an image first.');
-    }
-
-    // Central Queue Store: track connecting state
-    useBuilderQueueStore.getState().addJob(nodeId, {
-      state: 'connecting',
-      errorMessage: undefined,
-    });
-
-    // Update prompt draft and config once (does not trigger layout/edge recals)
-    setNodes(nds => nds.map(n => 
-      n.id === nodeId 
-        ? { 
-            ...n, 
-            type: 'ghostNode',
-            data: { 
-              ...n.data, 
-              state: 'connecting',
-              promptDraft: prompt,
-              config: { ...config },
-              pendingPlacement: false,
-              onCancel: () => {
-                const ctrl = abortControllers.current.get(nodeId);
-                if (ctrl) ctrl.abort();
-              }
-            } 
-          }
-        : n
-    ));
-
     const controller = new AbortController();
     abortControllers.current.set(nodeId, controller);
 
     try {
+      const _execStartTime = Date.now();
+      const model = config?.model || 'google/nano-banana-2';
+      
+      // Get source image(s) from connected parent nodes
+      // Include edges both with and without explicit targetHandle
+      const incomingEdges = edgesRef.current
+        .filter(e => e.target === nodeId)
+        .sort((a, b) => {
+          const matchA = a.targetHandle ? a.targetHandle.match(/ghost-target-(\d+)/) : null;
+          const matchB = b.targetHandle ? b.targetHandle.match(/ghost-target-(\d+)/) : null;
+          const idxA = matchA ? parseInt(matchA[1], 10) : 0;
+          const idxB = matchB ? parseInt(matchB[1], 10) : 0;
+          return idxA - idxB;
+        });
+
+      const allParentImages: string[] = [];
+      incomingEdges.forEach(edge => {
+        const parentNode = nodesRef.current.find(n => n.id === edge.source);
+        if (parentNode) {
+          const parentData = parentNode.data as BuilderNodeData;
+          const img = (typeof parentData.outputData?.image === 'string' ? parentData.outputData.image : undefined) || 
+                      (typeof parentData.image === 'string' ? parentData.image : undefined) || 
+                      parentData.previewUrl || 
+                      (typeof parentData.inputData?.image === 'string' ? parentData.inputData.image : undefined);
+          if (img && typeof img === 'string' && !allParentImages.includes(img)) {
+            allParentImages.push(img);
+          }
+        }
+      });
+
+      // Fallback 1: check lineage parentId if no image found via edges
+      if (allParentImages.length === 0 && (nodeData as BuilderNodeData)?.lineage?.parentId) {
+        const lineageParent = nodesRef.current.find(n => n.id === (nodeData as BuilderNodeData).lineage?.parentId);
+        if (lineageParent) {
+          const pData = lineageParent.data as BuilderNodeData;
+          const img = (typeof pData.outputData?.image === 'string' ? pData.outputData.image : undefined) || 
+                      (typeof pData.image === 'string' ? pData.image : undefined) || 
+                      pData.previewUrl || 
+                      (typeof pData.inputData?.image === 'string' ? pData.inputData.image : undefined);
+          if (img && typeof img === 'string') allParentImages.push(img);
+        }
+      }
+
+      // Fallback 2: check node's own inputData
+      if (allParentImages.length === 0 && nodeData.inputData?.image) {
+        allParentImages.push(nodeData.inputData.image);
+      }
+      
+      // Resolve any IndexedDB image references to actual base64/URL data
+      const resolvedParentResults = await Promise.allSettled(
+        allParentImages.map(img => resolveImageIfCached(img))
+      );
+      const resolvedParentImages = resolvedParentResults.map(r => r.status === 'fulfilled' ? r.value : undefined);
+      const validResolvedParentImages = resolvedParentImages.filter((img): img is string => !!img);
+
+      // Upload images based on model requirements
+      const uploadedResults = await Promise.allSettled(
+        validResolvedParentImages.map(img => uploadImageIfLocal(img, model as string))
+      );
+      const uploadedImages = uploadedResults.map(r => r.status === 'fulfilled' ? r.value : undefined).filter((img): img is string => !!img);
+
+      // Primary source image is the first connected one
+      const sourceImage = uploadedImages[0];
+      
+      // Check if using an upscale model (Replicate upscale models & CometAPI Midjourney upscalers)
+      const isUpscaleModel = (model as string) === 'nightmareai/real-esrgan'
+        || (model as string) === 'topazlabs/image-upscale'
+        || (model as string) === 'philz1337x/clarity-upscaler'
+        || (model as string) === 'prunaai/p-image-upscale'
+        || (model as string) === 'philz1337x/clarity-pro-upscaler'
+        || (model as string)?.startsWith('midjourney/')
+        || (model as string)?.includes('upscale');
+      if (isUpscaleModel && !sourceImage) {
+        throw new Error('Upscaling engines require a source image. Please upload or connect an image first.');
+      }
+
+      // Central Queue Store: track connecting state
+      useBuilderQueueStore.getState().addJob(nodeId, {
+        state: 'connecting',
+        errorMessage: undefined,
+      });
+
+      // Update prompt draft and config once (does not trigger layout/edge recals)
+      setNodes(nds => nds.map(n => 
+        n.id === nodeId 
+          ? { 
+              ...n, 
+              type: 'ghostNode',
+              data: { 
+                ...n.data, 
+                state: 'connecting',
+                promptDraft: prompt,
+                config: { ...config },
+                pendingPlacement: false,
+                onCancel: () => {
+                  const ctrl = abortControllers.current.get(nodeId);
+                  if (ctrl) ctrl.abort();
+                }
+              } 
+            }
+          : n
+      ));
+
       const onStatusChange = (status: 'queued' | 'processing', predictionId?: string) => {
         useBuilderQueueStore.getState().updateJob(nodeId, {
           state: status,
@@ -271,11 +263,26 @@ export const useWorkflowExecution = ({
       if (isUpscaleModel) {
         const upscaler = UpscalerFactory.create(model);
         
+        const parentNode = getParent(nodeId);
+        const parentData = parentNode?.data as BuilderNodeData | undefined;
+        const inheritedTaskId =
+          (config as any)?.midjourneyTaskId ||
+          (config as any)?.taskId ||
+          parentData?.midjourneyTaskId ||
+          parentData?.outputData?.taskId ||
+          parentData?.outputData?.midjourneyTaskId;
+        const inheritedCustomId =
+          (config as any)?.midjourneyCustomId ||
+          parentData?.midjourneyCustomId ||
+          parentData?.outputData?.customId;
+
         // Build an AIConfig-compatible object from the generation config
         const aiConfig: any = {
           model: model as import('../../../services/replicate').ReplicateUpscaleModel,
           nodeId: nodeId,
           userId: userId || 'user',
+          midjourneyTaskId: inheritedTaskId,
+          midjourneyCustomId: inheritedCustomId,
           upscaleFactor: config?.upscaleFactor ?? 4,
           negativePrompt: config?.negativePrompt ?? '',
           steps: config?.steps ?? 20,
@@ -461,8 +468,24 @@ export const useWorkflowExecution = ({
       const finalWidth = (shouldPreserveSourceDims && sourceDims) ? sourceDims.width : result.metadata.width;
       const finalHeight = (shouldPreserveSourceDims && sourceDims) ? sourceDims.height : result.metadata.height;
 
-      const imageKey = `idb://${crypto.randomUUID()}`;
+      const cleanUuid = crypto.randomUUID();
+      const imageKey = `idb://${cleanUuid}`;
+      const thumbKey = isVideo ? undefined : `idb://${cleanUuid}_canvas_thumb`;
+
+      primeCanvasThumbnail(imageKey, finalImage);
+      if (thumbKey) primeCanvasThumbnail(thumbKey, finalImage);
+
       await cacheLocalImage(imageKey, finalImage);
+      if (thumbKey) {
+        createOptimizedThumbnailBlob(finalImage, 640).then(thumbBlob => {
+          if (thumbBlob) {
+            cacheLocalImage(thumbKey, thumbBlob).catch(() => {});
+            const thumbUrl = URL.createObjectURL(thumbBlob);
+            primeCanvasThumbnail(thumbKey, thumbUrl);
+            primeCanvasThumbnail(imageKey, thumbUrl);
+          }
+        }).catch(() => {});
+      }
 
       const outputPacket = createDataPacket(
         imageKey,
@@ -470,7 +493,8 @@ export const useWorkflowExecution = ({
         nodeData.processingType,
         { width: finalWidth, height: finalHeight },
         model,
-        isVideo
+        isVideo,
+        thumbKey
       );
 
       let modelLabel = '';
@@ -587,8 +611,24 @@ export const useWorkflowExecution = ({
               }
             }
 
-            const key = `idb://${crypto.randomUUID()}`;
+            const extraCleanUuid = crypto.randomUUID();
+            const key = `idb://${extraCleanUuid}`;
+            const extraThumbKey = isVideo ? undefined : `idb://${extraCleanUuid}_canvas_thumb`;
+
+            primeCanvasThumbnail(key, finalExtraImage);
+            if (extraThumbKey) primeCanvasThumbnail(extraThumbKey, finalExtraImage);
+
             await cacheLocalImage(key, finalExtraImage);
+            if (extraThumbKey) {
+              createOptimizedThumbnailBlob(finalExtraImage, 640).then(thumbBlob => {
+                if (thumbBlob) {
+                  cacheLocalImage(extraThumbKey, thumbBlob).catch(() => {});
+                  const thumbUrl = URL.createObjectURL(thumbBlob);
+                  primeCanvasThumbnail(extraThumbKey, thumbUrl);
+                  primeCanvasThumbnail(key, thumbUrl);
+                }
+              }).catch(() => {});
+            }
 
             const childPacket = createDataPacket(
               key,
@@ -596,7 +636,8 @@ export const useWorkflowExecution = ({
               nodeData.processingType,
               { width: finalWidth, height: finalHeight },
               model,
-              isVideo
+              isVideo,
+              extraThumbKey
             );
 
             // Save extra history entry
@@ -655,6 +696,7 @@ export const useWorkflowExecution = ({
                 state: 'ready',
                 image: key,
                 originalImage: key,
+                thumbnail: extraThumbKey,
                 prompt,
                 modelUsed: model,
                 createdAt: Date.now(),
@@ -757,6 +799,7 @@ export const useWorkflowExecution = ({
             prompt,
             image: imageKey,
             originalImage: imageKey,
+            thumbnail: thumbKey,
             outputData: outputPacket,
             dimensions: { width: finalWidth, height: finalHeight },
             processedAt: Date.now()

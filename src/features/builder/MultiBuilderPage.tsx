@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { Plus, X, FileText, ShieldAlert, RotateCcw } from 'lucide-react';
+import { Plus, X, FileText, ShieldAlert, RotateCcw, Trash2, Clock } from 'lucide-react';
 import { BuilderContent } from './BuilderPage';
 import { useMultiBuilderTabs } from './hooks/useMultiBuilderTabs';
 import { AutoRecoveryService, type RecoverySnapshot } from '../../services/recovery/AutoRecoveryService';
+import { useTranslation } from '../../services/i18n';
 import './MultiBuilderPage.css';
 
 export const MultiBuilderPage: React.FC = () => {
+  const { isAr } = useTranslation();
   const {
     tabs,
     activeTabId,
@@ -31,6 +33,18 @@ export const MultiBuilderPage: React.FC = () => {
 
   const [pendingRecovery, setPendingRecovery] = useState<RecoverySnapshot | null>(null);
 
+  // Guarantee that an existing tab is always active, preventing any black/empty canvas state
+  const effectiveActiveTabId = (activeTabId && tabs.some(t => t.id === activeTabId))
+    ? activeTabId
+    : (tabs[tabs.length - 1]?.id ?? null);
+
+  useEffect(() => {
+    if (effectiveActiveTabId && effectiveActiveTabId !== activeTabId) {
+      setActiveTabId(effectiveActiveTabId);
+    }
+  }, [effectiveActiveTabId, activeTabId, setActiveTabId]);
+
+  // Check pending recovery snapshots once on mount
   useEffect(() => {
     try {
       const list = AutoRecoveryService.getPendingRecoverySnapshots();
@@ -43,40 +57,85 @@ export const MultiBuilderPage: React.FC = () => {
     }
   }, []);
 
+  const handleRestoreSnapshot = () => {
+    if (!pendingRecovery) return;
+    restoreSnapshotTab(pendingRecovery);
+    AutoRecoveryService.clearRecoverySnapshot(pendingRecovery.tabId, pendingRecovery.projectPath, pendingRecovery.title).catch(() => {});
+    setPendingRecovery(null);
+  };
+
+  const handleDiscardSnapshot = () => {
+    if (!pendingRecovery) return;
+    AutoRecoveryService.clearRecoverySnapshot(pendingRecovery.tabId, pendingRecovery.projectPath, pendingRecovery.title).catch(() => {});
+    setPendingRecovery(null);
+  };
+
+  const handleDismissSnapshot = () => {
+    setPendingRecovery(null);
+  };
+
   return (
     <div className="multi-builder-container">
-      {/* Auto-Recovery Crash Protection Banner */}
+      {/* Auto-Recovery Crash Protection Floating Alert Island */}
       {pendingRecovery && (
-        <div className="builder-recovery-banner">
-          <div className="recovery-banner-info">
-            <ShieldAlert size={16} className="recovery-banner-icon" />
-            <span>
-              <strong>Unsaved Session Detected:</strong> Found an auto-recovery snapshot (<code>.ana.bak</code>) for <strong>"{pendingRecovery.title}"</strong> from {new Date(pendingRecovery.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Would you like to restore your last unsaved work?
-            </span>
+        <div className="builder-recovery-banner" role="alert" dir={isAr ? 'rtl' : 'ltr'}>
+          <div className="recovery-banner-glow" />
+          <div className="recovery-banner-main">
+            <div className="recovery-badge">
+              <ShieldAlert size={14} className="recovery-badge-icon" />
+              <span className="recovery-badge-text">
+                {isAr ? 'استرداد تلقائي' : 'Auto-Recovery'}
+              </span>
+            </div>
+
+            <div className="recovery-banner-content">
+              <span className="recovery-lead-text">
+                {isAr
+                  ? 'نسخة احتياطية غير محفوظة:'
+                  : 'Unsaved backup:'}
+              </span>
+              <span className="recovery-project-pill" title={pendingRecovery.projectPath || pendingRecovery.title}>
+                <FileText size={12} className="pill-icon" />
+                <strong className="recovery-project-name">{pendingRecovery.title}</strong>
+              </span>
+              <span className="recovery-time-pill" title={new Date(pendingRecovery.timestamp).toLocaleString()}>
+                <Clock size={11} className="pill-icon" />
+                <span>
+                  {new Date(pendingRecovery.timestamp).toLocaleTimeString(isAr ? 'ar-EG' : [], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </span>
+            </div>
           </div>
-          <div className="recovery-banner-btns">
+
+          <div className="recovery-banner-actions">
             <button
               type="button"
               className="recovery-action-btn restore"
-              onClick={() => {
-                restoreSnapshotTab(pendingRecovery);
-                AutoRecoveryService.clearRecoverySnapshot(pendingRecovery.tabId, pendingRecovery.projectPath).catch(() => {});
-                setPendingRecovery(null);
-              }}
+              onClick={handleRestoreSnapshot}
+              title={isAr ? 'استعادة الجلسة ومتابعة العمل' : 'Restore session and resume work'}
             >
-              <RotateCcw size={13} />
-              Restore Session
+              <RotateCcw size={13} className="btn-icon" />
+              <span>{isAr ? 'استعادة الجلسة' : 'Restore Session'}</span>
             </button>
             <button
               type="button"
               className="recovery-action-btn discard"
-              onClick={() => {
-                AutoRecoveryService.discardAllSnapshots().catch(() => {});
-                setPendingRecovery(null);
-              }}
+              onClick={handleDiscardSnapshot}
+              title={isAr ? 'حذف هذه النسخة الاحتياطية' : 'Discard this backup'}
             >
-              <X size={13} />
-              Discard
+              <Trash2 size={13} className="btn-icon" />
+              <span>{isAr ? 'تجاهل' : 'Discard'}</span>
+            </button>
+            <button
+              type="button"
+              className="recovery-dismiss-btn"
+              onClick={handleDismissSnapshot}
+              title={isAr ? 'إغلاق الإشعار' : 'Dismiss notice'}
+            >
+              <X size={14} />
             </button>
           </div>
         </div>
@@ -88,7 +147,7 @@ export const MultiBuilderPage: React.FC = () => {
             <div
               key={tab.id}
               draggable
-              className={`builder-tab ${activeTabId === tab.id ? 'active' : ''} ${tab.isDirty ? 'dirty' : ''}`}
+              className={`builder-tab ${effectiveActiveTabId === tab.id ? 'active' : ''} ${tab.isDirty ? 'dirty' : ''}`}
               onClick={() => setActiveTabId(tab.id)}
               onDragStart={(e) => handleTabDragStart(e, tab.id)}
               onDragOver={handleTabDragOver}
@@ -127,7 +186,7 @@ export const MultiBuilderPage: React.FC = () => {
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`tab-pane ${activeTabId === tab.id ? 'active' : ''}`}
+            className={`tab-pane ${effectiveActiveTabId === tab.id ? 'active' : ''}`}
           >
             <ReactFlowProvider>
               <BuilderContent
@@ -138,7 +197,7 @@ export const MultiBuilderPage: React.FC = () => {
                 onTitleChange={(title) => updateTabTitle(tab.id, title)}
                 onDirtyChange={(dirty) => updateTabDirty(tab.id, dirty)}
                 onProjectPathChange={(path) => updateTabProjectPath(tab.id, path)}
-                isActive={activeTabId === tab.id}
+                isActive={effectiveActiveTabId === tab.id}
               />
             </ReactFlowProvider>
           </div>

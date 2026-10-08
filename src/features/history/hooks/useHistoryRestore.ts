@@ -75,7 +75,7 @@ export function createNodeTreeFromEntry(entry: HistoryEntry, allEntries: History
     const isRoot = node.id === rootId;
     const entryItem = node.entry;
 
-    const imgUrl = entryItem.url || entryItem.thumbnailUrl || `idb://${entryItem.id}_output`;
+    const imgUrl = entryItem.outputImage || entryItem.outputImageKey || entryItem.thumbnailUrl || entryItem.url || entryItem.rootSourceImage || `idb://${entryItem.id}_output`;
 
     const cleanModel = entryItem.model || entryItem.params?.model || '';
     const nodeLabel = cleanModel ? cleanModel : getHistoryNodeLabel(entryItem);
@@ -145,16 +145,20 @@ export function useHistoryRestore() {
 
       CanvasSessionManager.setPending(targetSessionId, payload);
       CanvasHandoffService.setPending(payload);
+      try {
+        localStorage.setItem('anarchy_pending_canvas_restore', JSON.stringify(payload));
+      } catch {}
 
       navigate('/builder');
 
+      // Staggered event dispatches to guarantee active tab receives the workflow
+      window.dispatchEvent(new CustomEvent('anarchy:external-image-global', { detail: payload }));
       setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent('anarchy:external-image-global', {
-            detail: payload,
-          })
-        );
-      }, 100);
+        window.dispatchEvent(new CustomEvent('anarchy:external-image-global', { detail: payload }));
+      }, 50);
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('anarchy:external-image-global', { detail: payload }));
+      }, 150);
 
       return true;
     }
@@ -163,7 +167,7 @@ export function useHistoryRestore() {
     const cleanModel = entry.model || entry.params?.model || '';
     const nodeLabel = cleanModel ? cleanModel : getHistoryNodeLabel(entry);
     const promptText = entry.prompt || entry.params?.prompt || '';
-    const fallbackImg = entry.url || entry.thumbnailUrl || (entry.id ? `idb://${entry.id}_output` : '');
+    const fallbackImg = entry.outputImage || entry.outputImageKey || entry.thumbnailUrl || entry.url || entry.rootSourceImage || (entry.id ? `idb://${entry.id}_output` : '');
     const payload = {
       kind: 'image' as const,
       image: fallbackImg,
@@ -175,16 +179,19 @@ export function useHistoryRestore() {
 
     CanvasSessionManager.setPending(targetSessionId, payload);
     CanvasHandoffService.setPending(payload);
+    try {
+      localStorage.setItem('anarchy_pending_canvas_restore', JSON.stringify(payload));
+    } catch {}
 
     navigate('/builder');
 
+    window.dispatchEvent(new CustomEvent('anarchy:external-image-global', { detail: payload }));
     setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent('anarchy:external-image-global', {
-          detail: payload,
-        })
-      );
-    }, 100);
+      window.dispatchEvent(new CustomEvent('anarchy:external-image-global', { detail: payload }));
+    }, 50);
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('anarchy:external-image-global', { detail: payload }));
+    }, 150);
 
     return true;
   }, [navigate]);

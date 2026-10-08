@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { Edge, XYPosition } from '@xyflow/react';
 import { logger } from '../../../utils/logger';
-import { addHistoryEntry, cacheLocalImage } from '../../../services/history/HistoryService';
+import { addHistoryEntry, cacheLocalImage, generateHistoryId } from '../../../services/history/HistoryService';
 import { useBuilderQueueStore } from '../../../stores/builderQueueStore';
 import type { 
   BuilderNode, 
@@ -16,7 +16,7 @@ import {
   createEdge,
   TYPE_LABELS,
 } from './workflowConstants';
-import { createOptimizedThumbnailBlob } from '../utils/canvasImageOptimizer';
+import { createOptimizedThumbnailBlob, primeCanvasThumbnail } from '../utils/canvasImageOptimizer';
 
 export interface UseWorkflowNodeOpsParams {
   nodesRef: React.MutableRefObject<BuilderNode[]>;
@@ -47,15 +47,23 @@ export const useWorkflowNodeOps = ({
     if (imageUrl && imageUrl.startsWith('data:')) {
       const cleanUuid = crypto.randomUUID();
       const imageKey = `idb://${cleanUuid}`;
-      cacheLocalImage(imageKey, imageUrl).catch(err => {
-        logger.error('[useBuilderWorkflow] Failed to cache source image:', err);
-      });
       finalImageRef = imageKey;
       const tKey = `idb://${cleanUuid}_canvas_thumb`;
       thumbKey = tKey;
+
+      // Prime memory cache immediately so BaseNode renders without waiting or blank flash
+      primeCanvasThumbnail(tKey, imageUrl);
+      primeCanvasThumbnail(imageKey, imageUrl);
+
+      cacheLocalImage(imageKey, imageUrl).catch(err => {
+        logger.error('[useBuilderWorkflow] Failed to cache source image:', err);
+      });
       createOptimizedThumbnailBlob(imageUrl, 640).then(thumbBlob => {
         if (thumbBlob) {
           cacheLocalImage(tKey, thumbBlob).catch(() => {});
+          const thumbUrl = URL.createObjectURL(thumbBlob);
+          primeCanvasThumbnail(tKey, thumbUrl);
+          primeCanvasThumbnail(imageKey, thumbUrl);
         }
       }).catch(() => {});
     }
@@ -71,10 +79,15 @@ export const useWorkflowNodeOps = ({
 
     const packet = finalImageRef ? createDataPacket(finalImageRef, undefined, 'source', undefined, undefined, false, thumbKey) : undefined;
 
+    const otherSources = nodesRef.current.filter(s => (s.data as any)?.type === 'source').length;
+    const defaultPosition = { x: 120, y: 200 + otherSources * 80 };
+    const nodePosition = position ?? defaultPosition;
+    const historyId = imageUrl ? generateHistoryId() : undefined;
+
     const newNode: BuilderNode = {
       id,
       type: 'baseNode',
-      position: position ?? { x: 200, y: 200 },
+      position: nodePosition,
       width: 260,
       data: {
         label: label || 'Source',
@@ -87,6 +100,7 @@ export const useWorkflowNodeOps = ({
         prompt: prompt || '',
         createdAt: Date.now(),
         lineage,
+        historyEntryId: historyId,
         inputData: undefined,
         outputData: packet,
         config: { prompt: prompt || '' }
@@ -96,7 +110,7 @@ export const useWorkflowNodeOps = ({
     pushHistory?.(nodesRef.current, edgesRef.current); // snapshot before adding
     setNodes(nds => [...nds, newNode]);
 
-    if (imageUrl) {
+    if (imageUrl && historyId) {
       try {
         const sessionParentId = sessionStorage.getItem('presetParentId') || undefined;
         const sessionRootId = sessionStorage.getItem('presetRootId') || undefined;
@@ -114,12 +128,14 @@ export const useWorkflowNodeOps = ({
             image: finalImageRef,
             state: 'ready',
             processingType: 'source',
+            historyEntryId: historyId,
           }],
           sourceNodeId: newNode.id,
           activeNodeId: newNode.id,
           createdAt: Date.now(),
         };
         addHistoryEntry({
+          id: historyId,
           type: 'edit',
           label: 'Source imported',
           outputImage: imageUrl,
@@ -129,12 +145,6 @@ export const useWorkflowNodeOps = ({
           parentId: sessionParentId,
           rootId: sessionRootId,
           nodeType: 'source',
-        }).then(saved => {
-          setNodes(nds => nds.map(n => 
-            n.id === newNode.id 
-              ? { ...n, data: { ...n.data, historyEntryId: saved.id } }
-              : n
-          ));
         }).catch(err => {
           logger.error('[useBuilderWorkflow] Failed to add source history entry:', err);
         });

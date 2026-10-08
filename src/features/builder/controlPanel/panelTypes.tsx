@@ -3,18 +3,17 @@
  * Tool → Engine → Resolution → Aspect Ratio flow
  */
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ChevronDown, Check, Wand2, ImagePlus, Maximize2, 
   Film, Zap, Sparkles,
   Banana,
-  Flame, Crown, Star, Sun,
+  Flame, Crown, Star,
   Sprout, Clapperboard, Brain, Layers, Rocket, Globe,
   X, FolderOpen, Volume2
 } from 'lucide-react';
-import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel, type ReplicateVideoModel } from '../../../services/replicate';
-import { useAIConfigStore, type WatermarkPosition } from '../../../stores/aiConfigStore';
-import { getModelCost, costTopazUpscale, costClarityUpscale, costPrunaUpscale, costAnarchyUpscale } from '../../../services/credit/creditService';
+import type { ReplicateImageModel, ReplicateUpscaleModel, ReplicateVideoModel } from '../../../services/replicate';
+import type { WatermarkPosition } from '../../../stores/aiConfigStore';
 import '../AIControlPanel.css';
 
 export interface AIControlPanelProps {
@@ -324,7 +323,7 @@ export const TOOLS: { id: ToolType; name: string; icon: React.ReactNode; disable
 export interface Engine {
   id: ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel;
   name: string;
-  provider: 'Google' | 'BlackForest' | 'Recraft' | 'Together' | 'ByteDance' | 'OpenAI' | 'Replicate' | 'Anarchy AI';
+  provider: 'Google' | 'BlackForest' | 'Recraft' | 'Together' | 'ByteDance' | 'OpenAI' | 'Replicate' | 'Anarchy AI' | 'Midjourney' | 'CometAPI';
   color: string;
   icon: React.ReactNode;
   tool: ToolType;
@@ -480,6 +479,15 @@ export const ENGINES: Engine[] = [
     badge: 'New'
   },
   {
+    id: 'google/nano-banana-2.1',
+    name: 'Nano Banana 2.1',
+    provider: 'Google',
+    color: '#e11d48',
+    icon: <Banana size={18} />,
+    tool: 'image-editor',
+    badge: '2.1'
+  },
+  {
     id: 'google/nano-banana-2-lite',
     name: 'Nano Banana 2 Lite',
     provider: 'Google',
@@ -498,13 +506,13 @@ export const ENGINES: Engine[] = [
     badge: 'Pro'
   },
   {
-    id: 'black-forest-labs/flux-2-pro',
-    name: 'FLUX 2 Pro',
+    id: 'black-forest-labs/flux-3-image',
+    name: 'FLUX 3 Image',
     provider: 'BlackForest',
     color: '#e11d48',
     icon: <Flame size={18} />,
     tool: 'image-editor',
-    badge: '8 Refs'
+    badge: '10 Refs'
   },
   {
     id: 'openai/gpt-image-2',
@@ -554,19 +562,19 @@ export const ENGINES: Engine[] = [
   },
   // ── Image Upscaling ──
   {
-    id: 'philz1337x/clarity-pro-upscaler' as ReplicateImageModel,
-    name: 'Anarchy Upscale',
-    provider: 'Replicate',
-    color: '#e11d48',
-    icon: <Sparkles size={18} />,
+    id: 'midjourney/mj-turbo-upscale' as any,
+    name: 'Midjourney Upscale',
+    provider: 'Midjourney',
+    color: '#06b6d4',
+    icon: <Zap size={18} />,
     tool: 'image-upscaler',
-    badge: 'Pro'
+    badge: 'v6.1'
   },
   {
     id: 'prunaai/p-image-upscale' as ReplicateImageModel,
     name: 'Pruna AI Upscale',
     provider: 'Replicate',
-    color: '#e11d48',
+    color: '#3b82f6',
     icon: <Maximize2 size={18} />,
     tool: 'image-upscaler'
   },
@@ -574,7 +582,7 @@ export const ENGINES: Engine[] = [
     id: 'topazlabs/image-upscale' as ReplicateImageModel,
     name: 'Topaz Labs Upscale',
     provider: 'Replicate',
-    color: '#e11d48',
+    color: '#8b5cf6',
     icon: <Maximize2 size={18} />,
     tool: 'image-upscaler'
   },
@@ -582,8 +590,9 @@ export const ENGINES: Engine[] = [
     id: 'philz1337x/clarity-upscaler' as ReplicateImageModel,
     name: 'Clarity Upscaler',
     provider: 'Replicate',
-    color: '#e11d48',
+    color: '#f59e0b',
     icon: <Sparkles size={18} />,
-    tool: 'image-upscaler'
+    tool: 'image-upscaler',
+    badge: 'Diffusion'
   },
 ];

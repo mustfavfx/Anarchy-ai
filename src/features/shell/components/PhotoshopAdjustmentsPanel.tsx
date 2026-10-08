@@ -3,7 +3,6 @@ import {
   Sun, Sliders, BarChart2,
   ArrowLeft, RotateCcw, Check, X as CloseIcon
 } from 'lucide-react';
-import { useTranslation } from '../../../services/i18n';
 import type { AdjustmentParams } from '../mask/utils/adjustmentEngine';
 import type { InpaintLayer } from './LayersPanel';
 import { PhotoshopCurvesEditor } from './PhotoshopCurvesEditor';
@@ -112,7 +111,6 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
   onCancelAdjustment,
   onApplyAdjustment,
 }) => {
-  const { isAr } = useTranslation();
   const [activeTool, setActiveTool] = useState<{ key: string; name: string } | null>(null);
 
   // Active Tool Parameter State
@@ -174,17 +172,17 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
   const ADJUSTMENTS = [
     {
       key: 'brightness',
-      name: isAr ? 'السطوع / التباين' : 'Brightness / Contrast',
+      name: 'Brightness / Contrast',
       icon: <Sun size={17} />,
     },
     {
       key: 'levels',
-      name: isAr ? 'المستويات' : 'Levels',
+      name: 'Levels',
       icon: <BarChart2 size={17} />,
     },
     {
       key: 'curves',
-      name: isAr ? 'المنحنيات' : 'Curves',
+      name: 'Curves',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="2 2" />
@@ -194,7 +192,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
     },
     {
       key: 'exposure',
-      name: isAr ? 'التعريض' : 'Exposure',
+      name: 'Exposure',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -206,7 +204,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
     },
     {
       key: 'hue-sat',
-      name: isAr ? 'تدرج / تشبع' : 'Hue / Saturation',
+      name: 'Hue / Saturation',
       icon: <Sliders size={17} />,
     },
   ];
@@ -243,17 +241,17 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 type="button"
                 onClick={handleCancel}
                 className="ps-adj-back-btn"
-                title={isAr ? 'رجوع للأدوات' : 'Back to tools'}
+                title="Back to tools"
               >
                 <ArrowLeft size={13} />
-                <span>{isAr ? 'الأدوات' : 'Tools'}</span>
+                <span>Tools</span>
               </button>
               <span className="ps-adj-controls-title">{activeTool.name}</span>
               <button
                 type="button"
                 onClick={handleReset}
                 className="ps-adj-reset-btn"
-                title={isAr ? 'إعادة ضبط' : 'Reset'}
+                title="Reset"
               >
                 <RotateCcw size={12} />
               </button>
@@ -265,14 +263,14 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {(activeTool.key === 'brightness' || activeTool.key === 'brightness-contrast') && (
                 <>
                   <SliderRow
-                    label={isAr ? 'السطوع (Brightness)' : 'Brightness'}
+                    label="Brightness"
                     value={params.brightness ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('brightness', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'التباين (Contrast)' : 'Contrast'}
+                    label="Contrast"
                     value={params.contrast ?? 0}
                     min={-100}
                     max={100}
@@ -285,14 +283,14 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'levels' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'نقطة الظلال (Shadows)' : 'Shadows'}
+                    label="Shadows"
                     value={params.blackPoint ?? 0}
                     min={0}
                     max={254}
                     onChange={(val) => updateParam('blackPoint', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'النغمات المتوسطة (Midtones)' : 'Midtones'}
+                    label="Midtones"
                     value={params.midtones ?? 1.0}
                     min={0.2}
                     max={3.0}
@@ -300,7 +298,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('midtones', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'نقطة الإضاءة (Highlights)' : 'Highlights'}
+                    label="Highlights"
                     value={params.whitePoint ?? 255}
                     min={1}
                     max={255}
@@ -312,7 +310,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                       className="ps-adj-pill full"
                       onClick={onOpenColorRange}
                     >
-                      {isAr ? 'فتح نافذة النطاق اللوني المتقدم (Color Range)' : 'Open Advanced Color Range'}
+                      Open Advanced Color Range
                     </button>
                   )}
                 </>
@@ -335,7 +333,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'exposure' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'التعريض (Exposure)' : 'Exposure'}
+                    label="Exposure"
                     value={params.exposure ?? 0}
                     min={-2}
                     max={2}
@@ -343,7 +341,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('exposure', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'الإزاحة (Offset)' : 'Offset'}
+                    label="Offset"
                     value={params.offset ?? 0}
                     min={-0.5}
                     max={0.5}
@@ -351,7 +349,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('offset', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'جاما (Gamma)' : 'Gamma'}
+                    label="Gamma"
                     value={params.gamma ?? 1.0}
                     min={0.2}
                     max={3.0}
@@ -365,7 +363,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'hue-sat' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'درجة اللون (Hue)' : 'Hue'}
+                    label="Hue"
                     value={params.hue ?? 0}
                     min={-180}
                     max={180}
@@ -373,14 +371,14 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('hue', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'التشبع (Saturation)' : 'Saturation'}
+                    label="Saturation"
                     value={params.saturation ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('saturation', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'الإضاءة (Lightness)' : 'Lightness'}
+                    label="Lightness"
                     value={params.lightness ?? 0}
                     min={-100}
                     max={100}
@@ -393,14 +391,14 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'vibrance' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'الحيوية (Vibrance)' : 'Vibrance'}
+                    label="Vibrance"
                     value={params.vibrance ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('vibrance', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'التشبع (Saturation)' : 'Saturation'}
+                    label="Saturation"
                     value={params.saturation ?? 0}
                     min={-100}
                     max={100}
@@ -413,21 +411,21 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'color-balance' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'سماوي / أحمر (Cyan - Red)' : 'Cyan - Red'}
+                    label="Cyan - Red"
                     value={params.redBalance ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('redBalance', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'أرجواني / أخضر (Magenta - Green)' : 'Magenta - Green'}
+                    label="Magenta - Green"
                     value={params.greenBalance ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('greenBalance', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'أصفر / أزرق (Yellow - Blue)' : 'Yellow - Blue'}
+                    label="Yellow - Blue"
                     value={params.blueBalance ?? 0}
                     min={-100}
                     max={100}
@@ -441,10 +439,10 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 <>
                   <div className="ps-adj-preset-pills">
                     {[
-                      { id: 'default', label: isAr ? 'افتراضي' : 'Default', r: 40, g: 60, b: 20 },
-                      { id: 'high-contrast', label: isAr ? 'تباين عالي' : 'High Contrast', r: 80, g: 40, b: 0 },
-                      { id: 'infrared', label: isAr ? 'أشعة تحت الحمراء' : 'Infrared', r: 100, g: 10, b: 0 },
-                      { id: 'warm', label: isAr ? 'دافئ' : 'Warm', r: 60, g: 40, b: 10 },
+                      { id: 'default', label: 'Default', r: 40, g: 60, b: 20 },
+                      { id: 'high-contrast', label: 'High Contrast', r: 80, g: 40, b: 0 },
+                      { id: 'infrared', label: 'Infrared', r: 100, g: 10, b: 0 },
+                      { id: 'warm', label: 'Warm', r: 60, g: 40, b: 10 },
                     ].map((p) => (
                       <button
                         key={p.id}
@@ -461,7 +459,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     ))}
                   </div>
                   <SliderRow
-                    label={isAr ? 'مرشح الأحمر (Red Filter)' : 'Red Filter'}
+                    label="Red Filter"
                     value={params.bwRed ?? 40}
                     min={0}
                     max={200}
@@ -469,7 +467,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('bwRed', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'مرشح الأخضر (Green Filter)' : 'Green Filter'}
+                    label="Green Filter"
                     value={params.bwGreen ?? 60}
                     min={0}
                     max={200}
@@ -477,7 +475,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('bwGreen', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'مرشح الأزرق (Blue Filter)' : 'Blue Filter'}
+                    label="Blue Filter"
                     value={params.bwBlue ?? 20}
                     min={0}
                     max={200}
@@ -492,11 +490,11 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 <>
                   <div className="ps-adj-preset-pills">
                     {[
-                      { id: 'warm', label: isAr ? 'دافئ (Warm 85)' : 'Warm (85)' },
-                      { id: 'cool', label: isAr ? 'بارد (Cool 80)' : 'Cool (80)' },
-                      { id: 'sepia', label: isAr ? 'بني داكن (Sepia)' : 'Sepia' },
-                      { id: 'emerald', label: isAr ? 'زمردي (Emerald)' : 'Emerald' },
-                      { id: 'violet', label: isAr ? 'بنفسجي (Violet)' : 'Violet' },
+                      { id: 'warm', label: 'Warm (85)' },
+                      { id: 'cool', label: 'Cool (80)' },
+                      { id: 'sepia', label: 'Sepia' },
+                      { id: 'emerald', label: 'Emerald' },
+                      { id: 'violet', label: 'Violet' },
                     ].map((p) => (
                       <button
                         key={p.id}
@@ -509,7 +507,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     ))}
                   </div>
                   <SliderRow
-                    label={isAr ? 'كثافة الفلتر (Density)' : 'Density'}
+                    label="Density"
                     value={params.filterDensity ?? 30}
                     min={1}
                     max={100}
@@ -523,7 +521,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'channel-mixer' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'قناة الأحمر (Red)' : 'Red Channel'}
+                    label="Red Channel"
                     value={params.channelRed ?? 100}
                     min={-100}
                     max={200}
@@ -531,7 +529,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('channelRed', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'قناة الأخضر (Green)' : 'Green Channel'}
+                    label="Green Channel"
                     value={params.channelGreen ?? 0}
                     min={-100}
                     max={200}
@@ -539,7 +537,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     onChange={(val) => updateParam('channelGreen', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'قناة الأزرق (Blue)' : 'Blue Channel'}
+                    label="Blue Channel"
                     value={params.channelBlue ?? 0}
                     min={-100}
                     max={200}
@@ -552,7 +550,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                       checked={params.channelMono ?? false}
                       onChange={(e) => updateParam('channelMono', e.target.checked)}
                     />
-                    <span>{isAr ? 'أحادي اللون (Monochrome)' : 'Monochrome'}</span>
+                    <span>Monochrome</span>
                   </label>
                 </>
               )}
@@ -578,7 +576,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                     ))}
                   </div>
                   <SliderRow
-                    label={isAr ? 'كثافة التأثير (LUT Intensity)' : 'Intensity'}
+                    label="Intensity"
                     value={params.lutIntensity ?? 80}
                     min={10}
                     max={100}
@@ -592,7 +590,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'invert' && (
                 <div style={{ textAlign: 'center', padding: '12px 6px' }}>
                   <p style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
-                    {isAr ? 'عكس ألوان الطبقة أو القناع فوراً (Ctrl+I).' : 'Instantly inverts layer or mask colors.'}
+                    Instantly inverts layer or mask colors.
                   </p>
                   <button
                     type="button"
@@ -603,7 +601,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                       setActiveTool(null);
                     }}
                   >
-                    {isAr ? 'عكس الآن (Invert Now)' : 'Invert Now'}
+                    Invert Now
                   </button>
                 </div>
               )}
@@ -612,7 +610,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'posterize' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'مستويات التدرج (Tonal Levels)' : 'Levels'}
+                    label="Levels"
                     value={params.posterizeLevels ?? 4}
                     min={2}
                     max={16}
@@ -625,7 +623,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'threshold' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'مستوى العتبة (Threshold Level)' : 'Threshold Level'}
+                    label="Threshold Level"
                     value={params.thresholdLevel ?? 128}
                     min={1}
                     max={255}
@@ -637,7 +635,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                       className="ps-adj-pill full"
                       onClick={onOpenColorRange}
                     >
-                      {isAr ? 'فتح أداة التحديد اللوني (Color Range)' : 'Open Color Range Selector'}
+                      Open Color Range Selector
                     </button>
                   )}
                 </>
@@ -669,7 +667,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                       checked={params.gradientReverse ?? false}
                       onChange={(e) => updateParam('gradientReverse', e.target.checked)}
                     />
-                    <span>{isAr ? 'عكس اتجاه التدرج (Reverse)' : 'Reverse Gradient'}</span>
+                    <span>Reverse Gradient</span>
                   </label>
                 </>
               )}
@@ -678,28 +676,28 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
               {activeTool.key === 'selective-color' && (
                 <>
                   <SliderRow
-                    label={isAr ? 'السماوي (Cyan)' : 'Cyan'}
+                    label="Cyan"
                     value={params.selectiveCyan ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('selectiveCyan', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'الأرجواني (Magenta)' : 'Magenta'}
+                    label="Magenta"
                     value={params.selectiveMagenta ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('selectiveMagenta', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'الأصفر (Yellow)' : 'Yellow'}
+                    label="Yellow"
                     value={params.selectiveYellow ?? 0}
                     min={-100}
                     max={100}
                     onChange={(val) => updateParam('selectiveYellow', val)}
                   />
                   <SliderRow
-                    label={isAr ? 'الأسود (Black)' : 'Black'}
+                    label="Black"
                     value={params.selectiveBlack ?? 0}
                     min={-100}
                     max={100}
@@ -717,7 +715,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 onClick={handleApply}
               >
                 <Check size={13} />
-                <span>{isAr ? 'تطبيق التعديل' : 'Apply'}</span>
+                <span>Apply</span>
               </button>
               <button
                 type="button"
@@ -725,7 +723,7 @@ export const PhotoshopAdjustmentsPanel: React.FC<PhotoshopAdjustmentsPanelProps>
                 onClick={handleCancel}
               >
                 <CloseIcon size={13} />
-                <span>{isAr ? 'إلغاء' : 'Cancel'}</span>
+                <span>Cancel</span>
               </button>
             </div>
           </div>

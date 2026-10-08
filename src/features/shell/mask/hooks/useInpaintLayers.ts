@@ -40,7 +40,7 @@ export function useInpaintLayers(params: UseInpaintLayersParams) {
   } = params;
 
   const [inpaintLayers, setInpaintLayers] = useState<InpaintLayer[]>([]);
-  const [activeLayerId, setActiveLayerId] = useState<string>('base');
+  const [activeLayerId, setActiveLayerId] = useState<string | null>('base');
   const [baseImageVisible, setBaseImageVisible] = useState(true);
   const [showLayerStack, setShowLayerStack] = useState(true);
   const [maskOverlayBlendMode, setMaskOverlayBlendMode] = useState<PhotoshopBlendMode>('normal');

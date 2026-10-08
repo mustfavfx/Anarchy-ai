@@ -81,6 +81,17 @@ export const DummyNode: React.FC<NodeProps> = memo(({ data, selected }) => {
       />
     </div>
   );
+}, (prev, next) => {
+  if (prev.id !== next.id) return false;
+  if (Boolean(prev.selected) !== Boolean(next.selected)) return false;
+  const pData = prev.data as unknown as BuilderNodeData;
+  const nData = next.data as unknown as BuilderNodeData;
+  return (
+    pData?.progressPercentage === nData?.progressPercentage &&
+    pData?.statusMessage === nData?.statusMessage &&
+    pData?.prompt === nData?.prompt &&
+    pData?.state === nData?.state
+  );
 });
 
 DummyNode.displayName = 'DummyNode';

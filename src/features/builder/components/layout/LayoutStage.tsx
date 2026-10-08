@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  ZoomIn, ZoomOut, Maximize, Loader2, AlertCircle, Trash2, X, Plus,
-  Sparkles, Layers, Tag, Eye, Paperclip, AtSign, Check, Sliders
+  ZoomIn, ZoomOut, Maximize, Loader2, AlertCircle, Trash2, X,
+  Sparkles, Tag, Paperclip, AtSign, Check, Sliders
 } from 'lucide-react';
 import {
   type LayoutData, type LayoutRegion, type TextOverlay, type StickyNote,
@@ -86,9 +86,9 @@ export const LayoutStage: React.FC<LayoutStageProps> = ({
   imageHistory,
   activeStageImage,
   setActiveStageImage,
-  zoomLevel,
+  zoomLevel: _zoomLevel,
   setZoomLevel,
-  reframeScale,
+  reframeScale: _reframeScale,
   setReframeScale,
   totalScaleFactor,
   isExtracting,
@@ -108,7 +108,7 @@ export const LayoutStage: React.FC<LayoutStageProps> = ({
   activeToolbarTool,
   maskCanvasRef,
   vanishingPoint,
-  setVanishingPoint,
+  setVanishingPoint: _setVanishingPoint,
   setIsDragging3DVanishingPoint,
   textOverlays,
   setTextOverlays,
@@ -133,17 +133,17 @@ export const LayoutStage: React.FC<LayoutStageProps> = ({
   searchQuery,
   regionPrompts,
   updateRegionPrompt,
-  activeEditingIdx,
-  setActiveEditingIdx,
+  activeEditingIdx: _activeEditingIdx,
+  setActiveEditingIdx: _setActiveEditingIdx,
   handleApplyEdits,
   maskPrompt,
   setMaskPrompt,
   handleApplyMaskEdit,
   cropBounds,
-  activeCropHandle,
+  activeCropHandle: _activeCropHandle,
   hoveredRegionIdx,
   setHoveredRegionIdx,
-  activeRegionHandle,
+  activeRegionHandle: _activeRegionHandle,
   handleRegionHandleMouseDown,
   handleCropHandleMouseDown,
   brushSize,

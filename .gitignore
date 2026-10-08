@@ -78,3 +78,8 @@ tauri-dev-utf8.txt
 # Knowledge graph
 graphify-out/
 .graphifyignore
+
+# Temporary scratch scripts
+scratch/
+__pycache__/
+*.pyc

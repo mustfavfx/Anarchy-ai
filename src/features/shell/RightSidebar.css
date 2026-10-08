@@ -384,6 +384,8 @@
   height: 100%;
   overflow: hidden;
   background: #0a0a0b;
+  contain: paint layout;
+  transform: translateZ(0);
 }
 
 /* Empty state - two slots side by side */
@@ -485,6 +487,9 @@
   height: 100%;
   object-fit: contain;
   background: #0a0a0b;
+  transform: translateZ(0);
+  image-rendering: auto;
+  backface-visibility: hidden;
 }
 
 .compare-clip {
@@ -492,13 +497,20 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  clip-path: inset(0 calc(100% - var(--compare-split, 50%)) 0 0);
+  will-change: clip-path;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
-.compare-clip img {
+.compare-clip img,
+.compare-clip video {
   width: 100%;
   height: 100%;
   object-fit: contain;
   background: #0a0a0b;
+  transform: translateZ(0);
+  image-rendering: auto;
 }
 
 /* Draggable handle/divider */
@@ -507,9 +519,11 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateZ(0);
   pointer-events: none;
   z-index: 5;
+  left: var(--compare-split, 50%);
+  will-change: left;
 }
 
 .compare-handle-line {

@@ -90,21 +90,34 @@ const GhostPlaceholder = memo(({ connectedCount, isStandaloneGenerator }: GhostP
   );
 });
 
-const edgesSelector = (s: { edges: Edge[] }) => s.edges;
-
 export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) => {
   if (process.env.NODE_ENV === 'development' || (globalThis as any).__DEV__) {
     (globalThis as any).__anarchyNodeRenders = ((globalThis as any).__anarchyNodeRenders || 0) + 1;
   }
   const deleteElements = useReactFlow().deleteElements;
 
-  // ── Optimized edge subscription ─────────────────────────────────────────
-  // Subscribing to s.edges reference ensures zero re-renders during canvas pan/zoom,
-  // since s.edges reference is immutable during viewport transforms.
-  const edges = useStore(edgesSelector);
-  const incomingEdges = useMemo(() => {
-    return edges.filter((e: Edge) => e.target === id);
-  }, [edges, id]);
+  // ── Targeted incoming edge subscription ──────────────────────────────────
+  // Only re-renders this GhostNode when edges connected to *this* node change,
+  // completely ignoring edge movements, additions, or deletions elsewhere.
+  const incomingEdgesSelector = useCallback(
+    (s: { edges: Edge[] }) => s.edges.filter((e: Edge) => e.target === id),
+    [id]
+  );
+  const incomingEdgesEquality = useCallback((prev: Edge[], next: Edge[]) => {
+    if (prev === next) return true;
+    if (prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i++) {
+      if (
+        prev[i].id !== next[i].id ||
+        prev[i].source !== next[i].source ||
+        prev[i].targetHandle !== next[i].targetHandle
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }, []);
+  const incomingEdges = useStore(incomingEdgesSelector, incomingEdgesEquality);
 
   const connectedCount = incomingEdges.length;
 
@@ -246,16 +259,17 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
       {/* Multiple Input Handles on Left Side (Only for connected/downstream nodes) */}
       {!isStandaloneGenerator && Array.from({ length: slotCount }, (_, i) => {
         const labelText = i === 0 ? 'Primary Source' : `Reference Input #${i}`;
+        const isSlotConnected = incomingEdges.some((e: Edge) => e.targetHandle === `ghost-target-${i}`);
         return (
           <Handle
             key={`ghost-target-${i}`}
             type="target"
             position={Position.Left}
             id={`ghost-target-${i}`}
-            className="ghost-handle ghost-handle--input"
+            className={`ghost-handle ghost-handle--input ${isSlotConnected ? 'connected' : ''}`}
             style={{
               top: getHandleTop(i),
-              left: '-6px',
+              left: '-12px',
               right: 'auto',
               transform: 'translateY(-50%)',
             }}
@@ -380,7 +394,7 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
         className="ghost-handle ghost-handle--output"
         isConnectable={isReady && !isProcessing}
         style={{
-          right: '-6px',
+          right: '-12px',
           left: 'auto',
           top: '50%',
           bottom: 'auto',
@@ -394,10 +408,12 @@ export const GhostNode = memo(({ id, data, selected = false }: GhostNodeProps) =
 }, (prevProps, nextProps) => {
   return (
     prevProps.id === nextProps.id &&
-    prevProps.selected === nextProps.selected &&
+    Boolean(prevProps.selected) === Boolean(nextProps.selected) &&
     prevProps.data?.state === nextProps.data?.state &&
     prevProps.data?.promptDraft === nextProps.data?.promptDraft &&
     prevProps.data?.image === nextProps.data?.image &&
+    prevProps.data?.errorMessage === nextProps.data?.errorMessage &&
+    prevProps.data?.label === nextProps.data?.label &&
     prevProps.data?.updatedAt === nextProps.data?.updatedAt
   );
 });

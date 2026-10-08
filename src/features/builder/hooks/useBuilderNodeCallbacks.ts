@@ -7,7 +7,7 @@ import {
   positionExtraNode,
   buildGenConfig,
 } from '../utils/builderHelpers';
-import { createOptimizedThumbnailBlob } from '../utils/canvasImageOptimizer';
+import { createOptimizedThumbnailBlob, primeCanvasThumbnail } from '../utils/canvasImageOptimizer';
 
 export interface UseBuilderNodeCallbacksParams {
   nodes: BuilderNode[];
@@ -49,18 +49,15 @@ export function useBuilderNodeCallbacks({
                   url.toLowerCase().includes('.webm') || 
                   url.toLowerCase().includes('.mov') || 
                   url.toLowerCase().includes('.avi');
-    applyWatermarkToSource(url).then(async (watermarked) => {
+    applyWatermarkToSource(url).then((watermarked) => {
       const cleanUuid = crypto.randomUUID();
       const imageKey = `idb://${cleanUuid}`;
-      await cacheLocalImage(imageKey, watermarked);
-      let thumbKey: string | undefined = undefined;
-      if (!isVid) {
-        const thumbBlob = await createOptimizedThumbnailBlob(watermarked, 640);
-        if (thumbBlob) {
-          thumbKey = `idb://${cleanUuid}_canvas_thumb`;
-          await cacheLocalImage(thumbKey, thumbBlob);
-        }
-      }
+      const thumbKey = isVid ? undefined : `idb://${cleanUuid}_canvas_thumb`;
+
+      // Prime memory cache immediately so BaseNode renders with zero delay
+      primeCanvasThumbnail(imageKey, watermarked);
+      if (thumbKey) primeCanvasThumbnail(thumbKey, watermarked);
+
       updateNodeData(nodeId, { 
         image: imageKey, 
         originalImage: imageKey, 
@@ -83,6 +80,19 @@ export function useBuilderNodeCallbacks({
           isVideo: isVid
         });
       }
+
+      // Persist to IDB and generate thumbnail in background without blocking UI
+      cacheLocalImage(imageKey, watermarked).catch(() => {});
+      if (!isVid && thumbKey) {
+        createOptimizedThumbnailBlob(watermarked, 640).then(thumbBlob => {
+          if (thumbBlob) {
+            cacheLocalImage(thumbKey, thumbBlob).catch(() => {});
+            const thumbUrl = URL.createObjectURL(thumbBlob);
+            primeCanvasThumbnail(thumbKey, thumbUrl);
+            primeCanvasThumbnail(imageKey, thumbUrl);
+          }
+        }).catch(() => {});
+      }
     });
   }, [updateNodeData, applyWatermarkToSource, setSelectedNode]);
 
@@ -97,7 +107,7 @@ export function useBuilderNodeCallbacks({
 
   const makeImagesUploadHandler = useCallback((node: BuilderNode) => (urls: string[]) => {
     if (!urls.length) return;
-    Promise.allSettled(urls.map(u => applyWatermarkToSource(u))).then(async (results) => {
+    Promise.allSettled(urls.map(u => applyWatermarkToSource(u))).then((results) => {
       const watermarkedUrls = results.map((r, idx) => r.status === 'fulfilled' ? r.value : urls[idx]);
       const watermarked = watermarkedUrls[0];
       const isVid = watermarked.startsWith('data:video/') || 
@@ -107,15 +117,11 @@ export function useBuilderNodeCallbacks({
                     watermarked.toLowerCase().includes('.avi');
       const cleanUuid = crypto.randomUUID();
       const imageKey = `idb://${cleanUuid}`;
-      await cacheLocalImage(imageKey, watermarked);
-      let thumbKey: string | undefined = undefined;
-      if (!isVid) {
-        const thumbBlob = await createOptimizedThumbnailBlob(watermarked, 640);
-        if (thumbBlob) {
-          thumbKey = `idb://${cleanUuid}_canvas_thumb`;
-          await cacheLocalImage(thumbKey, thumbBlob);
-        }
-      }
+      const thumbKey = isVid ? undefined : `idb://${cleanUuid}_canvas_thumb`;
+
+      primeCanvasThumbnail(imageKey, watermarked);
+      if (thumbKey) primeCanvasThumbnail(thumbKey, watermarked);
+
       updateNodeData(node.id, { 
         image: imageKey, 
         originalImage: imageKey, 
@@ -134,6 +140,18 @@ export function useBuilderNodeCallbacks({
         state: 'ready',
         isVideo: isVid
       });
+
+      cacheLocalImage(imageKey, watermarked).catch(() => {});
+      if (!isVid && thumbKey) {
+        createOptimizedThumbnailBlob(watermarked, 640).then(thumbBlob => {
+          if (thumbBlob) {
+            cacheLocalImage(thumbKey, thumbBlob).catch(() => {});
+            const thumbUrl = URL.createObjectURL(thumbBlob);
+            primeCanvasThumbnail(thumbKey, thumbUrl);
+            primeCanvasThumbnail(imageKey, thumbUrl);
+          }
+        }).catch(() => {});
+      }
     });
   }, [updateNodeData, applyWatermarkToSource, spawnExtraSources, setSelectedNode]);
 

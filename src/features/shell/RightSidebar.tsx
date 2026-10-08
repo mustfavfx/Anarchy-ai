@@ -129,47 +129,62 @@ const PreviewZoomStage: React.FC<PreviewZoomStageProps> = ({
 interface CompareSectionProps {
   compareImages: { A: string | null; B: string | null };
   resolvedImages: { A: string | null; B: string | null };
-  compareSplit: number;
-  onSplitChange: (val: number) => void;
   onSwap: () => void;
   onClear: () => void;
   onSetSlot: (slot: 'A' | 'B') => void;
   onClearSlot: (slot: 'A' | 'B') => void;
 }
 
-const CompareSection: React.FC<CompareSectionProps> = ({
-  compareImages, resolvedImages, compareSplit, onSplitChange, onSwap, onClear, onSetSlot, onClearSlot,
+const CompareSection: React.FC<CompareSectionProps> = React.memo(({
+  compareImages, resolvedImages, onSwap, onClear, onSetSlot, onClearSlot,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const isVideoA = isVideoUrl(resolvedImages.A || compareImages.A);
   const isVideoB = isVideoUrl(resolvedImages.B || compareImages.B);
+
+  const handleSliderInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (containerRef.current) {
+      containerRef.current.style.setProperty('--compare-split', `${val}%`);
+    }
+  }, []);
 
   if (compareImages.A && compareImages.B) {
     const srcA = resolvedImages.A ?? compareImages.A ?? '';
     const srcB = resolvedImages.B ?? compareImages.B ?? '';
 
     return (
-      <div className="compare-container">
+      <div
+        ref={containerRef}
+        className="compare-container"
+        style={{ '--compare-split': '50%' } as React.CSSProperties}
+      >
         {isVideoB ? (
           <video src={srcB} className="compare-base" autoPlay loop muted playsInline />
         ) : (
-          <img src={srcB} className="compare-base" alt="B" />
+          <img src={srcB} className="compare-base" alt="B" decoding="async" />
         )}
-        <div className="compare-clip" style={{ clipPath: `inset(0 ${100 - compareSplit}% 0 0)` }}>
+        <div className="compare-clip">
           {isVideoA ? (
             <video src={srcA} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <img src={srcA} alt="A" />
+            <img src={srcA} alt="A" decoding="async" />
           )}
         </div>
-        <div className="compare-handle" style={{ left: `${compareSplit}%` }}>
+        <div className="compare-handle">
           <div className="compare-handle-line" />
           <div className="compare-handle-circle"><SplitSquareHorizontal size={12} /></div>
         </div>
         <span className="compare-label compare-label-a">A</span>
         <span className="compare-label compare-label-b">B</span>
-        <input type="range" min="0" max="100" value={compareSplit}
-          onChange={e => onSplitChange(Number(e.target.value))}
-          className="compare-slider-input" />
+        <input
+          type="range"
+          min="0"
+          max="100"
+          defaultValue="50"
+          onChange={handleSliderInput}
+          className="compare-slider-input"
+        />
         <div className="compare-toolbar">
           <button className="compare-tool-btn" onClick={onSwap} title="Swap A ↔ B">⇄</button>
           <button className="compare-tool-btn" onClick={onClear} title="Clear both"><X size={12} /></button>
@@ -216,7 +231,9 @@ const CompareSection: React.FC<CompareSectionProps> = ({
       </div>
     </div>
   );
-};
+});
+
+CompareSection.displayName = 'CompareSection';
 
 export const RightSidebar: React.FC = () => {
   const config = useAIConfigStore((state) => state.config);
@@ -301,8 +318,6 @@ export const RightSidebar: React.FC = () => {
 
   const fitToStage = useCallback(() => { setZoom(1); setPanX(0); setPanY(0); }, []);
 
-  // Compare split slider state
-  const [compareSplit, setCompareSplit] = useState(50);
 
   const handleModelChange = useCallback((model: ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel) => {
     setConfig(prev => ({ ...prev, model }));
@@ -472,8 +487,6 @@ export const RightSidebar: React.FC = () => {
                 <CompareSection
                   compareImages={compareImages}
                   resolvedImages={{ A: resolvedCompareA ?? null, B: resolvedCompareB ?? null }}
-                  compareSplit={compareSplit}
-                  onSplitChange={setCompareSplit}
                   onSwap={() => setCompareImages({ A: compareImages.B, B: compareImages.A })}
                   onClear={() => setCompareImages({ A: null, B: null })}
                   onSetSlot={slot => {

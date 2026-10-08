@@ -1,9 +1,10 @@
 // ── Image Models ──────────────────────────────────────────────────────────────
 export type ReplicateImageModel =
   | 'google/nano-banana-2'              // Nano Banana 2 (Gemini 3.1 Flash)
+  | 'google/nano-banana-2.1'            // Nano Banana 2.1 (Google)
   | 'google/nano-banana-2-lite'         // Nano Banana 2 Lite (Gemini 3.1 Flash Lite)
   | 'bytedance/seedream-5-pro'          // Seedream 5 Pro - ByteDance
-  | 'black-forest-labs/flux-2-pro'      // FLUX 2 Pro - img2img + 8 ref images
+  | 'black-forest-labs/flux-3-image'    // FLUX 3 Image - img2img/edit + 10 ref images
   | 'openai/gpt-image-2'                // GPT Image 2 - OpenAI
   | 'openai/gpt-image-2.5-flare'        // GPT Image 2.5 Flare - OpenAI
   | 'openai/gpt-image-2.5-sunburst'     // GPT Image 2.5 Sunburst - OpenAI
@@ -20,6 +21,13 @@ export type ReplicateImageModel =
 
 // ── Upscale Models ────────────────────────────────────────────────────────────
 export type ReplicateUpscaleModel =
+  | 'midjourney/mj-turbo-upscale'          // Midjourney Turbo Upscale (CometAPI)
+  | 'midjourney/mj-turbo-upscale-subtle'   // Midjourney Turbo Upscale Subtle (CometAPI)
+  | 'midjourney/mj-turbo-upscale-creative' // Midjourney Turbo Upscale Creative (CometAPI)
+  | 'midjourney/mj-fast-upscale'           // Midjourney Fast Upscale (CometAPI)
+  | 'midjourney/mj-fast-upscale-subtle'    // Midjourney Fast Upscale Subtle (CometAPI)
+  | 'midjourney/mj-fast-upscale-creative'  // Midjourney Fast Upscale Creative (CometAPI)
+  | 'nightmareai/real-esrgan'              // Fast AI Upscaler (Real-ESRGAN)
   | 'topazlabs/image-upscale'              // Topaz Labs Image Upscale
   | 'philz1337x/clarity-upscaler'          // Clarity Upscaler
   | 'prunaai/p-image-upscale'             // Pruna AI P-Image Upscale
@@ -43,9 +51,14 @@ export type Replicate3DModel =
 
 // ── Chat Models ───────────────────────────────────────────────────────────────
 export type ReplicateChatModel =
-  | 'meta/meta-llama-3-70b-instruct'
+  | 'google/gemini-3.5-flash'
+  | 'anthropic/claude-fable-5'
+  | 'anthropic/claude-sonnet-5'
+  | 'openai/gpt-5.6-luna'
+  | 'moonshotai/kimi-k2.6'
   | 'anthropic/claude-3.7-sonnet'
-  | 'deepseek-ai/deepseek-r1';
+  | 'deepseek-ai/deepseek-r1'
+  | 'meta/meta-llama-3-70b-instruct';
 
 export type ReplicateModel =
   | ReplicateImageModel

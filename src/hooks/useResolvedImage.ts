@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { getLocalImageAsObjectURL, revokeObjectUrl } from '../services/history/HistoryService';
+import { getCachedCanvasThumbnail } from '../services/image/memoryThumbnailCache';
 
 export function useResolvedImage(rawImage: string | undefined | null): string | undefined {
-  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(undefined);
+  const syncInitial = rawImage
+    ? (getCachedCanvasThumbnail(rawImage) || (rawImage.startsWith('data:') || rawImage.startsWith('blob:') ? rawImage : undefined))
+    : undefined;
+  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(syncInitial);
 
   useEffect(() => {
     let active = true;
@@ -11,6 +15,11 @@ export function useResolvedImage(rawImage: string | undefined | null): string | 
     if (!rawImage || typeof rawImage !== 'string') {
       setResolvedUrl(undefined);
       return;
+    }
+
+    const syncCached = getCachedCanvasThumbnail(rawImage);
+    if (syncCached) {
+      setResolvedUrl(syncCached);
     }
 
     const resolveImage = async () => {
@@ -28,7 +37,7 @@ export function useResolvedImage(rawImage: string | undefined | null): string | 
           }
           setResolvedUrl(cachedUrl);
         } else {
-          setResolvedUrl(undefined);
+          setResolvedUrl(syncCached || undefined);
         }
         return;
       }
@@ -39,27 +48,10 @@ export function useResolvedImage(rawImage: string | undefined | null): string | 
         // blob: URLs are already local object URLs — pass through directly.
         setResolvedUrl(rawImage);
       } else if (rawImage.startsWith('data:')) {
-        // Convert data URI → Blob URL locally without fetch().
-        // fetch(data:...) is blocked by CSP connect-src and is unnecessary;
-        // the conversion can be done entirely in-memory with atob.
-        try {
-          const [header, base64] = rawImage.split(',');
-          const mimeMatch = header.match(/data:([^;]+)/);
-          const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: mime });
-          if (!active) return;
-          const blobUrl = URL.createObjectURL(blob);
-          currentBlobUrl = blobUrl;
-          setResolvedUrl(blobUrl);
-        } catch {
-          // If atob fails (malformed data URI), fall back to the raw string.
-          if (active) setResolvedUrl(rawImage);
-        }
+        // data: URIs are natively rendered by HTML <img> without fetch().
+        // Passing through directly avoids blocking the main JavaScript thread
+        // with multi-million-iteration atob / Uint8Array conversion loops.
+        setResolvedUrl(rawImage);
       } else {
         setResolvedUrl(rawImage);
       }
@@ -69,9 +61,6 @@ export function useResolvedImage(rawImage: string | undefined | null): string | 
 
     return () => {
       active = false;
-      if (currentBlobUrl) {
-        revokeObjectUrl(currentBlobUrl);
-      }
     };
   }, [rawImage]);
 

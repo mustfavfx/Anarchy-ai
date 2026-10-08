@@ -54,6 +54,7 @@ interface BuilderPromptBarProps {
   maskDataUrl?: string | null;
   onGenerate: () => void;
   onPromptContextMenu: (event: React.MouseEvent) => void;
+  onOpenCopilot?: () => void;
 }
 
 export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
@@ -74,6 +75,7 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   maskDataUrl,
   onGenerate,
   onPromptContextMenu,
+  onOpenCopilot,
 }) => {
   const [showPresets, setShowPresets] = useState(false);
   const [showFillPromptModal, setShowFillPromptModal] = useState(false);
@@ -81,7 +83,7 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
   const aiConfig = useAIConfigStore((s) => s.config);
 
   // ── Recent Prompts History ──────────────────────────────────────────────────
-  const [recentPrompts, setRecentPrompts] = useState<{ text: string; label: string; icon?: string }[]>([]);
+  const [_recentPrompts, setRecentPrompts] = useState<{ text: string; label: string; icon?: string }[]>([]);
   const trialExpiresAt = useAIConfigStore((s) => s.trialExpiresAt);
 
   const trialDaysRemaining = useMemo(() => {
@@ -235,13 +237,12 @@ export const BuilderPromptBar: React.FC<BuilderPromptBarProps> = ({
           rows={1}
         />
         <div className="builder-prompt-actions">
-          {/* Architectural AI Agent — Active in Developer Mode */}
-          {import.meta.env.DEV && (
-            <AgentRefineButton
-              prompt={prompt}
-              onApplyPrompt={(newPrompt) => setPrompt(newPrompt)}
-            />
-          )}
+          {/* Architectural AI Agent */}
+          <AgentRefineButton
+            prompt={prompt}
+            onApplyPrompt={(newPrompt) => setPrompt(newPrompt)}
+            onOpenCopilot={onOpenCopilot}
+          />
           {!isUpscaleMode && (
             <div className="prompt-presets-wrapper">
               <button

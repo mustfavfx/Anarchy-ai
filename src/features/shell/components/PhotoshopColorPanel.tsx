@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeftRight } from 'lucide-react';
-import { useTranslation } from '../../../services/i18n';
 
 export interface PhotoshopColorPanelProps {
   activeColor: string;
@@ -66,8 +65,6 @@ export const PhotoshopColorPanel: React.FC<PhotoshopColorPanelProps> = ({
   onToggleMaskColor,
   activeMaskColor: _activeMaskColor,
 }) => {
-  const { isAr } = useTranslation();
-
   const initialHsv = hexToHsv(activeColor || '#e11d48');
   const [hue, setHue] = useState<number>(initialHsv.h);
   const [sat, setSat] = useState<number>(initialHsv.s);
@@ -155,23 +152,23 @@ export const PhotoshopColorPanel: React.FC<PhotoshopColorPanelProps> = ({
       <div className="ps-color-content" style={{ padding: '6px' }}>
         <div className="ps-color-picker-row">
           {/* Foreground / Background Chip Overlap */}
-          <div className="ps-fg-bg-box" title={isAr ? 'تبديل ألوان الفرشاة / القناع (X)' : 'Swap Colors (X)'}>
+          <div className="ps-fg-bg-box" title="Swap Colors (X)">
             <div
               className="ps-chip-swatch foreground"
               style={{ backgroundColor: activeColor }}
-              title={isAr ? `اللون الأمامي: ${activeColor}` : `Foreground Color: ${activeColor}`}
+              title={`Foreground Color: ${activeColor}`}
             />
             <div
               className="ps-chip-swatch background"
               style={{ backgroundColor: secondaryColor }}
-              title={isAr ? `اللون الخلفي: ${secondaryColor}` : `Background Color: ${secondaryColor}`}
+              title={`Background Color: ${secondaryColor}`}
             />
             {onToggleMaskColor && (
               <button
                 type="button"
                 className="ps-chip-swap-arrow"
                 onClick={onToggleMaskColor}
-                title={isAr ? 'تبديل (X)' : 'Swap (X)'}
+                title="Swap (X)"
               >
                 <ArrowLeftRight size={9} />
               </button>
@@ -203,7 +200,7 @@ export const PhotoshopColorPanel: React.FC<PhotoshopColorPanelProps> = ({
             ref={hueSliderRef}
             className="ps-hue-slider"
             onMouseDown={handleHueMouseDown}
-            title={isAr ? 'شريط تدرج الألوان (Hue)' : 'Hue Slider'}
+            title="Hue Slider"
           >
             {/* Slider thumb triangle */}
             <div

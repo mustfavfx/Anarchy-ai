@@ -12,7 +12,7 @@ import {
   Settings, 
   User, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: FolderKanban, label: 'Projects', path: '/projects' },
   { icon: Workflow, label: 'Builder', path: '/builder' },
-  { icon: BrainCircuit, label: 'AI Agent', path: '/generate', disabled: !import.meta.env.DEV },
+  { icon: BrainCircuit, label: 'AI Agent', path: '/generate', disabled: false },
   { icon: Cpu, label: 'LoRA Training', path: '/lora', disabled: true },
   { icon: Shapes, label: '3D', path: '/3d', disabled: true },
   { icon: Images, label: 'Library', path: '/library' },

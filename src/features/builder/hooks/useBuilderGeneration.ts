@@ -142,6 +142,8 @@ export function useBuilderGeneration({
       resolvedUpscaleFactor = (aiConfig as any).anarchyUpscaleScale ?? (aiConfig as any).upscaleFactor ?? 2;
     } else if (aiConfig.model === 'prunaai/p-image-upscale') {
       resolvedUpscaleFactor = (aiConfig as any).prunaFactor ?? (aiConfig as any).upscaleFactor ?? 2;
+    } else if ((aiConfig.model as string)?.startsWith('midjourney/')) {
+      resolvedUpscaleFactor = (aiConfig as any).upscaleFactor ?? 2;
     } else {
       resolvedUpscaleFactor = (aiConfig as any).upscaleFactor ?? 2;
     }
@@ -270,6 +272,9 @@ export function useBuilderGeneration({
             targetNodeIds.forEach(id => {
               useBuilderQueueStore.getState().updateJob(id, { state: 'failed', errorMessage: 'Insufficient credit balance' });
             });
+            if (setNodes) {
+              setNodes(nds => nds.map(n => targetNodeIds.includes(n.id) ? { ...n, data: { ...n.data, state: 'error', errorMessage: 'Insufficient credit balance' } } : n));
+            }
             return;
           }
 
@@ -280,6 +285,9 @@ export function useBuilderGeneration({
             targetNodeIds.forEach(id => {
               useBuilderQueueStore.getState().updateJob(id, { state: 'failed', errorMessage: `Deduction failed: ${errText}` });
             });
+            if (setNodes) {
+              setNodes(nds => nds.map(n => targetNodeIds.includes(n.id) ? { ...n, data: { ...n.data, state: 'error', errorMessage: `Deduction failed: ${errText}` } } : n));
+            }
             return;
           }
           getUserCredit(authUser.id).then(c => c && setUserCredits(c.balance)).catch(() => {});
@@ -294,6 +302,9 @@ export function useBuilderGeneration({
         targetNodeIds.forEach(id => {
           useBuilderQueueStore.getState().updateJob(id, { state: 'failed', errorMessage: errText });
         });
+        if (setNodes) {
+          setNodes(nds => nds.map(n => targetNodeIds.includes(n.id) ? { ...n, data: { ...n.data, state: 'error', errorMessage: errText } } : n));
+        }
       }
     })();
   }, [

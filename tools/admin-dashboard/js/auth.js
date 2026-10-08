@@ -118,5 +118,7 @@
       fetchSubscribersData(false);
       loadVaultMedia(true);
     });
-    document.getElementById('btn-export').addEventListener('click', exportToCSV);
+    document.getElementById('btn-export').addEventListener('click', () => {
+      if (typeof exportToCSV === 'function') exportToCSV();
+    });
 

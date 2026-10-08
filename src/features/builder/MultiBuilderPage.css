@@ -1,4 +1,5 @@
 .multi-builder-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -9,55 +10,155 @@
 }
 
 /* ============================================
-   AUTO-RECOVERY CRASH RESTORATION BANNER
+   AUTO-RECOVERY FLOATING LUXURY NOTIFICATION
    ============================================ */
 .builder-recovery-banner {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.18) 0%, rgba(225, 29, 72, 0.12) 100%);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.35);
-  padding: 8px 16px;
-  font-size: 12px;
-  color: #f4f4f5;
-  z-index: 50;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  animation: slideDownBanner 0.25s ease-out;
+  gap: 16px;
+  max-width: calc(100% - 32px);
+  width: max-content;
+  min-width: 0;
+  background: rgba(13, 16, 23, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
+  padding: 8px 14px;
+  box-shadow: 
+    0 16px 36px -4px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 24px -2px rgba(245, 158, 11, 0.22);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  animation: recoverySlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  user-select: none;
 }
 
-@keyframes slideDownBanner {
-  from {
-    transform: translateY(-100%);
+@keyframes recoverySlideDown {
+  0% {
     opacity: 0;
+    transform: translate(-50%, -18px) scale(0.96);
   }
-  to {
-    transform: translateY(0);
+  100% {
     opacity: 1;
+    transform: translate(-50%, 0) scale(1);
   }
 }
 
-.recovery-banner-info {
+.recovery-banner-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #f59e0b 30%, #ef4444 70%, transparent 100%);
+  opacity: 0.85;
+}
+
+.recovery-banner-main {
   display: flex;
   align-items: center;
-  gap: 10px;
-  line-height: 1.4;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
-.recovery-banner-icon {
-  color: #f59e0b;
+.recovery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 9999px;
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
   flex-shrink: 0;
 }
 
-.recovery-banner-info code {
-  background: rgba(0, 0, 0, 0.4);
-  padding: 1px 5px;
-  border-radius: 4px;
-  color: #fde047;
-  font-size: 11px;
+.recovery-badge-icon {
+  animation: recoveryPulse 2s infinite ease-in-out;
 }
 
-.recovery-banner-btns {
+@keyframes recoveryPulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 4px #f59e0b); }
+}
+
+.recovery-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #e4e4e7;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.recovery-lead-text {
+  color: #a1a1aa;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.recovery-project-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  max-width: 200px;
+  min-width: fit-content;
+  flex-shrink: 0;
+}
+
+.recovery-project-pill .pill-icon {
+  flex-shrink: 0;
+  color: #fbbf24;
+}
+
+.recovery-project-name {
+  color: #fde047;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+  display: inline-block;
+}
+
+.recovery-time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: #94a3b8;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.recovery-time-pill .pill-icon {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.recovery-banner-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -68,35 +169,83 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
-  border-radius: 6px;
+  padding: 5px 13px;
+  border-radius: 8px;
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .recovery-action-btn.restore {
-  background: #f59e0b;
-  color: #0f111a;
-  border-color: #fbbf24;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #0b0d13;
+  border-color: rgba(251, 191, 36, 0.8);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35);
 }
 
 .recovery-action-btn.restore:hover {
-  background: #fbbf24;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.55);
+  transform: translateY(-1px);
+}
+
+.recovery-action-btn.restore:active {
+  transform: translateY(0);
 }
 
 .recovery-action-btn.discard {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .recovery-action-btn.discard:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+.recovery-dismiss-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 2px;
+}
+
+.recovery-dismiss-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
+}
+
+.builder-recovery-banner[dir="rtl"] {
+  direction: rtl;
+}
+
+.builder-recovery-banner[dir="rtl"] .recovery-dismiss-btn {
+  margin-left: 0;
+  margin-right: 2px;
+}
+
+@media (max-width: 768px) {
+  .builder-recovery-banner {
+    min-width: unset;
+    width: 96%;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px;
+    top: 40px;
+  }
 }
 
 /* ============================================

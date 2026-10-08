@@ -166,7 +166,7 @@ export function useBuilderPersistence({
     const name = wf.name || fallbackName;
     onTitleChange?.(name);
     skipDirtyRef.current = 2;
-    onDirtyChange?.(false);
+    onDirtyChangeRef.current?.(false);
     isDirtyRef.current = false;
 
     if (hasFittedInitiallyRef) {
@@ -174,15 +174,13 @@ export function useBuilderPersistence({
     }
 
     addNotification({ type: 'success', title: 'Project Loaded', message: name });
-    if (tabId) {
-      AutoRecoveryService.clearRecoverySnapshot(tabId, currentFilePath).catch(() => {});
-    }
+    AutoRecoveryService.clearRecoverySnapshot(tabId, currentFilePath, name).catch(() => {});
     // Force center viewport and real GPU repaint after DOM commits new nodes
     setTimeout(() => {
       try { fitView?.({ padding: 0.3, duration: 300 }); } catch {}
       forceCanvasRepaint?.();
     }, 150);
-  }, [setNodes, setEdges, onTitleChange, onDirtyChange, fitView, addNotification, hasFittedInitiallyRef, forceCanvasRepaint, tabId, currentFilePath]);
+  }, [setNodes, setEdges, onTitleChange, fitView, addNotification, hasFittedInitiallyRef, forceCanvasRepaint, tabId, currentFilePath]);
 
   const handleSave = useCallback(async (): Promise<string | null> => {
     try {
@@ -197,10 +195,8 @@ export function useBuilderPersistence({
         onProjectPathChange?.(path);
         skipDirtyRef.current = 1;
         isDirtyRef.current = false;
-        onDirtyChange?.(false);
-        if (tabId) {
-          AutoRecoveryService.clearRecoverySnapshot(tabId, path).catch(() => {});
-        }
+        onDirtyChangeRef.current?.(false);
+        AutoRecoveryService.clearRecoverySnapshot(tabId, path, name).catch(() => {});
         return path;
       }
       return null;
@@ -210,7 +206,7 @@ export function useBuilderPersistence({
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
       return null;
     }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange, tabId]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, currentFilePath, onProjectPathChange, tabId]);
 
   const handleSaveAs = useCallback(async (): Promise<string | null> => {
     try {
@@ -225,10 +221,8 @@ export function useBuilderPersistence({
         onProjectPathChange?.(path);
         skipDirtyRef.current = 1;
         isDirtyRef.current = false;
-        onDirtyChange?.(false);
-        if (tabId) {
-          AutoRecoveryService.clearRecoverySnapshot(tabId, path).catch(() => {});
-        }
+        onDirtyChangeRef.current?.(false);
+        AutoRecoveryService.clearRecoverySnapshot(tabId, path, name).catch(() => {});
         return path;
       }
       return null;
@@ -238,7 +232,7 @@ export function useBuilderPersistence({
       addNotification({ type: 'error', title: 'Save Failed', message: String(err) });
       return null;
     }
-  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, onDirtyChange, currentFilePath, onProjectPathChange, tabId]);
+  }, [nodes, edges, addNotification, generateThumbnail, onTitleChange, currentFilePath, onProjectPathChange, tabId]);
 
   const handleLoad = useCallback(async () => {
     try {
@@ -254,10 +248,8 @@ export function useBuilderPersistence({
         onProjectPathChange?.(result.filePath);
         skipDirtyRef.current = 2;
         isDirtyRef.current = false;
-        onDirtyChange?.(false);
-        if (tabId) {
-          AutoRecoveryService.clearRecoverySnapshot(tabId, result.filePath).catch(() => {});
-        }
+        onDirtyChangeRef.current?.(false);
+        AutoRecoveryService.clearRecoverySnapshot(tabId, result.filePath, result.name).catch(() => {});
         addNotification({ type: 'success', title: 'Project Loaded', message: result.name });
         // Force a real GPU repaint after nodes settle — fixes WebView2 black canvas bug.
         setTimeout(() => forceCanvasRepaint?.(), 300);
@@ -266,27 +258,25 @@ export function useBuilderPersistence({
       logger.error('[Load] failed:', err);
       addNotification({ type: 'error', title: 'Load Failed', message: String(err) });
     }
-  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onDirtyChange, onProjectPathChange, hasFittedInitiallyRef, forceCanvasRepaint, tabId]);
+  }, [setNodes, setEdges, addNotification, fitView, onTitleChange, onProjectPathChange, hasFittedInitiallyRef, forceCanvasRepaint, tabId]);
 
   const doNewCanvas = useCallback(() => {
     resetFilePath();
     setCurrentFilePathState(null);
     onProjectPathChange?.(null);
-    if (tabId) {
-      AutoRecoveryService.clearRecoverySnapshot(tabId, currentFilePath).catch(() => {});
-    }
+    AutoRecoveryService.clearRecoverySnapshot(tabId, currentFilePath).catch(() => {});
     setNodes([]);
     setEdges([]);
     setSelectedNodeId(null);
     setSelectedNode({ id: null, type: null, image: undefined, prompt: undefined, state: undefined });
     skipDirtyRef.current = 2;
-    onDirtyChange?.(false);
+    onDirtyChangeRef.current?.(false);
     isDirtyRef.current = false;
     setTimeout(() => {
       createSourceNode();
       setTimeout(() => fitView({ padding: 0.8, minZoom: 0.6, duration: 400 }), 100);
     }, 30);
-  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onDirtyChange, onProjectPathChange, tabId, currentFilePath]);
+  }, [setNodes, setEdges, setSelectedNodeId, setSelectedNode, createSourceNode, fitView, onProjectPathChange, tabId, currentFilePath]);
 
   const handleNewCanvas = useCallback(() => {
     if (isDirtyRef.current) {

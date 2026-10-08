@@ -1,0 +1,330 @@
+/* ==========================================================================
+   Anarchy AI Studio — Graphic Illustrated What's New & Welcome Modal
+   Glassmorphic, Modern, Futuristic Design with Page Flipping Experience
+   ========================================================================== */
+
+.anarchy-wn-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 4, 8, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: anarchyWnFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  direction: rtl;
+}
+
+@keyframes anarchyWnFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.anarchy-wn-card {
+  position: relative;
+  width: 820px;
+  max-width: 95vw;
+  max-height: 88vh;
+  background: linear-gradient(145deg, rgba(20, 22, 32, 0.95) 0%, rgba(12, 14, 20, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.85), 0 0 50px rgba(225, 29, 72, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: anarchyWnScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes anarchyWnScaleUp {
+  from {
+    transform: scale(0.92) translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.anarchy-wn-glow-orb {
+  position: absolute;
+  top: -80px;
+  left: 20%;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  filter: blur(110px);
+  opacity: 0.28;
+  pointer-events: none;
+  transition: background 0.4s ease;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.anarchy-wn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  z-index: 2;
+}
+
+.anarchy-wn-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.anarchy-wn-logo-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.4);
+}
+
+.anarchy-wn-app-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+.anarchy-wn-version-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.anarchy-wn-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.anarchy-wn-close-btn:hover {
+  background: rgba(225, 29, 72, 0.2);
+  border-color: rgba(225, 29, 72, 0.5);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────────── */
+.anarchy-wn-body {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 24px;
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+  z-index: 2;
+}
+
+@media (max-width: 768px) {
+  .anarchy-wn-body {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Left Graphic Box */
+.anarchy-wn-graphic-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.anarchy-wn-graphic-canvas {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.anarchy-wn-svg-illu {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.6));
+}
+
+.anarchy-wn-step-indicator {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.2px;
+}
+
+/* Right Text Panel */
+.anarchy-wn-text-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: right;
+}
+
+.anarchy-wn-badge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px solid;
+  width: fit-content;
+  margin-bottom: 12px;
+  letter-spacing: 0.2px;
+}
+
+.anarchy-wn-slide-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  line-height: 1.35;
+}
+
+.anarchy-wn-slide-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.anarchy-wn-slide-desc {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.65;
+  margin: 0 0 16px 0;
+}
+
+.anarchy-wn-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.anarchy-wn-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.45;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+.anarchy-wn-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.anarchy-wn-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.anarchy-wn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 5px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.anarchy-wn-dot.active {
+  width: 24px;
+}
+
+.anarchy-wn-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.anarchy-wn-prev-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.anarchy-wn-prev-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.anarchy-wn-next-btn {
+  border: none;
+  color: #ffffff;
+  padding: 8px 20px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.anarchy-wn-next-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}

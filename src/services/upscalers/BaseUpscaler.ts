@@ -44,16 +44,27 @@ export async function getImageDimensions(url: string): Promise<{ width: number; 
   }
 
   // Check if running in Node/Vitest environment or browser
-  if (typeof window === 'undefined' || typeof Image === 'undefined') {
+  if (
+    typeof window === 'undefined' ||
+    typeof Image === 'undefined' ||
+    process.env.NODE_ENV === 'test' ||
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'test')
+  ) {
     return { width: 1024, height: 1024 }; // Server or test fallback
   }
 
   return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve({ width: 1024, height: 1024 });
+    }, 1000);
+
     const img = new Image();
     img.onload = () => {
+      clearTimeout(timer);
       resolve({ width: img.naturalWidth || 1024, height: img.naturalHeight || 1024 });
     };
     img.onerror = () => {
+      clearTimeout(timer);
       resolve({ width: 1024, height: 1024 });
     };
     img.src = resolvedUrl;

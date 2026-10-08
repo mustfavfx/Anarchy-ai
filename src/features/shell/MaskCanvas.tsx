@@ -1,10 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Minus, Plus, Maximize2, Layers, RotateCcw, RotateCw, X } from 'lucide-react';
 import { useResolvedImage } from '../../hooks';
-import { useTranslation } from '../../services/i18n';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { useNotificationStore } from '../../stores/notificationStore';
-import { logger } from '../../utils/logger';
 import { VizMakerArrowCard, type ArrowNodeItem } from './components/VizMakerArrowCard';
 import { LayersPanel, type InpaintLayer } from './components/LayersPanel';
 import { CropOverlay } from './components/CropOverlay';
@@ -15,22 +12,21 @@ import { getUnifiedCost } from '../../services/credit/creditService';
 import { MaskPromptBar } from './mask/components/MaskPromptBar';
 import { MaskTopToolbar } from './mask/components/MaskTopToolbar';
 import { MaskStage } from './mask/components/MaskStage';
+import { MaskZoomHud } from './mask/components/MaskZoomHud';
+import { MaskRightRail } from './mask/components/MaskRightRail';
 import { useMaskShortcuts } from './mask/hooks/useMaskShortcuts';
 import { useMaskTransform } from './mask/hooks/useMaskTransform';
 import { useInpaintLayers } from './mask/hooks/useInpaintLayers';
 import { useMaskDrawing } from './mask/hooks/useMaskDrawing';
 import { useMaskExportAndActions } from './mask/hooks/useMaskExportAndActions';
-import { SmartSegmentationEngine } from '../../services/mask/SmartSegmentationEngine';
+import { useSmartSegmentation } from './mask/hooks/useSmartSegmentation';
+import { useMaskAdjustments } from './mask/hooks/useMaskAdjustments';
 import { ColorRangeModal } from './components/ColorRangeModal';
 import {
   generateMaskPreview,
   invertMask,
 } from './mask/utils/maskBitmapUtils';
-import {
-  type AdjustmentParams,
-  applyAdjustmentParamsToImageData,
-  applyAdjustmentParamsToImageUrl,
-} from './mask/utils/adjustmentEngine';
+import { executeMaskCrop } from './mask/utils/maskCropUtils';
 import type {
   LayerId,
   LayerVisibility,
@@ -57,7 +53,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   isGenerating = false,
   onClose,
 }) => {
-  const { isAr } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -90,12 +85,7 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const [isOrthoMode, setIsOrthoMode] = useState<boolean>(false);
   const [showColorRangeModal, setShowColorRangeModal] = useState<boolean>(false);
 
-  // Smart Auto-Segmentation (SAM) State
-  const baseImgDataRef = useRef<ImageData | null>(null);
-  const [smartHoverContour, setSmartHoverContour] = useState<{ x: number; y: number }[] | null>(null);
-  const [smartHoverMask, setSmartHoverMask] = useState<Uint8Array | null>(null);
-  const [wandTolerance, setWandTolerance] = useState<number>(40);
-  const hoverThrottlerRef = useRef<number | null>(null);
+
 
   const [brushSize, setBrushSize] = useState(34);
   const [brushColor, setBrushColor] = useState('#e11d48');
@@ -246,72 +236,18 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   const resolvedBaseImage = useResolvedImage(baseOriginalImage);
   const { floodFill } = useMagicWand(resolvedImage);
 
-  // Preload and cache ImageData for instantaneous Smart Auto-Segmentation (SAM)
-  useEffect(() => {
-    if (!resolvedImage) {
-      baseImgDataRef.current = null;
-      return;
-    }
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = resolvedImage;
-    img.onload = () => {
-      const offscreen = document.createElement('canvas');
-      offscreen.width = img.naturalWidth || img.width;
-      offscreen.height = img.naturalHeight || img.height;
-      const ctx = offscreen.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        try {
-          const idata = ctx.getImageData(0, 0, offscreen.width, offscreen.height);
-          baseImgDataRef.current = idata;
-          SmartSegmentationEngine.prepareImage(idata, resolvedImage);
-        } catch (err) {
-          logger.warn('Could not extract imageData for smart segmentation', err);
-        }
-      }
-    };
-  }, [resolvedImage]);
-
-  // Real-time 60fps edge-guided hover segmentation
-  const handleSmartHover = useCallback(
-    (canvasX: number, canvasY: number) => {
-      if (hoverThrottlerRef.current) return;
-      hoverThrottlerRef.current = window.requestAnimationFrame(() => {
-        hoverThrottlerRef.current = null;
-        const imgData = baseImgDataRef.current;
-        const canvas = canvasRef.current;
-        if (!imgData || !resolvedImage || !canvas) return;
-
-        const naturalScaleX = imgData.width / (canvas.width || imgData.width);
-        const naturalScaleY = imgData.height / (canvas.height || imgData.height);
-        const startX = canvasX * naturalScaleX;
-        const startY = canvasY * naturalScaleY;
-
-        const result = SmartSegmentationEngine.segment(
-          imgData,
-          resolvedImage,
-          startX,
-          startY,
-          wandTolerance,
-          45
-        );
-
-        if (result && result.contourPoints.length > 2) {
-          const mappedContour = result.contourPoints.map((p: { x: number; y: number }) => ({
-            x: p.x / naturalScaleX,
-            y: p.y / naturalScaleY,
-          }));
-          setSmartHoverContour(mappedContour);
-          setSmartHoverMask(result.mask);
-        } else {
-          setSmartHoverContour(null);
-          setSmartHoverMask(null);
-        }
-      });
-    },
-    [resolvedImage, wandTolerance]
-  );
+  // Smart Auto-Segmentation (SAM) State and Engine
+  const {
+    baseImgDataRef,
+    smartHoverContour,
+    smartHoverMask,
+    wandTolerance,
+    setWandTolerance,
+    handleSmartHover,
+  } = useSmartSegmentation({
+    resolvedImage: resolvedImage || null,
+    canvasRef,
+  });
 
   const drawingOps = useMaskDrawing({
     canvasRef,
@@ -485,153 +421,21 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
 
   // Handle in-place crop within the mask studio & update all layers & propagate to node canvas
   const handleApplyCrop = useCallback(async (croppedDataUrl: string, details?: CropResultDetails) => {
-    if (!details) {
-      setCurrentCanvasImage(croppedDataUrl);
-      setBaseOriginalImage(croppedDataUrl);
-      onCrop?.(croppedDataUrl);
-      return;
-    }
-
-    const { cropRect, canvasWidth, canvasHeight, croppedNaturalWidth, croppedNaturalHeight } = details;
-
-    isCroppingRef.current = true;
-
-    // 1. Crop inpaint mask on canvasRef (the user-drawn red inpaint stencil)
-    const maskCanvas = canvasRef.current;
-    let croppedMaskDataUrl: string | null = null;
-    if (maskCanvas && maskCanvas.width > 0 && maskCanvas.height > 0) {
-      const mOff = document.createElement('canvas');
-      mOff.width = Math.max(1, Math.round(cropRect.w));
-      mOff.height = Math.max(1, Math.round(cropRect.h));
-      const mCtx = mOff.getContext('2d');
-      if (mCtx) {
-        mCtx.drawImage(
-          maskCanvas,
-          cropRect.x, cropRect.y, cropRect.w, cropRect.h,
-          0, 0, mOff.width, mOff.height
-        );
-        croppedMaskDataUrl = mOff.toDataURL('image/png');
-      }
-    }
-
-    // 2. Crop drawing ink layer on drawingCanvasRef
-    const drawingCanvas = drawingCanvasRef.current;
-    let croppedDrawingDataUrl: string | null = null;
-    if (drawingCanvas && drawingCanvas.width > 0 && drawingCanvas.height > 0) {
-      const dOff = document.createElement('canvas');
-      dOff.width = Math.max(1, Math.round(cropRect.w));
-      dOff.height = Math.max(1, Math.round(cropRect.h));
-      const dCtx = dOff.getContext('2d');
-      if (dCtx) {
-        dCtx.drawImage(
-          drawingCanvas,
-          cropRect.x, cropRect.y, cropRect.w, cropRect.h,
-          0, 0, dOff.width, dOff.height
-        );
-        croppedDrawingDataUrl = dOff.toDataURL('image/png');
-      }
-    }
-
-    // 3. Crop all layers in inpaintLayers stack to match the exact same crop viewport
-    if (inpaintLayers.length > 0) {
-      const normX = cropRect.x / canvasWidth;
-      const normY = cropRect.y / canvasHeight;
-      const normW = cropRect.w / canvasWidth;
-      const normH = cropRect.h / canvasHeight;
-
-      const cropLayerSrc = (src: string): Promise<string> => {
-        return new Promise((resolve) => {
-          const lImg = new Image();
-          lImg.crossOrigin = 'anonymous';
-          lImg.onload = () => {
-            const lCanvas = document.createElement('canvas');
-            const nw = lImg.naturalWidth || lImg.width;
-            const nh = lImg.naturalHeight || lImg.height;
-            const lx = Math.round(normX * nw);
-            const ly = Math.round(normY * nh);
-            const lw = Math.max(1, Math.round(normW * nw));
-            const lh = Math.max(1, Math.round(normH * nh));
-            lCanvas.width = lw;
-            lCanvas.height = lh;
-            const lCtx = lCanvas.getContext('2d');
-            if (lCtx) {
-              lCtx.drawImage(lImg, lx, ly, lw, lh, 0, 0, lw, lh);
-              resolve(lCanvas.toDataURL('image/png'));
-            } else {
-              resolve(src);
-            }
-          };
-          lImg.onerror = () => resolve(src);
-          lImg.src = src;
-        });
-      };
-
-      const updatedLayers = await Promise.all(
-        inpaintLayers.map(async (l) => {
-          let updatedImg = l.image;
-          let updatedMask = l.maskDataUrl;
-          if (l.image) {
-            updatedImg = await cropLayerSrc(l.image);
-          }
-          if (l.maskDataUrl) {
-            updatedMask = await cropLayerSrc(l.maskDataUrl);
-          }
-          return {
-            ...l,
-            image: updatedImg,
-            maskDataUrl: updatedMask,
-          };
-        })
-      );
-      setInpaintLayers(updatedLayers);
-    }
-
-    // 4. Update the base image and current canvas image in-place
-    setCurrentCanvasImage(croppedDataUrl);
-    setBaseOriginalImage(croppedDataUrl);
-
-    // 5. Update imgMeta dimensions — forces syncCanvasSize() to calculate new aspect ratio & cw/ch
-    setImgMeta({ w: croppedNaturalWidth, h: croppedNaturalHeight });
-
-    // 6. Restore the cropped inpaint mask and drawing mask onto the newly-sized canvases
-    setTimeout(() => {
-      isCroppingRef.current = false;
-      if (croppedMaskDataUrl && maskCanvas) {
-        const maskImg = new Image();
-        maskImg.onload = () => {
-          const ctx = maskCanvas.getContext('2d');
-          if (ctx) {
-            ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-            ctx.drawImage(maskImg, 0, 0, maskCanvas.width, maskCanvas.height);
-            updateMaskPreview();
-            pushHistory();
-          }
-        };
-        maskImg.src = croppedMaskDataUrl;
-      } else if (maskCanvas) {
-        const ctx = maskCanvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-          updateMaskPreview();
-          pushHistory();
-        }
-      }
-
-      if (croppedDrawingDataUrl && drawingCanvas) {
-        const drawImg = new Image();
-        drawImg.onload = () => {
-          const ctx = drawingCanvas.getContext('2d');
-          if (ctx) {
-            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-            ctx.drawImage(drawImg, 0, 0, drawingCanvas.width, drawingCanvas.height);
-          }
-        };
-        drawImg.src = croppedDrawingDataUrl;
-      }
-    }, 60);
-
-    // 7. Propagate to parent callback (and node in the canvas)
-    onCrop?.(croppedDataUrl);
+    await executeMaskCrop({
+      croppedDataUrl,
+      details,
+      canvasRef,
+      drawingCanvasRef,
+      inpaintLayers,
+      setInpaintLayers,
+      setCurrentCanvasImage,
+      setBaseOriginalImage,
+      setImgMeta,
+      isCroppingRef,
+      updateMaskPreview,
+      pushHistory,
+      onCrop,
+    });
   }, [inpaintLayers, onCrop, pushHistory, setBaseOriginalImage, setCurrentCanvasImage, setImgMeta, setInpaintLayers, updateMaskPreview]);
 
   const crop = useCropTool({
@@ -651,7 +455,6 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   }, [maskTool]);
 
   const {
-    getCompositeAndMask,
     exportBinaryMask,
     exportFullComposite,
     handleExportPsd,
@@ -725,494 +528,31 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
   });
 
   // ── Real-time Interactive Adjustment Engine ────────────────────────────────
-  const adjustmentSnapshotRef = useRef<{
-    targetType: 'mask' | 'layer' | 'base';
-    layerId?: string;
-    originalMaskData?: ImageData;
-    originalImageSrc?: string;
-    originalBaseOriginal?: string | null;
-    originalCanvasImage?: string | null;
-    originalAdjustmentParams?: AdjustmentParams;
-    cachedImageData?: ImageData;
-    cachedCanvas?: HTMLCanvasElement;
-    cachedCtx?: CanvasRenderingContext2D;
-    isNewLayer?: boolean;
-  } | null>(null);
-
-  // Composite all layers strictly underneath targetLayerId into an offscreen ImageData
-  const compositeUnderlyingLayers = useCallback(async (targetLayerId: string | null) => {
-    const baseSrc = resolvedBaseImage || baseOriginalImage || currentCanvasImage;
-    const canvas = canvasRef.current;
-
-    let targetW = canvas?.width || 0;
-    let targetH = canvas?.height || 0;
-    let baseImgEl: HTMLImageElement | null = null;
-
-    if (baseSrc && (targetW === 0 || targetH === 0)) {
-      try {
-        baseImgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          img.src = baseSrc;
-        });
-        targetW = baseImgEl.naturalWidth || baseImgEl.width;
-        targetH = baseImgEl.naturalHeight || baseImgEl.height;
-      } catch (e) {
-        logger.warn('Failed to preload base image for compositing', e);
-      }
-    }
-
-    if (targetW === 0) targetW = 800;
-    if (targetH === 0) targetH = 600;
-
-    const offscreen = document.createElement('canvas');
-    offscreen.width = targetW;
-    offscreen.height = targetH;
-    const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
-    if (!offCtx) return null;
-
-    // 1. Draw base image if visible
-    if (baseImageVisible !== false && baseSrc) {
-      if (!baseImgEl) {
-        try {
-          baseImgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = baseSrc;
-          });
-        } catch {
-          // ignore
-        }
-      }
-      if (baseImgEl) {
-        offCtx.save();
-        offCtx.globalAlpha = baseImageOpacity;
-        offCtx.drawImage(baseImgEl, 0, 0, targetW, targetH);
-        offCtx.restore();
-      }
-    }
-
-    // 2. Determine which layers are strictly underneath targetLayerId
-    // inpaintLayers is ordered top (index 0) to bottom (last index)
-    let layersUnderneath: InpaintLayer[] = [];
-    if (!targetLayerId) {
-      layersUnderneath = inpaintLayers.slice().reverse();
-    } else {
-      const idx = inpaintLayers.findIndex(l => l.id === targetLayerId);
-      if (idx !== -1) {
-        layersUnderneath = inpaintLayers.slice(idx + 1).reverse();
-      } else {
-        layersUnderneath = inpaintLayers.slice().reverse();
-      }
-    }
-
-    // 3. Composite each visible underlying layer
-    for (const layer of layersUnderneath) {
-      if (!layer.visible || !layer.image) continue;
-      try {
-        let layerImg: HTMLImageElement | null = null;
-        const domEl = document.querySelector(`img[data-layer-id="${layer.id}"]`) as HTMLImageElement | null;
-        if (domEl && domEl.complete && domEl.naturalWidth > 0) {
-          layerImg = domEl;
-        } else {
-          layerImg = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = layer.image!;
-          });
-        }
-
-        offCtx.save();
-        offCtx.globalAlpha = (layer.opacity ?? 100) / 100;
-        offCtx.globalCompositeOperation = (layer.blendMode && layer.blendMode !== 'normal')
-          ? (layer.blendMode as GlobalCompositeOperation)
-          : 'source-over';
-        offCtx.drawImage(layerImg, 0, 0, targetW, targetH);
-        offCtx.restore();
-      } catch (err) {
-        logger.warn(`Failed to composite layer ${layer.id}`, err);
-      }
-    }
-
-    const rawData = offCtx.getImageData(0, 0, targetW, targetH);
-    return { canvas: offscreen, ctx: offCtx, rawData, width: targetW, height: targetH };
-  }, [resolvedBaseImage, baseOriginalImage, currentCanvasImage, canvasRef, baseImageVisible, baseImageOpacity, inpaintLayers]);
-
-  // Create a new Photoshop Adjustment Layer at the top of the layer stack
-  const handleCreateAdjustmentLayer = useCallback(async (key: string, name: string, initialParams: AdjustmentParams) => {
-    try {
-      const comp = await compositeUnderlyingLayers(null);
-      if (!comp) return;
-
-      const newLayerId = `adj-layer-${Date.now()}`;
-
-      // Apply initial adjustment to composite
-      const copy = new ImageData(
-        new Uint8ClampedArray(comp.rawData.data),
-        comp.rawData.width,
-        comp.rawData.height
-      );
-      applyAdjustmentParamsToImageData(copy, initialParams, false);
-      comp.ctx.putImageData(copy, 0, 0);
-      const initialDataUrl = comp.canvas.toDataURL('image/png');
-
-      // If there is an active selection on the canvas, turn it into the layer's mask
-      let layerMaskUrl: string | undefined = undefined;
-      if (hasSelectionContent && canvasRef.current) {
-        layerMaskUrl = canvasRef.current.toDataURL('image/png');
-        clearMask();
-      }
-
-      const count = inpaintLayers.filter(l => l.name.startsWith(name)).length + 1;
-      const layerName = `${name} ${count}`;
-
-      const newLayer: InpaintLayer = {
-        id: newLayerId,
-        name: layerName,
-        visible: true,
-        opacity: 100,
-        blendMode: 'normal',
-        image: initialDataUrl,
-        layerType: 'adjustment',
-        adjustmentKey: key,
-        adjustmentParams: initialParams,
-        maskDataUrl: layerMaskUrl,
-      };
-
-      adjustmentSnapshotRef.current = {
-        targetType: 'layer',
-        layerId: newLayerId,
-        originalImageSrc: initialDataUrl,
-        originalAdjustmentParams: initialParams,
-        cachedImageData: comp.rawData,
-        cachedCanvas: comp.canvas,
-        cachedCtx: comp.ctx,
-        isNewLayer: true,
-      };
-
-      setInpaintLayers(prev => [newLayer, ...prev]);
-      setActiveLayerId(newLayerId);
-      pushHistory();
-
-      useNotificationStore.getState().addNotification({
-        type: 'success',
-        title: layerName,
-        message: isAr ? `تمت إضافة طبقة ضبط جديدة: ${layerName}` : `Added adjustment layer: ${layerName}`,
-        duration: 2200,
-      });
-    } catch (err) {
-      logger.error('Failed to create adjustment layer', err);
-    }
-  }, [compositeUnderlyingLayers, hasSelectionContent, canvasRef, clearMask, inpaintLayers, setInpaintLayers, setActiveLayerId, pushHistory, isAr]);
-
-  // Synchronize snapshot when switching active layer to an existing adjustment layer
-  useEffect(() => {
-    const active = inpaintLayers.find(l => l.id === activeLayerId);
-    if (active && active.layerType === 'adjustment' && active.adjustmentKey) {
-      if (adjustmentSnapshotRef.current?.layerId !== active.id) {
-        compositeUnderlyingLayers(active.id).then((comp) => {
-          if (!comp) return;
-          adjustmentSnapshotRef.current = {
-            targetType: 'layer',
-            layerId: active.id,
-            originalImageSrc: active.image,
-            originalAdjustmentParams: active.adjustmentParams,
-            cachedImageData: comp.rawData,
-            cachedCanvas: comp.canvas,
-            cachedCtx: comp.ctx,
-            isNewLayer: false,
-          };
-        });
-      }
-    }
-  }, [activeLayerId, inpaintLayers, compositeUnderlyingLayers]);
-
-  const handleStartAdjustment = useCallback((_key: string) => {
-    // 1. Mask target
-    const isMask = activeLayerId === 'active-mask' || inpaintLayers.find(l => l.id === activeLayerId)?.selectedTarget === 'mask';
-    if (isMask) {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext('2d');
-      if (canvas && ctx) {
-        adjustmentSnapshotRef.current = {
-          targetType: 'mask',
-          originalMaskData: ctx.getImageData(0, 0, canvas.width, canvas.height),
-        };
-      }
-      return;
-    }
-
-    // 2. Inpaint layer target
-    const layer = activeLayerId && activeLayerId !== 'base' ? inpaintLayers.find(l => l.id === activeLayerId) : null;
-    if (layer?.image) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.naturalWidth || img.width;
-        c.height = img.naturalHeight || img.height;
-        const cCtx = c.getContext('2d');
-        if (cCtx) {
-          cCtx.drawImage(img, 0, 0);
-          const raw = cCtx.getImageData(0, 0, c.width, c.height);
-          adjustmentSnapshotRef.current = {
-            targetType: 'layer',
-            layerId: activeLayerId,
-            originalImageSrc: layer.image,
-            cachedImageData: raw,
-            cachedCanvas: c,
-            cachedCtx: cCtx,
-          };
-        }
-      };
-      img.src = layer.image;
-      return;
-    }
-
-    // 3. Base image target
-    const baseSrc = resolvedBaseImage || baseOriginalImage || currentCanvasImage;
-    if (baseSrc) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.naturalWidth || img.width;
-        c.height = img.naturalHeight || img.height;
-        const cCtx = c.getContext('2d');
-        if (cCtx) {
-          cCtx.drawImage(img, 0, 0);
-          const raw = cCtx.getImageData(0, 0, c.width, c.height);
-          adjustmentSnapshotRef.current = {
-            targetType: 'base',
-            originalImageSrc: baseSrc,
-            originalBaseOriginal: baseOriginalImage,
-            originalCanvasImage: currentCanvasImage,
-            cachedImageData: raw,
-            cachedCanvas: c,
-            cachedCtx: cCtx,
-          };
-        }
-      };
-      img.src = baseSrc;
-    }
-  }, [activeLayerId, inpaintLayers, canvasRef, resolvedBaseImage, baseOriginalImage, currentCanvasImage]);
-
-  const handlePreviewAdjustment = useCallback((params: AdjustmentParams) => {
-    const snapshot = adjustmentSnapshotRef.current;
-    if (!snapshot) return;
-
-    if (snapshot.targetType === 'mask' && snapshot.originalMaskData) {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext('2d');
-      if (!canvas || !ctx) return;
-      const copy = new ImageData(
-        new Uint8ClampedArray(snapshot.originalMaskData.data),
-        snapshot.originalMaskData.width,
-        snapshot.originalMaskData.height
-      );
-      applyAdjustmentParamsToImageData(copy, params, true);
-      ctx.putImageData(copy, 0, 0);
-      updateMaskPreview();
-      return;
-    }
-
-    if (snapshot.targetType === 'layer' && snapshot.layerId) {
-      if (snapshot.cachedImageData && snapshot.cachedCanvas && snapshot.cachedCtx) {
-        const copy = new ImageData(
-          new Uint8ClampedArray(snapshot.cachedImageData.data),
-          snapshot.cachedImageData.width,
-          snapshot.cachedImageData.height
-        );
-        applyAdjustmentParamsToImageData(copy, params, false);
-        snapshot.cachedCtx.putImageData(copy, 0, 0);
-        const previewUrl = snapshot.cachedCanvas.toDataURL('image/png');
-        setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? {
-          ...l,
-          image: previewUrl,
-          adjustmentParams: params
-        } : l));
-      } else if (snapshot.originalImageSrc) {
-        applyAdjustmentParamsToImageUrl(snapshot.originalImageSrc, params).then((previewUrl) => {
-          setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? {
-            ...l,
-            image: previewUrl,
-            adjustmentParams: params
-          } : l));
-        });
-      }
-      return;
-    }
-
-    if (snapshot.targetType === 'base') {
-      if (snapshot.cachedImageData && snapshot.cachedCanvas && snapshot.cachedCtx) {
-        const copy = new ImageData(
-          new Uint8ClampedArray(snapshot.cachedImageData.data),
-          snapshot.cachedImageData.width,
-          snapshot.cachedImageData.height
-        );
-        applyAdjustmentParamsToImageData(copy, params, false);
-        snapshot.cachedCtx.putImageData(copy, 0, 0);
-        const previewUrl = snapshot.cachedCanvas.toDataURL('image/png');
-        setCurrentCanvasImage(previewUrl);
-      } else if (snapshot.originalImageSrc) {
-        applyAdjustmentParamsToImageUrl(snapshot.originalImageSrc, params).then((previewUrl) => {
-          setCurrentCanvasImage(previewUrl);
-        });
-      }
-    }
-  }, [canvasRef, updateMaskPreview, setInpaintLayers, setCurrentCanvasImage]);
-
-  const handleCommitAdjustment = useCallback((params: AdjustmentParams) => {
-    const snapshot = adjustmentSnapshotRef.current;
-    if (!snapshot) return;
-
-    if (snapshot.targetType === 'mask') {
-      pushHistory();
-      updateMaskPreview();
-      useNotificationStore.getState().addNotification({
-        type: 'success',
-        title: params.name,
-        message: isAr ? `تم تطبيق ${params.name} على القناع.` : `Applied ${params.name} to mask.`,
-        duration: 2200,
-      });
-      adjustmentSnapshotRef.current = null;
-      return;
-    }
-
-    if (snapshot.targetType === 'layer' && snapshot.layerId) {
-      pushHistory();
-      useNotificationStore.getState().addNotification({
-        type: 'success',
-        title: params.name,
-        message: isAr ? `تم حفظ تعديلات ${params.name}.` : `Saved ${params.name} adjustments.`,
-        duration: 2200,
-      });
-      snapshot.isNewLayer = false;
-      return;
-    }
-
-    if (snapshot.targetType === 'base') {
-      const finalUrl = currentCanvasImage || snapshot.originalImageSrc;
-      if (finalUrl) {
-        setBaseOriginalImage(finalUrl);
-        setCurrentCanvasImage(finalUrl);
-      }
-      pushHistory();
-      useNotificationStore.getState().addNotification({
-        type: 'success',
-        title: params.name,
-        message: isAr ? `تم تطبيق ${params.name} على صورة الخلفية.` : `Applied ${params.name} to background base.`,
-        duration: 2200,
-      });
-      adjustmentSnapshotRef.current = null;
-    }
-  }, [isAr, pushHistory, updateMaskPreview, currentCanvasImage, setBaseOriginalImage, setCurrentCanvasImage]);
-
-  const handleCancelAdjustment = useCallback(() => {
-    const snapshot = adjustmentSnapshotRef.current;
-    if (!snapshot) return;
-
-    if (snapshot.targetType === 'mask' && snapshot.originalMaskData) {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext('2d');
-      if (canvas && ctx) {
-        ctx.putImageData(snapshot.originalMaskData, 0, 0);
-        updateMaskPreview();
-      }
-    } else if (snapshot.targetType === 'layer' && snapshot.layerId) {
-      if (snapshot.isNewLayer) {
-        setInpaintLayers(prev => prev.filter(l => l.id !== snapshot.layerId));
-      } else if (snapshot.originalImageSrc) {
-        setInpaintLayers(prev => prev.map(l => l.id === snapshot.layerId ? {
-          ...l,
-          image: snapshot.originalImageSrc!,
-          adjustmentParams: snapshot.originalAdjustmentParams
-        } : l));
-      }
-    } else if (snapshot.targetType === 'base') {
-      if (snapshot.originalBaseOriginal !== undefined) {
-        setBaseOriginalImage(snapshot.originalBaseOriginal);
-      }
-      if (snapshot.originalCanvasImage !== undefined) {
-        setCurrentCanvasImage(snapshot.originalCanvasImage);
-      }
-    }
-    adjustmentSnapshotRef.current = null;
-  }, [canvasRef, updateMaskPreview, setInpaintLayers, setBaseOriginalImage, setCurrentCanvasImage]);
-
-  // Backward-compatible single-call adjustment applicator
-  const handleApplyAdjustment = useCallback(async (key: string, name: string) => {
-    const isMask = activeLayerId === 'active-mask' || inpaintLayers.find(l => l.id === activeLayerId)?.selectedTarget === 'mask';
-    const params: AdjustmentParams = { key, name };
-
-    if (isMask) {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext('2d');
-      if (canvas && ctx) {
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        applyAdjustmentParamsToImageData(imgData, params, true);
-        ctx.putImageData(imgData, 0, 0);
-        pushHistory();
-        updateMaskPreview();
-        useNotificationStore.getState().addNotification({
-          type: 'success',
-          title: name,
-          message: isAr ? `تم تطبيق ${name} على القناع.` : `Applied ${name} to mask.`,
-          duration: 2200,
-        });
-        return;
-      }
-    }
-
-    if (activeLayerId && activeLayerId !== 'base') {
-      const layer = inpaintLayers.find(l => l.id === activeLayerId);
-      if (layer?.image) {
-        const adjustedImg = await applyAdjustmentParamsToImageUrl(layer.image, params);
-        setInpaintLayers(prev => prev.map(l => l.id === activeLayerId ? { ...l, image: adjustedImg } : l));
-        pushHistory();
-        useNotificationStore.getState().addNotification({
-          type: 'success',
-          title: name,
-          message: isAr ? `تم تطبيق ${name} على الطبقة ${layer.name}.` : `Applied ${name} to layer ${layer.name}.`,
-          duration: 2500,
-        });
-        return;
-      }
-    }
-
-    const baseSrc = resolvedBaseImage || baseOriginalImage || currentCanvasImage;
-    if (baseSrc) {
-      const adjustedImg = await applyAdjustmentParamsToImageUrl(baseSrc, params);
-      setBaseOriginalImage(adjustedImg);
-      setCurrentCanvasImage(adjustedImg);
-      pushHistory();
-      useNotificationStore.getState().addNotification({
-        type: 'success',
-        title: name,
-        message: isAr ? `تم تطبيق ${name} على صورة الخلفية.` : `Applied ${name} to background base.`,
-        duration: 2500,
-      });
-    }
-  }, [
-    activeLayerId,
+  const {
+    handleCreateAdjustmentLayer,
+    handleStartAdjustment,
+    handlePreviewAdjustment,
+    handleCommitAdjustment,
+    handleCancelAdjustment,
+    handleApplyAdjustment,
+  } = useMaskAdjustments({
+    canvasRef,
+    resolvedBaseImage: resolvedBaseImage || null,
+    baseOriginalImage,
+    setBaseOriginalImage,
+    currentCanvasImage,
+    setCurrentCanvasImage,
+    baseImageVisible,
+    baseImageOpacity,
     inpaintLayers,
     setInpaintLayers,
-    resolvedBaseImage,
-    baseOriginalImage,
-    currentCanvasImage,
-    canvasRef,
+    activeLayerId,
+    setActiveLayerId,
+    hasSelectionContent,
+    clearMask,
     pushHistory,
     updateMaskPreview,
-    isAr,
-    setBaseOriginalImage,
-    setCurrentCanvasImage,
-  ]);
+  });
 
   useEffect(() => {
     const handleTrigger = () => {
@@ -1511,47 +851,11 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           />
         )}
 
-        <div className="mask-viewport-zoom-hud">
-          <button
-            type="button"
-            className="mask-viewport-zoom-btn"
-            onClick={() => setZoomScale((z) => Math.max(0.2, z * 0.85))}
-            title="Zoom Out (-)"
-          >
-            <Minus size={13} />
-          </button>
-          <button
-            type="button"
-            className="mask-viewport-zoom-text"
-            onClick={() => {
-              setZoomScale(1);
-              setPanOffset({ x: 0, y: 0 });
-            }}
-            title="Reset Zoom & Pan (Ctrl+0)"
-          >
-            {Math.round(zoomScale * 100)}%
-          </button>
-          <button
-            type="button"
-            className="mask-viewport-zoom-btn"
-            onClick={() => setZoomScale((z) => Math.min(6, z * 1.18))}
-            title="Zoom In (+)"
-          >
-            <Plus size={13} />
-          </button>
-          <button
-            type="button"
-            className="mask-viewport-zoom-btn"
-            onClick={() => {
-              setZoomScale(1);
-              setPanOffset({ x: 0, y: 0 });
-            }}
-            title="Fit to Screen (1:1)"
-            style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.14)', marginLeft: '2px', paddingLeft: '6px' }}
-          >
-            <Maximize2 size={12} />
-          </button>
-        </div>
+        <MaskZoomHud
+          zoomScale={zoomScale}
+          setZoomScale={setZoomScale}
+          setPanOffset={setPanOffset}
+        />
       </div>
 
       {showLayerStack && (
@@ -1596,62 +900,36 @@ export const MaskCanvas: React.FC<MaskCanvasProps> = ({
           onPreviewAdjustment={handlePreviewAdjustment}
           onCommitAdjustment={handleCommitAdjustment}
           onCancelAdjustment={handleCancelAdjustment}
-        />
-      )}
-
-      {/* Studio Vertical Right Rail (Layers, Undo, Redo, Close) */}
-      <div className="mask-canvas-right-rail">
-        <button
-          type="button"
-          className={`mask-toolbar-btn ${showLayerStack ? 'active' : ''}`}
-          onClick={() => setShowLayerStack((prev) => !prev)}
-          title={isAr ? (showLayerStack ? 'إخفاء لوحة الاستوديو' : 'إظهار لوحة الاستوديو') : (showLayerStack ? 'Hide Studio Panel' : 'Show Studio Panel')}
-        >
-          <Layers size={16} />
-        </button>
-
-        <div className="mask-canvas-rail-divider" />
-
-        <button
-          type="button"
-          className="mask-toolbar-btn"
-          onClick={() => {
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={() => {
             undo();
             updateMaskPreview();
           }}
-          disabled={!canUndo}
-          title={isAr ? 'تراجع (Ctrl+Z)' : 'Undo (Ctrl+Z)'}
-          style={{ opacity: canUndo ? 1 : 0.35 }}
-        >
-          <RotateCcw size={15} />
-        </button>
-
-        <button
-          type="button"
-          className="mask-toolbar-btn"
-          onClick={() => {
+          onRedo={() => {
             redo();
             updateMaskPreview();
           }}
-          disabled={!canRedo}
-          title={isAr ? 'إعادة (Ctrl+Y)' : 'Redo (Ctrl+Y)'}
-          style={{ opacity: canRedo ? 1 : 0.35 }}
-        >
-          <RotateCw size={15} />
-        </button>
+        />
+      )}
 
-        {onClose && (
-          <button
-            type="button"
-            className="mask-toolbar-btn mask-toolbar-close-btn"
-            onClick={onClose}
-            title={isAr ? 'رجوع إلى الكانفاز (Esc)' : 'Back to canvas (Esc)'}
-            style={{ color: 'rgba(255,255,255,0.75)', marginTop: 'auto' }}
-          >
-            <X size={15} />
-          </button>
-        )}
-      </div>
+      {!showLayerStack && (
+        <MaskRightRail
+          showLayerStack={showLayerStack}
+          setShowLayerStack={setShowLayerStack}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={() => {
+            undo();
+            updateMaskPreview();
+          }}
+          onRedo={() => {
+            redo();
+            updateMaskPreview();
+          }}
+          onClose={onClose}
+        />
+      )}
 
       <ColorRangeModal
         isOpen={showColorRangeModal}

@@ -1,6 +1,3 @@
-import type React from 'react';
-import type { PhotoshopBlendMode, InpaintLayer } from '../components/LayersPanel';
-
 export type LayerId = 'image' | 'arrows' | 'selection';
 
 export interface LayerVisibility {
@@ -15,7 +12,9 @@ export const INPAINT_ENGINES = [
   { id: 'stabilityai/stable-diffusion-xl-inpaint', name: 'SDXL Inpaint (Classic Stable Diffusion)' },
   { id: 'reve/edit-fast', name: 'Reve Edit Fast' },
   { id: 'google/nano-banana-2', name: 'Nano Banana 2 (Gemini Fast)' },
+  { id: 'google/nano-banana-2.1', name: 'Nano Banana 2.1' },
   { id: 'google/nano-banana-pro', name: 'Nano Banana Pro' },
+  { id: 'black-forest-labs/flux-3-image', name: 'FLUX 3 Image' },
   { id: 'openai/gpt-image-2.5-flare', name: 'GPT Image 2.5 Flare' },
   { id: 'openai/gpt-image-2.5-sunburst', name: 'GPT Image 2.5 Sunburst' },
 ];

@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
-  ChevronDown, Check, Wand2, Sparkles, Flame, Sun
+  ChevronDown, Check, Wand2, Sparkles, Flame, Sun, Zap, Clock
 } from 'lucide-react';
 import { 
   replicateService, 
@@ -138,7 +138,36 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   }, [selectedTool, studioModeForFilter]);
 
   const isGpt25 = selectedModel === 'openai/gpt-image-2.5-flare' || selectedModel === 'openai/gpt-image-2.5-sunburst';
-  const selectedEngine = availableEngines.find(e => e.id === selectedModel || (isGpt25 && e.id === 'openai/gpt-image-2.5-flare')) || availableEngines[0] || ENGINES[0];
+  const isMidjourney = (selectedModel as string)?.startsWith('midjourney/');
+  const isMjFast = (selectedModel as string).includes('mj-fast') || (selectedModel as string).includes('fast');
+  const isMjCreative = (selectedModel as string).includes('creative');
+  const isMjSubtle = (selectedModel as string).includes('subtle');
+  const mjStyle: 'standard' | 'subtle' | 'creative' = isMjCreative ? 'creative' : isMjSubtle ? 'subtle' : 'standard';
+  const mjMode: 'turbo' | 'fast' = isMjFast ? 'fast' : 'turbo';
+
+  const switchMjModel = (newMode: 'turbo' | 'fast', newStyle: 'standard' | 'subtle' | 'creative') => {
+    let target = 'midjourney/mj-turbo-upscale';
+    if (newMode === 'turbo') {
+      if (newStyle === 'subtle') target = 'midjourney/mj-turbo-upscale-subtle';
+      else if (newStyle === 'creative') target = 'midjourney/mj-turbo-upscale-creative';
+      else target = 'midjourney/mj-turbo-upscale';
+    } else {
+      if (newStyle === 'subtle') target = 'midjourney/mj-fast-upscale-subtle';
+      else if (newStyle === 'creative') target = 'midjourney/mj-fast-upscale-creative';
+      else target = 'midjourney/mj-fast-upscale';
+    }
+    onModelChange(target as any);
+    setConfig(prev => ({ ...prev, model: target as any }));
+    if (newStyle !== 'standard') {
+      onParamsChange({ ...params, upscaleFactor: 2 });
+    }
+  };
+
+  const selectedEngine = availableEngines.find(e => 
+    e.id === selectedModel || 
+    (isGpt25 && e.id === 'openai/gpt-image-2.5-flare') ||
+    (isMidjourney && e.id === 'midjourney/mj-turbo-upscale')
+  ) || availableEngines[0] || ENGINES[0];
   
   // Get model-specific settings
   const modelSettings = useMemo(() => replicateService.getModelSettings(selectedModel), [selectedModel]);
@@ -165,13 +194,19 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
     }
     
     // Only adjust aspect ratio if model actually provides a non-empty list of supported aspect ratios
-    if (
+    if (selectedModel === 'black-forest-labs/flux-3-image') {
+      if (!params.aspectRatio || params.aspectRatio === '1:1' || params.aspectRatio === 'match_input_image' || !availableAspectRatios.includes(params.aspectRatio)) {
+        if (params.aspectRatio !== 'auto') {
+          updates.aspectRatio = 'auto';
+        }
+      }
+    } else if (
       availableAspectRatios && 
       availableAspectRatios.length > 0 && 
       params.aspectRatio && 
       !availableAspectRatios.includes(params.aspectRatio)
     ) {
-      const nextAspect = availableAspectRatios[0] ?? '1:1';
+      const nextAspect = availableAspectRatios.includes('1:1') ? '1:1' : (availableAspectRatios[0] ?? '1:1');
       if (nextAspect !== params.aspectRatio) {
         updates.aspectRatio = nextAspect;
       }
@@ -197,7 +232,8 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
   useEffect(() => {
     if (availableEngines.length > 0 && !availableEngines.some(engine => 
       engine.id === selectedModelRef.current || 
-      (engine.id === 'openai/gpt-image-2.5-flare' && selectedModelRef.current === 'openai/gpt-image-2.5-sunburst')
+      (engine.id === 'openai/gpt-image-2.5-flare' && selectedModelRef.current === 'openai/gpt-image-2.5-sunburst') ||
+      (engine.id === 'midjourney/mj-turbo-upscale' && (selectedModelRef.current as string)?.startsWith('midjourney/'))
     )) {
       onModelChange(availableEngines[0].id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
     }
@@ -353,7 +389,10 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
         {showEngineDropdown && (
           <div className="dropdown-menu engine-menu">
             {availableEngines.map(engine => {
-              const isEngineActive = selectedModel === engine.id || (isGpt25 && engine.id === 'openai/gpt-image-2.5-flare');
+              const isEngineActive = 
+                selectedModel === engine.id || 
+                (isGpt25 && engine.id === 'openai/gpt-image-2.5-flare') ||
+                (isMidjourney && engine.id === 'midjourney/mj-turbo-upscale');
               return (
                 <div 
                   key={engine.id}
@@ -362,6 +401,9 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     if (engine.id === 'openai/gpt-image-2.5-flare') {
                       const targetModel = config.gptVariant === 'sunburst' ? 'openai/gpt-image-2.5-sunburst' : 'openai/gpt-image-2.5-flare';
                       onModelChange(targetModel as ReplicateImageModel);
+                    } else if (engine.id === 'midjourney/mj-turbo-upscale') {
+                      const targetModel = isMidjourney ? selectedModel : 'midjourney/mj-turbo-upscale';
+                      onModelChange(targetModel as any);
                     } else {
                       onModelChange(engine.id as ReplicateImageModel | ReplicateUpscaleModel | ReplicateVideoModel);
                     }
@@ -445,13 +487,60 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
             </div>
           </div>
         )}
+
+        {/* Midjourney Variant (Turbo / Fast) & Style Selector (Standard / Subtle / Creative) - Styled like GPT 2.5 */}
+        {isMidjourney && (
+          <div className="gpt-variant-selector-wrapper">
+            {/* Speed: Turbo / Fast */}
+            <div className="gpt-variant-pill">
+              <button
+                type="button"
+                className={`gpt-variant-btn mj-variant-btn ${mjMode === 'turbo' ? 'active' : ''}`}
+                onClick={() => switchMjModel('turbo', mjStyle)}
+                title="Midjourney Turbo (3–5s)"
+              >
+                <Zap size={13} className="gpt-variant-icon" />
+                <span>turbo</span>
+              </button>
+              <button
+                type="button"
+                className={`gpt-variant-btn mj-variant-btn ${mjMode === 'fast' ? 'active' : ''}`}
+                onClick={() => switchMjModel('fast', mjStyle)}
+                title="Midjourney Fast (15–30s)"
+              >
+                <Clock size={13} className="gpt-variant-icon" />
+                <span>fast</span>
+              </button>
+            </div>
+
+            {/* Style: Standard / Subtle / Creative */}
+            <div className="gpt-quality-selector-wrapper">
+              <div className="gpt-quality-pill">
+                {(['standard', 'subtle', 'creative'] as const).map(s => {
+                  const isCurrent = mjStyle === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`gpt-quality-btn mj-quality-btn ${isCurrent ? 'active' : ''}`}
+                      onClick={() => switchMjModel(mjMode, s)}
+                      title={`Style: ${s}`}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {isUpscalingTool ? (
         <>
           {(selectedModel as string) !== 'topazlabs/image-upscale' &&
            (selectedModel as string) !== 'philz1337x/clarity-upscaler' &&
-           (selectedModel as string) !== 'philz1337x/clarity-pro-upscaler' && (
+           !(selectedModel as string).startsWith('midjourney/') && (
             <div className="control-section">
               <label className="section-label">Upscale Factor</label>
               {supportsUpscaleFactor ? (
@@ -569,7 +658,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <AspectRatioIcon ratio={params.aspectRatio || '1:1'} size={16} />
                 <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {params.aspectRatio === 'match_input_image' ? 'Match Input' : (params.aspectRatio || '1:1')}
+                  {params.aspectRatio === 'match_input_image' ? 'match input image' : (params.aspectRatio || '1:1')}
                 </span>
               </div>
               <ChevronDown size={16} />
@@ -577,7 +666,7 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
             {showAspectDropdown && (
               <div className="dropdown-menu small-menu">
                 {availableAspectRatios.map(ratio => {
-                  const hint = getAspectRatioHint(ratio);
+                  const hint = ratio === 'match_input_image' ? 'Auto Match' : getAspectRatioHint(ratio);
                   const isSelected = params.aspectRatio === ratio;
                   return (
                     <div 
@@ -591,9 +680,9 @@ export const AIControlPanel: React.FC<AIControlPanelProps> = ({
                     >
                       <AspectRatioIcon ratio={ratio} size={16} active={isSelected} />
                       <span style={{ fontWeight: 500 }}>
-                        {ratio === 'match_input_image' ? 'Match Input' : ratio}
+                        {ratio === 'match_input_image' ? 'match input image' : ratio}
                       </span>
-                      {hint && ratio !== 'match_input_image' && (
+                      {hint && (
                         <span style={{ fontSize: '10.5px', opacity: 0.5, marginLeft: 'auto' }}>
                           {hint}
                         </span>

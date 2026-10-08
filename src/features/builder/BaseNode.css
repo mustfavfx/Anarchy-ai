@@ -19,7 +19,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3);
   transition: border-color 0.15s ease;
-  overflow: visible;
+  overflow: visible !important;
   backdrop-filter: none;
   transform-style: flat;
 }
@@ -45,25 +45,24 @@
   box-shadow:
     0 8px 30px rgba(0, 0, 0, 0.6),
     0 0 0 2px rgba(225, 29, 72, 0.35),
-    0 0 50px rgba(225, 29, 72, 0.25),
+    0 0 30px rgba(225, 29, 72, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5);
-  transform: translateY(-2px);
 }
 
-/* VizMaker NodeBorderFlow & NodeBorderEffect */
+/* VizMaker NodeBorderFlow & NodeBorderEffect - GPU Optimized */
 @keyframes vizmakerBorderFlow {
   0% {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(225, 29, 72, 0.45), 0 0 25px rgba(225, 29, 72, 0.35);
-    border-color: rgba(225, 29, 72, 0.85);
+    border-color: rgba(225, 29, 72, 0.6);
+    box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
   }
   50% {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8), 0 0 0 2.5px rgba(244, 63, 94, 0.9), 0 0 45px rgba(244, 63, 94, 0.65);
     border-color: rgba(244, 63, 94, 1);
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.45);
   }
   100% {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(225, 29, 72, 0.45), 0 0 25px rgba(225, 29, 72, 0.35);
-    border-color: rgba(225, 29, 72, 0.85);
+    border-color: rgba(225, 29, 72, 0.6);
+    box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
   }
 }
 
@@ -330,16 +329,29 @@
 .node-title-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
+  max-width: 175px;
 }
 
 .node-type-label {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
   letter-spacing: -0.01em;
-  line-height: 1.3;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-badges-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
 }
 
 /* Target Badge - shows when node is the generation target */
@@ -461,17 +473,23 @@
 /* Resolution Badge */
 .image-res-badge {
   position: absolute;
-  bottom: 6px;
-  left: 6px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #ccc;
-  font-size: 9px;
-  font-family: monospace;
-  padding: 2px 5px;
-  border-radius: 3px;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(12, 12, 16, 0.72);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 9.5px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  letter-spacing: 0.02em;
+  padding: 2.5px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   pointer-events: none;
   z-index: 5;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 /* Image Overlay - actions on hover */
@@ -1095,42 +1113,57 @@
 }
 
 /* ----------------------------------------------------------------
-   HANDLES (Connection Points)
+/* ----------------------------------------------------------------
+   HANDLES (Connection Points) - Minimalist Sleek Floating Ports (12px)
    ---------------------------------------------------------------- */
 .anarchy-handle {
-  width: 10px !important;
-  height: 10px !important;
-  background: #141418 !important;
-  border: 2px solid rgba(255, 255, 255, 0.2) !important;
-  transition: all 0.15s ease !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
+  background: #ff2a6d !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 6px rgba(255, 42, 109, 0.6) !important;
+  cursor: crosshair !important;
+  z-index: 50 !important;
+  position: absolute !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.anarchy-handle::after {
+  display: none !important;
+}
+
+/* Expanded invisible hover target for effortless cable pulling */
+.anarchy-handle::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: -8px;
+  right: -8px;
+  border-radius: 50%;
+  pointer-events: auto;
 }
 
 .anarchy-handle:hover {
-  border-color: var(--accent-red) !important;
-  transform: scale(1.3) !important;
-  box-shadow: 0 0 10px rgba(225, 29, 72, 0.3) !important;
+  transform: translateY(-50%) scale(1.25) !important;
+  box-shadow: 0 0 12px rgba(255, 42, 109, 1) !important;
 }
 
-/* Handle positioning - Force right side for source handles */
-.anarchy-handle[data-handlepos="right"] {
-  right: -5px !important;
-  left: auto !important;
-  top: 50% !important;
-  bottom: auto !important;
-  transform: translateY(-50%) !important;
-}
-
-/* Override any inline styles from React Flow */
+/* Handle positioning - Positioned cleanly on outer boundary */
+.anarchy-handle[data-handlepos="right"],
 .anarchy-node .react-flow__handle[type="source"] {
-  right: -5px !important;
+  right: -12px !important;
   left: auto !important;
   top: 50% !important;
   bottom: auto !important;
   transform: translateY(-50%) !important;
 }
 
+.anarchy-handle[data-handlepos="left"],
 .anarchy-node .react-flow__handle[type="target"] {
-  left: -5px !important;
+  left: -12px !important;
   right: auto !important;
   top: 50% !important;
   bottom: auto !important;
@@ -1139,13 +1172,13 @@
 
 /* Selected node handle highlight */
 .anarchy-node.selected .anarchy-handle {
-  border-color: rgba(225, 29, 72, 0.5) !important;
-  box-shadow: 0 0 10px rgba(225, 29, 72, 0.3) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 0 2px #000000, 0 0 16px rgba(244, 63, 94, 0.9) !important;
 }
 
-/* Empty state handle dimming */
+/* Empty state handle */
 .anarchy-node.empty .anarchy-handle {
-  opacity: 0.5;
+  opacity: 0.75;
 }
 
 .anarchy-node.empty.has-content .anarchy-handle {
@@ -1808,4 +1841,115 @@
 .react-flow__node .anarchy-node {
   box-shadow: none !important;
   filter: none !important;
+}
+
+/* ================================================================
+   AI VISION SEMANTIC CATEGORY BADGE
+   ================================================================ */
+.node-semantic-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  user-select: none;
+}
+
+.node-semantic-badge:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.15);
+}
+
+.node-semantic-badge .node-semantic-label {
+  line-height: 1;
+}
+
+.node-semantic-badge.category-building {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+}
+
+.node-semantic-badge.category-interior {
+  background: rgba(168, 85, 247, 0.16);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.2);
+}
+
+.node-semantic-badge.category-person {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+}
+
+.node-semantic-badge.category-landscape {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+}
+
+.node-semantic-badge.category-material {
+  background: rgba(236, 72, 153, 0.16);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.35);
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.2);
+}
+
+.node-semantic-badge.category-object {
+  background: rgba(99, 102, 241, 0.16);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.2);
+}
+
+.node-semantic-badge.category-art {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fda4af;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.2);
+}
+
+.node-semantic-badge.category-unknown {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* ── Fork to Child Node Branching Styles ── */
+.node-branch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  padding: 1.5px 7px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.node-action-btn.fork {
+  color: #a1a1aa;
+  transition: all 0.15s ease;
+}
+
+.node-action-btn.fork:hover {
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  transform: scale(1.08);
 }

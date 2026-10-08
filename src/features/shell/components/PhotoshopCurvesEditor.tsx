@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useTranslation } from '../../../services/i18n';
 import {
   type CurvePoint,
   type CurveChannels,
@@ -28,7 +27,6 @@ export const PhotoshopCurvesEditor: React.FC<PhotoshopCurvesEditorProps> = ({
   baseImage,
   activeLayer,
 }) => {
-  const { isAr } = useTranslation();
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
@@ -289,7 +287,7 @@ export const PhotoshopCurvesEditor: React.FC<PhotoshopCurvesEditorProps> = ({
           {/* Vertical Gradient Bar (Left: Output 0 bottom to 255 top) */}
           <div
             className="ps-curves-v-gradient"
-            title={isAr ? 'تدرج الإخراج (0 بالأسفل، 255 بالأعلى)' : 'Output gradient (0 bottom to 255 top)'}
+            title="Output gradient (0 bottom to 255 top)"
           />
 
           {/* Main SVG Grid & Curve Area */}
@@ -363,7 +361,7 @@ export const PhotoshopCurvesEditor: React.FC<PhotoshopCurvesEditorProps> = ({
             {/* Horizontal Gradient Bar (Bottom: Input 0 left to 255 right) */}
             <div
               className="ps-curves-h-gradient"
-              title={isAr ? 'تدرج الإدخال (0 باليسار، 255 باليمين)' : 'Input gradient (0 left to 255 right)'}
+              title="Input gradient (0 left to 255 right)"
             />
 
             {/* Photoshop Gradient End Sliders */}
@@ -378,7 +376,7 @@ export const PhotoshopCurvesEditor: React.FC<PhotoshopCurvesEditorProps> = ({
       {/* ── Bottom Numeric Inputs: Input and Output ── */}
       <div className="ps-curves-io-row">
         <div className="ps-curves-io-item">
-          <span className="ps-curves-io-label">{isAr ? 'الإدخال (Input):' : 'Input:'}</span>
+          <span className="ps-curves-io-label">Input:</span>
           <input
             type="number"
             min={0}
@@ -392,7 +390,7 @@ export const PhotoshopCurvesEditor: React.FC<PhotoshopCurvesEditorProps> = ({
         </div>
 
         <div className="ps-curves-io-item">
-          <span className="ps-curves-io-label">{isAr ? 'الإخراج (Output):' : 'Output:'}</span>
+          <span className="ps-curves-io-label">Output:</span>
           <input
             type="number"
             min={0}

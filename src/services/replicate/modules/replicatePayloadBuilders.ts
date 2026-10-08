@@ -64,35 +64,41 @@ export function buildNanoBananaInput(
   params: ReplicateGenerationParams,
   images: string[]
 ): Record<string, any> {
-  const promptText = images.length > 0
-    ? params.prompt
-    : params.prompt;
+  const promptText = (params.prompt || '').trim() || (images.length > 0 ? 'Transform and enhance this image' : 'A high quality image');
   const input: Record<string, any> = { prompt: promptText };
-  if (images.length > 0) {
-    input.image_input = images;
-  }
-  const resolutionMap: Record<string, string> = {
-    '1K': '1K',
-    '2K': '2K',
-    '4K': '4K',
-  };
 
-  logger.log('[NanoBanana] Original resolution param:', params.resolution);
-
-  if (params.resolution && params.resolution !== 'Auto') {
-    const mappedResolution = resolutionMap[params.resolution] || params.resolution;
-    input.resolution = mappedResolution;
-    logger.log('[NanoBanana] Mapped resolution:', mappedResolution);
+  // Normalize resolution strictly to '1K' | '2K' | '4K'
+  const resStr = (params.resolution || '').toUpperCase();
+  if (resStr.includes('4K') || resStr.includes('4096')) {
+    input.resolution = '4K';
+  } else if (resStr.includes('2K') || resStr.includes('2048')) {
+    input.resolution = '2K';
   } else {
     input.resolution = '1K';
-    logger.log('[NanoBanana] Using default resolution: 1K');
   }
 
-  logger.log('[NanoBanana] Final input:', JSON.stringify(input, null, 2));
+  const validRatios = new Set([
+    '1:1', '1:4', '1:8', '2:3', '3:2', '3:4', '4:1', '4:3', '4:5', '5:4', '8:1', '9:16', '16:9', '21:9', 'match_input_image'
+  ]);
+  const rawAr = params.aspectRatio && params.aspectRatio !== 'Auto' ? params.aspectRatio : undefined;
 
-  if (images.length === 0 && params.aspectRatio && params.aspectRatio !== 'Auto') {
-    input.aspect_ratio = params.aspectRatio;
+  if (images.length > 0) {
+    input.image_input = images;
+    if (rawAr && validRatios.has(rawAr) && rawAr !== 'match_input_image') {
+      input.aspect_ratio = rawAr;
+    } else {
+      input.aspect_ratio = 'match_input_image';
+    }
+  } else {
+    // When no input image exists, aspect_ratio MUST be explicitly provided and CANNOT be 'match_input_image'
+    if (rawAr && validRatios.has(rawAr) && rawAr !== 'match_input_image') {
+      input.aspect_ratio = rawAr;
+    } else {
+      input.aspect_ratio = '1:1';
+    }
   }
+
+  logger.log('[NanoBanana] Built input:', JSON.stringify(input, null, 2));
   return input;
 }
 
@@ -104,26 +110,54 @@ export function buildFluxInput(
   const meta = getModelCapabilities(params.model);
   const input: Record<string, any> = { prompt: params.prompt };
 
-  const mpMap: Record<string, string> = {
-    '0.5K': '0.5 MP',
-    '1K': '1 MP',
-    '2K': '2 MP',
-    '4K': '4 MP',
-  };
-  input.resolution = mpMap[params.resolution ?? '1K'] ?? '1 MP';
+  if (params.model === 'black-forest-labs/flux-3-image') {
+    const r = (params.resolution || '').toLowerCase();
+    if (r.includes('4k') || r.includes('4096')) {
+      input.resolution = '4k';
+    } else if (r.includes('2k') || r.includes('2048')) {
+      input.resolution = '2k';
+    } else if (r.includes('1.5k') || r.includes('1536')) {
+      input.resolution = '1.5k';
+    } else if (r.includes('768')) {
+      input.resolution = '768sq';
+    } else {
+      input.resolution = '1k';
+    }
+
+    if (images.length > 0) {
+      input.images = images;
+      input.input_images = images;
+    }
+  } else {
+    const mpMap: Record<string, string> = {
+      '0.5K': '0.5 MP',
+      '1K': '1 MP',
+      '2K': '2 MP',
+      '4K': '4 MP',
+    };
+    input.resolution = mpMap[params.resolution ?? '1K'] ?? '1 MP';
+    if (images.length > 0) {
+      input.input_images = images;
+    }
+  }
+
+  const isFlux3 = params.model === 'black-forest-labs/flux-3-image';
 
   if (images.length > 0) {
-    if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input') {
-      input.aspect_ratio = 'match_input_image';
+    if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'Match Input' || params.aspectRatio === 'match_input_image' || params.aspectRatio === 'auto') {
+      input.aspect_ratio = isFlux3 ? 'auto' : 'match_input_image';
     } else {
       input.aspect_ratio = params.aspectRatio;
     }
-    input.input_images = images;
     if (meta.supportsReferenceStrength && params.strength != null) {
       input.prompt_strength = params.strength;
     }
   } else {
-    input.aspect_ratio = params.aspectRatio ?? '1:1';
+    if (!params.aspectRatio || params.aspectRatio === 'Auto' || params.aspectRatio === 'match_input_image' || params.aspectRatio === 'auto') {
+      input.aspect_ratio = isFlux3 ? 'auto' : '1:1';
+    } else {
+      input.aspect_ratio = params.aspectRatio;
+    }
   }
 
   if (meta.supportsSeed && params.seed != null) input.seed = params.seed;

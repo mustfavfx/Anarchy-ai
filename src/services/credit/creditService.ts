@@ -75,7 +75,7 @@ export const TRIAL_GENERATION_COST = {
   video480: 14,
   video720: 38,
   upscale: 2,
-  chat: 1,
+  chat: 0, // Free AI agent consultation (0 credits)
 };
 
 // Paid costs (Stripe 10% fee + 35% profit margin = 55% budget ratio)
@@ -87,7 +87,7 @@ export const PAID_GENERATION_COST = {
   video480: 1.64,    // $0.09 / 0.055 = 1.64
   video720: 4.55,    // $0.25 / 0.055 = 4.55
   upscale: 1.45,     // $0.08 / 0.055 = 1.45
-  chat: 0.18,        // $0.01 / 0.055 = 0.18
+  chat: 0,           // Free AI agent consultation (0 credits)
 };
 
 // Backwards compatibility default reference
@@ -157,6 +157,22 @@ function costFlux2Pro(_resolution?: string, _px?: number, _isTrial?: boolean): n
   return 0.5;
 }
 
+export function costNanoBanana2_1(resolution: string, px: number, _isTrial?: boolean): number {
+  const res = (resolution || '').toLowerCase();
+  if (px >= 4096 * 4096 || res.includes('4k')) return 1.5;
+  if (px >= 2048 * 2048 || res.includes('2k')) return 1.0;
+  return 0.7; // 1K default ($0.0336 = 0.7 credit)
+}
+
+export function costFlux3Image(resolution: string, px: number, _isTrial?: boolean): number {
+  const res = (resolution || '').toLowerCase();
+  if (px >= 4096 * 4096 || res.includes('4k')) return 4.0;
+  if (px >= 2048 * 2048 || res.includes('2k')) return 1.0;
+  if (res.includes('1.5k') || (px >= 1536 * 1536 && px < 2048 * 2048)) return 0.7;
+  if (res.includes('768') || (px > 0 && px <= 768 * 768)) return 0.5;
+  return 0.5; // 1K default ($0.024 = 0.5 credit)
+}
+
 function costGptImage2(qualityVariant: string, _isTrial?: boolean): number {
   const variant = (qualityVariant || 'auto').toLowerCase();
   if (variant === 'low') return 0.5;
@@ -222,11 +238,23 @@ export function costPrunaUpscale(
 
 
 /**
+ * Fast AI Upscaler Cost (Real-ESRGAN: nightmareai/real-esrgan)
+ * Replicate Official Pricing: ~$0.001 - $0.002 per execution (T4 GPU).
+ * Flat 1 credit ($0.10) for standard upscale -> 98% profit margin.
+ */
+export function costFastUpscale(
+  _upscaleFactor?: number | string,
+  _isTrial: boolean = true
+): number {
+  return 1;
+}
+
+/**
  * Clarity Upscaler Cost based on Nvidia A100 GPU Execution Time ($0.00115/sec):
- * - 2x: ~90-150s (~$0.15 actual cost) -> 3 credits ($0.30 revenue, ~50% margin)
- * - 4x: ~445s (~$0.51 actual cost)    -> 10 credits ($1.00 revenue, ~49% margin)
- * - 8x: ~900-1100s (~$1.10 cost)      -> 20 credits ($2.00 revenue, ~45% margin)
- * - 12x: ~1500-1800s (~$1.80 cost)    -> 30 credits ($3.00 revenue, ~40% margin)
+ * - 2x: ~30-60s (~$0.05 actual cost with optimized steps) -> 3 credits ($0.30 revenue, ~80% margin)
+ * - 4x: ~100-150s (~$0.15 actual cost)                     -> 10 credits ($1.00 revenue, ~85% margin)
+ * - 8x: ~250-400s (~$0.40 cost)                           -> 20 credits ($2.00 revenue, ~80% margin)
+ * - 12x: ~500-700s (~$0.70 cost)                          -> 30 credits ($3.00 revenue, ~75% margin)
  */
 export function costClarityUpscale(upscaleFactor: number = 2, _isTrial: boolean = true): number {
   if (upscaleFactor >= 12) return 30;
@@ -318,13 +346,14 @@ export function costTopazUpscale(
 const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'bytedance/seedream-4.5':                        1,
   'bytedance/seedream-5-pro':                      0.8,
-  'black-forest-labs/flux-2-pro':                  0.5,
+  'black-forest-labs/flux-3-image':                0.5,
   'black-forest-labs/flux-kontext-pro':            1,
   'xai/grok-imagine-image':                        1,
   'prunaai/p-image':                               0.5,
   'krea/krea-2-large':                             1,
   'stability-ai/stable-diffusion-3.5-large':       1,
   'google/nano-banana-2-lite':                     0.7,
+  'google/nano-banana-2.1':                        0.7,
   'reve/edit-fast':                                0.4,
   'reve/create':                                   3,
   'reve/extract-layout':                           1.6,
@@ -332,6 +361,12 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
   'reve/render-layout':                            1.6,
   'reve/reconcile-layouts':                        1.6,
   'topazlabs/image-upscale':                       3,
+  'midjourney/mj-turbo-upscale':                   3,
+  'midjourney/mj-turbo-upscale-subtle':            6,
+  'midjourney/mj-turbo-upscale-creative':          6,
+  'midjourney/mj-fast-upscale':                    1,
+  'midjourney/mj-fast-upscale-subtle':             2,
+  'midjourney/mj-fast-upscale-creative':           2,
   'philz1337x/clarity-upscaler':                   3,
   'philz1337x/clarity-pro-upscaler':               3,
   'bytedance/seedance-2.0':                        20,
@@ -346,12 +381,13 @@ const TRIAL_FLAT_MODEL_COSTS: Record<string, number> = {
 };
 
 const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
-  'black-forest-labs/flux-2-pro':                  0.5,
+  'black-forest-labs/flux-3-image':                0.5,
   'black-forest-labs/flux-kontext-pro':            1.0,
   'xai/grok-imagine-image':                        1.0,
   'prunaai/p-image':                               0.5,
   'krea/krea-2-large':                             1,
   'google/nano-banana-2-lite':                     0.7,
+  'google/nano-banana-2.1':                        0.7,
   'stability-ai/stable-diffusion-3.5-large':       1.18, // $0.065 / 0.055
   'reve/edit-fast':                                0.4,
   'reve/create':                                   3,
@@ -360,6 +396,12 @@ const PAID_FLAT_MODEL_COSTS: Record<string, number> = {
   'reve/render-layout':                            1.6,
   'reve/reconcile-layouts':                        1.6,
   'topazlabs/image-upscale':                       3,
+  'midjourney/mj-turbo-upscale':                   3,
+  'midjourney/mj-turbo-upscale-subtle':            6,
+  'midjourney/mj-turbo-upscale-creative':          6,
+  'midjourney/mj-fast-upscale':                    1,
+  'midjourney/mj-fast-upscale-subtle':             2,
+  'midjourney/mj-fast-upscale-creative':           2,
   'philz1337x/clarity-pro-upscaler':               3,
   'bytedance/seedance-2.0':                        2.5,
   'kwaivgi/kling-v3-omni-video':                   3.5,
@@ -442,6 +484,7 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
   if (model === 'reve/reconcile-layouts') return 1.6;
   if (model === 'reve/edit-fast')         return 0.4;
   if (model === 'google/nano-banana-2-lite') return 0.7;
+  if (model === 'google/nano-banana-2.1') return costNanoBanana2_1(resolution, px, isTrial);
   if (model === 'google/nano-banana-2')   return costNanaBanana2(resolution, px, isTrial);
   if (model === 'google/nano-banana-pro') return costNanaBananaPro(resolution, px, isTrial);
   if (model === 'openai/gpt-image-2') {
@@ -465,9 +508,12 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
   }
   if (model === 'bytedance/seedream-4.5')   return costSeedream4_5(resolution, px, isTrial);
   if (model === 'bytedance/seedream-5-pro') return costSeedream5Pro(resolution, px, isTrial);
-  if (model === 'black-forest-labs/flux-2-pro') return costFlux2Pro(resolution, px, isTrial);
+  if (model === 'black-forest-labs/flux-3-image' || model === 'black-forest-labs/flux-2-pro') return costFlux3Image(resolution, px, isTrial);
   if (model === 'prunaai/p-image')        return 0.5;
   if (model === 'krea/krea-2-large')      return 1;
+  if (model === 'nightmareai/real-esrgan') {
+    return costFastUpscale(upscaleFactor, isTrial);
+  }
   if (model === 'prunaai/p-image-upscale') {
     return costPrunaUpscale(prunaTarget, isTrial, params.prunaMode, params.prunaFactor, px, outputMegapixels);
   }
@@ -485,6 +531,9 @@ export function getModelCost(model: string, params: ModelCostParams = {}): numbe
 }
 
 export function resolveUpscaleFactor(model: string, config: any): number | undefined {
+  if (model === 'nightmareai/real-esrgan') {
+    return config?.upscaleFactor ?? 2;
+  }
   if (model === 'topazlabs/image-upscale') {
     const factorStr = config?.topazUpscaleFactor ?? '4x';
     if (factorStr === 'None' || factorStr === '1x') return 1;

@@ -17,7 +17,8 @@
   box-shadow: none !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
   position: relative;
-  overflow: visible;
+  overflow: visible !important;
+  contain: none !important;
 }
 
 .ghost-node:hover {
@@ -382,25 +383,22 @@
   transform: scale(1.08);
 }
 
-/* ---- Handles ---- */
+/* ---- Handles (Minimalist Sleek Floating Ports - 12px) ---- */
 .ghost-handle {
-  width: 10px !important;
-  height: 10px !important;
-  background: rgba(255, 255, 255, 0.15) !important;
-  border: 2px solid rgba(255, 255, 255, 0.3) !important;
-  transition: all 0.2s ease;
-}
-
-.ghost-handle:hover {
-  background: #e11d48 !important;
-  border-color: #fb7185 !important;
-  transform: scale(1.25);
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
 }
 
 .ghost-handle--input {
-  left: -5px !important;
+  left: -12px !important;
+  right: auto !important;
+  transform: translateY(-50%) !important;
 }
 
 .ghost-handle--output {
-  right: -5px !important;
+  right: -12px !important;
+  left: auto !important;
+  transform: translateY(-50%) !important;
 }

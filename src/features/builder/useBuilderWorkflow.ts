@@ -9,31 +9,17 @@ import {
   type XYPosition
 } from '@xyflow/react';
 import { 
-  type ProcessingType, 
   type BuilderNodeData, 
   type DataPacket, 
   type NodeLineage,
-  type NodeType,
-  type NodeState,
   type WorkflowStats,
   type BuilderNode,
   sanitizeEdges
 } from './types';
-import { replicateService, type ReplicateImageModel, type ReplicateUpscaleModel } from '../../services/replicate';
-import { anarchyService } from '../../services/anarchy/AnarchyService';
-import { UpscalerFactory } from '../../services/upscalers/UpscalerFactory';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
-import { useNotificationStore } from '../../stores/notificationStore';
 import { useBuilderQueueStore } from '../../stores/builderQueueStore';
-import { watermarkService } from '../../services/watermark/WatermarkService';
-import { getUnifiedCost, deductCredits, refundCredits, getUserCredit, DEV_MODE } from '../../services/credit/creditService';
-import { addHistoryEntry, cacheLocalImage, getLocalImage, deleteLocalImage, revokeObjectUrl, dataURLtoBlob, resolveUrlToBlob } from '../../services/history/HistoryService';
-import type { NodeTreeData } from '../../types/history';
-import { invoke } from '@tauri-apps/api/core';
-import { STORAGE_KEYS } from '../../utils/storageKeys';
-import { track } from '../../services/tracking/trackingService';
 import { useAuth } from '../auth/AuthContext';
-import { getCurrentUserId } from '../../services/supabase/supabaseClient';
+import { deleteLocalImage, revokeObjectUrl } from '../../services/history/HistoryService';
 
 // Re-export modular components, types, and constants for 100% backward compatibility
 export * from './workflow/workflowConstants';
@@ -45,17 +31,11 @@ export * from './workflow/useWorkflowNodeOps';
 
 import {
   getAutosaveKey,
-  uploadImageIfLocal,
-  persistImageLocally,
-  resolveImageIfCached,
   validateWorkflowData,
   createDataPacket,
   createEdge,
   HORIZONTAL_SPACING,
   VERTICAL_SPACING,
-  TYPE_LABELS,
-  MODEL_DISPLAY_NAMES,
-  type GenerationConfig,
 } from './workflow/workflowConstants';
 import { useWorkflowHistory } from './workflow/useWorkflowHistory';
 import {
@@ -106,7 +86,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     pushHistory,
     undo,
     redo,
-    syncUndoRedoState,
+    syncUndoRedoState: _syncUndoRedoState,
   } = useWorkflowHistory({
     nodes,
     edges,
@@ -119,22 +99,6 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     
     try {
       const key = getAutosaveKey(tabId);
-      
-      // Clear autosave if the page was explicitly reloaded/refreshed (e.g., F5)
-      let isReload = false;
-      try {
-        const navs = performance.getEntriesByType('navigation');
-        if (navs.length > 0) {
-          isReload = (navs[0] as PerformanceNavigationTiming).type === 'reload';
-        } else {
-          isReload = performance.navigation.type === performance.navigation.TYPE_RELOAD;
-        }
-      } catch {}
-      
-      if (isReload) {
-        localStorage.removeItem(key);
-      }
-      
       const saved = localStorage.getItem(key);
       if (saved) {
         const data = JSON.parse(saved);
@@ -205,19 +169,46 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
   useEffect(() => {
     if (!isRestored) return;
     
-    const timeoutId = setTimeout(() => {
+    // Skip autosave serialization during active node dragging
+    const isAnyNodeDragging = nodes.some(n => (n as any).dragging);
+    if (isAnyNodeDragging) return;
+
+    const saveWorkflowState = (currentNodes: BuilderNode[], currentEdges: Edge[]) => {
+      if (!currentNodes || currentNodes.length === 0) return;
       try {
         const key = getAutosaveKey(tabId);
         const saved = localStorage.getItem(key);
         const previous = saved ? JSON.parse(saved) : {};
-        const data = { ...previous, nodes, edges };
+        const data = { ...previous, nodes: currentNodes, edges: currentEdges };
         localStorage.setItem(key, JSON.stringify(data));
       } catch {
-        // Silent fail - no console output
+        // QuotaExceeded fallback: strip heavy raw base64 data URIs so saving always succeeds
+        try {
+          const key = getAutosaveKey(tabId);
+          const sanitizedNodes = currentNodes.map(n => {
+            const data = { ...(n.data || {}) };
+            if (typeof data.image === 'string' && data.image.startsWith('data:') && data.image.length > 500000) {
+              data.image = data.thumbnail || undefined;
+            }
+            return { ...n, data };
+          });
+          const saved = localStorage.getItem(key);
+          const previous = saved ? JSON.parse(saved) : {};
+          const data = { ...previous, nodes: sanitizedNodes, edges: currentEdges };
+          localStorage.setItem(key, JSON.stringify(data));
+        } catch {}
       }
-    }, 2000); // Debounce 2 seconds
+    };
+
+    const timeoutId = setTimeout(() => {
+      saveWorkflowState(nodes, edges);
+    }, 1500);
     
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      // Immediately flush current nodes & edges on unmount or tab switch so no changes are lost
+      saveWorkflowState(nodesRef.current, edgesRef.current);
+    };
   }, [nodes, edges, isRestored, tabId]);
 
   const getNode = useCallback((nodeId: string): BuilderNode | undefined => {
@@ -369,7 +360,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
 
   // ── Workflow Execution (delegated to useWorkflowExecution) ───────────────
   const {
-    executeNodeSingle,
+    executeNodeSingle: _executeNodeSingle,
     cancelExecution,
     executeNode,
     addChildNode,
@@ -496,7 +487,8 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
       selectedModel === 'topazlabs/image-upscale' ||
       selectedModel === 'philz1337x/clarity-upscaler' ||
       selectedModel === 'prunaai/p-image-upscale' ||
-      selectedModel === 'philz1337x/clarity-pro-upscaler';
+      selectedModel === 'philz1337x/clarity-pro-upscaler' ||
+      (selectedModel as string)?.startsWith('midjourney/');
 
     if (isSingleInputModel) {
       const activeNodeIds = new Set(nodesRef.current.map(n => n.id));
@@ -815,6 +807,65 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     calculateChildPosition,
   });
 
+  // ── Fork Child Node (Design Iteration Branching) ──
+  const forkChildNode = useCallback((
+    parentId: string,
+    image: string,
+    actionLabel?: string,
+    prompt?: string
+  ): string | null => {
+    const parent = getNode(parentId);
+    if (!parent) return null;
+
+    const childPosition = calculateChildPosition(parentId);
+    const childId = `fork-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const parentData = (parent.data || {}) as BuilderNodeData;
+
+    const parentLineage = parentData.lineage;
+    const lineage: NodeLineage = {
+      parentId: parentId,
+      rootSourceId: parentLineage?.rootSourceId || parentId,
+      generation: (parentLineage?.generation ?? 0) + 1,
+      branchIndex: (getChildren(parentId)?.length ?? 0),
+      processingType: 'local',
+      ancestry: [...(parentLineage?.ancestry || []), parentId],
+    };
+
+    const effectivePrompt = prompt || parentData.prompt || '';
+    const packet = createDataPacket(image, effectivePrompt, 'local', undefined, undefined, false);
+
+    const newNode: BuilderNode = {
+      id: childId,
+      type: 'baseNode',
+      position: childPosition,
+      width: 260,
+      data: {
+        label: actionLabel || `Branch (${lineage.generation})`,
+        type: 'result',
+        processingType: 'local',
+        state: 'ready',
+        image: image,
+        originalImage: parentData.image || image,
+        prompt: effectivePrompt,
+        createdAt: Date.now(),
+        lineage,
+        inputData: parentData.outputData,
+        outputData: packet,
+        config: { prompt: effectivePrompt },
+      } as BuilderNodeData
+    };
+
+    setNodes(nds => [...nds, newNode]);
+    setEdges(eds => [...eds, createEdge(parentId, childId, {
+      animated: true,
+      isDataFlow: true,
+      packet,
+    })]);
+
+    setSelectedNodeId(childId);
+    return childId;
+  }, [getNode, calculateChildPosition, getChildren, setNodes, setEdges, setSelectedNodeId]);
+
   // RETURN
   // ========================================================================
 
@@ -840,6 +891,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
     onPainterRenderedImageAsNodeHandler,
     executeNode,
     cancelExecution,
+    forkChildNode,
     
     // Legacy API compatibility
     addChildNode,

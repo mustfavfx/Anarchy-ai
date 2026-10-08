@@ -133,6 +133,39 @@ namespace AnarchyRevit
                 using (Stream s = req.GetRequestStream()) { s.Write(payload, 0, payload.Length); }
                 using (var resp = (HttpWebResponse)req.GetResponse()) { }
 
+                // Extract real BIM project metadata
+                int levelCount = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Levels).WhereElementIsNotElementType().GetElementCount();
+                int wallCount = new FilteredElementCollector(doc, view.Id).OfCategory(BuiltInCategory.OST_Walls).WhereElementIsNotElementType().GetElementCount();
+                int doorCount = new FilteredElementCollector(doc, view.Id).OfCategory(BuiltInCategory.OST_Doors).WhereElementIsNotElementType().GetElementCount();
+                int winCount = new FilteredElementCollector(doc, view.Id).OfCategory(BuiltInCategory.OST_Windows).WhereElementIsNotElementType().GetElementCount();
+                int roomCount = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().GetElementCount();
+
+                string bimMetaJson = "{" +
+                    "\"source\":\"revit\"," +
+                    "\"view_name\":\"" + view.Name.Replace("\"", "\\\"") + "\"," +
+                    "\"view_type\":\"" + view.ViewType.ToString() + "\"," +
+                    "\"levels\":" + levelCount + "," +
+                    "\"walls\":" + wallCount + "," +
+                    "\"doors\":" + doorCount + "," +
+                    "\"windows\":" + winCount + "," +
+                    "\"rooms\":" + roomCount +
+                "}";
+
+                byte[] bimBytes = Encoding.UTF8.GetBytes(bimMetaJson);
+
+                HttpWebRequest bimReq = (HttpWebRequest)WebRequest.Create("http://localhost:14400/agent/bim-metadata");
+                bimReq.Method = "POST";
+                bimReq.ContentType = "application/json";
+                bimReq.ContentLength = bimBytes.Length;
+                bimReq.Timeout = 3000;
+                if (!string.IsNullOrEmpty(token)) bimReq.Headers.Add("X-Anarchy-Token", token);
+                try
+                {
+                    using (Stream bs = bimReq.GetRequestStream()) { bs.Write(bimBytes, 0, bimBytes.Length); }
+                    using (var bResp = (HttpWebResponse)bimReq.GetResponse()) { }
+                }
+                catch { }
+
                 try { File.Delete(found); } catch { }
                 return Result.Succeeded;
             }

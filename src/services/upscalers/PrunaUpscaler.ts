@@ -15,7 +15,7 @@ export class PrunaUpscaler implements BaseUpscaler {
       upscale_mode: config.prunaMode ?? 'target',
       enhance_details: config.prunaEnhanceDetails ?? false,
       enhance_realism: config.prunaEnhanceRealism ?? true,
-      output_format: config.prunaOutputFormat ?? 'png',
+      output_format: config.prunaOutputFormat ?? 'webp',
       output_quality: config.prunaQuality ?? 80,
     };
 

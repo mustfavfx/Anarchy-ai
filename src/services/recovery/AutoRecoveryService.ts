@@ -55,9 +55,23 @@ export class AutoRecoveryService {
       timestamp: Date.now(),
     };
 
-    // 1. Save to LocalStorage registry
+    // 1. Save to LocalStorage registry (deduplicate against same projectPath or title)
     try {
       const existing = this.getAllSnapshotsMap();
+      const normPath = projectPath?.trim().toLowerCase().replace(/\\/g, '/');
+      const normTitle = title?.trim().toLowerCase();
+
+      // Prune stale duplicates under older tab IDs
+      for (const [k, s] of Object.entries(existing)) {
+        if (k !== tabId) {
+          const sPath = s.projectPath?.trim().toLowerCase().replace(/\\/g, '/');
+          const sTitle = s.title?.trim().toLowerCase();
+          if ((normPath && sPath && normPath === sPath) || (normTitle && sTitle && normTitle === sTitle)) {
+            delete existing[k];
+          }
+        }
+      }
+
       existing[tabId] = snapshot;
       localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(existing));
     } catch (err) {
@@ -104,22 +118,65 @@ export class AutoRecoveryService {
   }
 
   /**
-   * Clear snapshot for a tab after clean save or clean close
+   * Clear snapshot for a tab after clean save, clean close, or discard.
+   * Matches by tabId, projectPath, and/or title to ensure no lingering snapshots.
    */
-  static async clearRecoverySnapshot(tabId: string, projectPath?: string | null): Promise<void> {
+  static async clearRecoverySnapshot(
+    tabId?: string | null,
+    projectPath?: string | null,
+    title?: string | null
+  ): Promise<void> {
     try {
       const existing = this.getAllSnapshotsMap();
-      if (existing[tabId]) {
+      let changed = false;
+      const pathsToDeleteOnDisk = new Set<string>();
+
+      if (projectPath) {
+        pathsToDeleteOnDisk.add(`${projectPath}.bak`);
+      }
+
+      // 1. Clear by tabId
+      if (tabId && existing[tabId]) {
+        if (existing[tabId].bakFilePath) {
+          pathsToDeleteOnDisk.add(existing[tabId].bakFilePath!);
+        }
         delete existing[tabId];
+        changed = true;
+      }
+
+      // 2. Clear by projectPath or title
+      const normPath = projectPath?.trim().toLowerCase().replace(/\\/g, '/');
+      const normTitle = title?.trim().toLowerCase();
+
+      for (const [key, snap] of Object.entries(existing)) {
+        const sPath = snap.projectPath?.trim().toLowerCase().replace(/\\/g, '/');
+        const sTitle = snap.title?.trim().toLowerCase();
+
+        const matchPath = normPath && sPath && (normPath === sPath || normPath.endsWith(sPath) || sPath.endsWith(normPath));
+        const matchTitle = normTitle && sTitle && (normTitle === sTitle);
+
+        if (matchPath || matchTitle) {
+          if (snap.bakFilePath) {
+            pathsToDeleteOnDisk.add(snap.bakFilePath);
+          }
+          if (snap.projectPath) {
+            pathsToDeleteOnDisk.add(`${snap.projectPath}.bak`);
+          }
+          delete existing[key];
+          changed = true;
+        }
+      }
+
+      if (changed) {
         localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(existing));
       }
 
-      if (projectPath) {
-        const bakPath = `${projectPath}.bak`;
+      // 3. Delete physical .ana.bak files from disk
+      for (const bakPath of pathsToDeleteOnDisk) {
         try {
           await invoke('delete_file', { path: bakPath });
         } catch {
-          // File might not exist, harmless
+          // File might not exist or running in browser mode
         }
       }
     } catch (err) {
@@ -136,6 +193,11 @@ export class AutoRecoveryService {
       if (item.projectPath) {
         try {
           await invoke('delete_file', { path: `${item.projectPath}.bak` });
+        } catch {}
+      }
+      if (item.bakFilePath) {
+        try {
+          await invoke('delete_file', { path: item.bakFilePath });
         } catch {}
       }
     }

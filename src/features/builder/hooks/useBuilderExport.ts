@@ -26,7 +26,7 @@ export function useBuilderExport({
   nodes,
   addNotification,
   setCompareSlot,
-  setConfig,
+  setConfig: _setConfig,
 }: UseBuilderExportArgs) {
   const isAnalyzingRef = useRef(false);
   const [dxfCalibrationTarget, setDxfCalibrationTarget] = useState<{
@@ -40,7 +40,6 @@ export function useBuilderExport({
     const imageUrl = data?.image ?? data?.outputData?.image;
     if (imageUrl) {
       setCompareSlot(slot, imageUrl);
-      setConfig((prev: any) => ({ ...prev }));
     }
   };
 

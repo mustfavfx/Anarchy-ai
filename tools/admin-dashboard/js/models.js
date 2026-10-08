@@ -127,6 +127,48 @@ const MODEL_REGISTRY = {
         baseCostUsd: 0.250,
         baseCredits: 3.0
       },
+      'midjourney/mj-turbo-upscale': {
+        name: 'Midjourney Turbo Upscale',
+        vendor: 'Midjourney (CometAPI)',
+        icon: '⚡',
+        baseCostUsd: 0.150,
+        baseCredits: 3.0
+      },
+      'midjourney/mj-turbo-upscale-subtle': {
+        name: 'Midjourney Turbo Subtle',
+        vendor: 'Midjourney (CometAPI)',
+        icon: '⚡',
+        baseCostUsd: 0.315,
+        baseCredits: 6.0
+      },
+      'midjourney/mj-turbo-upscale-creative': {
+        name: 'Midjourney Turbo Creative',
+        vendor: 'Midjourney (CometAPI)',
+        icon: '✨',
+        baseCostUsd: 0.315,
+        baseCredits: 6.0
+      },
+      'midjourney/mj-fast-upscale': {
+        name: 'Midjourney Fast Upscale',
+        vendor: 'Midjourney (CometAPI)',
+        icon: '⏱️',
+        baseCostUsd: 0.052,
+        baseCredits: 1.0
+      },
+      'midjourney/mj-fast-upscale-subtle': {
+        name: 'Midjourney Fast Subtle',
+        vendor: 'Midjourney (CometAPI)',
+        icon: '⏱️',
+        baseCostUsd: 0.105,
+        baseCredits: 2.0
+      },
+      'midjourney/mj-fast-upscale-creative': {
+        name: 'Midjourney Fast Creative',
+        vendor: 'Midjourney (CometAPI)',
+        icon: '✨',
+        baseCostUsd: 0.105,
+        baseCredits: 2.0
+      },
       'topazlabs/image-upscale': {
         name: 'Topaz Labs AI Upscale',
         vendor: 'Topaz Labs',
@@ -306,6 +348,12 @@ const MODEL_REGISTRY = {
         if (modelKey.includes('flare')) modelKey = 'openai/gpt-image-2.5-flare';
         else if (modelKey.includes('sunburst')) modelKey = 'openai/gpt-image-2.5-sunburst';
         else if (modelKey.includes('image-upscale') || modelKey.includes('topaz')) modelKey = 'topazlabs/image-upscale';
+        else if (modelKey.includes('mj_turbo_upscale_subtle') || modelKey.includes('mj-turbo-upscale-subtle')) modelKey = 'midjourney/mj-turbo-upscale-subtle';
+        else if (modelKey.includes('mj_turbo_upscale_creative') || modelKey.includes('mj-turbo-upscale-creative')) modelKey = 'midjourney/mj-turbo-upscale-creative';
+        else if (modelKey.includes('mj_fast_upscale_subtle') || modelKey.includes('mj-fast-upscale-subtle')) modelKey = 'midjourney/mj-fast-upscale-subtle';
+        else if (modelKey.includes('mj_fast_upscale_creative') || modelKey.includes('mj-fast-upscale-creative')) modelKey = 'midjourney/mj-fast-upscale-creative';
+        else if (modelKey.includes('mj_fast_upscale') || modelKey.includes('mj-fast-upscale')) modelKey = 'midjourney/mj-fast-upscale';
+        else if (modelKey.includes('mj_turbo_upscale') || modelKey.includes('mj-turbo-upscale')) modelKey = 'midjourney/mj-turbo-upscale';
       }
 
       // 2. Fallback Smart Fingerprinting (only when model is unknown or null):

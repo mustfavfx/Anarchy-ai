@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { HistoryEntry, NodeTreeData } from '../types';
 import { 
   loadFullImage, 
+  loadThumbnail,
+  getLocalImageAsObjectURL,
   formatTime, 
   formatDuration,
   revokeObjectUrl
 } from '@/services/history/HistoryService';
 import { useHistoryStore } from '@/stores/historyStore';
 import { useWorkflowTimeline } from '../hooks/useWorkflowTimeline';
-import { useLazyImage } from '../hooks/useLazyImage';
 import { buildWorkflowTreeForEntry } from './WorkflowTreeRenderer';
 import { WorkflowTimeline } from './WorkflowTimeline';
 import { buildWorkflowTimeline } from '@/services/history/WorkflowTimelineService';
@@ -18,7 +19,7 @@ import { ProvenanceTimeline } from './ProvenanceTimeline';
 import { 
   X, Copy, RotateCcw, FolderOpen, Save, Star, 
   ChevronLeft, ChevronRight, Eye, Check, Sliders, ChevronsLeftRight, GitBranch,
-  Image as ImageIcon, Sparkles
+  Sparkles
 } from 'lucide-react';
 import { logger } from '../../../utils/logger';
 
@@ -102,8 +103,30 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
 
     const fetchWorkflowData = async () => {
       try {
-        // Resolve output image URL
-        const outputUrl = await loadFullImageTracked(preview.id, 'output');
+        // Resolve output image URL with exhaustive fallbacks
+        let outputUrl = await loadFullImageTracked(preview.id, 'output');
+        if (!outputUrl) {
+          outputUrl = await loadFullImageTracked(preview.id, 'root_source');
+        }
+        if (!outputUrl) {
+          const thumb = await loadThumbnail(preview.id, 'output');
+          if (thumb) outputUrl = thumb;
+        }
+        if (!outputUrl) {
+          const rawCandidate = preview.outputImage || preview.outputImageKey || preview.thumbnailUrl || preview.url || preview.rootSourceImage || preview.inputImage;
+          if (rawCandidate) {
+            if (rawCandidate.startsWith('idb://')) {
+              const res = await getLocalImageAsObjectURL(rawCandidate);
+              if (res) outputUrl = res;
+            } else {
+              outputUrl = rawCandidate;
+            }
+          }
+        }
+        if (!outputUrl) {
+          const res = await getLocalImageAsObjectURL(`idb://${preview.id}_output`);
+          if (res) outputUrl = res;
+        }
 
         // Resolve workflow tree (read from Zustand cache or load from IndexedDB)
         let nodeTree: NodeTreeData | null = useHistoryStore.getState().workflowCache[preview.id] || null;
@@ -113,6 +136,22 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
             useHistoryStore.setState((state) => ({
               workflowCache: { ...state.workflowCache, [preview.id]: nodeTree as NodeTreeData }
             }));
+          }
+        }
+
+        // If still no outputUrl, search nodeTree nodes
+        if (!outputUrl && nodeTree?.nodes && nodeTree.nodes.length > 0) {
+          for (const n of nodeTree.nodes) {
+            const nodeImg = n.image || (n.data as any)?.image;
+            if (nodeImg) {
+              if (nodeImg.startsWith('idb://')) {
+                const res = await getLocalImageAsObjectURL(nodeImg);
+                if (res) { outputUrl = res; break; }
+              } else {
+                outputUrl = nodeImg;
+                break;
+              }
+            }
           }
         }
 
@@ -132,7 +171,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
 
         if (active) {
           setTimelineSteps(steps || []);
-          setActiveImage(outputUrl || '');
+          setActiveImage(outputUrl || preview.outputImage || preview.thumbnailUrl || preview.url || '');
         }
       } catch (err) {
         logger.error('[PreviewModal] Failed to load workflow data:', err);
@@ -209,18 +248,28 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   const handleSliderDown = () => { isDragging.current = true; };
   
   useEffect(() => {
+    let rafId: number | null = null;
     const handleMove = (e: MouseEvent) => {
       if (!isDragging.current || !sliderRef.current) return;
-      const rect = sliderRef.current.getBoundingClientRect();
-      const pos = ((e.clientX - rect.left) / rect.width) * 100;
-      setSliderPos(Math.max(0, Math.min(100, pos)));
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (!sliderRef.current) return;
+        const rect = sliderRef.current.getBoundingClientRect();
+        const pos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        sliderRef.current.style.setProperty('--slider-pos', `${pos}%`);
+        setSliderPos(pos);
+      });
     };
     
-    const handleUp = () => { isDragging.current = false; };
+    const handleUp = () => {
+      isDragging.current = false;
+      if (rafId) cancelAnimationFrame(rafId);
+    };
     
     document.addEventListener('mousemove', handleMove);
     document.addEventListener('mouseup', handleUp);
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('mouseup', handleUp);
     };
@@ -241,9 +290,8 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   };
 
   const handleSendSingle = () => {
-    if (activeImage) {
-      onSendToCanvas(activeImage, preview);
-    }
+    const targetImg = activeImage || preview.outputImage || preview.thumbnailUrl || preview.url || (preview.id ? `idb://${preview.id}_output` : '');
+    onSendToCanvas(targetImg, preview);
   };
 
   const handleSendGroup = () => {
@@ -427,19 +475,19 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                       ref={sliderRef}
                       onMouseDown={handleSliderDown}
                       aria-label="Compare images slider"
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'ew-resize' }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'ew-resize', '--slider-pos': `${sliderPos}%` } as React.CSSProperties}
                     >
-                      <img src={rightItemImage} alt="After" className="compare-img after" draggable={false} />
-                      <div className="compare-clip" style={{ width: `${sliderPos}%` }}>
+                      <img src={rightItemImage} alt="After" className="compare-img after" draggable={false} decoding="async" />
+                      <div className="compare-clip">
                         <img
                           src={leftItemImage}
                           alt="Before"
                           className="compare-img"
                           draggable={false}
-                          style={{ width: sliderRef.current ? `${sliderRef.current.offsetWidth}px` : '100%' }}
+                          decoding="async"
                         />
                       </div>
-                      <div className="compare-handle" style={{ left: `${sliderPos}%` }}>
+                      <div className="compare-handle">
                         <div className="compare-handle-line" />
                         <div className="compare-handle-knob">
                           <ChevronsLeftRight size={12} color="#999" />
@@ -843,7 +891,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                 </div>
 
                 <div className="modal-actions">
-                  {compareIds.length === 0 && activeImage && (
+                  {compareIds.length === 0 && (
                     <button className="modal-action-btn canvas-btn" onClick={handleSendSingle}>
                       <FolderOpen size={13} />
                       <span>Send to Canvas</span>

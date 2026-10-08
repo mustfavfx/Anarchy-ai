@@ -1,0 +1,549 @@
+/* ── GROUP 2: Photoshop Adjustments Panel ─────────────────────────────────── */
+
+.ps-adjustments-panel {
+  display: flex;
+  flex-direction: column;
+  background: #1c1c20;
+}
+
+.ps-adjustments-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.ps-adj-sub-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: #19191d;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ps-adj-tool-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ps-adj-icon-btn {
+  background: transparent;
+  border: none;
+  color: #888894;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.14s ease;
+}
+
+.ps-adj-icon-btn:hover {
+  color: #ffffff;
+}
+
+.ps-adj-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 12px;
+  background: #18181c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ps-adj-mode-tab {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 0;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.14s ease;
+}
+
+.ps-adj-mode-tab:hover {
+  color: #d1d5db;
+}
+
+.ps-adj-mode-tab.active {
+  color: #ffffff;
+  font-weight: 600;
+  border-bottom: 1.5px solid #ffffff;
+}
+
+.ps-adjustments-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+  padding: 8px 10px;
+  background: #141620;
+}
+
+.ps-adjustment-tile {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  cursor: pointer;
+  min-height: 42px;
+  box-sizing: border-box;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: start;
+}
+
+.ps-adjustment-tile:hover {
+  background: rgba(56, 189, 248, 0.09);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.ps-adjustment-tile:active {
+  transform: scale(0.97);
+  border-color: #38bdf8;
+}
+
+.ps-adjustment-tile.ps-adj-tile-full {
+  grid-column: span 2;
+}
+
+.ps-adj-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.08);
+  color: #38bdf8;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.ps-adjustment-tile:hover .ps-adj-tile-icon {
+  background: rgba(56, 189, 248, 0.18);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.ps-adj-tile-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.ps-adj-tile-label {
+  font-size: 11px;
+  line-height: 1.25;
+  color: #e2e8f0;
+  font-weight: 600;
+  white-space: normal;
+  transition: color 0.15s ease;
+}
+
+.ps-adjustment-tile:hover .ps-adj-tile-label {
+  color: #ffffff;
+}
+
+/* ── Interactive Photoshop Adjustment Tool Controls Sub-panel ──────────────── */
+
+.ps-adj-controls-panel {
+  display: flex;
+  flex-direction: column;
+  background: #14161f;
+  border-radius: 6px;
+  margin: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  animation: psAdjFadeIn 0.16s ease-out;
+}
+
+@keyframes psAdjFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ps-adj-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #191c28;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.ps-adj-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.ps-adj-back-btn:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+.ps-adj-controls-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: 0.2px;
+}
+
+.ps-adj-reset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.ps-adj-reset-btn:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  transform: rotate(-45deg);
+}
+
+.ps-adj-controls-body {
+  padding: 10px 10px 8px;
+  max-height: 520px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ps-adj-controls-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ps-adj-controls-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.ps-adj-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ps-adj-slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ps-adj-slider-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.ps-adj-slider-value {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #38bdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ps-adj-range-input {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ps-adj-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.ps-adj-range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.ps-adj-range-input::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.ps-adj-preset-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.ps-adj-pill {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.ps-adj-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.ps-adj-pill.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.4);
+}
+
+.ps-adj-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #cbd5e1;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.ps-adj-checkbox-row input[type="checkbox"] {
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.ps-adj-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #171922;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ps-adj-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.ps-adj-apply-btn:hover {
+  background: linear-gradient(135deg, #0369a1, #0284c7);
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.5);
+  transform: translateY(-1px);
+}
+
+.ps-adj-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.ps-adj-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* ── Photoshop Curves Panel Styles (100% Authentic) ────────────────────────── */
+
+.ps-curves-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ps-curves-main-layout {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+}
+
+.ps-curves-graph-container {
+  display: flex;
+  flex: 1;
+  gap: 5px;
+  align-items: stretch;
+}
+
+.ps-curves-v-gradient {
+  width: 7px;
+  height: calc(100% - 15px);
+  border-radius: 2px;
+  background: linear-gradient(to top, #000000 0%, #ffffff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.ps-curves-svg-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.ps-curves-svg {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 3px;
+  background: #252528;
+  cursor: crosshair;
+  touch-action: none;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.ps-curves-h-gradient {
+  width: 100%;
+  height: 6px;
+  margin-top: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #000000 0%, #ffffff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-sizing: border-box;
+}
+
+.ps-curves-gradient-markers {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 1px;
+  margin-top: 2px;
+}
+
+.ps-marker-black {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 5px solid #000000;
+  filter: drop-shadow(0 0 1px #ffffff);
+}
+
+.ps-marker-white {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 5px solid #ffffff;
+  filter: drop-shadow(0 0 1px #000000);
+}
+
+.ps-curves-io-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 5px 8px;
+  background: #11131a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  gap: 12px;
+}
+
+.ps-curves-io-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ps-curves-io-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.ps-curves-io-input {
+  width: 50px;
+  background: #191b24;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 5px;
+  text-align: center;
+  outline: none;
+}
+
+.ps-curves-io-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
+}
+
+.ps-curves-io-input:disabled {
+  opacity: 0.35;
+  background: #0e1017;
+  cursor: not-allowed;
+}

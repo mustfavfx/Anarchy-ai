@@ -173,8 +173,43 @@ namespace AnarchyAutoCad
                 using (var s = req.GetRequestStream()) { s.Write(payload, 0, payload.Length); }
                 using (var resp = (HttpWebResponse)req.GetResponse()) { }
 
+                // Extract real AutoCAD entity & layer metadata
+                int layerCount = 0;
+                int blockCount = 0;
+                int entityCount = 0;
+                using (var tr = db.TransactionManager.StartTransaction())
+                {
+                    var lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
+                    foreach (ObjectId id in lt) layerCount++;
+                    var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                    foreach (ObjectId id in bt) blockCount++;
+                    var btr = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
+                    foreach (ObjectId id in btr) entityCount++;
+                    tr.Commit();
+                }
+
+                string cadMetaJson = "{" +
+                    "\"source\":\"autocad\"," +
+                    "\"drawing_name\":\"" + Path.GetFileName(db.Filename).Replace("\"", "\\\"") + "\"," +
+                    "\"layers\":" + layerCount + "," +
+                    "\"blocks\":" + blockCount + "," +
+                    "\"entities\":" + entityCount +
+                "}";
+
+                byte[] cadMetaBytes = Encoding.UTF8.GetBytes(cadMetaJson);
+                var metaReq = (HttpWebRequest)WebRequest.Create("http://localhost:14400/agent/bim-metadata");
+                metaReq.Method = "POST"; metaReq.ContentType = "application/json";
+                metaReq.ContentLength = cadMetaBytes.Length; metaReq.Timeout = 3000;
+                if (!string.IsNullOrEmpty(token)) metaReq.Headers.Add("X-Anarchy-Token", token);
+                try
+                {
+                    using (var ms = metaReq.GetRequestStream()) { ms.Write(cadMetaBytes, 0, cadMetaBytes.Length); }
+                    using (var mResp = (HttpWebResponse)metaReq.GetResponse()) { }
+                }
+                catch { }
+
                 try { File.Delete(tempPng); } catch { }
-                ed.WriteMessage("\nAnarchy: Drawing sent to Builder successfully.");
+                ed.WriteMessage("\nAnarchy: Drawing & CAD metadata sent to Builder successfully.");
             }
             catch (Exception ex)
             {

@@ -9,6 +9,7 @@ import { logger } from '../../utils/logger';
 import { useAIConfigStore } from '../../stores/aiConfigStore';
 import { EnlargedPreview } from './EnlargedPreview';
 import { OnboardingModal } from '../../shared/components/OnboardingModal';
+import { WhatsNewModal } from '../../shared/components/WhatsNewModal';
 import { ToastNotification } from './ToastNotification';
 import { NotificationCenter } from './NotificationCenter';
 import { GlobalSearchModal } from '../search/GlobalSearchModal';
@@ -43,6 +44,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   useEffect(() => {
     track({ event: 'page_viewed', properties: { page: location.pathname } }).catch(() => {});
   }, [location.pathname]);
+
+  // Recalculate ReactFlow bounds seamlessly when switching back from other pages
+  useEffect(() => {
+    if (isBuilderPage) {
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
+  }, [isBuilderPage]);
 
   // Tauri close request interceptor
   useEffect(() => {
@@ -99,6 +109,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     let active = true;
     let disposeFn: (() => void) | undefined;
     
+    let disposeBimFn: (() => void) | undefined;
+    
     listen<{ image: string; source: string }>('anarchy://external-image', (event) => {
       const image = event.payload?.image;
       if (!image) return;
@@ -121,15 +133,41 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       logger.warn('[AppShell] Failed to subscribe to external-image event:', err);
     });
 
+    listen<Record<string, any>>('anarchy://bim-metadata', (event) => {
+      if (!event.payload) return;
+      logger.log('[AppShell] Global bim-metadata event received from:', event.payload?.software);
+      window.dispatchEvent(new CustomEvent('anarchy:bim-metadata-global', {
+        detail: event.payload,
+      }));
+    }).then((dispose) => {
+      if (!active) {
+        dispose();
+      } else {
+        disposeBimFn = dispose;
+      }
+    }).catch((err) => {
+      logger.warn('[AppShell] Failed to subscribe to bim-metadata event:', err);
+    });
+
     return () => {
       active = false;
       if (disposeFn) {
         disposeFn();
       }
+      if (disposeBimFn) {
+        disposeBimFn();
+      }
     };
   }, []);
 
   const [showSearch, setShowSearch] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  useEffect(() => {
+    const handleOpenWhatsNew = () => setShowWhatsNew(true);
+    window.addEventListener('anarchy:open-whats-new', handleOpenWhatsNew);
+    return () => window.removeEventListener('anarchy:open-whats-new', handleOpenWhatsNew);
+  }, []);
 
   // Global Ctrl+K / Cmd+K Command Palette shortcut
   useEffect(() => {
@@ -146,17 +184,17 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   return (
     <div className="app-shell">
       <TitleBar />
+
       <div className="app-body">
         <NavRail />
 
-        {/* ── Builder layout: mounted only when on builder route to save RAM & CPU ── */}
-        {isBuilderPage && (
-          <main
-            className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}${isEnlargedView && isRightSidebarCollapsed ? ' app-content--mini-canvas-hidden' : ''}`}
-          >
-            <MultiBuilderPage />
-          </main>
-        )}
+        {/* ── Builder layout: persistently mounted so canvas nodes, images, zoom & tabs never reset ── */}
+        <main
+          className={`app-content${isEnlargedView ? ' app-content--mini-canvas' : ''}${isEnlargedView && isRightSidebarCollapsed ? ' app-content--mini-canvas-hidden' : ''}${!isBuilderPage ? ' app-content--hidden' : ''}`}
+        >
+          <MultiBuilderPage />
+        </main>
+
         {isBuilderPage && (
           isEnlargedView ? (
             <div className="app-body-enlarged">
@@ -181,6 +219,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Onboarding for new users */}
       <OnboardingModal />
+
+      {/* Illustrated Graphic Updates & Welcome Walkthrough */}
+      <WhatsNewModal forceOpen={showWhatsNew} onCloseManual={() => setShowWhatsNew(false)} />
 
       {/* Global Command Palette / Search */}
       <GlobalSearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} />

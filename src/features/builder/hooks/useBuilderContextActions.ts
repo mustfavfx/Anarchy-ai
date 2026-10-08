@@ -56,7 +56,11 @@ export function useBuilderContextActions({
         const position = contextMenu?.canvasX !== undefined && contextMenu?.canvasY !== undefined
           ? { x: contextMenu.canvasX, y: contextMenu.canvasY }
           : undefined;
-        createSourceNode(undefined, undefined, position);
+        const newId = createSourceNode(undefined, undefined, position);
+        if (newId) {
+          setSelectedNodeId(newId);
+          setSelectedNode({ id: newId, type: 'source', state: 'idle' });
+        }
         break;
       }
       case 'rearrange': {

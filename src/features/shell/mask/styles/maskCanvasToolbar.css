@@ -1,0 +1,889 @@
+/* ── Photoshop-Style Vertical Left Toolbar ────────────────────────────────── */
+
+.mask-canvas-left-bar,
+.mask-canvas-top-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 48px;
+  height: 100%;
+  padding: 8px 0;
+  background: rgba(12, 14, 22, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 45;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  gap: 6px;
+}
+
+.mask-canvas-top-left {
+  display: none;
+}
+
+/* Left Mode Tabs (Preview | Compare | Draw) */
+.mask-canvas-mode-tabs {
+  position: absolute;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.mask-mode-tab {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mask-mode-tab:hover {
+  color: #ffffff;
+}
+
+.mask-mode-tab.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Left Vertical Tool Column */
+.mask-canvas-tools-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  width: 100%;
+}
+
+.mask-canvas-tools-toolbar:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Sleek Rectangle Tool Buttons */
+.mask-toolbar-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mask-toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.mask-toolbar-btn:active {
+  transform: scale(0.96);
+}
+
+.mask-toolbar-btn.active {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.mask-toolbar-btn.mask-ortho-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mask-ortho-badge {
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+  letter-spacing: -0.2px;
+  margin-top: 1px;
+}
+
+.mask-dropdown-container {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.mask-dropdown-caret {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.65);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.mask-toolbar-btn.active .mask-dropdown-caret {
+  color: #ffffff;
+}
+
+/* Floating Vertical Subtool Dropdown Popover (Flyout to Right) */
+.mask-vertical-dropdown {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(14, 16, 26, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 5px;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.85), 0 0 24px rgba(225, 29, 72, 0.2);
+  z-index: 100;
+  min-width: 140px;
+  animation: maskSubmenuFlyout 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes maskSubmenuFlyout {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes maskSubmenuFade {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.mask-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.mask-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.mask-dropdown-item.active {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.mask-dropdown-label {
+  font-size: 11.5px;
+}
+
+/* Dividers */
+.mask-canvas-divider-horizontal {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+
+.mask-canvas-divider-vertical {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Connected Segmented Inspection & Comparison Cluster */
+.mask-segmented-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mask-segmented-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ffffff;
+  width: 30px;
+  height: 26px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mask-segmented-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mask-segmented-btn.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 1px 4px rgba(255, 255, 255, 0.15);
+}
+
+/* Compact Brush Size Pill Button */
+.mask-size-badge-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.mask-size-badge-pill:hover,
+.mask-size-badge-pill.active {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+.mask-size-num {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.mask-size-unit {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 8px;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+/* Compact Rectangle Brush Size Stepper */
+.mask-brush-size-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 2px 6px;
+  height: 32px;
+  user-select: none;
+  transition: border-color 0.2s ease;
+}
+
+.mask-brush-size-stepper:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.mask-brush-size-stepper button {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  transition: all 0.15s ease;
+}
+
+.mask-brush-size-stepper button:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mask-size-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+  padding: 0 4px;
+  min-width: 36px;
+  text-align: center;
+}
+
+.mask-size-text small {
+  font-size: 9.5px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.mask-toolbar-btn.danger {
+  color: #ffffff;
+}
+
+.mask-toolbar-btn.danger:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.mask-toolbar-btn.primary {
+  background: transparent;
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.mask-toolbar-btn.primary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.mask-toolbar-btn.primary.active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+}
+
+/* Bottom Section Actions (Photoshop Style) */
+.mask-canvas-left-actions,
+.mask-canvas-top-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Floating Viewport Zoom HUD (Bottom Right of Canvas Area / جزء من مساحة الصورة) */
+.mask-viewport-zoom-hud {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(14, 16, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 2px 6px;
+  height: 34px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 35;
+  user-select: none;
+}
+
+.mask-viewport-zoom-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+}
+
+.mask-viewport-zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.mask-viewport-zoom-text {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 5px;
+  min-width: 40px;
+  text-align: center;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.mask-viewport-zoom-text:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+
+/* ── VizMaker Floating Sleek Bottom Prompt Bar ────────────────────────────── */
+
+.vizmaker-bottom-prompt-bar-container {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 660px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.vizmaker-bottom-prompt-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(12, 14, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 10px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(225, 29, 72, 0.18);
+  transition: all 0.25s ease;
+  width: 100%;
+  box-sizing: border-box;
+  pointer-events: all;
+}
+
+.vizmaker-bottom-prompt-bar:focus-within {
+  border-color: rgba(225, 29, 72, 0.5);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.9), 0 0 30px rgba(225, 29, 72, 0.3);
+}
+
+.mask-prompt-badges-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: all;
+}
+
+.mask-prompt-badges-row .generate-cost-badge,
+.mask-prompt-badges-row .user-balance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(12, 14, 22, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 3px 10px;
+  border-radius: 6px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.mask-prompt-badges-row .user-balance-badge {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.vizmaker-prompt-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(225, 29, 72, 0.15);
+  border: 1px solid rgba(225, 29, 72, 0.3);
+  color: #fb7185;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.vizmaker-prompt-textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 12.5px;
+  resize: none;
+  max-height: 38px;
+  font-family: inherit;
+}
+
+.vizmaker-prompt-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.vizmaker-prompt-inner-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 4px 10px;
+  height: 38px;
+}
+
+.vizmaker-prompt-badge.node-badge {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.vizmaker-badge-chain {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.vizmaker-reset-prompt-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.vizmaker-reset-prompt-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.vizmaker-make-btn-group {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.vizmaker-make-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 16px;
+  height: 38px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.4);
+  transition: all 0.2s ease;
+}
+
+.vizmaker-make-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6);
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+}
+
+.vizmaker-make-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.vizmaker-btn-cost {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-left: 2px;
+}
+
+
+/* ── Professional Photoshop-Grade Crop Tool ────────────────────────────────── */
+
+.crop-overlay {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+  z-index: 25;
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+}
+
+.crop-border {
+  position: absolute;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.65);
+  pointer-events: auto;
+  cursor: move;
+  z-index: 30;
+  box-sizing: border-box;
+}
+
+/* Rule of Thirds Grid */
+.crop-grid-line {
+  position: absolute;
+  pointer-events: none;
+}
+
+.crop-grid-h {
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.8);
+}
+
+.crop-grid-v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.8);
+}
+
+/* Handles - Classic Photoshop Brackets & Squares */
+.crop-handle {
+  position: absolute;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1.5px solid #0c0e16;
+  border-radius: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  z-index: 32;
+}
+
+/* Corners (14px × 14px) */
+.crop-handle-tl {
+  top: -6px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+.crop-handle-tr {
+  top: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.crop-handle-bl {
+  bottom: -6px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.crop-handle-br {
+  bottom: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+/* Edges (bar style) */
+.crop-handle-t {
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.crop-handle-b {
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.crop-handle-l {
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 26px;
+  cursor: ew-resize;
+}
+
+.crop-handle-r {
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 26px;
+  cursor: ew-resize;
+}
+
+/* Floating Action Bar */
+.crop-actions-bar,
+.crop-actions {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(14, 16, 26, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 5px 10px;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 50;
+  transform: translateX(-50%);
+  user-select: none;
+  white-space: nowrap;
+  animation: cropBarFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cropBarFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.crop-dimensions-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.2px;
+  padding: 2px 4px;
+}
+
+.crop-actions-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.16);
+  margin: 0 2px;
+}
+
+.crop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.crop-btn:active {
+  transform: scale(0.96);
+}
+
+.crop-btn-apply {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+.crop-btn-apply:hover {
+  background: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+}
+
+.crop-btn-cancel {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.crop-btn-cancel:hover {
+  background: rgba(239, 68, 68, 0.85);
+  color: #ffffff;
+  border-color: transparent;
+}

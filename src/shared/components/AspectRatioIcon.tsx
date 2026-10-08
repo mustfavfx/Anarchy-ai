@@ -23,6 +23,9 @@ export function getAspectRatioHint(ratio: string): string | null {
     case '3:4': return 'Vertical';
     case '21:9': return 'Ultrawide';
     case '9:21': return 'Tall';
+    case '7:5': return 'Classic';
+    case '5:7': return 'Portrait';
+    case '1:2': return 'Tall 1:2';
     case '4:1': return 'Banner';
     case '3:1': return 'X Banner';
     case '2:1': return 'Header';

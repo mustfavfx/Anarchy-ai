@@ -10,6 +10,72 @@ import { ConnectedNodeInspectorPanel } from '../builder/inspector/ConnectedNodeI
 import './EnlargedPreview.css';
 import './MaskCanvas.css';
 
+interface EnlargedCompareActiveProps {
+  srcA: string | undefined;
+  srcB: string | undefined;
+  isVideoA: boolean;
+  isVideoB: boolean;
+  onSwap: () => void;
+  onClear: () => void;
+}
+
+const EnlargedCompareActive: React.FC<EnlargedCompareActiveProps> = React.memo(({
+  srcA,
+  srcB,
+  isVideoA,
+  isVideoB,
+  onSwap,
+  onClear,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleSliderInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (containerRef.current) {
+      containerRef.current.style.setProperty('--compare-split', `${val}%`);
+    }
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="ep-compare-active"
+      style={{ '--compare-split': '50%' } as React.CSSProperties}
+    >
+      {isVideoB ? (
+        <video src={srcB} className="ep-compare-base" autoPlay loop muted playsInline />
+      ) : (
+        <img src={srcB} className="ep-compare-base" alt="B" decoding="async" />
+      )}
+      <div className="ep-compare-clip">
+        {isVideoA ? (
+          <video src={srcA} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <img src={srcA} alt="A" decoding="async" />
+        )}
+      </div>
+      <div className="ep-compare-handle">
+        <div className="ep-compare-line" />
+        <div className="ep-compare-knob">⇄</div>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        defaultValue={50}
+        onChange={handleSliderInput}
+        className="ep-compare-slider"
+      />
+      <span className="ep-compare-label ep-label-a">A</span>
+      <span className="ep-compare-label ep-label-b">B</span>
+      <div className="ep-compare-toolbar">
+        <button className="ep-icon-btn" onClick={onSwap} title="Swap">⇄</button>
+        <button className="ep-icon-btn" onClick={onClear} title="Clear"><X size={11} /></button>
+      </div>
+    </div>
+  );
+});
+
 // ─── EnlargedPreview ─────────────────────────────────────────────────────────
 // Fills the main content area when isEnlargedView === true.
 // Mirrors VizMaker's Enlarge mode: Preview / Compare / Mask / Layers tabs
@@ -46,7 +112,6 @@ export const EnlargedPreview: React.FC = () => {
   const [panX, setPanX]         = useState(0);
   const [panY, setPanY]         = useState(0);
   const [isPanning, setIsPanning] = useState(false);
-  const [compareSplit, setCompareSplit] = useState(50);
   const [imgMeta, setImgMeta]   = useState<{ w: number; h: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -284,28 +349,14 @@ export const EnlargedPreview: React.FC = () => {
         {tab === 'compare' && (
           <div className="ep-compare">
             {compareImages.A && compareImages.B ? (
-              <div className="ep-compare-active">
-                {(isVideoUrl(compareImages.B) || isVideoUrl(resolvedCompareB)) ? (
-                  <video src={getSafeSrc(resolvedCompareB, compareImages.B)} className="ep-compare-base" autoPlay loop muted playsInline />
-                ) : (
-                  <img src={getSafeSrc(resolvedCompareB, compareImages.B)} className="ep-compare-base" alt="B" />
-                )}
-                <div className="ep-compare-clip" style={{ clipPath: `inset(0 ${100 - compareSplit}% 0 0)` }}>
-                  {(isVideoUrl(compareImages.A) || isVideoUrl(resolvedCompareA)) ? (
-                    <video src={getSafeSrc(resolvedCompareA, compareImages.A)} autoPlay loop muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <img src={getSafeSrc(resolvedCompareA, compareImages.A)} alt="A" />
-                  )}
-                </div>
-                <div className="ep-compare-handle" style={{ left: `${compareSplit}%` }}><div className="ep-compare-line" /><div className="ep-compare-knob">⇄</div></div>
-                <input type="range" min={0} max={100} value={compareSplit} onChange={e => setCompareSplit(Number(e.target.value))} className="ep-compare-slider" />
-                <span className="ep-compare-label ep-label-a">A</span>
-                <span className="ep-compare-label ep-label-b">B</span>
-                <div className="ep-compare-toolbar">
-                  <button className="ep-icon-btn" onClick={() => setCompareImages({ A: compareImages.B, B: compareImages.A })} title="Swap">⇄</button>
-                  <button className="ep-icon-btn" onClick={() => setCompareImages({ A: null, B: null })} title="Clear"><X size={11} /></button>
-                </div>
-              </div>
+              <EnlargedCompareActive
+                srcA={getSafeSrc(resolvedCompareA, compareImages.A)}
+                srcB={getSafeSrc(resolvedCompareB, compareImages.B)}
+                isVideoA={Boolean(isVideoUrl(compareImages.A) || isVideoUrl(resolvedCompareA))}
+                isVideoB={Boolean(isVideoUrl(compareImages.B) || isVideoUrl(resolvedCompareB))}
+                onSwap={() => setCompareImages({ A: compareImages.B, B: compareImages.A })}
+                onClear={() => setCompareImages({ A: null, B: null })}
+              />
             ) : (
               <div className="ep-compare-slots">
                 {(['A', 'B'] as const).map(slot => {

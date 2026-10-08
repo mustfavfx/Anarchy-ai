@@ -28,26 +28,171 @@ const normalizePath = (p: string | null | undefined): string | null => {
   return p.replace(/\\/g, '/').toLowerCase();
 };
 
-function loadPersistedTabs(): { tabs: Tab[]; activeTabId: string | null } {
+const isCleanUntitled = (t: Tab | undefined | null): boolean => {
+  if (!t) return false;
+  return (
+    !t.projectPath &&
+    (t.title === 'Untitled' || t.title === 'Loading...') &&
+    !t.everEdited &&
+    !t.initialWorkflow &&
+    !t.initialImage
+  );
+};
+
+function loadInitialTabs(): { tabs: Tab[]; activeTabId: string | null } {
+  let tabs: Tab[] = [];
+  let activeTabId: string | null = null;
+
   try {
     const raw = localStorage.getItem(TABS_STORAGE_KEY);
     const active = localStorage.getItem(ACTIVE_TAB_KEY);
     if (raw) {
-      const tabs: Tab[] = JSON.parse(raw);
-      if (Array.isArray(tabs) && tabs.length > 0)
-        return { tabs, activeTabId: active || tabs[0].id };
+      const parsed: Tab[] = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        tabs = parsed;
+        activeTabId = active && parsed.some(t => t.id === active) ? active : parsed[0].id;
+      }
     }
   } catch { /* ignore */ }
-  return { tabs: [], activeTabId: null };
+
+  // Check if there is an incoming project or workflow in sessionStorage
+  try {
+    const projectPath = sessionStorage.getItem(SESSION_KEYS.OPEN_PROJECT_PATH);
+    const presetWorkflow = sessionStorage.getItem(SESSION_KEYS.PRESET_WORKFLOW);
+    const presetImage = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
+    const loadedWorkflow = sessionStorage.getItem(SESSION_KEYS.LOADED_WORKFLOW);
+
+    if (projectPath) {
+      sessionStorage.removeItem(SESSION_KEYS.OPEN_PROJECT_PATH);
+      const projectName = projectPath.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Project';
+      const existing = tabs.find(t => normalizePath(t.projectPath) === normalizePath(projectPath));
+      if (existing) {
+        activeTabId = existing.id;
+      } else {
+        const newTabId = generateTabId();
+        const newTab: Tab = {
+          id: newTabId,
+          title: projectName,
+          projectPath: projectPath,
+          isDirty: false,
+          everEdited: false,
+        };
+        if (tabs.length === 1 && isCleanUntitled(tabs[0])) {
+          tabs = [newTab];
+        } else {
+          tabs = [...tabs, newTab];
+        }
+        activeTabId = newTabId;
+      }
+    } else if (loadedWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.LOADED_WORKFLOW);
+      try {
+        const wf = JSON.parse(loadedWorkflow);
+        const newTabId = generateTabId();
+        const newTab: Tab = {
+          id: newTabId,
+          title: wf.name || 'Imported Project',
+          projectPath: null,
+          isDirty: false,
+          everEdited: false,
+          initialWorkflow: wf,
+        };
+        if (tabs.length === 1 && isCleanUntitled(tabs[0])) {
+          tabs = [newTab];
+        } else {
+          tabs = [...tabs, newTab];
+        }
+        activeTabId = newTabId;
+      } catch (err) {
+        console.error('Failed to parse loaded workflow:', err);
+      }
+    } else if (presetWorkflow) {
+      sessionStorage.removeItem(SESSION_KEYS.PRESET_WORKFLOW);
+      const img = sessionStorage.getItem(SESSION_KEYS.PRESET_IMAGE);
+      if (img) sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
+      try {
+        const wf = JSON.parse(presetWorkflow);
+        const newTabId = generateTabId();
+        const newTab: Tab = {
+          id: newTabId,
+          title: wf.name || 'Preset Workflow',
+          projectPath: null,
+          isDirty: false,
+          everEdited: false,
+          initialWorkflow: wf,
+          initialImage: img || undefined,
+        };
+        if (tabs.length === 1 && isCleanUntitled(tabs[0])) {
+          tabs = [newTab];
+        } else {
+          tabs = [...tabs, newTab];
+        }
+        activeTabId = newTabId;
+      } catch (err) {
+        console.error('Failed to parse preset workflow:', err);
+      }
+    } else if (presetImage) {
+      sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
+      const newTabId = generateTabId();
+      const newTab: Tab = {
+        id: newTabId,
+        title: 'Preset Image',
+        projectPath: null,
+        isDirty: false,
+        everEdited: false,
+        initialImage: presetImage,
+      };
+      if (tabs.length === 1 && isCleanUntitled(tabs[0])) {
+        tabs = [newTab];
+      } else {
+        tabs = [...tabs, newTab];
+      }
+      activeTabId = newTabId;
+    }
+  } catch { /* ignore */ }
+
+  if (tabs.length === 0) {
+    const defaultTab: Tab = {
+      id: generateTabId(),
+      title: 'Untitled',
+      projectPath: null,
+      isDirty: false,
+      everEdited: false,
+    };
+    tabs = [defaultTab];
+    activeTabId = defaultTab.id;
+  } else if (!activeTabId || !tabs.some(t => t.id === activeTabId)) {
+    activeTabId = tabs[tabs.length - 1]?.id ?? tabs[0].id;
+  }
+
+  return { tabs, activeTabId };
 }
 
 export function useMultiBuilderTabs() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [tabs, setTabs] = useState<Tab[]>(() => loadPersistedTabs().tabs);
-  const [activeTabId, setActiveTabId] = useState<string | null>(() => loadPersistedTabs().activeTabId);
+
+  // Single-pass initialization so tabs and activeTabId always receive the exact same generated IDs
+  const initialRef = useRef<{ tabs: Tab[]; activeTabId: string | null } | null>(null);
+  if (!initialRef.current) {
+    initialRef.current = loadInitialTabs();
+  }
+
+  const [tabs, setTabs] = useState<Tab[]>(() => initialRef.current!.tabs);
+  const [activeTabId, setActiveTabId] = useState<string | null>(() => initialRef.current!.activeTabId);
   const [closeConfirm, setCloseConfirm] = useState<CloseConfirm | null>(null);
   const [showAppCloseConfirm, setShowAppCloseConfirm] = useState(false);
+
+  // Guarantee that activeTabId always points to a valid tab
+  const effectiveActiveTabId = (activeTabId && tabs.some(t => t.id === activeTabId))
+    ? activeTabId
+    : (tabs[tabs.length - 1]?.id ?? tabs[0]?.id ?? null);
+
+  useEffect(() => {
+    if (effectiveActiveTabId && effectiveActiveTabId !== activeTabId) {
+      setActiveTabId(effectiveActiveTabId);
+    }
+  }, [effectiveActiveTabId, activeTabId]);
 
   // Helper to remove legacy keys and orphaned tab autosaves
   const cleanupOrphanedAutosaves = useCallback((currentTabs: Tab[]) => {
@@ -121,20 +266,26 @@ export function useMultiBuilderTabs() {
           // Navigate to builder page immediately
           navigate('/builder');
 
+          const projectName = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Project';
+
           setTabs(prev => {
             const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(path));
             if (existing) {
               setActiveTabId(existing.id);
               return prev;
             }
+            const newTabId = generateTabId();
+            setActiveTabId(newTabId);
             const newTab: Tab = {
-              id: generateTabId(),
-              title: 'Loading...',
+              id: newTabId,
+              title: projectName,
               projectPath: path,
               isDirty: false,
               everEdited: false,
             };
-            setActiveTabId(newTab.id);
+            if (prev.length === 1 && isCleanUntitled(prev[0])) {
+              return [newTab];
+            }
             return [...prev, newTab];
           });
         }
@@ -168,20 +319,26 @@ export function useMultiBuilderTabs() {
               win.setFocus().catch(() => {});
             }).catch(() => {});
 
+            const projectName = path.split(/[\\/]/).pop()?.replace(/\.ana$/i, '') || 'Project';
+
             setTabs(prev => {
               const existing = prev.find(t => normalizePath(t.projectPath) === normalizePath(path));
               if (existing) {
                 setActiveTabId(existing.id);
                 return prev;
               }
+              const newTabId = generateTabId();
+              setActiveTabId(newTabId);
               const newTab: Tab = {
-                id: generateTabId(),
-                title: 'Loading...',
+                id: newTabId,
+                title: projectName,
                 projectPath: path,
                 isDirty: false,
                 everEdited: false,
               };
-              setActiveTabId(newTab.id);
+              if (prev.length === 1 && isCleanUntitled(prev[0])) {
+                return [newTab];
+              }
               return [...prev, newTab];
             });
           }
@@ -213,16 +370,24 @@ export function useMultiBuilderTabs() {
       
       console.log('[MultiBuilderTabs] Custom load-workflow event received:', wf);
       
+      const newTabId = generateTabId();
+      setActiveTabId(newTabId);
+
       const newTab: Tab = {
-        id: generateTabId(),
+        id: newTabId,
         title: wf.name || 'Imported Project',
         projectPath: null,
         isDirty: false,
         everEdited: false,
         initialWorkflow: wf,
       };
-      setTabs(prev => [...prev, newTab]);
-      setActiveTabId(newTab.id);
+
+      setTabs(prev => {
+        if (prev.length === 1 && isCleanUntitled(prev[0])) {
+          return [newTab];
+        }
+        return [...prev, newTab];
+      });
     };
 
     window.addEventListener('anarchy:load-workflow', handleLoadWorkflow);
@@ -231,10 +396,9 @@ export function useMultiBuilderTabs() {
     };
   }, []);
 
-  // Process session storage loads
+  // Process session storage loads if navigated to builder while already mounted
   useEffect(() => {
-    // Only process session storage if we are on the builder page
-    if (location.pathname !== '/builder' && tabs.length > 0) return;
+    if (location.pathname !== '/builder') return;
 
     const projectPath = sessionStorage.getItem(SESSION_KEYS.OPEN_PROJECT_PATH);
     const presetWorkflow = sessionStorage.getItem(SESSION_KEYS.PRESET_WORKFLOW);
@@ -252,30 +416,42 @@ export function useMultiBuilderTabs() {
           window.dispatchEvent(new CustomEvent('anarchy:reload-project', { detail: { tabId: existing.id, projectPath } }));
           return prev;
         }
+        const newTabId = generateTabId();
+        setActiveTabId(newTabId);
+
         const newTab: Tab = {
-          id: generateTabId(),
+          id: newTabId,
           title: projectName,
           projectPath: projectPath,
           isDirty: false,
           everEdited: false,
         };
-        setActiveTabId(newTab.id);
+        if (prev.length === 1 && isCleanUntitled(prev[0])) {
+          return [newTab];
+        }
         return [...prev, newTab];
       });
     } else if (loadedWorkflow) {
       sessionStorage.removeItem(SESSION_KEYS.LOADED_WORKFLOW);
       try {
         const wf = JSON.parse(loadedWorkflow);
+        const newTabId = generateTabId();
+        setActiveTabId(newTabId);
+
         const newTab: Tab = {
-          id: generateTabId(),
+          id: newTabId,
           title: wf.name || 'Imported Project',
           projectPath: null,
           isDirty: false,
           everEdited: false,
           initialWorkflow: wf,
         };
-        setTabs(prev => [...prev, newTab]);
-        setActiveTabId(newTab.id);
+        setTabs(prev => {
+          if (prev.length === 1 && isCleanUntitled(prev[0])) {
+            return [newTab];
+          }
+          return [...prev, newTab];
+        });
       } catch (err) {
         console.error('Failed to parse loaded workflow:', err);
       }
@@ -287,8 +463,11 @@ export function useMultiBuilderTabs() {
       }
       try {
         const wf = JSON.parse(presetWorkflow);
+        const newTabId = generateTabId();
+        setActiveTabId(newTabId);
+
         const newTab: Tab = {
-          id: generateTabId(),
+          id: newTabId,
           title: wf.name || 'Preset Workflow',
           projectPath: null,
           isDirty: false,
@@ -296,47 +475,60 @@ export function useMultiBuilderTabs() {
           initialWorkflow: wf,
           initialImage: img || undefined,
         };
-        setTabs(prev => [...prev, newTab]);
-        setActiveTabId(newTab.id);
+        setTabs(prev => {
+          if (prev.length === 1 && isCleanUntitled(prev[0])) {
+            return [newTab];
+          }
+          return [...prev, newTab];
+        });
       } catch (err) {
         console.error('Failed to parse preset workflow:', err);
       }
     } else if (presetImage) {
       sessionStorage.removeItem(SESSION_KEYS.PRESET_IMAGE);
+      const newTabId = generateTabId();
+      setActiveTabId(newTabId);
+
       const newTab: Tab = {
-        id: generateTabId(),
+        id: newTabId,
         title: 'Preset Image',
         projectPath: null,
         isDirty: false,
         everEdited: false,
         initialImage: presetImage,
       };
-      setTabs(prev => [...prev, newTab]);
-      setActiveTabId(newTab.id);
+      setTabs(prev => {
+        if (prev.length === 1 && isCleanUntitled(prev[0])) {
+          return [newTab];
+        }
+        return [...prev, newTab];
+      });
     } else if (tabs.length === 0) {
+      const newTabId = generateTabId();
+      setActiveTabId(newTabId);
       const newTab: Tab = {
-        id: generateTabId(),
+        id: newTabId,
         title: 'Untitled',
         projectPath: null,
         isDirty: false,
         everEdited: false,
       };
       setTabs([newTab]);
-      setActiveTabId(newTab.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on startup and navigation to builder
   }, [location.pathname]);
 
   const createNewTab = useCallback(() => {
+    const newTabId = generateTabId();
+    setActiveTabId(newTabId);
     const newTab: Tab = {
-      id: generateTabId(),
+      id: newTabId,
       title: 'Untitled',
       projectPath: null,
       isDirty: false,
       everEdited: false,
     };
     setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
   }, []);
 
   const doCloseTab = useCallback((tabId: string) => {
@@ -344,23 +536,30 @@ export function useMultiBuilderTabs() {
     try {
       localStorage.removeItem(`anarchy_builder_silent_autosave_${tabId}`);
     } catch {}
+
     setTabs(prev => {
+      const idx = prev.findIndex(t => t.id === tabId);
       const newTabs = prev.filter(t => t.id !== tabId);
-      if (activeTabId === tabId && newTabs.length > 0) {
-        const idx = prev.findIndex(t => t.id === tabId);
-        const nextTab = prev[idx + 1] ?? prev[idx - 1];
-        setActiveTabId(nextTab.id);
-      } else if (newTabs.length === 0) {
-        const emptyTab: Tab = {
-          id: generateTabId(),
+
+      if (newTabs.length === 0) {
+        const emptyTabId = generateTabId();
+        setActiveTabId(emptyTabId);
+        return [{
+          id: emptyTabId,
           title: 'Untitled',
           projectPath: null,
           isDirty: false,
           everEdited: false,
-        };
-        setActiveTabId(emptyTab.id);
-        return [emptyTab];
+        }];
       }
+
+      if (activeTabId === tabId) {
+        const nextTab = prev[idx + 1] ?? prev[idx - 1] ?? newTabs[0];
+        if (nextTab) {
+          setActiveTabId(nextTab.id);
+        }
+      }
+
       return newTabs;
     });
   }, [activeTabId]);
@@ -517,8 +716,10 @@ export function useMultiBuilderTabs() {
   };
 
   const restoreSnapshotTab = useCallback((snapshot: RecoverySnapshot) => {
+    const newTabId = generateTabId();
+    setActiveTabId(newTabId);
     const newTab: Tab = {
-      id: generateTabId(),
+      id: newTabId,
       title: snapshot.title || 'Restored Session',
       projectPath: snapshot.projectPath || null,
       isDirty: true,
@@ -529,14 +730,18 @@ export function useMultiBuilderTabs() {
         edges: snapshot.edges,
       },
     };
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
+    setTabs(prev => {
+      if (prev.length === 1 && isCleanUntitled(prev[0])) {
+        return [newTab];
+      }
+      return [...prev, newTab];
+    });
   }, []);
 
   return {
     tabs,
     setTabs,
-    activeTabId,
+    activeTabId: effectiveActiveTabId,
     setActiveTabId,
     closeConfirm,
     setCloseConfirm,

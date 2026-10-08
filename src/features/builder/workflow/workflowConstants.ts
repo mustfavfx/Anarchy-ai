@@ -17,25 +17,121 @@ export const getAutosaveKey = (tabId?: string) => {
 };
 
 // ── Upload helper: converts local/data-URI images ─────────────────────────────
-// Nano Banana models accept base64 data URIs directly (best quality, no expiry)
-// Other models (FLUX, GPT, etc.) need public URLs via upload service
+async function uploadToSupabaseStorage(dataUri: string): Promise<string | null> {
+  try {
+    const { supabase, getCurrentUserId } = await import('../../../services/supabase/supabaseClient');
+    const commaIdx = dataUri.indexOf(',');
+    if (commaIdx === -1) return null;
+    const meta = dataUri.substring(0, commaIdx);
+    const b64 = dataUri.substring(commaIdx + 1);
+    const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
+    const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+
+    const byteStr = atob(b64);
+    const bytes = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+
+    const uid = getCurrentUserId() || 'public';
+    const path = `${uid}/inputs/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from('generated-images').upload(path, blob, {
+      contentType: mime,
+      upsert: true,
+    });
+    if (!error) {
+      const { data } = supabase.storage.from('generated-images').getPublicUrl(path);
+      if (data?.publicUrl && data.publicUrl.startsWith('https://')) {
+        return data.publicUrl;
+      }
+    }
+  } catch (err) {
+    logger.warn('[uploadToSupabaseStorage] Notice:', err);
+  }
+  return null;
+}
+
+/**
+ * Downscale and compress large base64 image data URIs to a safe size (max 1536px, JPEG 0.85)
+ * so payloads never choke HTTP gateways, Supabase proxy, or Edge Functions.
+ */
+export async function optimizeDataUriForInput(dataUri: string, maxDimension = 1536): Promise<string> {
+  if (!dataUri || !dataUri.startsWith('data:image')) return dataUri;
+  // If already under 350KB, safe to pass as is
+  if (dataUri.length < 350 * 1024) return dataUri;
+  if (typeof window === 'undefined' || typeof document === 'undefined') return dataUri;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => resolve(dataUri), 4000); // 4s fallback timeout
+    img.onload = () => {
+      clearTimeout(timer);
+      let w = img.naturalWidth || img.width;
+      let h = img.naturalHeight || img.height;
+      if (!w || !h) {
+        resolve(dataUri);
+        return;
+      }
+      if (w > maxDimension || h > maxDimension) {
+        if (w >= h) {
+          h = Math.round((h * maxDimension) / w);
+          w = maxDimension;
+        } else {
+          w = Math.round((w * maxDimension) / h);
+          h = maxDimension;
+        }
+      }
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUri);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.85);
+        logger.log(`[optimizeDataUriForInput] Compressed payload from ${(dataUri.length / 1024).toFixed(0)}KB to ${(compressed.length / 1024).toFixed(0)}KB (${w}x${h})`);
+        resolve(compressed.length < dataUri.length ? compressed : dataUri);
+      } catch {
+        resolve(dataUri);
+      }
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      resolve(dataUri);
+    };
+    img.src = dataUri;
+  });
+}
+
+// Nano Banana models accept base64 data URIs directly (best quality, zero network latency, no remote disconnects)
+// Other models prefer public HTTPS URLs via Supabase Storage or Replicate Files API
 export async function uploadImageIfLocal(url: string, _model?: string): Promise<string> {
   if (!url) return url;
-  // Public HTTPS URL (not localhost) - safe to use directly
-  if (url.startsWith('https://')) return url;
-  
+  // Public HTTPS URL (not localhost or catbox.moe) - safe to use directly
+  if (url.startsWith('https://') && !url.includes('catbox.moe')) return url;
+
   // Resolve IndexedDB-backed images first
   if (url.startsWith('idb://')) {
     try {
       const { getLocalImage } = await import('../../../services/history/HistoryService');
       const cached = await getLocalImage(url);
       if (cached) {
+        // Nano Banana natively accepts data: URIs directly
+        if (_model?.startsWith('google/nano-banana') || _model === 'black-forest-labs/flux-3-image') {
+          return await optimizeDataUriForInput(cached);
+        }
+        const supaUrl = await uploadToSupabaseStorage(cached);
+        if (supaUrl) return supaUrl;
+
         try {
           const { replicateService } = await import('../../../services/replicate');
           return await replicateService.uploadToReplicate(cached);
         } catch (err) {
-          logger.error('[uploadImageIfLocal] Replicate upload failed (idb resolution), falling back to inline:', err);
-          return cached;
+          logger.warn('[uploadImageIfLocal] Replicate upload failed, using optimized inline data URI:', err);
+          return await optimizeDataUriForInput(cached);
         }
       }
     } catch (err) {
@@ -44,28 +140,63 @@ export async function uploadImageIfLocal(url: string, _model?: string): Promise<
     return url;
   }
 
-  // Already a data URI — upload to Replicate Files API to get a serving URL
-  // This is more reliable than sending huge base64 inline in JSON body
+  // Already a data URI (base64)
   if (url.startsWith('data:')) {
+    // Nano Banana & FLUX 3 Image natively accept data: URIs directly without any remote fetch
+    if (_model?.startsWith('google/nano-banana') || _model === 'black-forest-labs/flux-3-image') {
+      return await optimizeDataUriForInput(url);
+    }
+    const supaUrl = await uploadToSupabaseStorage(url);
+    if (supaUrl) return supaUrl;
+
     try {
       const { replicateService } = await import('../../../services/replicate');
       return await replicateService.uploadToReplicate(url);
     } catch (err) {
-      logger.error('[uploadImageIfLocal] Replicate upload failed (data URI), falling back to inline:', err);
-      return url; // fallback: send data URI inline (works for small images)
+      logger.warn('[uploadImageIfLocal] Upload failed, sending optimized inline data URI:', err);
+      return await optimizeDataUriForInput(url);
     }
   }
-  // localhost / blob URLs are not reachable by Replicate — convert to base64 first, then upload
-  if (url.startsWith('http://') || url.startsWith('blob:')) {
+
+  // Localhost / blob / file / asset / catbox.moe URLs: convert to base64 first
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('blob:') ||
+    url.startsWith('file://') ||
+    url.startsWith('asset://') ||
+    url.startsWith('tauri://') ||
+    url.includes('catbox.moe') ||
+    /^[a-zA-Z]:[\\/]/.test(url)
+  ) {
     try {
-      const b64: string = await invoke('url_to_base64', { url });
-      if (b64?.startsWith('data:')) {
+      let b64: string | null = null;
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        b64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        const { invoke } = await import('@tauri-apps/api/core');
+        b64 = await invoke<string>('url_to_base64', { url });
+      }
+
+      if (b64 && b64.startsWith('data:')) {
+        const optimized = await optimizeDataUriForInput(b64);
+        if (_model?.startsWith('google/nano-banana') || _model === 'black-forest-labs/flux-3-image') {
+          return optimized;
+        }
+        const supaUrl = await uploadToSupabaseStorage(optimized);
+        if (supaUrl) return supaUrl;
+
         try {
           const { replicateService } = await import('../../../services/replicate');
-          return await replicateService.uploadToReplicate(b64);
-        } catch (err) {
-          logger.error('[uploadImageIfLocal] Replicate upload failed (blob/local), falling back to inline:', err);
-          return b64; // fallback: send data URI inline
+          return await replicateService.uploadToReplicate(optimized);
+        } catch {
+          return optimized;
         }
       }
     } catch (err) {
@@ -79,25 +210,38 @@ export async function uploadImageIfLocal(url: string, _model?: string): Promise<
 export async function persistImageLocally(url: string): Promise<string> {
   if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
 
-  // Try Tauri Rust command first (bypasses CORS)
-  try {
-    const base64Data: string = await invoke('url_to_base64', { url });
-    if (base64Data?.startsWith('data:')) return base64Data;
-  } catch {
-    // Tauri unavailable — fall through to browser fetch
+  // If already an IDB cache key, resolve its cached data URI or object URL
+  if (url.startsWith('idb://')) {
+    try {
+      const cached = await getLocalImage(url);
+      if (cached) return cached;
+    } catch {
+      // Fall through
+    }
   }
 
-  // Browser fallback: fetch image and convert to base64
+  // 1. Try Tauri Rust command first (bypasses CORS and Hotlink blocks)
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    const base64Data: string = await invoke('url_to_base64', { url });
+    if (base64Data && base64Data.startsWith('data:')) {
+      return base64Data;
+    }
+  } catch (tauriErr) {
+    logger.warn('[persistImageLocally] Tauri url_to_base64 notice:', tauriErr);
+  }
+
+  // 2. Browser fallback: fetch image with no-referrer
+  try {
+    const response = await fetch(url, { referrerPolicy: 'no-referrer' });
+    if (response.ok) {
+      const blob = await response.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
   } catch {
     // Cannot convert — return original URL as last resort
   }
@@ -135,14 +279,17 @@ export async function getImageDimensions(url: string): Promise<{ width: number; 
 
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    img.referrerPolicy = 'no-referrer';
+    const timer = setTimeout(() => resolve({ width: 1024, height: 1024 }), 4000);
     img.onload = () => {
+      clearTimeout(timer);
       resolve({
         width: img.naturalWidth || img.width || 1024,
         height: img.naturalHeight || img.height || 1024,
       });
     };
     img.onerror = () => {
+      clearTimeout(timer);
       resolve({ width: 1024, height: 1024 });
     };
     img.src = resolvedUrl;
@@ -294,10 +441,12 @@ export const TYPE_LABELS: Record<ProcessingType, string> = {
 
 export const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'google/nano-banana-2':             'Nano Banana 2',
+  'google/nano-banana-2.1':           'Nano Banana 2.1',
   'google/nano-banana-2-lite':        'Nano Banana 2 Lite',
   'google/nano-banana-pro':           'Nano Banana Pro',
   'bytedance/seedream-4.5':           'Seedream 4.5',
   'bytedance/seedream-5-pro':         'Seedream 5 Pro',
+  'black-forest-labs/flux-3-image':   'FLUX 3 Image',
   'black-forest-labs/flux-2-pro':     'FLUX 2 Pro',
   'openai/gpt-image-2':               'GPT Image 2',
   'openai/gpt-image-2.5-flare':       'GPT Image 2.5 (Flare)',
@@ -319,6 +468,18 @@ export const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'google/veo-3.1-fast':              'Google Veo 3.1 Fast',
   'pixverse/pixverse-v6':              'PixVerse v6',
   'openai/sora-2-pro':                'Sora 2 Pro',
+  // ── Upscalers ──
+  'midjourney/mj-turbo-upscale':          'Midjourney Turbo',
+  'mj-turbo-upscale':                     'Midjourney Turbo',
+  'midjourney/mj-turbo-upscale-subtle':   'MJ Turbo Subtle',
+  'midjourney/mj-turbo-upscale-creative': 'MJ Turbo Creative',
+  'midjourney/mj-fast-upscale':           'Midjourney Fast',
+  'midjourney/mj-fast-upscale-subtle':    'MJ Fast Subtle',
+  'midjourney/mj-fast-upscale-creative':  'MJ Fast Creative',
+  'nightmareai/real-esrgan':              'Fast AI Upscale',
+  'philz1337x/clarity-pro-upscaler':      'Anarchy Upscale',
+  'topazlabs/image-upscale':              'Topaz Upscale',
+  'prunaai/p-image-upscale':              'Pruna AI Upscale',
 };
 
 // ============================================================================

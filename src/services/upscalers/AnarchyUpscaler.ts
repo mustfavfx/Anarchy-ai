@@ -17,7 +17,7 @@ export class AnarchyUpscaler implements BaseUpscaler {
       image,
       scale_factor: Number(scaleFactor),
       creativity: Number(creativity),
-      output_format: 'png',
+      output_format: 'jpg',
     };
   }
 

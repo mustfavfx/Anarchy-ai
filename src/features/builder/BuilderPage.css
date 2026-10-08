@@ -183,9 +183,13 @@
 
 /* Smooth node transitions & hardware layer promotion */
 .react-flow__node {
-  contain: layout style;
+  overflow: visible !important;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
+}
+
+.react-flow__node.selected {
+  z-index: 900 !important;
 }
 
 .react-flow__node.react-flow__node-dragging,
@@ -1812,7 +1816,9 @@
 /* Make connection points (handles) more visible and connected */
 .react-flow__handle {
   opacity: 1 !important;
-  z-index: 100 !important;
+  visibility: visible !important;
+  z-index: 1000 !important;
+  pointer-events: auto !important;
 }
 
 /* Improve edge visibility during connection */

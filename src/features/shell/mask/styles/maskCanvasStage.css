@@ -1,0 +1,392 @@
+/* ==========================================================================
+   ANARCHY — VizMaker 100% Ultra-Clean Mask Canvas Styles
+   Clean, Sleek, Professional Workspace Matching VizMaker Studio Layout
+   ========================================================================== */
+
+.mask-canvas-container {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  background: #090a0f;
+  background-image: radial-gradient(circle at 50% 10%, rgba(225, 29, 72, 0.04) 0%, transparent 70%);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+  position: relative;
+}
+
+/* ── Empty State ───────────────────────────────────────────────────────────── */
+
+.mask-canvas-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 40px;
+}
+
+.mask-canvas-empty span {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.mask-canvas-empty small {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+
+/* ── Photoshop-Style Vertical Right Rail (Layers & History Actions) ─────── */
+
+.mask-canvas-right-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 48px;
+  height: 100%;
+  padding: 8px 0;
+  background: rgba(12, 14, 22, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 35;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+  gap: 6px;
+}
+
+.mask-canvas-right-rail .mask-toolbar-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.mask-canvas-rail-divider {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 2px 0;
+}
+
+
+/* ── Main Canvas Wrapper & Interactive Surface ───────────────────────────── */
+
+.mask-canvas-wrapper {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050608;
+  user-select: none;
+  touch-action: none;
+}
+
+.mask-canvas-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  will-change: transform;
+}
+
+.mask-canvas-base-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+
+.mask-canvas-draw {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: all;
+  z-index: 10;
+  touch-action: none;
+}
+
+
+/* ── Pulsing Highlight during Mask Inpaint Generation ────────────────────────── */
+@keyframes maskSelectionPulse {
+  0% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 4px #e11d48);
+  }
+  50% {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 20px #e11d48) brightness(1.25);
+  }
+  100% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 4px #e11d48);
+  }
+}
+
+.mask-canvas-draw.mask-pulsing,
+.mask-shape-preview-svg.mask-pulsing {
+  animation: maskSelectionPulse 1.2s infinite ease-in-out !important;
+}
+
+.vizmaker-prompt-badge.resolution {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+  font-size: 11px;
+}
+
+.mask-canvas-cursor {
+  position: absolute;
+  border: 1.5px solid #ffffff;
+  background: rgba(225, 29, 72, 0.25);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 25;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), 0 0 12px rgba(0, 0, 0, 0.6);
+  will-change: left, top;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mask-cursor-center-dot {
+  width: 2.5px;
+  height: 2.5px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 2px #000000;
+  pointer-events: none;
+}
+
+.mask-cursor-inner-core {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.85);
+  transition: width 0.05s ease, height 0.05s ease;
+}
+
+.mask-cursor-hud-badge {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(7px);
+  background: rgba(15, 17, 26, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  padding: 1.5px 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #f4f4f5;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
+  z-index: 30;
+}
+
+/* Animation utilities */
+.spin {
+  animation: viz-spin 1.2s linear infinite;
+}
+
+@keyframes viz-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Professional Eraser Tool Styling */
+.eraser-tool-btn.active {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+.mask-eraser-cursor {
+  border: 1.5px dashed #f59e0b !important;
+  background: rgba(245, 158, 11, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), 0 0 10px rgba(245, 158, 11, 0.4) !important;
+}
+
+.mask-eraser-cursor .mask-cursor-center-dot {
+  background: #f59e0b;
+}
+
+.mask-hud-btn {
+  transition: all 0.15s ease;
+}
+
+.mask-hud-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+.mask-zoom-btn {
+  transition: all 0.15s ease;
+}
+
+.mask-zoom-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 4px;
+}
+
+.mask-zoom-text {
+  transition: color 0.15s ease;
+}
+
+.mask-zoom-text:hover {
+  color: #38bdf8 !important;
+}
+
+
+/* ── VizMaker-Style Dual-Engine Workspace Mode (Mask vs Draw) ─────────────── */
+
+.mask-workspace-mode-selector {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.workspace-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.workspace-mode-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.workspace-mode-btn.active {
+  background: #e11d48;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.4);
+}
+
+.mask-draw-palette {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+.palette-color-btn {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease;
+}
+
+.palette-color-btn:hover {
+  transform: scale(1.2);
+}
+
+.palette-color-btn.selected {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  transform: scale(1.15);
+}
+
+.palette-custom-picker {
+  width: 16px;
+  height: 16px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+/* ── Polygonal Lasso & Laser Drafting Styles ───────────────────────────────── */
+
+.mask-polygon-preview-svg {
+  filter: drop-shadow(0 0 6px rgba(225, 29, 72, 0.4));
+}
+
+@keyframes maskNodePulse {
+  0% {
+    r: 6px;
+    opacity: 1;
+  }
+  50% {
+    r: 8.5px;
+    opacity: 0.85;
+  }
+  100% {
+    r: 6px;
+    opacity: 1;
+  }
+}
+
+.mask-start-node-pulse {
+  animation: maskNodePulse 1.4s infinite ease-in-out;
+}
+
+
+
+.mask-hud-btn {
+  transition: all 0.15s ease;
+}
+
+.mask-hud-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  transform: translateY(-1px);
+}
+
+.mask-preset-pill:hover {
+  background: rgba(225, 29, 72, 0.18) !important;
+  border-color: rgba(225, 29, 72, 0.4) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+/* ── Smart Auto-Segmentation (SAM) Laser Contour Overlay ─────────────────── */
+
+.mask-smart-contour-overlay {
+  pointer-events: none;
+}
+
+@keyframes dashMove {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 14;
+  }
+}

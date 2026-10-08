@@ -4,7 +4,6 @@ import { useBuilderQueueStore } from '../../../stores/builderQueueStore';
 import { STORAGE_KEYS } from '../../../utils/storageKeys';
 import { getCurrentUserId } from '../../../services/supabase/supabaseClient';
 import type { BuilderNode, ProcessingType } from '../types';
-import { patchSpawnedNode } from '../utils/builderHelpers';
 
 const getAutosaveKey = (tabId?: string) => {
   const uid = getCurrentUserId();
@@ -35,7 +34,7 @@ export interface UseBuilderCanvasEventsParams {
 export function useBuilderCanvasEvents({
   nodes,
   nodesWithCallbacks,
-  selectedNodeId,
+  selectedNodeId: _selectedNodeId,
   setSelectedNodeId,
   setSelectedNode,
   deleteNode,
@@ -48,7 +47,7 @@ export function useBuilderCanvasEvents({
   handleGenerate,
   applyWatermarkToSource,
   createSourceNode,
-  setNodes,
+  setNodes: _setNodes,
   fitView,
 }: UseBuilderCanvasEventsParams) {
   const [contextMenu, setContextMenu] = useState<{
@@ -249,12 +248,10 @@ export function useBuilderCanvasEvents({
     const watermarked = await applyWatermarkToSource(dataUrl);
     const nodeId = createSourceNode(watermarked, undefined, position);
 
-    setTimeout(() => setNodes(patchSpawnedNode(nodeId)), 50);
     setSelectedNodeId(nodeId);
-    setSelectedNode({ id: nodeId, type: 'source', image: watermarked, prompt: undefined, state: 'ready' });
-    setTimeout(() => { fitView({ padding: 0.3, minZoom: 0.6, duration: 400 }); }, 200);
+    setTimeout(() => { fitView({ padding: 0.3, minZoom: 0.6, duration: 300 }); }, 60);
     logger.log('[Spawn From Image] Source node created successfully:', nodeId);
-  }, [createSourceNode, setSelectedNodeId, setSelectedNode, fitView, setNodes, applyWatermarkToSource]);
+  }, [createSourceNode, setSelectedNodeId, fitView, applyWatermarkToSource]);
 
   // Window-level contextmenu for Tauri (ReactFlow's onPaneContextMenu may not fire)
   useEffect(() => {

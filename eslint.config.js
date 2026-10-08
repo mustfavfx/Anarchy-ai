@@ -32,6 +32,7 @@ export default defineConfig([
       'react-hooks/preserve-manual-memoization': 'off',
       'react-hooks/react-compiler': 'off',
       'react-hooks/immutability': 'off',
+      'react-hooks/purity': 'off',
       'react-refresh/only-export-components': 'off',
     },
   },

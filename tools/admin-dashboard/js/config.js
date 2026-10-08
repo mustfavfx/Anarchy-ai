@@ -2,6 +2,7 @@
 // Supabase Configuration
     const SUPABASE_URL = 'https://ejzsbkxpqmhpjuqmszvd.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqenNia3hwcW1ocGp1cW1zenZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjEzNjIsImV4cCI6MjA5MzE5NzM2Mn0.lbKXt_BLTNXjTKpmqdPLvU6vC-mWNjbVRYjfSGFVZcc';
+    const ANON_KEY = SUPABASE_ANON_KEY;
     
     let activeClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let rawData = null;

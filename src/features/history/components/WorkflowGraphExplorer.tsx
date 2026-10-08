@@ -16,6 +16,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import type { HistoryEntry } from '../types';
 import { useLazyImage } from '../hooks/useLazyImage';
+import { useResolvedImage } from '@/hooks/useResolvedImage';
 import { useHistoryStore } from '@/stores/historyStore';
 import { 
   GitBranch, ZoomIn, ZoomOut, Maximize2, 
@@ -48,6 +49,9 @@ export const HistoryGraphNode = React.memo(({ data }: { data: any }) => {
   const compareIndex = data.compareIndex;
   
   const { containerRef, src, isLoading } = useLazyImage(entry.id, 'output');
+  const rawFallback = entry.outputImage || entry.outputImageKey || entry.thumbnailUrl || entry.url || entry.rootSourceImage || (entry.id ? `idb://${entry.id}_output` : '');
+  const resolvedFallback = useResolvedImage(rawFallback);
+  const effectiveSrc = src || resolvedFallback;
   
   const nodeType = entry.nodeType || (entry.parentId ? 'variation' : 'source');
 
@@ -69,8 +73,8 @@ export const HistoryGraphNode = React.memo(({ data }: { data: any }) => {
       )}
 
       <div className="tree-node-card-inner">
-        {src ? (
-          <img src={src} className="node-card-thumb" alt={entry.label} />
+        {effectiveSrc ? (
+          <img src={effectiveSrc} className="node-card-thumb" alt={entry.label} />
         ) : isLoading ? (
           <div className="node-card-thumb-placeholder skeleton-image" style={{ overflow: 'hidden', position: 'relative' }}>
             <div className="skeleton-shimmer" />

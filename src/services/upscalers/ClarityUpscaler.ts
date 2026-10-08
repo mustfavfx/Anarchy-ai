@@ -26,13 +26,13 @@ export class ClarityUpscaler implements BaseUpscaler {
       tiling_height: config.clarityTilingHeight ?? 144,
       sd_model: config.claritySdModel ?? 'juggernaut_reborn.safetensors [338b85bc4f]',
       scheduler: config.clarityScheduler ?? 'DPM++ 3M SDE Karras',
-      num_inference_steps: config.claritySteps ?? 18,
+      num_inference_steps: config.claritySteps ?? 10,
       seed,
       downscaling: config.clarityDownscaling ?? false,
       downscaling_resolution: config.clarityDownscalingRes ?? 768,
       sharpen: config.claritySharpen ?? 0,
       handfix: config.clarityHandfix ?? 'disabled',
-      output_format: config.clarityOutputFormat ?? 'png',
+      output_format: config.clarityOutputFormat ?? 'jpg',
     };
   }
 

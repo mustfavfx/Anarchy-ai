@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import type { Node, Edge } from '@xyflow/react';
 import type { ReplicateImageModel, ReplicateUpscaleModel, ReplicateVideoModel } from '../services/replicate/ReplicateService';
+import type { SemanticClassification } from '../features/builder/types';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,18 @@ export interface SelectedNodeInfo {
   extractedLayout?: any;
   layout?: any;
   dimensions?: { width: number; height: number };
+  semantic?: SemanticClassification;
+}
+
+export interface CanvasNodeImageSummary {
+  id: string;
+  label?: string;
+  image?: string;
+  originalImage?: string;
+  prompt?: string;
+  type?: string;
+  dimensions?: { width: number; height: number };
+  semantic?: SemanticClassification;
 }
 
 export interface CompareImages {
@@ -283,6 +296,10 @@ interface AIConfigState {
   lastSelectedNodeId: string | null;
   setLastSelectedNodeId: (id: string | null) => void;
   
+  // Canvas Images Summary (all image-bearing nodes currently on canvas)
+  canvasImages: CanvasNodeImageSummary[];
+  setCanvasImages: (images: CanvasNodeImageSummary[]) => void;
+  
   // Compare Images
   compareImages: CompareImages;
   setCompareImages: (images: CompareImages | ((prev: CompareImages) => CompareImages)) => void;
@@ -314,15 +331,31 @@ interface AIConfigState {
   // Canvas focus callback — registered by BuilderPage
   focusNodeFn: ((nodeId: string) => void) | null;
   setFocusNodeFn: (fn: ((nodeId: string) => void) | null) => void;
+  focusNode: (nodeId: string) => void;
 
   // Node image & layout update callback — registered by BuilderPage, called when crop/edit/layout changes node
   nodeImageUpdateFn: ((nodeId: string, image?: string, layout?: any) => void) | null;
   setNodeImageUpdateFn: (fn: ((nodeId: string, image?: string, layout?: any) => void) | null) => void;
 
+  // Node fork child callback — registered by BuilderPage, creates connected child branch node
+  forkChildNodeFn: ((parentId: string, image: string, actionLabel?: string, prompt?: string) => string | null) | null;
+  setForkChildNodeFn: (fn: ((parentId: string, image: string, actionLabel?: string, prompt?: string) => string | null) | null) => void;
+  forkChildNode: (parentId: string, image: string, actionLabel?: string, prompt?: string) => string | null;
+
+  // Node execute callback — registered by BuilderPage, triggers AI model generation on node
+  executeNodeFn: ((nodeId: string, prompt: string, config?: any) => Promise<any>) | null;
+  setExecuteNodeFn: (fn: ((nodeId: string, prompt: string, config?: any) => Promise<any>) | null) => void;
+  executeNode: (nodeId: string, prompt: string, config?: any) => Promise<any>;
+
   // Node prompt update callback — registered by BuilderPage, called when agent/studio updates node prompt
   nodePromptUpdateFn: ((nodeId: string, prompt: string) => void) | null;
   setNodePromptUpdateFn: (fn: ((nodeId: string, prompt: string) => void) | null) => void;
   updateNodePrompt: (nodeId: string, prompt: string) => void;
+
+  // Node semantic classification callback — registered by BuilderPage
+  nodeSemanticUpdateFn: ((nodeId: string, semantic: SemanticClassification) => void) | null;
+  setNodeSemanticUpdateFn: (fn: ((nodeId: string, semantic: SemanticClassification) => void) | null) => void;
+  updateNodeSemantic: (nodeId: string, semantic: SemanticClassification) => void;
 
   // Workspace shared prompt
   workspacePrompt: string;
@@ -395,7 +428,7 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   config: { ...DEFAULT_CONFIG, ...loadWatermarkConfig(), watermarkImage: loadWatermarkImage('_img'), watermark2Image: loadWatermarkImage('_img2') },
   setConfig: (config) => {
     set((state) => {
-      const next = typeof config === 'function' ? config(state.config) : config;
+      const next = typeof config === 'function' ? config(state.config) : { ...state.config, ...config };
       saveWatermarkConfig(next);
       return { config: next };
     });
@@ -440,6 +473,10 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   clearSelectedNode: () => set({
     selectedNode: { id: null, type: null, image: undefined, prompt: undefined, state: undefined }
   }),
+
+  // Canvas Images Summary
+  canvasImages: [],
+  setCanvasImages: (images) => set({ canvasImages: images }),
   
   // Compare Images
   compareImages: { A: null, B: null },
@@ -478,10 +515,33 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
   // Canvas focus callback
   focusNodeFn: null,
   setFocusNodeFn: (fn) => set({ focusNodeFn: fn }),
+  focusNode: (nodeId: string) => {
+    const fn = get().focusNodeFn;
+    if (fn) fn(nodeId);
+  },
 
   // Node image update callback
   nodeImageUpdateFn: null,
   setNodeImageUpdateFn: (fn) => set({ nodeImageUpdateFn: fn }),
+
+  // Node fork child callback
+  forkChildNodeFn: null,
+  setForkChildNodeFn: (fn) => set({ forkChildNodeFn: fn }),
+  forkChildNode: (parentId: string, image: string, actionLabel?: string, prompt?: string) => {
+    const fn = get().forkChildNodeFn;
+    return fn ? fn(parentId, image, actionLabel, prompt) : null;
+  },
+
+  // Node execute callback
+  executeNodeFn: null,
+  setExecuteNodeFn: (fn) => set({ executeNodeFn: fn }),
+  executeNode: async (nodeId: string, prompt: string, config?: any) => {
+    const fn = get().executeNodeFn;
+    if (fn) {
+      return await fn(nodeId, prompt, config);
+    }
+    return null;
+  },
 
   // Node prompt update callback
   nodePromptUpdateFn: null,
@@ -499,6 +559,28 @@ export const useAIConfigStore = create<AIConfigState>((set, get) => ({
       });
     } else {
       set({ workspacePrompt: prompt });
+    }
+  },
+
+  // Node semantic classification callback
+  nodeSemanticUpdateFn: null,
+  setNodeSemanticUpdateFn: (fn) => set({ nodeSemanticUpdateFn: fn }),
+  updateNodeSemantic: (nodeId: string, semantic: SemanticClassification) => {
+    const fn = get().nodeSemanticUpdateFn;
+    if (fn) {
+      fn(nodeId, semantic);
+    }
+    const currentSelected = get().selectedNode;
+    if (currentSelected && currentSelected.id === nodeId) {
+      set({ selectedNode: { ...currentSelected, semantic } });
+    }
+    const currentImages = get().canvasImages;
+    if (currentImages && currentImages.some((img) => img.id === nodeId)) {
+      set({
+        canvasImages: currentImages.map((img) =>
+          img.id === nodeId ? { ...img, semantic } : img
+        ),
+      });
     }
   },
 
