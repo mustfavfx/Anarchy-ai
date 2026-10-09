@@ -234,12 +234,12 @@ export const useWorkflowExecution = ({
       };
 
       // Resolve source dimensions
+      const primaryEdge = incomingEdges[0];
       let sourceDims: { width: number; height: number } | undefined = undefined;
       // If config explicitly specified sourceWidth and sourceHeight (e.g. from resize reframing or markup), use them directly!
       if (config?.sourceWidth && config?.sourceHeight && config.sourceWidth > 0 && config.sourceHeight > 0) {
         sourceDims = { width: config.sourceWidth, height: config.sourceHeight };
       } else {
-        const primaryEdge = incomingEdges[0];
         if (primaryEdge && !isResizeNode) {
           const primaryParentNode = nodesRef.current.find(n => n.id === primaryEdge.source);
           if (primaryParentNode) {

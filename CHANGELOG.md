@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.100] - 2026-10-09
+
+### Workflow Execution & Pipeline Stabilization
+- **Generation Node Edge Scope Fix**:
+  - Resolved `ReferenceError: primaryEdge is not defined` in `useWorkflowExecution.ts`.
+  - Hoisted `primaryEdge` declaration above source dimension resolution blocks so reframed/resized parent dimensions and incoming edge handles are always reliably resolved during node generation.
+
+---
+
 ## [0.3.99] - 2026-10-09
 
 ### Hotfix & Editor Stabilization

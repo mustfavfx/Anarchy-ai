@@ -45,11 +45,11 @@ export interface UpdateSlide {
 
 const UPDATE_SLIDES: UpdateSlide[] = [
   {
-    id: 'resize-credits-overhaul-v0399',
-    badge: 'Latest Release v0.3.99 | Hotfix & Engine Stabilization',
+    id: 'resize-credits-overhaul-v03100',
+    badge: 'Latest Release v0.3.100 | Workflow & Pipeline Stabilization',
     title: 'AI Resize Outpainting & Unified Credit Billing',
     subtitle: 'High-precision architectural aspect ratio reframing, intelligent outpainting, and transparent credit deduction.',
-    description: 'Version 0.3.99 resolves mask adjustment layer initialization, image framing and aspect ratio outpainting in the Lightbox Image Editor, while integrating full credit verification, live cost previews, and automated balance protection across all editing tools.',
+    description: 'Version 0.3.100 resolves workflow generation node pipeline execution (primaryEdge scope fix), mask adjustment layer initialization, and image framing and aspect ratio outpainting in the Lightbox Image Editor.',
     features: [
       '1. Fixed AI Resize & Framing: Expands canvas to 9:16, 16:9, 4:5 without distorting central architecture',
       '2. Seamless AI Outpainting: Fills surroundings, sky, and foreground cleanly using Nano Banana & GPT Image',
@@ -344,7 +344,7 @@ const UPDATE_SLIDES: UpdateSlide[] = [
   },
 ];
 
-const STORAGE_KEY = 'anarchy_whats_new_v0.3.99_seen';
+const STORAGE_KEY = 'anarchy_whats_new_v0.3.100_seen';
 
 const renderCardIcon = (icon: UpdateFeatureCard['icon'], color: string) => {
   switch (icon) {
@@ -461,7 +461,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             <div className="anarchy-wn-logo-badge">A</div>
             <div>
               <div className="anarchy-wn-app-title">Anarchy AI Studio</div>
-              <div className="anarchy-wn-version-tag">Release v0.3.99 Updates</div>
+              <div className="anarchy-wn-version-tag">Release v0.3.100 Updates</div>
             </div>
           </div>
           <button

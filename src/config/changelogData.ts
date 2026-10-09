@@ -13,9 +13,31 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.99',
+    version: 'v0.3.100',
     date: 'October 9, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'fix',
+        title: 'Workflow Execution Node Scope & Dimension Fix',
+        description: 'Resolved ReferenceError (primaryEdge is not defined) in useWorkflowExecution during generation and reframing node execution, ensuring seamless pipeline execution across all canvas nodes.'
+      },
+      {
+        type: 'fix',
+        title: 'Critical Mask Adjustment Layer & Editor Stabilization',
+        description: 'Fixed mask adjustments runtime ReferenceError (isAr undefined) ensuring adjustment layers, grading, and inpainting tools initialize cleanly without error.'
+      },
+      {
+        type: 'fix',
+        title: 'Non-Destructive AI Resize & Outpainting Overhaul',
+        description: 'Fixed framing and aspect ratio expansion in Image Editor Lightbox. Source padded image and exact target dimensions are now seamlessly passed to AI engines, preserving central architectural models intact while outpainting surroundings.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.99',
+    date: 'October 9, 2026',
+    status: 'release',
     features: [
       {
         type: 'fix',
