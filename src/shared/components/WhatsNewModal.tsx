@@ -10,9 +10,26 @@ import {
   Palette,
   CheckCircle2,
   ArrowRight,
-  Rocket
+  Rocket,
+  Crop,
+  ImagePlus,
+  Maximize2,
+  PenTool,
+  Eye,
+  Coffee,
+  Video,
+  Settings,
+  Play,
+  Box,
+  Download
 } from 'lucide-react';
 import './WhatsNewModal.css';
+
+export interface UpdateFeatureCard {
+  icon: 'polygon' | 'image-plus' | 'expand' | 'pen' | 'ai-shape' | 'selection' | 'eye' | 'teapot' | 'lightning' | 'camera' | 'gear' | 'play';
+  title: string;
+  description: string;
+}
 
 export interface UpdateSlide {
   id: string;
@@ -21,11 +38,148 @@ export interface UpdateSlide {
   subtitle: string;
   description: string;
   features: string[];
-  graphicType: 'canvas' | 'layers' | 'agent' | 'rendering' | 'prompts';
+  featureCards?: UpdateFeatureCard[];
+  graphicType: 'canvas' | 'layers' | 'agent' | 'rendering' | 'prompts' | 'object-masks' | 'mask-tool' | 'max-suite' | 'video-converter';
   accentColor: string;
 }
 
 const UPDATE_SLIDES: UpdateSlide[] = [
+  {
+    id: 'generate-refine-object-masks',
+    badge: "What's new",
+    title: 'Generate and refine object masks',
+    subtitle: 'Create masks for objects in your image, load them into Draw, and refine the selected details with much greater precision.',
+    description: 'Create masks for objects in your image, load them into Draw, and refine the selected details with much greater precision.',
+    features: [
+      'Select any object to automatically generate a focused mask',
+      'Bring generated masks into Draw to refine the selection boundary',
+      'Upscale or recolor selected elements without affecting the rest of the image',
+    ],
+    featureCards: [
+      {
+        icon: 'polygon',
+        title: 'Generate masks for any object',
+        description: 'Select the object you need and let Anarchy AI create a focused mask for it.',
+      },
+      {
+        icon: 'image-plus',
+        title: 'Load and refine masks',
+        description: 'Bring generated masks into Draw and improve the selection before editing.',
+      },
+      {
+        icon: 'expand',
+        title: 'More precise edits',
+        description: 'Upscale selected details or change their colors without affecting the rest of the image.',
+      },
+    ],
+    graphicType: 'object-masks',
+    accentColor: '#06b6d4',
+  },
+  {
+    id: 'draw-precise-masks',
+    badge: "What's new",
+    title: 'Draw precise masks with the Mask Tool',
+    subtitle: 'Create accurate masks by hand, convert them into an AI shape, and use the selected area as the foundation for a new generation.',
+    description: 'Create accurate masks by hand, convert them into an AI shape, and use the selected area as the foundation for a new generation.',
+    features: [
+      'Mark exactly the area you want to use with the dedicated Mask Tool',
+      'Turn your hand-drawn mask into a shape that Anarchy AI can use for generation',
+      'Start a new generation focused on the shape and keep the edit under control',
+    ],
+    featureCards: [
+      {
+        icon: 'pen',
+        title: 'Draw masks precisely',
+        description: 'Mark exactly the area you want to use with the dedicated Mask Tool.',
+      },
+      {
+        icon: 'ai-shape',
+        title: 'Convert a mask to an AI shape',
+        description: 'Turn your hand-drawn mask into a shape that Anarchy AI can use for AI generation.',
+      },
+      {
+        icon: 'selection',
+        title: 'Generate inside your selection',
+        description: 'Start a new generation focused on the shape you created and keep the edit under control.',
+      },
+    ],
+    graphicType: 'mask-tool',
+    accentColor: '#06b6d4',
+  },
+  {
+    id: '3dsmax-5tool-tip',
+    badge: 'ⓘ 3ds Max Plugin Tip',
+    title: 'The 3ds Max Toolbar Provides Five Tools',
+    subtitle: 'Full 5-tool toolbar directly inside Autodesk 3ds Max for seamless 1-click workflows',
+    description: 'The Anarchy AI toolbar provides five tools: Send Viewport, Send VFB, Instant Render, Batch Render, and Plugin Settings. If you don\'t see the plugin, please restart 3ds Max.',
+    features: [
+      '1. Send Viewport: Send current viewport to Anarchy AI to create realistic visualizations',
+      '2. Send VFB: Send current render directly from the VFB to continue editing',
+      '3. Instant Render: Generate an instant AI render with a single click',
+      '4. Batch Render: Send views from all cameras in the scene with a single click',
+      '5. Plugin Settings: Configure Instant Render and viewport export optimization settings',
+    ],
+    featureCards: [
+      {
+        icon: 'eye',
+        title: '1. Send Viewport',
+        description: 'Send the current viewport to Anarchy AI to create realistic visualizations and animations.',
+      },
+      {
+        icon: 'teapot',
+        title: '2. Send VFB',
+        description: 'Send your current render directly from the VFB to Anarchy AI, then continue working on it by editing the visualization and creating animations.',
+      },
+      {
+        icon: 'lightning',
+        title: '3. Instant Render',
+        description: 'Generate an instant AI render with a single click.',
+      },
+      {
+        icon: 'camera',
+        title: '4. Batch Render',
+        description: 'Send views from all cameras in the scene with a single click and render them with AI in Anarchy AI.',
+      },
+      {
+        icon: 'gear',
+        title: '5. Plugin Settings',
+        description: 'Configure Instant Render and viewport export optimization settings.',
+      },
+    ],
+    graphicType: 'max-suite',
+    accentColor: '#38bdf8',
+  },
+  {
+    id: 'video-converter-suite',
+    badge: 'Video Converter Plugin',
+    title: 'Video converter plugin',
+    subtitle: 'Downloading video converter... (Windows x64)',
+    description: 'Download the video converter package directly to your Anarchy AI environment to unlock smooth camera animations, frame interpolation, and instant video exports.',
+    features: [
+      'Dedicated Windows x64 media converter package',
+      'High-speed 1080p and 4K architectural video rendering',
+      'Seamless timeline sync with Anarchy AI Canvas',
+    ],
+    featureCards: [
+      {
+        icon: 'play',
+        title: 'Video converter package',
+        description: 'Anarchy AI • Windows x64 dedicated converter package.',
+      },
+      {
+        icon: 'lightning',
+        title: 'GPU Accelerated Interpolation',
+        description: 'Render smooth 60fps walkthroughs and architectural animations in seconds.',
+      },
+      {
+        icon: 'selection',
+        title: 'Builder Timeline Sync',
+        description: 'Directly push generated video loops and turntable renders into your active canvas.',
+      },
+    ],
+    graphicType: 'video-converter',
+    accentColor: '#06b6d4',
+  },
   {
     id: 'archvision-studio-2',
     badge: 'Major Release v0.3.96 | ArchVision AI Studio',
@@ -115,6 +269,37 @@ const UPDATE_SLIDES: UpdateSlide[] = [
 ];
 
 const STORAGE_KEY = 'anarchy_whats_new_v0.3.96_seen';
+
+const renderCardIcon = (icon: UpdateFeatureCard['icon'], color: string) => {
+  switch (icon) {
+    case 'polygon':
+      return <Crop size={20} style={{ color }} />;
+    case 'image-plus':
+      return <ImagePlus size={20} style={{ color }} />;
+    case 'expand':
+      return <Maximize2 size={20} style={{ color }} />;
+    case 'pen':
+      return <PenTool size={20} style={{ color }} />;
+    case 'ai-shape':
+      return <Layers size={20} style={{ color }} />;
+    case 'selection':
+      return <Sparkles size={20} style={{ color }} />;
+    case 'eye':
+      return <Eye size={20} style={{ color }} />;
+    case 'teapot':
+      return <Coffee size={20} style={{ color }} />;
+    case 'lightning':
+      return <Zap size={20} style={{ color }} />;
+    case 'camera':
+      return <Video size={20} style={{ color }} />;
+    case 'gear':
+      return <Settings size={20} style={{ color }} />;
+    case 'play':
+      return <Play size={20} style={{ color }} />;
+    default:
+      return <Sparkles size={20} style={{ color }} />;
+  }
+};
 
 export interface WhatsNewModalProps {
   forceOpen?: boolean;
@@ -366,6 +551,168 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
                   <text x="160" y="195" textAnchor="middle" fill="#6ee7b7" fontSize="10" fontWeight="bold">35mm • Tilt-Shift • 3200K</text>
                 </svg>
               )}
+
+              {currentSlide.graphicType === 'object-masks' && (
+                <svg viewBox="0 0 320 240" className="anarchy-wn-svg-illu">
+                  <defs>
+                    <linearGradient id="gradMaskBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#083344" />
+                      <stop offset="100%" stopColor="#0f172a" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="30" y="30" width="260" height="180" rx="12" fill="url(#gradMaskBg)" stroke="#06b6d4" strokeWidth="1.5" />
+                  {/* Image Facade mockup */}
+                  <rect x="50" y="55" width="220" height="130" rx="8" fill="#131722" stroke="rgba(255,255,255,0.08)" />
+                  <g opacity="0.3" stroke="#64748b" strokeWidth="1">
+                    <line x1="60" y1="90" x2="260" y2="90" />
+                    <line x1="60" y1="130" x2="260" y2="130" />
+                    <line x1="120" y1="65" x2="120" y2="175" />
+                    <line x1="200" y1="65" x2="200" y2="175" />
+                  </g>
+                  {/* Selected Object Polygon Contour (glowing cyan) */}
+                  <polygon
+                    points="95,85 175,75 215,115 185,160 85,150 75,110"
+                    fill="rgba(6,182,212,0.25)"
+                    stroke="#22d3ee"
+                    strokeWidth="2.5"
+                    strokeDasharray="6 3"
+                  />
+                  {/* Anchor vertices */}
+                  {[
+                    [95, 85], [175, 75], [215, 115], [185, 160], [85, 150], [75, 110]
+                  ].map(([x, y], idx) => (
+                    <circle key={idx} cx={x} cy={y} r="4" fill="#ffffff" stroke="#06b6d4" strokeWidth="2" />
+                  ))}
+                  {/* Badge */}
+                  <rect x="105" y="42" width="110" height="20" rx="10" fill="rgba(6,182,212,0.2)" stroke="#06b6d4" strokeWidth="1" />
+                  <text x="160" y="56" textAnchor="middle" fill="#67e8f9" fontSize="9" fontWeight="bold">✦ Object Mask Active</text>
+                </svg>
+              )}
+
+              {currentSlide.graphicType === 'mask-tool' && (
+                <svg viewBox="0 0 320 240" className="anarchy-wn-svg-illu">
+                  <defs>
+                    <linearGradient id="gradDrawBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#042f2e" />
+                      <stop offset="100%" stopColor="#09111e" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="30" y="30" width="260" height="180" rx="12" fill="url(#gradDrawBg)" stroke="#06b6d4" strokeWidth="1.5" />
+                  {/* Grid Lines */}
+                  <g opacity="0.15" stroke="#22d3ee" strokeWidth="1">
+                    {[60, 90, 120, 150, 180].map(y => <line key={y} x1="40" y1={y} x2="280" y2={y} />)}
+                    {[70, 110, 150, 190, 230].map(x => <line key={x} x1={x} y1="40" x2={x} y2="200" />)}
+                  </g>
+                  {/* Hand drawn mask shape */}
+                  <path
+                    d="M 80 140 C 90 90, 140 70, 180 85 C 220 100, 240 145, 210 165 C 180 185, 120 175, 80 140 Z"
+                    fill="rgba(6, 182, 212, 0.28)"
+                    stroke="#22d3ee"
+                    strokeWidth="3"
+                  />
+                  {/* Dashed Bounding Box (AI Shape conversion) */}
+                  <rect x="70" y="70" width="165" height="115" rx="6" fill="none" stroke="#67e8f9" strokeWidth="1.5" strokeDasharray="5 4" opacity="0.7" />
+                  {/* Pen marker cursor */}
+                  <g transform="translate(190, 85)">
+                    <circle cx="0" cy="0" r="10" fill="rgba(6,182,212,0.4)" />
+                    <circle cx="0" cy="0" r="3" fill="#ffffff" />
+                  </g>
+                  {/* AI Stars */}
+                  <path d="M 230 75 L 233 82 L 240 85 L 233 88 L 230 95 L 227 88 L 220 85 L 227 82 Z" fill="#22d3ee" />
+                  <text x="160" y="200" textAnchor="middle" fill="#67e8f9" fontSize="10" fontWeight="bold">Mask → AI Shape Foundation</text>
+                </svg>
+              )}
+
+              {currentSlide.graphicType === 'max-suite' && (
+                <svg viewBox="0 0 320 240" className="anarchy-wn-svg-illu">
+                  {/* Dark 3ds Max Viewport Window (Screenshot 1 Recreated) */}
+                  <rect x="20" y="20" width="280" height="200" rx="8" fill="#1c1d22" stroke="#333842" strokeWidth="1.5" />
+                  {/* Title Bar */}
+                  <rect x="20" y="20" width="280" height="18" fill="#282a32" />
+                  <rect x="25" y="24" width="10" height="10" rx="2" fill="#0284c7" />
+                  <text x="40" y="32" fill="#cbd5e1" fontSize="7" fontFamily="sans-serif">Untitled - Autodesk 3ds Max 2026</text>
+                  {/* Menu items row */}
+                  <rect x="20" y="38" width="280" height="14" fill="#20222a" />
+                  <text x="26" y="48" fill="#94a3b8" fontSize="6" fontFamily="sans-serif">File  Edit  Tools  Group  Views  Create  Modifiers  Animation</text>
+                  {/* Viewport View Grid */}
+                  <g opacity="0.12" stroke="#94a3b8" strokeWidth="0.8">
+                    {[70, 95, 120, 145, 170, 195].map(y => <line key={y} x1="20" y1={y} x2="300" y2={y} />)}
+                    {[55, 95, 135, 175, 215, 255].map(x => <line key={x} x1={x} y1="52" x2={x} y2="220" />)}
+                  </g>
+                  {/* Vertical Docked Toolbar Container with Dashed Outline */}
+                  <rect x="26" y="60" width="34" height="145" rx="6" fill="#2b2d35" stroke="#ffffff" strokeWidth="1.2" strokeDasharray="3 3" />
+                  {/* 5 Stacked Tool Buttons */}
+                  {/* 1. Eye (Viewport) */}
+                  <g transform="translate(30, 64)">
+                    <rect x="0" y="0" width="26" height="24" rx="4" fill="#383b45" />
+                    <circle cx="13" cy="12" r="7" fill="none" stroke="#38bdf8" strokeWidth="1.2" />
+                    <circle cx="13" cy="12" r="2.5" fill="#38bdf8" />
+                  </g>
+                  {/* 2. Teapot (VFB) */}
+                  <g transform="translate(30, 92)">
+                    <rect x="0" y="0" width="26" height="24" rx="4" fill="#383b45" />
+                    <ellipse cx="13" cy="13" rx="6" ry="5" fill="#38bdf8" opacity="0.8" />
+                    <rect x="10" y="6" width="6" height="2" fill="#38bdf8" />
+                  </g>
+                  {/* 3. Lightning (Instant Render) */}
+                  <g transform="translate(30, 120)">
+                    <rect x="0" y="0" width="26" height="24" rx="4" fill="#383b45" />
+                    <path d="M 14 4 L 9 13 L 13 13 L 11 20 L 17 11 L 13 11 Z" fill="#38bdf8" />
+                  </g>
+                  {/* 4. Camera (Batch Render) */}
+                  <g transform="translate(30, 148)">
+                    <rect x="0" y="0" width="26" height="24" rx="4" fill="#383b45" />
+                    <rect x="6" y="8" width="10" height="8" rx="1.5" fill="#38bdf8" />
+                    <polygon points="16,10 20,7 20,17 16,14" fill="#38bdf8" />
+                  </g>
+                  {/* 5. Gear (Settings) */}
+                  <g transform="translate(30, 176)">
+                    <rect x="0" y="0" width="26" height="24" rx="4" fill="#383b45" />
+                    <circle cx="13" cy="12" r="4.5" fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="3 1.5" />
+                  </g>
+
+                  {/* Numbers 1, 2, 3, 4, 5 */}
+                  <text x="70" y="81" fill="#ffffff" fontSize="16" fontWeight="900" fontFamily="sans-serif">1</text>
+                  <text x="70" y="109" fill="#ffffff" fontSize="16" fontWeight="900" fontFamily="sans-serif">2</text>
+                  <text x="70" y="137" fill="#ffffff" fontSize="16" fontWeight="900" fontFamily="sans-serif">3</text>
+                  <text x="70" y="165" fill="#ffffff" fontSize="16" fontWeight="900" fontFamily="sans-serif">4</text>
+                  <text x="70" y="193" fill="#ffffff" fontSize="16" fontWeight="900" fontFamily="sans-serif">5</text>
+
+                  {/* Big White Pointing Arrow (Matching Screenshot 1) */}
+                  <polygon
+                    points="95,137 145,105 145,123 215,123 215,151 145,151 145,169"
+                    fill="#ffffff"
+                    filter="drop-shadow(0 4px 10px rgba(0,0,0,0.6))"
+                  />
+                </svg>
+              )}
+
+              {currentSlide.graphicType === 'video-converter' && (
+                <svg viewBox="0 0 320 240" className="anarchy-wn-svg-illu">
+                  <defs>
+                    <linearGradient id="gradVcChip" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#0891b2" stopOpacity="0.1" />
+                    </linearGradient>
+                  </defs>
+                  {/* Dark base station */}
+                  <rect x="40" y="30" width="240" height="180" rx="12" fill="#0f172a" stroke="#06b6d4" strokeWidth="1.5" />
+                  {/* Orbit ring */}
+                  <ellipse cx="160" cy="140" rx="90" ry="24" stroke="#06b6d4" strokeWidth="1.2" strokeDasharray="6 4" opacity="0.6" />
+                  {/* Floating Media Chip Plate */}
+                  <g transform="translate(115, 60)">
+                    <rect x="0" y="0" width="90" height="95" rx="12" fill="url(#gradVcChip)" stroke="#22d3ee" strokeWidth="2" transform="skewY(-8)" />
+                    {/* Play symbol */}
+                    <circle cx="45" cy="45" r="18" fill="rgba(6,182,212,0.3)" stroke="#22d3ee" strokeWidth="1.5" transform="skewY(-8)" />
+                    <polygon points="40,37 54,45 40,53" fill="#ffffff" transform="skewY(-8)" />
+                  </g>
+                  {/* Beaming download arrow */}
+                  <path d="M 160 140 L 160 170 M 150 160 L 160 170 L 170 160" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  {/* Base light */}
+                  <ellipse cx="160" cy="180" rx="40" ry="10" fill="rgba(6,182,212,0.4)" stroke="#06b6d4" strokeWidth="2" />
+                  <text x="160" y="204" textAnchor="middle" fill="#67e8f9" fontSize="9" fontWeight="bold">Video Converter Package • Win x64</text>
+                </svg>
+              )}
             </div>
 
             {/* Slide Index Pill */}
@@ -392,17 +739,39 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             <h4 className="anarchy-wn-slide-subtitle">{currentSlide.subtitle}</h4>
             <p className="anarchy-wn-slide-desc">{currentSlide.description}</p>
 
-            <div className="anarchy-wn-features-list">
-              {currentSlide.features.map((feat, i) => (
-                <div key={i} className="anarchy-wn-feature-item">
-                  <CheckCircle2
-                    size={16}
-                    style={{ color: currentSlide.accentColor, flexShrink: 0, marginTop: '2px' }}
-                  />
-                  <span>{feat}</span>
-                </div>
-              ))}
-            </div>
+            {currentSlide.featureCards && currentSlide.featureCards.length > 0 ? (
+              <div className="anarchy-wn-card-stack">
+                {currentSlide.featureCards.map((card, i) => (
+                  <div key={i} className="anarchy-wn-feature-card">
+                    <div
+                      className="anarchy-wn-feature-card-icon"
+                      style={{
+                        borderColor: `${currentSlide.accentColor}44`,
+                        background: `${currentSlide.accentColor}14`,
+                      }}
+                    >
+                      {renderCardIcon(card.icon, currentSlide.accentColor)}
+                    </div>
+                    <div className="anarchy-wn-feature-card-text">
+                      <div className="anarchy-wn-feature-card-title">{card.title}</div>
+                      <div className="anarchy-wn-feature-card-desc">{card.description}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="anarchy-wn-features-list">
+                {currentSlide.features.map((feat, i) => (
+                  <div key={i} className="anarchy-wn-feature-item">
+                    <CheckCircle2
+                      size={16}
+                      style={{ color: currentSlide.accentColor, flexShrink: 0, marginTop: '2px' }}
+                    />
+                    <span>{feat}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

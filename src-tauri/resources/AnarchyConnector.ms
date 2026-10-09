@@ -1,6 +1,10 @@
-﻿-- Anarchy AI 3ds Max Bridge
+-- Anarchy AI 3ds Max Bridge (5-Tool Suite)
 global AnarchyRollout
 global sendViewportToAnarchy
+global sendVfbToAnarchy
+global instantRenderToAnarchy
+global batchRenderToAnarchy
+global openAnarchySettings
 global createAnarchyMenu
 global createAnarchyToolbar
 
@@ -9,9 +13,32 @@ try(destroyDialog AnarchyRollout)catch()
 try(unregisterRedrawViewsCallback triggerAnarchySync)catch()
 try(unregisterTimeCallback triggerAnarchySync)catch()
 
+-- Utility: Send any bitmap or file path to Anarchy AI Bridge HTTP Server
+fn postImageToAnarchy imgFilePath actionType:"EXTERNAL_IMAGE_NODE" extraParams:#() = (
+	try (
+		local py_cmd = "import os, urllib.request, base64, json\n"
+		py_cmd += "try:\n"
+		py_cmd += "    token_path = os.path.expandvars(r'%APPDATA%\\\\com.anarchyai.app\\\\.token')\n"
+		py_cmd += "    token = ''\n"
+		py_cmd += "    if os.path.exists(token_path):\n"
+		py_cmd += "        with open(token_path, 'r') as tf: token = tf.read().strip()\n"
+		py_cmd += "    with open(r'" + imgFilePath + "', 'rb') as f: data = base64.b64encode(f.read()).decode()\n"
+		py_cmd += "    url = 'http://127.0.0.1:14400/upload-view'\n"
+		py_cmd += "    payload = json.dumps({'type': '" + actionType + "', 'image': 'data:image/jpeg;base64,' + data, 'source': '3dsmax'}).encode('utf-8')\n"
+		py_cmd += "    req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'X-Anarchy-Token': token})\n"
+		py_cmd += "    urllib.request.urlopen(req, timeout=4)\n"
+		py_cmd += "    print('Anarchy AI: Image synchronized successfully to Anarchy AI!')\n"
+		py_cmd += "except Exception as e: print('Anarchy AI: Sync error - ' + str(e))"
+		python.execute py_cmd
+	) catch (
+		print "Anarchy AI: Post image complete."
+	)
+)
+
+-- 1. Send Viewport (Tool 1)
 fn sendViewportToAnarchy = (
 	try (
-		local temp_path = (getDir #temp) + "\\anarchy_sync.jpg"
+		local temp_path = (getDir #temp) + "\\anarchy_viewport.jpg"
 		local old_sel = getCurrentSelection()
 		local old_viewcube = undefined
 		try ( old_viewcube = ViewCubeOps.Visibility ) catch ()
@@ -63,40 +90,169 @@ fn sendViewportToAnarchy = (
 		save final_img
 		close final_img
 		if final_img != view_img do close view_img
-		local py_cmd = "import os, urllib.request, base64, json\n"
-		py_cmd += "try:\n"
-		py_cmd += "    token_path = os.path.expandvars(r'%APPDATA%\\\\com.anarchyai.app\\\\.token')\n"
-		py_cmd += "    token = ''\n"
-		py_cmd += "    if os.path.exists(token_path):\n"
-		py_cmd += "        with open(token_path, 'r') as tf: token = tf.read().strip()\n"
-		py_cmd += "    with open(r'" + temp_path + "', 'rb') as f: data = base64.b64encode(f.read()).decode()\n"
-		py_cmd += "    url = 'http://127.0.0.1:14400/upload-view'\n"
-		py_cmd += "    payload = json.dumps({'type': 'EXTERNAL_IMAGE_NODE', 'image': 'data:image/jpeg;base64,' + data, 'source': '3dsmax'}).encode('utf-8')\n"
-		py_cmd += "    req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'X-Anarchy-Token': token})\n"
-		py_cmd += "    urllib.request.urlopen(req, timeout=3)\n"
-		py_cmd += "    print('Anarchy AI: Viewport sent successfully to Anarchy AI Builder!')\n"
-		py_cmd += "except Exception as e: print('Anarchy AI: Sync notice - ' + str(e))"
-		python.execute py_cmd
+		postImageToAnarchy temp_path actionType:"EXTERNAL_IMAGE_NODE"
 	) catch (
 		print "Anarchy AI: Viewport capture complete."
 	)
 )
 
-try ( colorman.reInitIcons() ) catch ()
+-- 2. Send VFB (Tool 2: Send current render from Virtual Frame Buffer)
+fn sendVfbToAnarchy = (
+	try (
+		local temp_path = (getDir #temp) + "\\anarchy_vfb.jpg"
+		local vfb_bitmap = undefined
 
-macroScript AnarchySync
-category:"Anarchy"
-buttonText:"Anarchy AI"
-toolTip:"Send active viewport to Anarchy AI"
-icon:#("AnarchyLogo", 1)
-(
-	on execute do (
-		global sendViewportToAnarchy
-		sendViewportToAnarchy()
+		-- Check V-Ray Frame Buffer
+		try (
+			if (vrayVFBGetChannelBitmap != undefined) do (
+				vfb_bitmap = vrayVFBGetChannelBitmap #RGB
+			)
+		) catch ()
+
+		-- Check Corona VFB or native Last Render Frame Buffer
+		if vfb_bitmap == undefined do (
+			try (
+				vfb_bitmap = getLastRenderedImage()
+			) catch ()
+		)
+
+		-- Fallback to current render window
+		if vfb_bitmap == undefined do (
+			try (
+				vfb_bitmap = getActiveWindow()
+			) catch ()
+		)
+
+		if vfb_bitmap != undefined then (
+			vfb_bitmap.filename = temp_path
+			save vfb_bitmap
+			close vfb_bitmap
+			postImageToAnarchy temp_path actionType:"EXTERNAL_IMAGE_NODE"
+			print "Anarchy AI: VFB Render sent successfully!"
+		) else (
+			-- If no render is in buffer, capture viewport as fallback
+			sendViewportToAnarchy()
+			print "Anarchy AI: No active VFB found. Captured viewport instead."
+		)
+	) catch (
+		print "Anarchy AI: Send VFB complete."
 	)
 )
 
--- Auto-create Menu Item on startup
+-- 3. Instant Render (Tool 3: Capture & trigger instant AI render in Anarchy AI)
+fn instantRenderToAnarchy = (
+	try (
+		local temp_path = (getDir #temp) + "\\anarchy_instant.jpg"
+		sendViewportToAnarchy()
+		-- Post command to trigger instant generation
+		local py_cmd = "import urllib.request, json, os\n"
+		py_cmd += "try:\n"
+		py_cmd += "    token_path = os.path.expandvars(r'%APPDATA%\\\\com.anarchyai.app\\\\.token')\n"
+		py_cmd += "    token = ''\n"
+		py_cmd += "    if os.path.exists(token_path):\n"
+		py_cmd += "        with open(token_path, 'r') as tf: token = tf.read().strip()\n"
+		py_cmd += "    url = 'http://127.0.0.1:14400/instant-render'\n"
+		py_cmd += "    req = urllib.request.Request(url, data=json.dumps({'source': '3dsmax', 'instant': True}).encode('utf-8'), headers={'Content-Type': 'application/json', 'X-Anarchy-Token': token})\n"
+		py_cmd += "    urllib.request.urlopen(req, timeout=3)\n"
+		py_cmd += "except Exception as e: print('Anarchy AI Instant Render: ' + str(e))"
+		python.execute py_cmd
+		print "Anarchy AI: Instant render triggered!"
+	) catch ()
+)
+
+-- 4. Batch Render (Tool 4: Send views from all cameras in scene)
+fn batchRenderToAnarchy = (
+	try (
+		local cam_list = for o in cameras where (classOf o != TargetObject) collect o
+		if cam_list.count == 0 then (
+			messageBox "No camera objects found in scene to batch render." title:"Anarchy AI"
+			return false
+		)
+		for i = 1 to cam_list.count do (
+			local c = cam_list[i]
+			viewport.setCamera c
+			completeRedraw()
+			sleep 0.2
+			local temp_path = (getDir #temp) + ("\\anarchy_cam_" + (i as string) + ".jpg")
+			local view_img = gw.getViewportDib()
+			view_img.filename = temp_path
+			save view_img
+			close view_img
+			postImageToAnarchy temp_path actionType:"EXTERNAL_IMAGE_NODE"
+		)
+		print ("Anarchy AI: Batch exported " + (cam_list.count as string) + " camera views to Anarchy AI!")
+	) catch (
+		print "Anarchy AI: Batch export complete."
+	)
+)
+
+-- 5. Plugin Settings (Tool 5: Open settings)
+fn openAnarchySettings = (
+	try (
+		local py_cmd = "import urllib.request, os\n"
+		py_cmd += "try:\n"
+		py_cmd += "    token_path = os.path.expandvars(r'%APPDATA%\\\\com.anarchyai.app\\\\.token')\n"
+		py_cmd += "    token = ''\n"
+		py_cmd += "    if os.path.exists(token_path):\n"
+		py_cmd += "        with open(token_path, 'r') as tf: token = tf.read().strip()\n"
+		py_cmd += "    url = 'http://127.0.0.1:14400/open-settings'\n"
+		py_cmd += "    req = urllib.request.Request(url, data=b'{}', headers={'Content-Type': 'application/json', 'X-Anarchy-Token': token})\n"
+		py_cmd += "    urllib.request.urlopen(req, timeout=2)\n"
+		py_cmd += "except: pass"
+		python.execute py_cmd
+	) catch ()
+	messageBox "Anarchy AI 3ds Max Plugin v1.2\n\n1. Send Viewport (Active View)\n2. Send VFB (Virtual Frame Buffer)\n3. Instant Render (1-Click AI Generation)\n4. Batch Render (All Cameras in Scene)\n5. Settings & Config\n\nConnected to: Anarchy AI Desktop Studio." title:"Anarchy AI Settings"
+)
+
+try ( colorman.reInitIcons() ) catch ()
+
+-- 5 MacroScripts for User Customization & Shelves
+macroScript AnarchySendViewport
+category:"Anarchy"
+buttonText:"Send Viewport"
+toolTip:"1. Send Viewport: Send current viewport to Anarchy AI"
+icon:#("AnarchyLogo", 1)
+(
+	on execute do ( sendViewportToAnarchy() )
+)
+
+macroScript AnarchySendVFB
+category:"Anarchy"
+buttonText:"Send VFB"
+toolTip:"2. Send VFB: Send current render directly from VFB to Anarchy AI"
+icon:#("AnarchyLogo", 1)
+(
+	on execute do ( sendVfbToAnarchy() )
+)
+
+macroScript AnarchyInstantRender
+category:"Anarchy"
+buttonText:"Instant Render"
+toolTip:"3. Instant Render: Generate an instant AI render with a single click"
+icon:#("AnarchyLogo", 1)
+(
+	on execute do ( instantRenderToAnarchy() )
+)
+
+macroScript AnarchyBatchRender
+category:"Anarchy"
+buttonText:"Batch Render"
+toolTip:"4. Batch Render: Send views from all cameras in scene to Anarchy AI"
+icon:#("AnarchyLogo", 1)
+(
+	on execute do ( batchRenderToAnarchy() )
+)
+
+macroScript AnarchySettings
+category:"Anarchy"
+buttonText:"Plugin Settings"
+toolTip:"5. Plugin Settings: Configure Instant Render and viewport settings"
+icon:#("AnarchyLogo", 1)
+(
+	on execute do ( openAnarchySettings() )
+)
+
+-- Auto-create Menu Bar on startup with all 5 tools
 fn createAnarchyMenu = (
 	try (
 		if menuMan != undefined and (menuMan.getMainMenuBar()) != undefined do (
@@ -105,8 +261,11 @@ fn createAnarchyMenu = (
 			local existingMenu = menuMan.findMenu menuName
 			if existingMenu == undefined do (
 				local newMenu = menuMan.createMenu menuName
-				local actionItem = menuMan.createActionItem "AnarchySync" "Anarchy"
-				newMenu.addItem actionItem 1
+				newMenu.addItem (menuMan.createActionItem "AnarchySendViewport" "Anarchy") 1
+				newMenu.addItem (menuMan.createActionItem "AnarchySendVFB" "Anarchy") 2
+				newMenu.addItem (menuMan.createActionItem "AnarchyInstantRender" "Anarchy") 3
+				newMenu.addItem (menuMan.createActionItem "AnarchyBatchRender" "Anarchy") 4
+				newMenu.addItem (menuMan.createActionItem "AnarchySettings" "Anarchy") 5
 				local subMenuItem = menuMan.createSubMenuItem menuName newMenu
 				mainMenuBar.addItem subMenuItem (mainMenuBar.numItems() + 1)
 				menuMan.updateMenuBar()
@@ -115,19 +274,25 @@ fn createAnarchyMenu = (
 	) catch ()
 )
 
--- Auto-create Toolbar Dockable Bar
+-- Auto-create 5-Tool Floating/Docked Toolbar (Screenshot 1)
 fn createAnarchyToolbar = (
 	try (
-		rollout AnarchyRollout "Anarchy AI" width:110 height:38 (
-			button btnSend "⚡ Send to Anarchy" pos:[5,5] width:100 height:28 toolTip:"Send active viewport directly to Anarchy AI Builder"
-			on btnSend pressed do (
-				global sendViewportToAnarchy
-				sendViewportToAnarchy()
-			)
+		rollout AnarchyRollout "Anarchy AI" width:52 height:216 (
+			button btn1 "👁" pos:[6,6] width:40 height:38 toolTip:"1. Send Viewport: Send current viewport to Anarchy AI"
+			button btn2 "🫖" pos:[6,48] width:40 height:38 toolTip:"2. Send VFB: Send render directly from VFB to Anarchy AI"
+			button btn3 "⚡" pos:[6,90] width:40 height:38 toolTip:"3. Instant Render: Generate an instant AI render with a single click"
+			button btn4 "📹" pos:[6,132] width:40 height:38 toolTip:"4. Batch Render: Send views from all cameras in scene to Anarchy AI"
+			button btn5 "⚙" pos:[6,174] width:40 height:38 toolTip:"5. Plugin Settings: Configure Instant Render and viewport export"
+
+			on btn1 pressed do ( sendViewportToAnarchy() )
+			on btn2 pressed do ( sendVfbToAnarchy() )
+			on btn3 pressed do ( instantRenderToAnarchy() )
+			on btn4 pressed do ( batchRenderToAnarchy() )
+			on btn5 pressed do ( openAnarchySettings() )
 		)
 		createDialog AnarchyRollout style:#(#style_toolwindow, #style_sysmenu)
 		cui.RegisterDialogBar AnarchyRollout style:#(#cui_dock_all, #cui_floatable)
-		cui.DockDialogBar AnarchyRollout #cui_dock_top
+		cui.DockDialogBar AnarchyRollout #cui_dock_left
 	) catch ()
 )
 

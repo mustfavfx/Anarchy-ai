@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { logger } from '../../utils/logger';
 import { 
   Download, Check, AlertCircle, 
-  ExternalLink, Settings, Plug, Trash2, RefreshCw, FolderOpen
+  ExternalLink, Settings, Plug, Trash2, RefreshCw, FolderOpen,
+  Film, Sparkles, ArrowLeft
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { ANARCHY_3DSMAX_SCRIPT } from './threeDsMaxPlugin';
+import { VideoConverterModal } from './components/VideoConverterModal';
 import './IntegrationsPage.css';
 import logo3dsmax from '../../assets/3dsmax.png';
 import logoRevit from '../../assets/revit.png';
@@ -16,7 +18,7 @@ interface Plugin {
   id: string;
   name: string;
   description: string;
-  icon: '3dsmax' | 'revit' | 'sketchup' | 'archicad';
+  icon: '3dsmax' | 'revit' | 'sketchup' | 'archicad' | 'video-converter';
   version: string;
   latestVersion: string;
   status: 'installed' | 'available' | 'update' | 'installing';
@@ -37,14 +39,14 @@ const PLUGINS: Plugin[] = [
   {
     id: '3dsmax',
     name: '3ds Max',
-    description: 'Send the active 3ds Max viewport image to Anarchy AI Builder as a source node for AI image workflows.',
+    description: '5-Tool Suite: Send Viewport, Send VFB, 1-Click Instant AI Render, Multi-Camera Batch Render, and Plugin Settings.',
     icon: '3dsmax',
     version: '0.0',
     latestVersion: '1.2.0',
     status: 'available',
     fileSize: '12 MB',
     supportedVersions: '2022, 2023, 2024, 2025, 2026, 2027',
-    features: ['Viewport rendering', 'Material sync', 'Camera export', 'Batch processing']
+    features: ['1. Send Viewport', '2. Send VFB (Buffer)', '3. Instant AI Render', '4. Batch Camera Render', '5. Plugin Settings']
   },
   {
     id: 'revit',
@@ -83,6 +85,18 @@ const PLUGINS: Plugin[] = [
     supportedVersions: '24, 25, 26, 27',
     features: ['3D Document export', 'BIMx integration', 'Surface sync', 'MEP support'],
     comingSoon: true
+  },
+  {
+    id: 'video-converter',
+    name: 'Video Converter Plugin',
+    description: 'Dedicated GPU-accelerated video converter package for Windows x64. Generates smooth camera animations, frame interpolation, and video exports.',
+    icon: 'video-converter',
+    version: '1.0.0',
+    latestVersion: '1.0.0',
+    status: 'available',
+    fileSize: '109.5 MB',
+    supportedVersions: 'Windows x64',
+    features: ['H.264 & ProRes GPU acceleration', '1080p / 4K camera orbits', 'Autonomous interpolation', 'Direct Builder Timeline sync']
   }
 ];
 
@@ -93,6 +107,14 @@ const SUPPORTED_VERSIONS: Record<string, string[]> = {
 };
 
 const SoftwareLogo: React.FC<{ id: Plugin['icon'] }> = ({ id }) => {
+  if (id === 'video-converter') {
+    return (
+      <div className="software-logo logo-img-container" style={{ background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.4)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Film size={22} style={{ color: '#22d3ee' }} />
+      </div>
+    );
+  }
+
   let logoSrc = '';
   if (id === '3dsmax') logoSrc = logo3dsmax;
   else if (id === 'revit') logoSrc = logoRevit;
@@ -195,6 +217,20 @@ export const IntegrationsPage: React.FC = () => {
     catch { return new Set(); }
   });
 
+  const [showVideoConverterModal, setShowVideoConverterModal] = useState(false);
+
+  const handleVideoConverterInstalled = () => {
+    const updated = {
+      ...PLUGINS.find(p => p.id === 'video-converter')!,
+      version: '1.0.0',
+      status: 'installed' as const
+    };
+    setPlugins(prev => prev.map(p => p.id === 'video-converter' ? updated : p));
+    const saved = JSON.parse(localStorage.getItem('anarchy_plugins') || '{}');
+    saved['video-converter'] = { version: '1.0.0', installedAt: Date.now(), paths: ['C:\\Program Files\\Anarchy AI\\converter'] };
+    localStorage.setItem('anarchy_plugins', JSON.stringify(saved));
+  };
+
   // Load installed versions and detect actual installations
   useEffect(() => {
     const checkPluginInstallations = async () => {
@@ -291,6 +327,11 @@ export const IntegrationsPage: React.FC = () => {
   };
 
   const handleInstall = async (plugin: Plugin, keepModalOpen = false) => {
+    if (plugin.id === 'video-converter') {
+      setShowVideoConverterModal(true);
+      return;
+    }
+
     setInstallMessage(null);
     setPlugins(prev => prev.map(p => 
       p.id === plugin.id ? { ...p, status: 'installing' } : p
@@ -413,6 +454,76 @@ export const IntegrationsPage: React.FC = () => {
             <span className="int-stat-label">Updates</span>
           </div>
         )}
+      </div>
+
+      {/* 3ds Max Plugin Tip Card (Screenshots 1 & 2 Parity) */}
+      <div className="int-max-tip-card">
+        <div className="int-max-tip-badge-row">
+          <div className="int-max-tip-badge">
+            <Sparkles size={14} />
+            <span>ⓘ 3ds Max Plugin Tip</span>
+          </div>
+          <span className="int-max-tip-note">If you don't see the plugin, please restart 3ds Max.</span>
+        </div>
+
+        <div className="int-max-tip-body">
+          {/* Mockup Toolbar Graphic (Screenshot 1) */}
+          <div className="int-max-tip-visual">
+            <div className="int-max-toolbar-box">
+              <div className="int-max-tool-item">
+                <span className="int-max-icon-cell">👁</span>
+                <span className="int-max-num-cell">1</span>
+              </div>
+              <div className="int-max-tool-item">
+                <span className="int-max-icon-cell">🫖</span>
+                <span className="int-max-num-cell">2</span>
+              </div>
+              <div className="int-max-tool-item">
+                <span className="int-max-icon-cell">⚡</span>
+                <span className="int-max-num-cell">3</span>
+              </div>
+              <div className="int-max-tool-item">
+                <span className="int-max-icon-cell">📹</span>
+                <span className="int-max-num-cell">4</span>
+              </div>
+              <div className="int-max-tool-item">
+                <span className="int-max-icon-cell">⚙</span>
+                <span className="int-max-num-cell">5</span>
+              </div>
+            </div>
+            {/* White pointer arrow */}
+            <div className="int-max-arrow-wrap">
+              <ArrowLeft size={42} strokeWidth={3.5} className="int-max-arrow-svg" />
+            </div>
+          </div>
+
+          {/* Explanation Text (Screenshot 2) */}
+          <div className="int-max-tip-desc">
+            <div className="int-max-tip-lead">The Anarchy AI toolbar provides five tools:</div>
+            <div className="int-max-tool-guide">
+              <div className="int-guide-row">
+                <span className="int-guide-title">1. Send Viewport:</span>
+                <span className="int-guide-text">Send the current viewport to Anarchy AI to create realistic visualizations and animations.</span>
+              </div>
+              <div className="int-guide-row">
+                <span className="int-guide-title">2. Send VFB:</span>
+                <span className="int-guide-text">Send your current render directly from the VFB to Anarchy AI, then continue working on it by editing the visualization and creating animations.</span>
+              </div>
+              <div className="int-guide-row">
+                <span className="int-guide-title">3. Instant Render:</span>
+                <span className="int-guide-text">Generate an instant AI render with a single click.</span>
+              </div>
+              <div className="int-guide-row">
+                <span className="int-guide-title">4. Batch Render:</span>
+                <span className="int-guide-text">Send views from all cameras in the scene with a single click and render them with AI in Anarchy AI.</span>
+              </div>
+              <div className="int-guide-row">
+                <span className="int-guide-title">5. Plugin Settings:</span>
+                <span className="int-guide-text">Configure Instant Render and viewport export optimization settings.</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
@@ -758,6 +869,13 @@ export const IntegrationsPage: React.FC = () => {
           </dialog>
         </div>
       )}
+
+      {/* Video Converter Downloader Modal (Screenshot 3 Parity) */}
+      <VideoConverterModal
+        isOpen={showVideoConverterModal}
+        onClose={() => setShowVideoConverterModal(false)}
+        onInstalled={handleVideoConverterInstalled}
+      />
     </div>
   );
 };
