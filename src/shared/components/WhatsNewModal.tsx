@@ -45,6 +45,44 @@ export interface UpdateSlide {
 
 const UPDATE_SLIDES: UpdateSlide[] = [
   {
+    id: 'resize-credits-overhaul-v0398',
+    badge: 'Latest Release v0.3.98 | Resize & Credits System',
+    title: 'AI Resize Outpainting & Unified Credit Billing',
+    subtitle: 'High-precision architectural aspect ratio reframing, intelligent outpainting, and transparent credit deduction.',
+    description: 'Version 0.3.98 resolves image framing and aspect ratio outpainting in the Lightbox Image Editor, while integrating full credit verification, live cost previews, and automated balance protection across all editing tools.',
+    features: [
+      '1. Fixed AI Resize & Framing: Expands canvas to 9:16, 16:9, 4:5 without distorting central architecture',
+      '2. Seamless AI Outpainting: Fills surroundings, sky, and foreground cleanly using Nano Banana & GPT Image',
+      '3. Real-Time Credit Deduction: Accurate balance deductions across Resize, Markup, Erase, and Comments',
+      '4. Live Cost Preview: Transparent points cost displayed on action buttons before initiating generation',
+      '5. Auto-Refund Protection: Immediate credit restoration if server-side generation fails',
+    ],
+    featureCards: [
+      {
+        icon: 'expand',
+        title: '1. Fixed Aspect Ratio Outpaint',
+        description: 'Reframed images and exact dimensions are transmitted accurately to the AI engine without reverting to unpadded frames.',
+      },
+      {
+        icon: 'lightning',
+        title: '2. Unified Credit Billing',
+        description: 'All editor tools are now fully synchronized with checkCreditBalance and atomic credit deduction.',
+      },
+      {
+        icon: 'ai-shape',
+        title: '3. Architectural Preservation',
+        description: '100% preservation of original structure, materials, and lighting in the center of the expanded frame.',
+      },
+      {
+        icon: 'gear',
+        title: '4. Refund & Cost Safety',
+        description: 'Live point display on confirmation buttons and automatic credit refund upon unexpected generation failures.',
+      },
+    ],
+    graphicType: 'canvas',
+    accentColor: '#ff2a6d',
+  },
+  {
     id: 'sketchup-4tool-suite',
     badge: 'Major Release v0.3.97 | SketchUp AI Suite',
     title: 'Official Trimble SketchUp Integration Suite',
@@ -306,7 +344,7 @@ const UPDATE_SLIDES: UpdateSlide[] = [
   },
 ];
 
-const STORAGE_KEY = 'anarchy_whats_new_v0.3.97_seen';
+const STORAGE_KEY = 'anarchy_whats_new_v0.3.98_seen';
 
 const renderCardIcon = (icon: UpdateFeatureCard['icon'], color: string) => {
   switch (icon) {
@@ -423,7 +461,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             <div className="anarchy-wn-logo-badge">A</div>
             <div>
               <div className="anarchy-wn-app-title">Anarchy AI Studio</div>
-              <div className="anarchy-wn-version-tag">Release v0.3.97 Updates</div>
+              <div className="anarchy-wn-version-tag">Release v0.3.98 Updates</div>
             </div>
           </div>
           <button

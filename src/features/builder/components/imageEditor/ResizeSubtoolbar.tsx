@@ -7,6 +7,7 @@ interface ResizeSubtoolbarProps {
   modelName?: string;
   aspectRatio: string;
   options: ResizeRatioOption[];
+  creditCost?: number;
   onSelectAspectRatio: (option: ResizeRatioOption) => void;
   onConfirmResize: () => void;
   onCancel: () => void;
@@ -16,6 +17,7 @@ export const ResizeSubtoolbar: React.FC<ResizeSubtoolbarProps> = ({
   modelName,
   aspectRatio,
   options,
+  creditCost,
   onSelectAspectRatio,
   onConfirmResize,
   onCancel,
@@ -76,10 +78,10 @@ export const ResizeSubtoolbar: React.FC<ResizeSubtoolbarProps> = ({
           type="button"
           className="subtool-action-btn apply"
           onClick={onConfirmResize}
-          title="Dispatch resize request to AI engine & fork new linked node"
+          title={`Dispatch resize request to AI engine${creditCost != null ? ` (${creditCost} credits)` : ''}`}
         >
           <Check size={13} />
-          <span>OK (Apply to Engine)</span>
+          <span>OK (Apply to Engine){creditCost != null ? ` • ${creditCost} pts` : ''}</span>
         </button>
 
         <button

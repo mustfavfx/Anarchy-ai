@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.98] - 2026-10-09
+
+### AI Resize & Outpainting Overhaul
+- **Architectural Framing & Dimension Preservation**:
+  - Resolved aspect ratio outpainting failure in the Lightbox Image Editor.
+  - Corrected execution dispatch (`executeFn`) to pass the padded reframed image data URL (`sourceImage: reframed.dataUrl`) along with exact source dimensions (`sourceWidth`, `sourceHeight`) and requested target aspect ratio (`match_input_image` / explicit ratios).
+  - Updated `useWorkflowExecution.ts` so `executeNodeSingle` isolates tool-modified reframed images as the sole input rather than pulling ancestor unpadded frames from connected edges.
+  - Fixed output dimension preservation to maintain target reframed canvas aspect ratios (9:16, 16:9, 4:5, etc.) without post-resize cropping back to the parent dimensions.
+
+### Unified Credit System & Deduction for Image Editor
+- **Atomic Credit Verification & Deduction**:
+  - Connected `ImageEditorToolbar.tsx` tools (`Resize`, `Markup Studio`, `Smart Erase`, `AI Comments / Send to Agent`) to unified credit verification via `checkCreditBalance` and `deductCredits`.
+  - Blocks execution and displays immediate notifications if user credit balance is insufficient.
+  - Automatically updates local and global credit store balance (`useAIConfigStore.setUserCredits`) and dispatches background synchronization.
+- **Auto-Refund Safety & Live Cost Transparency**:
+  - Integrated automatic credit refund (`refundCredits`) to reimburse users immediately if server generation throws or fails.
+  - Displayed live point calculation directly in the Resize confirmation button (`OK Apply to Engine • 2.5 pts`).
+
+---
+
 ## [0.3.97] - 2026-10-09
 
 ### Trimble SketchUp Integration Suite & Compact Integrations Interface

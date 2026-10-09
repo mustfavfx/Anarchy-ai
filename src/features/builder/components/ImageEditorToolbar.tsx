@@ -2,6 +2,15 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { loadImageElement } from '../../../services/export/modules/imageExportUtils';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
+import { useAuth } from '../../../features/auth/AuthContext';
+import {
+  checkCreditBalance,
+  deductCredits,
+  refundCredits,
+  getUnifiedCost,
+  DEV_MODE,
+  getUserCredit,
+} from '../../../services/credit/creditService';
 import './ImageEditorToolbar.css';
 
 // Subcomponents & utilities
@@ -51,6 +60,8 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   onCloseLightbox,
 }) => {
   const addNotification = useNotificationStore((s) => s.addNotification);
+  const { user: authUser } = useAuth();
+  const isTrial = useAIConfigStore((s) => s.isTrial);
 
   // Active Tool state
   const [activeTool, setActiveTool] = useState<ActiveToolType>(null);
@@ -59,6 +70,63 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   const activeModel = useAIConfigStore((s) => s.config?.model || 'google/nano-banana-2');
   const availableRatios = useMemo(() => getEngineRatioOptions(activeModel), [activeModel]);
   const engineDisplayName = useMemo(() => getEngineDisplayName(activeModel), [activeModel]);
+
+  // Unified credit check and deduction helper for Editor AI actions
+  const checkAndDeductCreditsForEditorAction = useCallback(
+    async (
+      actionName: string,
+      overrideConfig?: Record<string, any>
+    ): Promise<{ success: boolean; cost: number; effectiveUserId: string }> => {
+      const effectiveUserId = authUser?.id || 'guest-architect-id';
+      const currentConfig = useAIConfigStore.getState().config || {};
+      const cost = getUnifiedCost(
+        {
+          ...currentConfig,
+          model: activeModel,
+          ...overrideConfig,
+        },
+        isTrial ?? true
+      );
+
+      if (DEV_MODE) {
+        return { success: true, cost, effectiveUserId };
+      }
+
+      const check = await checkCreditBalance(effectiveUserId, cost);
+      if (!check.hasEnough) {
+        addNotification({
+          type: 'error',
+          title: 'رصيد غير كافٍ / Insufficient Credits',
+          message: `تحتاج إلى ${cost} نقطة رصيد لإتمام هذه العملية، ورصيدك الحالي هو ${check.balance.toFixed(1)}. يرجى شحن الرصيد.`,
+          duration: 5000,
+        });
+        return { success: false, cost, effectiveUserId };
+      }
+
+      const deductRes = await deductCredits(effectiveUserId, cost, `Editor: ${actionName}`);
+      if (!deductRes.success) {
+        addNotification({
+          type: 'error',
+          title: 'فشل خصم الرصيد',
+          message: deductRes.error || 'تعذر خصم الكردت لتنفيذ العملية.',
+          duration: 4000,
+        });
+        return { success: false, cost, effectiveUserId };
+      }
+
+      if (typeof deductRes.remaining === 'number') {
+        useAIConfigStore.getState().setUserCredits(deductRes.remaining);
+      }
+      getUserCredit(effectiveUserId)
+        .then((c) => {
+          if (c) useAIConfigStore.getState().setUserCredits(c.balance);
+        })
+        .catch(() => {});
+
+      return { success: true, cost, effectiveUserId };
+    },
+    [authUser?.id, activeModel, isTrial, addNotification]
+  );
 
   // ── Markup Studio State (9 Tools + Vector Canvas) ──
   const [markupSubtool, setMarkupSubtool] = useState<MarkupToolType>('brush');
@@ -369,6 +437,17 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         : 'Markup: Hand-Drawn Annotation';
 
       if (nodeId) {
+        let creditResult: { success: boolean; cost: number; effectiveUserId: string } | null = null;
+        if (actionPrompt) {
+          creditResult = await checkAndDeductCreditsForEditorAction(
+            `Markup: ${actionPrompt.slice(0, 24)}`,
+            { aspectRatio: 'match_input_image' }
+          );
+          if (!creditResult.success) {
+            return;
+          }
+        }
+
         useAIConfigStore.getState().setLastSelectedNodeId(nodeId);
         const childId = useAIConfigStore.getState().forkChildNode(
           nodeId,
@@ -385,6 +464,21 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
               aspectRatio: 'match_input_image',
             }).catch((err) => {
               console.warn('AI execution after markup failed:', err);
+              if (creditResult && creditResult.cost > 0) {
+                refundCredits(
+                  creditResult.effectiveUserId,
+                  creditResult.cost,
+                  `Refund: Failed markup generation for node ${childId}`
+                )
+                  .then((refunded) => {
+                    if (refunded) {
+                      getUserCredit(creditResult!.effectiveUserId)
+                        .then((c) => c && useAIConfigStore.getState().setUserCredits(c.balance))
+                        .catch(() => {});
+                    }
+                  })
+                  .catch(() => {});
+              }
             });
           }
         }
@@ -439,6 +533,17 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         : 'Erase: Removed Object';
 
       if (nodeId) {
+        let creditResult: { success: boolean; cost: number; effectiveUserId: string } | null = null;
+        if (erasePrompt?.trim()) {
+          creditResult = await checkAndDeductCreditsForEditorAction(
+            `Erase: ${erasePrompt.trim().slice(0, 24)}`,
+            { aspectRatio: 'match_input_image' }
+          );
+          if (!creditResult.success) {
+            return;
+          }
+        }
+
         const childId = useAIConfigStore.getState().forkChildNode(
           nodeId,
           newUrl,
@@ -449,8 +554,26 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         if (childId && erasePrompt?.trim()) {
           const executeFn = useAIConfigStore.getState().executeNode;
           if (executeFn) {
-            executeFn(childId, actionPrompt).catch((err) => {
+            executeFn(childId, actionPrompt, {
+              sourceImage: newUrl,
+              aspectRatio: 'match_input_image',
+            }).catch((err) => {
               console.warn('AI execution after erase failed:', err);
+              if (creditResult && creditResult.cost > 0) {
+                refundCredits(
+                  creditResult.effectiveUserId,
+                  creditResult.cost,
+                  `Refund: Failed erase generation for node ${childId}`
+                )
+                  .then((refunded) => {
+                    if (refunded) {
+                      getUserCredit(creditResult!.effectiveUserId)
+                        .then((c) => c && useAIConfigStore.getState().setUserCredits(c.balance))
+                        .catch(() => {});
+                    }
+                  })
+                  .catch(() => {});
+              }
             });
           }
         }
@@ -500,13 +623,20 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     setCommentInput('');
   };
 
-  const handleSendToAgent = (pin: CommentPin) => {
+  const handleSendToAgent = async (pin: CommentPin) => {
     if (!pin.text.trim()) return;
 
     const currentPrompt = prompt || '';
     const augmented = currentPrompt ? `${currentPrompt}, ${pin.text}` : pin.text;
 
     if (nodeId) {
+      const creditResult = await checkAndDeductCreditsForEditorAction(
+        `Comment: #${pin.num} (${pin.text.slice(0, 24)})`
+      );
+      if (!creditResult.success) {
+        return;
+      }
+
       useAIConfigStore.getState().updateNodePrompt(nodeId, augmented);
       const childId = useAIConfigStore.getState().forkChildNode(
         nodeId,
@@ -518,8 +648,25 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
       if (childId) {
         const executeFn = useAIConfigStore.getState().executeNode;
         if (executeFn) {
-          executeFn(childId, augmented).catch((err) => {
+          executeFn(childId, augmented, {
+            sourceImage: imageUrl,
+          }).catch((err) => {
             console.warn('AI execution after comment failed:', err);
+            if (creditResult.cost > 0) {
+              refundCredits(
+                creditResult.effectiveUserId,
+                creditResult.cost,
+                `Refund: Failed comment generation for node ${childId}`
+              )
+                .then((refunded) => {
+                  if (refunded) {
+                    getUserCredit(creditResult.effectiveUserId)
+                      .then((c) => c && useAIConfigStore.getState().setUserCredits(c.balance))
+                      .catch(() => {});
+                  }
+                })
+                .catch(() => {});
+            }
           });
         }
       }
@@ -572,6 +719,15 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
       const branchLabel = `Resize: ${ratioName} (${chosenRatio})`;
 
       if (nodeId) {
+        // Deduct credits before generating AI resize node
+        const creditResult = await checkAndDeductCreditsForEditorAction(
+          `Resize: ${ratioName} (${chosenRatio})`,
+          { aspectRatio: currentOpt ? currentOpt.id : aspectRatio }
+        );
+        if (!creditResult.success) {
+          return;
+        }
+
         useAIConfigStore.getState().setLastSelectedNodeId(nodeId);
         // Fork child node with the reframed design-preserving image
         const childId = useAIConfigStore.getState().forkChildNode(
@@ -584,15 +740,30 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         if (childId) {
           const executeFn = useAIConfigStore.getState().executeNode;
           if (executeFn) {
-            // For Nano Banana (all versions), pass aspect_ratio: 'match_input_image' as required by user prompt:
-            // "والبرنامج يقهم نسبة الابعاد ويقوم بارسالها الى نانو بنانا بنسبة input image"
+            // For Nano Banana, match input image or target AR; pass reframed image and dimensions explicitly!
             const targetAR = isNanoBanana ? 'match_input_image' : (currentOpt ? currentOpt.id : aspectRatio);
             executeFn(childId, finalPrompt, {
+              sourceImage: reframed.dataUrl,
               aspectRatio: targetAR,
               sourceWidth: reframed.width,
               sourceHeight: reframed.height,
             }).catch((err) => {
               console.warn('AI execution after resize failed:', err);
+              if (creditResult.cost > 0) {
+                refundCredits(
+                  creditResult.effectiveUserId,
+                  creditResult.cost,
+                  `Refund: Failed resize generation for node ${childId}`
+                )
+                  .then((refunded) => {
+                    if (refunded) {
+                      getUserCredit(creditResult.effectiveUserId)
+                        .then((c) => c && useAIConfigStore.getState().setUserCredits(c.balance))
+                        .catch(() => {});
+                    }
+                  })
+                  .catch(() => {});
+              }
             });
           }
         }
@@ -758,6 +929,14 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
                 modelName={activeModel}
                 aspectRatio={aspectRatio}
                 options={availableRatios}
+                creditCost={getUnifiedCost(
+                  {
+                    ...useAIConfigStore.getState().config,
+                    model: activeModel,
+                    aspectRatio,
+                  },
+                  isTrial ?? true
+                )}
                 onSelectAspectRatio={handleSelectAspectRatio}
                 onConfirmResize={handleApplyResize}
                 onCancel={() => setActiveTool(null)}

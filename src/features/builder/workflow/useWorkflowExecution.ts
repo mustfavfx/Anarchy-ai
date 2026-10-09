@@ -104,28 +104,38 @@ export const useWorkflowExecution = ({
       const allParentImages: string[] = [];
 
       // 1. Tool-specified sourceImage override (e.g., visual markup annotations or reframed image)
+      const isResizeNode = Boolean(nodeData.label?.toLowerCase().includes('resize'));
+      const isMarkupNode = Boolean(nodeData.label?.toLowerCase().includes('markup'));
+
       if (config?.sourceImage && typeof config.sourceImage === 'string') {
         allParentImages.push(config.sourceImage);
-      } else if (nodeData.label?.toLowerCase().includes('markup') && (nodeData.image || nodeData.previewUrl)) {
-        // If this is a markup node, its own image carries the drawn annotations / red boxes
-        const markupImg = (nodeData.image || nodeData.previewUrl) as string;
-        allParentImages.push(markupImg);
+      } else if ((isMarkupNode || isResizeNode) && (nodeData.image || nodeData.previewUrl)) {
+        // If this is a markup or resize node, its own image carries the drawn annotations / reframed canvas
+        const customImg = (nodeData.image || nodeData.previewUrl) as string;
+        allParentImages.push(customImg);
       }
 
-      // 2. Fetch parent images from connected incoming edges
-      incomingEdges.forEach(edge => {
-        const parentNode = nodesRef.current.find(n => n.id === edge.source);
-        if (parentNode) {
-          const parentData = parentNode.data as BuilderNodeData;
-          const img = (typeof parentData.outputData?.image === 'string' ? parentData.outputData.image : undefined) || 
-                      (typeof parentData.image === 'string' ? parentData.image : undefined) || 
-                      parentData.previewUrl || 
-                      (typeof parentData.inputData?.image === 'string' ? parentData.inputData.image : undefined);
-          if (img && typeof img === 'string' && !allParentImages.includes(img)) {
-            allParentImages.push(img);
+      // 2. Fetch parent images from connected incoming edges (only if not an explicit single-image override)
+      const hasExplicitSource = Boolean(
+        (config?.sourceImage && typeof config.sourceImage === 'string') ||
+        ((isMarkupNode || isResizeNode) && (nodeData.image || nodeData.previewUrl))
+      );
+
+      if (!hasExplicitSource) {
+        incomingEdges.forEach(edge => {
+          const parentNode = nodesRef.current.find(n => n.id === edge.source);
+          if (parentNode) {
+            const parentData = parentNode.data as BuilderNodeData;
+            const img = (typeof parentData.outputData?.image === 'string' ? parentData.outputData.image : undefined) || 
+                        (typeof parentData.image === 'string' ? parentData.image : undefined) || 
+                        parentData.previewUrl || 
+                        (typeof parentData.inputData?.image === 'string' ? parentData.inputData.image : undefined);
+            if (img && typeof img === 'string' && !allParentImages.includes(img)) {
+              allParentImages.push(img);
+            }
           }
-        }
-      });
+        });
+      }
 
       // Fallback 1: check lineage parentId if no image found via edges
       if (allParentImages.length === 0 && (nodeData as BuilderNodeData)?.lineage?.parentId) {
@@ -223,33 +233,38 @@ export const useWorkflowExecution = ({
         ));
       };
 
-      // Resolve source dimensions from the first connected parent node (ghost-target-0)
+      // Resolve source dimensions
       let sourceDims: { width: number; height: number } | undefined = undefined;
-      const primaryEdge = incomingEdges[0];
-      if (primaryEdge) {
-        const primaryParentNode = nodesRef.current.find(n => n.id === primaryEdge.source);
-        if (primaryParentNode) {
-          const parentData = primaryParentNode.data as BuilderNodeData;
-          const d = (parentData.outputData?.dimensions ?? parentData.dimensions) as { width: number; height: number } | undefined;
-          sourceDims = d;
-        }
-      }
-      if (!sourceDims) {
-        sourceDims = nodeData.inputData?.dimensions;
-      }
-      // If dimensions are not yet recorded on nodeData, resolve directly from the source image
-      if ((!sourceDims || !sourceDims.width || !sourceDims.height) && sourceImage) {
-        try {
-          const resolvedSrc = await resolveImageIfCached(sourceImage);
-          if (resolvedSrc) {
-            sourceDims = await getImageDimensions(resolvedSrc);
+      // If config explicitly specified sourceWidth and sourceHeight (e.g. from resize reframing or markup), use them directly!
+      if (config?.sourceWidth && config?.sourceHeight && config.sourceWidth > 0 && config.sourceHeight > 0) {
+        sourceDims = { width: config.sourceWidth, height: config.sourceHeight };
+      } else {
+        const primaryEdge = incomingEdges[0];
+        if (primaryEdge && !isResizeNode) {
+          const primaryParentNode = nodesRef.current.find(n => n.id === primaryEdge.source);
+          if (primaryParentNode) {
+            const parentData = primaryParentNode.data as BuilderNodeData;
+            const d = (parentData.outputData?.dimensions ?? parentData.dimensions) as { width: number; height: number } | undefined;
+            sourceDims = d;
           }
-        } catch (dimErr) {
-          logger.warn('[WorkflowExecution] Could not resolve source image dimensions:', dimErr);
+        }
+        if (!sourceDims) {
+          sourceDims = nodeData.inputData?.dimensions || (nodeData as BuilderNodeData)?.dimensions;
+        }
+        // If dimensions are not yet recorded on nodeData, resolve directly from the source image
+        if ((!sourceDims || !sourceDims.width || !sourceDims.height) && sourceImage) {
+          try {
+            const resolvedSrc = await resolveImageIfCached(sourceImage);
+            if (resolvedSrc) {
+              sourceDims = await getImageDimensions(resolvedSrc);
+            }
+          } catch (dimErr) {
+            logger.warn('[WorkflowExecution] Could not resolve source image dimensions:', dimErr);
+          }
         }
       }
-      // Proactively backfill source dimensions to the parent node if missing
-      if (primaryEdge && sourceDims && sourceDims.width > 0 && sourceDims.height > 0) {
+      // Proactively backfill source dimensions to the parent node if missing (only for non-resize nodes)
+      if (primaryEdge && sourceDims && sourceDims.width > 0 && sourceDims.height > 0 && !isResizeNode) {
         setNodes(nds => nds.map(n => {
           if (n.id === primaryEdge.source) {
             const currentData = n.data as BuilderNodeData;

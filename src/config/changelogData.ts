@@ -13,9 +13,36 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
-    version: 'v0.3.97',
+    version: 'v0.3.98',
     date: 'October 9, 2026',
     status: 'current',
+    features: [
+      {
+        type: 'fix',
+        title: 'Non-Destructive AI Resize & Outpainting Overhaul',
+        description: 'Fixed framing and aspect ratio expansion in Image Editor Lightbox. Source padded image and exact target dimensions are now seamlessly passed to AI engines (Nano Banana, GPT Image 2.5 Flare, Seedream, Flux), preserving central architectural models intact while outpainting surroundings.'
+      },
+      {
+        type: 'fix',
+        title: 'Unified Credit System & Atomic Deduction in Editor Tools',
+        description: 'Connected Resize, Markup Studio, Smart Erase, and AI Comments to unified credit verification and atomic deduction (checkCreditBalance & deductCredits), ensuring accurate balance management with automatic error refund protection.'
+      },
+      {
+        type: 'feature',
+        title: 'Live Credit Cost Transparency in Resize Modal',
+        description: 'Added real-time points cost calculation directly onto the Resize confirmation button (e.g. OK Apply to Engine • 2.5 pts), giving architects full visibility before running generations.'
+      },
+      {
+        type: 'improvement',
+        title: 'Workflow Execution Image Isolation',
+        description: 'Streamlined child node branching in useWorkflowExecution so tool-modified and reframed images are cleanly isolated as the sole input to the target engine without inheriting unpadded ancestor frames.'
+      }
+    ]
+  },
+  {
+    version: 'v0.3.97',
+    date: 'October 9, 2026',
+    status: 'release',
     features: [
       {
         type: 'feature',
