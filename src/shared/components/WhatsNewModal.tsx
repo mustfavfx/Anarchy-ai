@@ -39,11 +39,49 @@ export interface UpdateSlide {
   description: string;
   features: string[];
   featureCards?: UpdateFeatureCard[];
-  graphicType: 'canvas' | 'layers' | 'agent' | 'rendering' | 'prompts' | 'object-masks' | 'mask-tool' | 'max-suite' | 'video-converter';
+  graphicType: 'canvas' | 'layers' | 'agent' | 'rendering' | 'prompts' | 'object-masks' | 'mask-tool' | 'max-suite' | 'video-converter' | 'sketchup-suite';
   accentColor: string;
 }
 
 const UPDATE_SLIDES: UpdateSlide[] = [
+  {
+    id: 'sketchup-4tool-suite',
+    badge: 'Major Release v0.3.97 | SketchUp AI Suite',
+    title: 'Official Trimble SketchUp Integration Suite',
+    subtitle: 'Lightning-fast AI for SketchUp: Send Viewport, Instant AI Render & Batch Scenes Export',
+    description: 'Version 0.3.97 introduces official native integration for Trimble SketchUp (2020–2027) with a dedicated Ruby extension suite, floating toolbar, camera metadata sync, and ultra-compact integrations interface.',
+    features: [
+      '1. Send Viewport: Stream active 3D camera view straight into Anarchy AI with 1 click',
+      '2. Instant AI Render: High-resolution (UHD 2560px) AI render with realistic architectural lighting',
+      '3. Batch Scenes Export: Export and render all scene tabs across your SketchUp model in seconds',
+      '4. Bi-directional Camera & BIM Metadata: Live FOV, perspective angles, and scene naming',
+      '5. Compact Integrations Hub: Multi-drive custom folder installation and version detection',
+    ],
+    featureCards: [
+      {
+        icon: 'camera',
+        title: '1. Send Viewport',
+        description: 'Send current viewport to Anarchy AI to create realistic architectural visualizations and animations.',
+      },
+      {
+        icon: 'lightning',
+        title: '2. Instant AI Render',
+        description: 'Generate an instant photorealistic AI render with a single click directly from SketchUp.',
+      },
+      {
+        icon: 'expand',
+        title: '3. Batch Scenes Export',
+        description: 'Cycle through all saved SketchUp scene tabs automatically and render them in Anarchy AI.',
+      },
+      {
+        icon: 'gear',
+        title: '4. Native Toolbar & Settings',
+        description: 'Automatic floating toolbar and Extensions menu inside SketchUp with live token authentication.',
+      },
+    ],
+    graphicType: 'sketchup-suite',
+    accentColor: '#e11d48',
+  },
   {
     id: 'generate-refine-object-masks',
     badge: "What's new",
@@ -268,7 +306,7 @@ const UPDATE_SLIDES: UpdateSlide[] = [
   },
 ];
 
-const STORAGE_KEY = 'anarchy_whats_new_v0.3.96_seen';
+const STORAGE_KEY = 'anarchy_whats_new_v0.3.97_seen';
 
 const renderCardIcon = (icon: UpdateFeatureCard['icon'], color: string) => {
   switch (icon) {
@@ -385,7 +423,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             <div className="anarchy-wn-logo-badge">A</div>
             <div>
               <div className="anarchy-wn-app-title">Anarchy AI Studio</div>
-              <div className="anarchy-wn-version-tag">Release v0.3.96 Updates</div>
+              <div className="anarchy-wn-version-tag">Release v0.3.97 Updates</div>
             </div>
           </div>
           <button
@@ -711,6 +749,99 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
                   {/* Base light */}
                   <ellipse cx="160" cy="180" rx="40" ry="10" fill="rgba(6,182,212,0.4)" stroke="#06b6d4" strokeWidth="2" />
                   <text x="160" y="204" textAnchor="middle" fill="#67e8f9" fontSize="9" fontWeight="bold">Video Converter Package • Win x64</text>
+                </svg>
+              )}
+
+              {currentSlide.graphicType === 'sketchup-suite' && (
+                <svg viewBox="0 0 320 240" className="anarchy-wn-svg-illu">
+                  <defs>
+                    <linearGradient id="gradSuBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#1e2029" />
+                      <stop offset="100%" stopColor="#111217" />
+                    </linearGradient>
+                    <linearGradient id="gradSuToolbar" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#2c2d36" />
+                      <stop offset="100%" stopColor="#1e1f26" />
+                    </linearGradient>
+                  </defs>
+                  {/* SketchUp Window Outline */}
+                  <rect x="20" y="20" width="280" height="200" rx="8" fill="url(#gradSuBg)" stroke="#3f414d" strokeWidth="1.5" />
+                  
+                  {/* Title Bar with SketchUp Red Accent */}
+                  <rect x="20" y="20" width="280" height="20" fill="#252630" rx="8" />
+                  <rect x="20" y="32" width="280" height="8" fill="#252630" />
+                  {/* SketchUp Red 3D Cube Icon */}
+                  <rect x="28" y="24" width="12" height="12" rx="2" fill="#ef4444" />
+                  <polygon points="34,25 38,27 38,33 34,35 30,33 30,27" fill="#ffffff" opacity="0.9" />
+                  <text x="46" y="33" fill="#cbd5e1" fontSize="7.5" fontWeight="bold" fontFamily="sans-serif">Untitled - Trimble SketchUp Pro 2026</text>
+
+                  {/* Menu bar row */}
+                  <rect x="20" y="40" width="280" height="13" fill="#1b1c22" />
+                  <text x="28" y="49" fill="#94a3b8" fontSize="6" fontFamily="sans-serif">File  Edit  View  Camera  Draw  Tools  Window  Extensions</text>
+
+                  {/* 3D Origin Axes (Red X, Green Y, Blue Z) */}
+                  <g opacity="0.6">
+                    {/* Z Axis (Blue Up) */}
+                    <line x1="160" y1="130" x2="160" y2="60" stroke="#3b82f6" strokeWidth="1.5" />
+                    {/* X Axis (Red Right) */}
+                    <line x1="160" y1="130" x2="260" y2="165" stroke="#ef4444" strokeWidth="1.5" />
+                    {/* Y Axis (Green Left/Back) */}
+                    <line x1="160" y1="130" x2="70" y2="155" stroke="#22c55e" strokeWidth="1.5" />
+                  </g>
+
+                  {/* 3D Massing Building in SketchUp */}
+                  <g transform="translate(170, 115)" stroke="#64748b" strokeWidth="1.2">
+                    {/* Main Building Body */}
+                    <polygon points="0,-40 45,-20 0,5 -45,-15" fill="rgba(241, 245, 249, 0.85)" stroke="#0f172a" />
+                    <polygon points="-45,-15 0,5 0,45 -45,25" fill="rgba(203, 213, 225, 0.75)" stroke="#0f172a" />
+                    <polygon points="0,5 45,-20 45,20 0,45" fill="rgba(148, 163, 184, 0.9)" stroke="#0f172a" />
+                    {/* Glass Cantilever Corner */}
+                    <polygon points="5,-10 35,5 35,25 5,10" fill="rgba(6, 182, 212, 0.55)" stroke="#06b6d4" strokeWidth="1" />
+                  </g>
+
+                  {/* Floating "Anarchy AI" Toolbar in SketchUp */}
+                  <g transform="translate(28, 62)">
+                    {/* Toolbar Container */}
+                    <rect x="0" y="0" width="36" height="126" rx="6" fill="url(#gradSuToolbar)" stroke="#ef4444" strokeWidth="1.5" filter="drop-shadow(0 4px 12px rgba(0,0,0,0.5))" />
+                    <rect x="2" y="2" width="32" height="12" rx="4" fill="#ef4444" />
+                    <text x="18" y="10" textAnchor="middle" fill="#ffffff" fontSize="5.5" fontWeight="bold">Anarchy</text>
+
+                    {/* Tool 1: Camera (Send Viewport) */}
+                    <g transform="translate(5, 18)">
+                      <rect x="0" y="0" width="26" height="23" rx="4" fill="#292a34" stroke="rgba(255,255,255,0.1)" strokeWidth="0.8" />
+                      <circle cx="13" cy="11.5" r="5.5" fill="none" stroke="#ef4444" strokeWidth="1.4" />
+                      <circle cx="13" cy="11.5" r="2" fill="#ef4444" />
+                    </g>
+
+                    {/* Tool 2: Instant Render (Sparkle / Lightning) */}
+                    <g transform="translate(5, 44)">
+                      <rect x="0" y="0" width="26" height="23" rx="4" fill="#292a34" stroke="rgba(255,255,255,0.1)" strokeWidth="0.8" />
+                      <path d="M 14 4 L 9 12 L 13 12 L 11 19 L 17 11 L 13 11 Z" fill="#f59e0b" />
+                    </g>
+
+                    {/* Tool 3: Batch Scenes (Stacked Layers) */}
+                    <g transform="translate(5, 70)">
+                      <rect x="0" y="0" width="26" height="23" rx="4" fill="#292a34" stroke="rgba(255,255,255,0.1)" strokeWidth="0.8" />
+                      <rect x="7" y="5" width="12" height="8" rx="1.5" fill="none" stroke="#94a3b8" strokeWidth="1" />
+                      <rect x="5" y="9" width="12" height="8" rx="1.5" fill="none" stroke="#ef4444" strokeWidth="1.2" />
+                    </g>
+
+                    {/* Tool 4: Settings (Gear) */}
+                    <g transform="translate(5, 96)">
+                      <rect x="0" y="0" width="26" height="23" rx="4" fill="#292a34" stroke="rgba(255,255,255,0.1)" strokeWidth="0.8" />
+                      <circle cx="13" cy="11.5" r="4.5" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3 1.5" />
+                    </g>
+                  </g>
+
+                  {/* Highlighting Arrow from Toolbar to Model */}
+                  <path d="M 72 105 L 115 105 M 107 98 L 115 105 L 107 112" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+
+                  {/* Bridge Status Indicator Pill */}
+                  <g transform="translate(145, 190)">
+                    <rect x="0" y="0" width="145" height="18" rx="9" fill="rgba(15, 23, 42, 0.85)" stroke="#22c55e" strokeWidth="1" />
+                    <circle cx="12" cy="9" r="3.5" fill="#22c55e" />
+                    <text x="22" y="12.5" fill="#f8fafc" fontSize="6.8" fontWeight="600" fontFamily="sans-serif">Bridge Online: 127.0.0.1:14400</text>
+                  </g>
                 </svg>
               )}
             </div>

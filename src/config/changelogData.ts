@@ -13,9 +13,36 @@ export interface ChangelogVersion {
 
 export const CHANGELOG_DATA: ChangelogVersion[] = [
   {
+    version: 'v0.3.97',
+    date: 'October 9, 2026',
+    status: 'current',
+    features: [
+      {
+        type: 'feature',
+        title: 'Official Trimble SketchUp Integration Suite (Ruby Extension)',
+        description: 'Complete native SketchUp integration supporting versions 2020 through 2027. Features 1-click Viewport Capture (Send Viewport), Instant AI Render (2560px UHD), Multi-Scene Batch Export, and bi-directional camera metadata streaming.'
+      },
+      {
+        type: 'feature',
+        title: 'Native 4-Tool SketchUp Toolbar & Extensions Menu',
+        description: 'Introduced an automatic SketchUp floating toolbar and Extensions submenu with dedicated tools: Send Viewport, Instant AI Render, Batch Scenes Export, and Bridge Status/Settings.'
+      },
+      {
+        type: 'improvement',
+        title: 'Automated Multi-Drive Installer & Custom Folder Picker',
+        description: 'Tauri backend automatically detects SketchUp user profiles across AppData and Program Files on all local drives, with full support for selecting custom installation folders.'
+      },
+      {
+        type: 'improvement',
+        title: 'Compact & Streamlined Integrations Management UI',
+        description: 'Overhauled the Integrations detail modal with ultra-compact 4-column version chips, auto-detection indicators, collapsible instructions, and clean one-click uninstall/reinstall routines.'
+      }
+    ]
+  },
+  {
     version: 'v0.3.96',
     date: 'October 8, 2026',
-    status: 'current',
+    status: 'release',
     features: [
       {
         type: 'feature',

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.97] - 2026-10-09
+
+### Trimble SketchUp Integration Suite & Compact Integrations Interface
+- **Official Trimble SketchUp Ruby Extension (v1.8.2)**:
+  - Built full native extension for SketchUp 2020 through 2027 using the official SketchUp Ruby Extension API.
+  - Implemented automatic extension registration in SketchUp's Extension Manager.
+  - Added native floating toolbar (`UI::Toolbar.new('Anarchy AI')`) with custom 16px and 24px toolbar icons.
+  - Added dedicated submenu under `Extensions > Anarchy AI`.
+- **4-Tool Suite for SketchUp**:
+  - **Send Viewport (Tool 1)**: Captures active viewport keeping aspect ratio and sends it directly to Anarchy AI local bridge (`127.0.0.1:14400/upload-view`).
+  - **Instant AI Render (Tool 2)**: UHD 2560px capture and immediate photorealistic AI render generation with architectural materials.
+  - **Batch Scenes Export (Tool 3)**: Automatically cycles through all model scenes/pages, capturing and exporting each scene to the Builder timeline.
+  - **Settings & Bridge Status (Tool 4)**: Dialog providing instant feedback on server health, auth token verification, and SketchUp version.
+- **Bi-Directional Camera & BIM Metadata Streaming**:
+  - Live FOV, camera perspective, eye position, and target coordinates streamed to `/agent/bim-metadata`.
+- **Backend Multi-Drive Detection & Installer**:
+  - Implemented `detect_sketchup_installs` and `install_sketchup_plugin` in Tauri Rust backend.
+  - Full support for detecting installations across all drives (C, D, E, F) and custom folder selection via folder picker dialog.
+- **Streamlined Integrations UI**:
+  - Ultra-compact 4-column version chips grid, live detection dot indicators, and collapsible usage guide.
+
+---
+
 ## [0.3.96] - 2026-10-08
 
 ### ArchVision AI Agent Studio 2.0 & 3D WebGL Integration

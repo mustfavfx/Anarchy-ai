@@ -29,7 +29,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
     }
   };
 
-  const currentVersion = CHANGELOG_DATA[0]?.version || 'v0.3.96';
+  const currentVersion = CHANGELOG_DATA[0]?.version || 'v0.3.97';
 
   const handleUpdateClick = async (e: React.MouseEvent) => {
     e.preventDefault();
