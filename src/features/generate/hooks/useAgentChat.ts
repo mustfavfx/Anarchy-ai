@@ -751,15 +751,18 @@ export function useAgentChat() {
         if (autodeskActions.length > 0) {
           autodeskRan = true;
           // Sort Autodesk actions in logical architectural pipeline order:
-          // 1: Massing (create_box) -> 2: Materials -> 3: Daylight/Sun -> 4: Camera -> 5: Viewport sync/render -> 6: Inspection
+          // 0: Levels -> 1: Massing/Walls/Floors -> 2: Openings (Doors/Windows) -> 3: Materials -> 4: Sun/Lighting -> 5: Camera -> 6: Viewport/Render -> 7: BIM Data -> 8: Export
           const actionOrderScore = (act: any): number => {
             const name = (act.tool_name || act.action || '').toLowerCase();
-            if (name.includes('create_box') || name.includes('box') || name.includes('house') || name.includes('villa') || name.includes('mass')) return 1;
-            if (name.includes('apply_material') || name.includes('material')) return 2;
-            if (name.includes('setup_sun') || name.includes('lighting') || name.includes('sun')) return 3;
-            if (name.includes('set_camera') || name.includes('camera')) return 4;
-            if (name.includes('render_preview') || name.includes('viewport_sync')) return 5;
-            if (name.includes('get_scene_info')) return 6;
+            if (name.includes('create_level') || name.includes('level')) return 0;
+            if (name.includes('create_box') || name.includes('box') || name.includes('house') || name.includes('villa') || name.includes('mass') || name.includes('wall') || name.includes('floor')) return 1;
+            if (name.includes('opening') || name.includes('door') || name.includes('window')) return 2;
+            if (name.includes('apply_material') || name.includes('material')) return 3;
+            if (name.includes('setup_sun') || name.includes('lighting') || name.includes('sun')) return 4;
+            if (name.includes('set_camera') || name.includes('camera') || name.includes('set_3d_view')) return 5;
+            if (name.includes('render_preview') || name.includes('export_active_view') || name.includes('viewport_sync')) return 6;
+            if (name.includes('get_scene_info') || name.includes('extract_bim') || name.includes('get_model_summary')) return 7;
+            if (name.includes('export_model')) return 8;
             return 10;
           };
           autodeskActions.sort((a, b) => actionOrderScore(a) - actionOrderScore(b));
@@ -781,7 +784,7 @@ export function useAgentChat() {
           if (!preflightConnected) {
             allSuccess = false;
             actionTitles = autodeskActions.map(a => a.tool_name || a.description || a.action);
-            executedOutputs.push(`${primarySoftware} connector did not respond within timeout. Please open ${primarySoftware} and verify AnarchyConnector.ms is running.`);
+            executedOutputs.push(`${primarySoftware} connector did not respond within timeout. Please ensure ${primarySoftware} is running with the Anarchy AI plugin active.`);
           } else {
             for (const act of autodeskActions) {
               actionTitles.push(act.tool_name || act.description || act.action);

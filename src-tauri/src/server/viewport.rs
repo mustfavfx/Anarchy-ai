@@ -140,9 +140,10 @@ pub async fn start_anarchy_viewport_server(app_handle: tauri::AppHandle) {
                     _ => "HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"ok\":false}".to_string(),
                 }
             } else if is_bim_metadata {
-                crate::commands::cua::record_autodesk_heartbeat("3dsmax");
                 match serde_json::from_str::<serde_json::Value>(&body) {
                     Ok(payload) => {
+                        let source = payload.get("source").and_then(|v| v.as_str()).unwrap_or("revit");
+                        crate::commands::cua::record_autodesk_heartbeat(source);
                         let _ = app.emit("anarchy://bim-metadata", payload);
                         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"ok\":true}".to_string()
                     }
@@ -180,7 +181,16 @@ pub async fn start_anarchy_viewport_server(app_handle: tauri::AppHandle) {
                 });
                 format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{}", json_res)
             } else if is_command_result {
-                crate::commands::cua::record_autodesk_heartbeat("3dsmax");
+                let mut sw = "3dsmax".to_string();
+                for line in headers.lines() {
+                    if let Some((k, v)) = line.split_once(':') {
+                        if k.trim().eq_ignore_ascii_case("x-autodesk-software") {
+                            sw = v.trim().to_string();
+                            break;
+                        }
+                    }
+                }
+                crate::commands::cua::record_autodesk_heartbeat(&sw);
                 match serde_json::from_str::<crate::commands::cua::AutodeskCommandResult>(&body) {
                     Ok(res) => {
                         crate::commands::cua::push_autodesk_command_result(res);

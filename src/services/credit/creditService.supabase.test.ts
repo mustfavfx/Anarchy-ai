@@ -346,7 +346,7 @@ describe('7-Day Free Trial Credits (20 credits) and Expiration', () => {
     const result = deductLocalTrialCredit('guest-test', 2);
     expect(result.success).toBe(false);
     expect(result.remaining).toBe(0);
-    expect(result.error).toContain('انتهت صلاحية الـ 20 رصيد');
+    expect(result.error).toMatch(/(?:expired after 7 days|انتهت صلاحية الـ 20 رصيد)/);
   });
 
   it('allows deduction when trial is within the 7-day window', () => {

@@ -45,8 +45,46 @@ export interface UpdateSlide {
 
 const UPDATE_SLIDES: UpdateSlide[] = [
   {
+    id: 'revit-copilot-v03101',
+    badge: 'Latest Release v0.3.101 | Autodesk Revit AI Copilot',
+    title: 'Autonomous Autodesk Revit BIM Copilot',
+    subtitle: 'Full parametric modeling, architectural villa generation, BIM schedule inspection, and direct canvas viewport sync.',
+    description: 'Version 0.3.101 empowers Anarchy AI Agent with full native integration inside Autodesk Revit. Built on thread-safe ExternalEvent architecture and live HTTP polling, the agent executes parametric modeling, camera positioning, and BIM data extractions directly.',
+    features: [
+      '1. Parametric Villa Modeling: Automatically creates levels, walls, floors, doors, and windows directly in Revit',
+      '2. Smart Camera & 3D Perspective: Aligns Revit camera at human eye level (1.7m) with realistic focal depth',
+      '3. Instant Viewport Canvas Sync: Captures active 3D views and floor plans and streams them to the AI canvas',
+      '4. Deep BIM Inspection: Extracts rooms, floor areas, schedules, material counts, and element metadata',
+      '5. Automated BIM Export: Seamlessly triggers background exports to IFC and DWG formats',
+    ],
+    featureCards: [
+      {
+        icon: 'teapot',
+        title: '1. Parametric Modeling',
+        description: 'Command the agent to build villas, floor slabs, and openings with metric dimensions converted accurately to Revit internal units.',
+      },
+      {
+        icon: 'camera',
+        title: '2. Perspective Sync',
+        description: 'Direct high-resolution viewport streaming from Revit 2027 into the Anarchy AI infinite canvas.',
+      },
+      {
+        icon: 'lightning',
+        title: '3. BIM Data Extraction',
+        description: 'Query room areas, level elevations, wall counts, and project schedules through conversational agent prompts.',
+      },
+      {
+        icon: 'gear',
+        title: '4. Native .NET 10 Plugin',
+        description: 'Prebuilt native C# add-in running asynchronously on Revit UI threads via ExternalEvent handling.',
+      },
+    ],
+    graphicType: 'agent',
+    accentColor: '#0ea5e9',
+  },
+  {
     id: 'resize-credits-overhaul-v03100',
-    badge: 'Latest Release v0.3.100 | Workflow & Pipeline Stabilization',
+    badge: 'v0.3.100 | Workflow & Pipeline Stabilization',
     title: 'AI Resize Outpainting & Unified Credit Billing',
     subtitle: 'High-precision architectural aspect ratio reframing, intelligent outpainting, and transparent credit deduction.',
     description: 'Version 0.3.100 resolves workflow generation node pipeline execution (primaryEdge scope fix), mask adjustment layer initialization, and image framing and aspect ratio outpainting in the Lightbox Image Editor.',

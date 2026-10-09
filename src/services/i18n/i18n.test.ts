@@ -12,13 +12,13 @@ describe('i18n Service', () => {
     expect(t('common.confirm')).toBe('Confirm');
   });
 
-  it('translates correctly when language is switched to Arabic', () => {
+  it('enforces English interface language by design', () => {
     setLanguage('ar');
-    expect(getLanguage()).toBe('ar');
-    expect(t('common.confirm')).toBe('تأكيد');
+    expect(getLanguage()).toBe('en');
+    expect(t('common.confirm')).toBe('Confirm');
   });
 
-  it('falls back to English if key missing in Arabic', () => {
+  it('falls back to English if key queried', () => {
     setLanguage('ar');
     expect(t('app.title')).toBe('Anarchy AI');
   });

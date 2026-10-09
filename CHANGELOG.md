@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.101] - 2026-10-10
+
+### Autodesk Revit Live AI Copilot & BIM Automation
+- **Autonomous Revit API Copilot Architecture**:
+  - Implemented thread-safe `ExternalEvent` and `IExternalEventHandler` architecture (`AnarchyAgentHandler`) for seamless execution of background AI agent commands directly within Autodesk Revit's UI thread.
+  - Added background worker polling bridge (`http://127.0.0.1:14400/agent/poll-command?software=revit`) with continuous heartbeat reporting and status streaming.
+  - Compiled and deployed prebuilt native .NET 10 plugin (`AnarchyRevit.dll`) compatible with Revit 2027 and future API runtimes directly to active addin manifests.
+- **Parametric Architectural BIM Modeling**:
+  - `create_architectural_villa`: Parametric generation of 2-story architectural villas with building levels, exterior and interior walls, structural floor slabs, doors, windows, and dedicated 3D perspective views.
+  - `create_levels`: Dynamic building elevation level creation with automated plan views.
+  - `create_walls`: Precision wall creation with automatic baseline level attachment and height constraints.
+  - `create_floors`: Automatic profile curve computation and structural floor slab placement.
+  - `place_doors_windows`: Host-aware door and window insertion on existing walls with geometric centering.
+- **View & Camera Intelligence**:
+  - `set_camera`: 3D perspective camera positioning at human eye level (1.7m) with parametric target distance and yaw/pitch orientation.
+  - `export_active_view`: Real-time viewport capture syncing active 3D or 2D floor plans directly to the Anarchy AI canvas with full project metadata.
+- **BIM Data Extraction & Export Pipelines**:
+  - `extract_bim_data`: High-fidelity BIM inspection extracting level lists, room schedules, areas, wall/window element counts, and phase status.
+  - `export_model`: Direct automation of IFC and DWG exports from Revit projects.
+- **Dual-Engine Hybrid Integration**:
+  - Connected Revit tools to both the Architect Agent (`ArchitectAgentService`) and Computer Use Agent (`ComputerUseAgentService`) with automatic window focus and fallback desktop interaction.
+
+---
+
 ## [0.3.100] - 2026-10-09
 
 ### Workflow Execution & Pipeline Stabilization

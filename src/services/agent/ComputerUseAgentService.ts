@@ -1561,20 +1561,31 @@ AVAILABLE ACTIONS:
 16. {"type": "autodesk_action", "autodeskSoftware": "3dsmax", "autodeskAction": "viewport_sync"} -> Request active viewport from 3ds Max immediately.
 17. {"type": "autodesk_action", "autodeskSoftware": "3dsmax", "autodeskAction": "execute_script", "autodeskScript": "<maxscript code>"} -> Run custom safe MaxScript code inside 3ds Max.
 
+--- AUTODESK REVIT BIM TOOLS ---
+18. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "create_architectural_villa", "toolParameters": {"width": 14.0, "length": 16.0, "height": 3.5, "style": "modern"}} -> Parametrically generate complete 2-story architectural villa in Revit (Levels, Outer & Interior Walls, Floors, Doors, Windows, and 3D View).
+19. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "create_walls", "toolParameters": {"width": 12.0, "length": 14.0, "height": 3.2}} -> Create perimeter walls on active level.
+20. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "create_levels", "toolParameters": {"name": "First Floor", "elevation": 3.5}} -> Create building level at elevation in meters.
+21. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "create_floors", "toolParameters": {"width": 14.0, "length": 16.0}} -> Generate architectural floor slab covering footprint.
+22. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "place_doors_windows", "toolParameters": {}} -> Insert doors and windows onto walls.
+23. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "set_camera", "toolParameters": {"eye_level": true, "yaw": 35.0, "distance": 22.0}} -> Align Revit 3D perspective camera at human eye level.
+24. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "export_active_view", "toolParameters": {}} -> Capture active Revit view (3D or 2D) and sync directly to Anarchy AI canvas.
+25. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "extract_bim_data", "toolParameters": {}} -> Extract BIM metadata: levels, rooms, areas, elements, and schedules.
+26. {"type": "tool_call", "autodeskSoftware": "revit", "toolName": "export_model", "toolParameters": {"format": "ifc" | "dwg"}} -> Export active Revit project to IFC or DWG file.
+
 --- DESKTOP & CANVAS INTERACTION (SET-OF-MARKS GROUNDED) ---
-18. {"type": "mouse_click", "targetId": "#1"} -> Click target UI element directly by Set-of-Marks ID (100% deterministic, no coordinate drift).
-19. ${this.plannerProvider === 'gemini'
+27. {"type": "mouse_click", "targetId": "#1"} -> Click target UI element directly by Set-of-Marks ID (100% deterministic, no coordinate drift).
+28. ${this.plannerProvider === 'gemini'
     ? '{"type": "mouse_click", "x": 500, "y": 500, "button": "left"} -> Click at screen coordinates. Output normalized coordinates strictly in range [0, 1000].'
     : `{"type": "mouse_click", "x": 640, "y": 360, "button": "left"} -> Click at screen pixel coordinates strictly in range [0, ${obs.screen?.width || 1280}] for X and [0, ${obs.screen?.height || 720}] for Y.`}
-20. {"type": "send_keys", "text": "...", "keyCombo": ["ctrl", "s"]} -> Type text or hotkeys.
-21. {"type": "focus_window", "windowTitlePattern": "3ds max"} -> Bring target window to front.
-22. {"type": "canvas_action", "canvasAction": {"type": "fork_node", "label": "<Branch Label>", "prompt": "<architectural prompt>"}} -> Branch node on canvas with new design prompt.
-23. {"type": "canvas_action", "canvasAction": {"type": "update_prompt", "prompt": "<refined architectural prompt>"}} -> Update prompt on active node.
-24. {"type": "canvas_action", "canvasAction": {"type": "focus_node", "nodeId": "<nodeId>"}} -> Focus canvas camera on node.
-25. {"type": "fetch_web_reference", "webQuery": "modern villa facade"} -> Fetch online reference image to canvas.
-26. {"type": "wait", "durationMs": 1500} -> Wait for rendering or processing.
-27. {"type": "complete", "completionSummary": "<Summary of what was achieved>"} -> Finish execution successfully.
-28. {"type": "fail", "failureReason": "<Reason why goal cannot be achieved>"} -> Terminate execution with failure notice.
+29. {"type": "send_keys", "text": "...", "keyCombo": ["ctrl", "s"]} -> Type text or hotkeys.
+30. {"type": "focus_window", "windowTitlePattern": "3ds max"} -> Bring target window to front.
+31. {"type": "canvas_action", "canvasAction": {"type": "fork_node", "label": "<Branch Label>", "prompt": "<architectural prompt>"}} -> Branch node on canvas with new design prompt.
+32. {"type": "canvas_action", "canvasAction": {"type": "update_prompt", "prompt": "<refined architectural prompt>"}} -> Update prompt on active node.
+33. {"type": "canvas_action", "canvasAction": {"type": "focus_node", "nodeId": "<nodeId>"}} -> Focus canvas camera on node.
+34. {"type": "fetch_web_reference", "webQuery": "modern villa facade"} -> Fetch online reference image to canvas.
+35. {"type": "wait", "durationMs": 1500} -> Wait for rendering or processing.
+36. {"type": "complete", "completionSummary": "<Summary of what was achieved>"} -> Finish execution successfully.
+37. {"type": "fail", "failureReason": "<Reason why goal cannot be achieved>"} -> Terminate execution with failure notice.
 
 Decide the SINGLE next best action to advance towards the active sub-goal and user objective.
 Respond strictly in JSON format:
@@ -1604,7 +1615,7 @@ Respond strictly in JSON format:
             thought: 'OpenAI API key is missing. No silent fallback to ensure transparency.',
             action: {
               type: 'fail',
-              failureReason: 'OpenAI API key not found in secure keyring. Please configure your key in settings.',
+              failureReason: 'مفتاح OpenAI API غير متوفر في التخزين الآمن. OpenAI API key not found in secure keyring. Please configure your key in settings.',
             },
           };
         }
@@ -1987,7 +1998,51 @@ export function detectAutodeskIntent(text: string): DetectedAutodeskIntent | nul
     }
   }
 
-  // 3. Explicit Open / Launch intent (e.g. "افتح الماكس", "open 3ds max", "launch revit")
+  // 3. Explicit Revit Parametric Modeling / BIM intent
+  if (software === 'revit') {
+    // Villa / Building generation
+    if (/(?:انشئ|أنشئ|ابني|ابنِ|سوي|اصنع|create|build|make)\s*(?:فيلا|بيت|منزل|مبنى|villa|house|building)/i.test(t)) {
+      return {
+        isAutodeskCommand: true,
+        software: 'revit',
+        action: 'execute_script',
+        script: 'create_architectural_villa',
+        description: 'Generate parametric architectural villa with levels, walls, and openings in Revit',
+      };
+    }
+    // Wall creation
+    if (/(?:انشئ|أنشئ|ابني|ابنِ|ارسم|ضع|create|build|draw)\s*(?:جدران|حائط|جدار|walls|wall)/i.test(t)) {
+      return {
+        isAutodeskCommand: true,
+        software: 'revit',
+        action: 'execute_script',
+        script: 'create_walls',
+        description: 'Create parametric architectural walls in Revit',
+      };
+    }
+    // BIM data extraction
+    if (/(?:بيانات|غرف|مساحات|bim|metadata|rooms|areas|جدول)/i.test(t)) {
+      return {
+        isAutodeskCommand: true,
+        software: 'revit',
+        action: 'execute_script',
+        script: 'extract_bim_data',
+        description: 'Extract BIM project metadata, rooms, areas, and element counts from Revit',
+      };
+    }
+    // Camera / 3D Perspective
+    if (/(?:كاميرا|كامرا|منظور|camera|perspective|view)/i.test(t)) {
+      return {
+        isAutodeskCommand: true,
+        software: 'revit',
+        action: 'execute_script',
+        script: 'set_camera',
+        description: 'Configure Revit 3D perspective camera at human eye level',
+      };
+    }
+  }
+
+  // 4. Explicit Open / Launch intent (e.g. "افتح الماكس", "open 3ds max", "launch revit")
   if (/افتح|شغل|\bopen\b|\blaunch\b|\bstart\b/i.test(t)) {
     return {
       isAutodeskCommand: true,
