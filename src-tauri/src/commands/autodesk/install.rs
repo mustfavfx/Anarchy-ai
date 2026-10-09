@@ -1,7 +1,7 @@
 use super::types::AutodeskInstall;
 use super::detect::{
     detect_3dsmax_installs, detect_revit_installs, detect_autocad_installs,
-    find_autocad_dll, is_process_running,
+    detect_sketchup_installs, find_autocad_dll, is_process_running,
 };
 
 #[tauri::command]
@@ -712,14 +712,135 @@ pub async fn remove_old_autodesk_plugins(target: String) -> Result<Vec<String>, 
                 }
             }
         }
-        _ => return Err("Unsupported Autodesk plugin target".to_string()),
+        "sketchup" => {
+            let su_root = std::path::PathBuf::from(&app_data).join("SketchUp");
+            if su_root.exists() {
+                if let Ok(entries) = std::fs::read_dir(&su_root) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        let plugins_dir = path.join("SketchUp").join("Plugins");
+                        if plugins_dir.exists() {
+                            let loader = plugins_dir.join("anarchy_sketchup.rb");
+                            let sub = plugins_dir.join("anarchy_sketchup");
+                            if loader.exists() {
+                                let _ = std::fs::remove_file(&loader);
+                                removed.push(loader.to_string_lossy().to_string());
+                            }
+                            if sub.exists() {
+                                let _ = std::fs::remove_dir_all(&sub);
+                                removed.push(sub.to_string_lossy().to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        _ => return Err("Unsupported plugin target".to_string()),
     }
 
     Ok(removed)
 }
 
-/// Automatically synchronizes the latest AnarchyConnector.ms and PymxsTools.py
-/// to all detected 3ds Max installations and AppData on application launch.
+const SKETCHUP_LOADER: &str = include_str!("../../../resources/sketchup-plugin/anarchy_sketchup.rb");
+const SKETCHUP_MAIN: &str = include_str!("../../../resources/sketchup-plugin/anarchy_sketchup/main.rb");
+const SU_ICON_VP_16: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/viewport_16.png");
+const SU_ICON_VP_24: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/viewport_24.png");
+const SU_ICON_RD_16: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/render_16.png");
+const SU_ICON_RD_24: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/render_24.png");
+const SU_ICON_BT_16: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/batch_16.png");
+const SU_ICON_BT_24: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/batch_24.png");
+const SU_ICON_ST_16: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/settings_16.png");
+const SU_ICON_ST_24: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/settings_24.png");
+const SU_ICON_LG_16: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/logo_16.png");
+const SU_ICON_LG_24: &[u8] = include_bytes!("../../../resources/sketchup-plugin/anarchy_sketchup/icons/logo_24.png");
+
+#[tauri::command]
+pub async fn install_sketchup_plugin(
+    versions: Option<Vec<String>>,
+    custom_paths: Option<Vec<String>>,
+) -> Result<Vec<String>, String> {
+    let app_data = std::env::var("APPDATA").unwrap_or_default();
+    let detected = detect_sketchup_installs();
+    let selected_versions = versions.unwrap_or_else(|| {
+        if detected.is_empty() {
+            vec!["2024".to_string(), "2025".to_string()]
+        } else {
+            detected.iter().map(|i| i.version.clone()).collect()
+        }
+    });
+
+    let mut target_dirs: Vec<std::path::PathBuf> = Vec::new();
+
+    // 1. Standard version paths in %APPDATA%\SketchUp\SketchUp {ver}\SketchUp\Plugins
+    for ver in &selected_versions {
+        let plugins_dir = std::path::Path::new(&app_data)
+            .join("SketchUp")
+            .join(format!("SketchUp {}", ver))
+            .join("SketchUp")
+            .join("Plugins");
+        target_dirs.push(plugins_dir);
+    }
+
+    // 2. Custom paths selected by user
+    if let Some(cps) = custom_paths {
+        for cp in cps {
+            let p = std::path::PathBuf::from(cp);
+            if p.file_name().and_then(|n| n.to_str()).map(|n| n.eq_ignore_ascii_case("plugins")).unwrap_or(false) {
+                target_dirs.push(p);
+            } else if p.join("SketchUp").join("Plugins").exists() {
+                target_dirs.push(p.join("SketchUp").join("Plugins"));
+            } else if p.join("Plugins").exists() {
+                target_dirs.push(p.join("Plugins"));
+            } else {
+                target_dirs.push(p);
+            }
+        }
+    }
+
+    target_dirs.sort();
+    target_dirs.dedup();
+
+    if target_dirs.is_empty() {
+        return Err("No SketchUp target directories selected.".to_string());
+    }
+
+    let mut installed_paths = Vec::new();
+
+    for plugins_dir in target_dirs {
+        let icons_dir = plugins_dir.join("anarchy_sketchup").join("icons");
+        if let Err(e) = std::fs::create_dir_all(&icons_dir) {
+            eprintln!("[sketchup-install] Failed to create {}: {}", icons_dir.display(), e);
+            continue;
+        }
+
+        let loader_path = plugins_dir.join("anarchy_sketchup.rb");
+        let main_path = plugins_dir.join("anarchy_sketchup").join("main.rb");
+
+        let _ = std::fs::write(&loader_path, SKETCHUP_LOADER);
+        let _ = std::fs::write(&main_path, SKETCHUP_MAIN);
+
+        let _ = std::fs::write(icons_dir.join("viewport_16.png"), SU_ICON_VP_16);
+        let _ = std::fs::write(icons_dir.join("viewport_24.png"), SU_ICON_VP_24);
+        let _ = std::fs::write(icons_dir.join("render_16.png"), SU_ICON_RD_16);
+        let _ = std::fs::write(icons_dir.join("render_24.png"), SU_ICON_RD_24);
+        let _ = std::fs::write(icons_dir.join("batch_16.png"), SU_ICON_BT_16);
+        let _ = std::fs::write(icons_dir.join("batch_24.png"), SU_ICON_BT_24);
+        let _ = std::fs::write(icons_dir.join("settings_16.png"), SU_ICON_ST_16);
+        let _ = std::fs::write(icons_dir.join("settings_24.png"), SU_ICON_ST_24);
+        let _ = std::fs::write(icons_dir.join("logo_16.png"), SU_ICON_LG_16);
+        let _ = std::fs::write(icons_dir.join("logo_24.png"), SU_ICON_LG_24);
+
+        installed_paths.push(loader_path.to_string_lossy().to_string());
+    }
+
+    if installed_paths.is_empty() {
+        return Err("Failed to write SketchUp plugin files. Please check write permissions.".to_string());
+    }
+
+    Ok(installed_paths)
+}
+
+/// Automatically synchronizes the latest Anarchy connectors to AppData and active installs.
 pub fn auto_sync_autodesk_connectors() {
     let script = include_str!("../../../resources/AnarchyConnector.ms");
     let pymxs_tools = include_str!("../../../resources/PymxsTools.py");
@@ -730,6 +851,12 @@ pub fn auto_sync_autodesk_connectors() {
         let _ = std::fs::create_dir_all(&app_dir);
         let _ = std::fs::write(app_dir.join("AnarchyConnector.ms"), script);
         let _ = std::fs::write(app_dir.join("PymxsTools.py"), pymxs_tools);
+
+        // Also cache SketchUp extension scripts in com.anarchyai.app/sketchup
+        let su_cache = app_dir.join("sketchup");
+        let _ = std::fs::create_dir_all(&su_cache);
+        let _ = std::fs::write(su_cache.join("anarchy_sketchup.rb"), SKETCHUP_LOADER);
+        let _ = std::fs::write(su_cache.join("main.rb"), SKETCHUP_MAIN);
     }
 
     // 2. Sync to all detected 3ds Max user profiles in LocalAppData

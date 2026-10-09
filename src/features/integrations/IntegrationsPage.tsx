@@ -69,9 +69,8 @@ const PLUGINS: Plugin[] = [
     latestVersion: '1.8.2',
     status: 'available',
     fileSize: '8 MB',
-    supportedVersions: '2021, 2022, 2023, 2024',
-    features: ['One-click render', 'Style presets', 'Component library', 'Shadow sync'],
-    comingSoon: true
+    supportedVersions: '2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027',
+    features: ['Send Viewport', 'Instant AI Render', 'Batch Scenes Export', 'Camera & Metadata Sync']
   },
   {
     id: 'archicad',
@@ -103,10 +102,11 @@ const PLUGINS: Plugin[] = [
   */
 ];
 
-// All versions supported for each Autodesk product
+// All versions supported for each 3D / CAD product
 const SUPPORTED_VERSIONS: Record<string, string[]> = {
-  '3dsmax': ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
-  'revit':  ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
+  '3dsmax':   ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
+  'revit':    ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
+  'sketchup': ['2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027'],
 };
 
 const SoftwareLogo: React.FC<{ id: Plugin['icon'] }> = ({ id }) => {
@@ -256,7 +256,7 @@ export const IntegrationsPage: React.FC = () => {
 
 
   const loadDetectedInstalls = async (plugin: Plugin) => {
-    if (plugin.id !== '3dsmax' && plugin.id !== 'revit') {
+    if (plugin.id !== '3dsmax' && plugin.id !== 'revit' && plugin.id !== 'sketchup') {
       setDetectedInstalls([]);
       setSelectedVersions([]);
       return;
@@ -274,12 +274,12 @@ export const IntegrationsPage: React.FC = () => {
         // Fallback: Show all supported versions so user can select their version on any drive
         const versions = SUPPORTED_VERSIONS[plugin.id] || ['2022', '2023', '2024', '2025', '2026', '2027'];
         setDetectedInstalls(versions.map(v => ({ version: v, path: 'Custom / Standard Drive' })));
-        setSelectedVersions(['2024', '2025']);
+        setSelectedVersions(plugin.id === 'sketchup' ? ['2023', '2024', '2025', '2026'] : ['2024', '2025']);
       }
     } catch (error) {
       const versions = SUPPORTED_VERSIONS[plugin.id] || ['2022', '2023', '2024', '2025', '2026', '2027'];
       setDetectedInstalls(versions.map(v => ({ version: v, path: 'Custom / Standard Drive' })));
-      setSelectedVersions(['2024', '2025']);
+      setSelectedVersions(plugin.id === 'sketchup' ? ['2023', '2024', '2025', '2026'] : ['2024', '2025']);
       setInstallMessage(error instanceof Error ? error.message : String(error));
     }
   };
@@ -326,7 +326,7 @@ export const IntegrationsPage: React.FC = () => {
       prev.includes(version)
         ? prev.filter(v => v !== version)
         : [...prev, version]
-    ));
+      ));
   };
 
   const handleInstall = async (plugin: Plugin, keepModalOpen = false) => {
@@ -351,6 +351,10 @@ export const IntegrationsPage: React.FC = () => {
         installedPaths = await invoke<string[]>('install_revit_plugin', {
           versions: selectedVersions,
         });
+      } else if (plugin.id === 'sketchup') {
+        installedPaths = await invoke<string[]>('install_sketchup_plugin', {
+          versions: selectedVersions,
+        });
       } else {
         await new Promise(resolve => setTimeout(resolve, 1200));
       }
@@ -362,11 +366,13 @@ export const IntegrationsPage: React.FC = () => {
       saved[plugin.id] = { version: plugin.latestVersion, installedAt: Date.now(), paths: installedPaths };
       localStorage.setItem('anarchy_plugins', JSON.stringify(saved));
 
-      if (plugin.id === '3dsmax' || plugin.id === 'revit' || keepModalOpen) {
+      if (plugin.id === '3dsmax' || plugin.id === 'revit' || plugin.id === 'sketchup' || keepModalOpen) {
         setSelected(updated);
         setShowInstructions(true);
         if (plugin.id === 'revit') {
           setInstallMessage(`Installed to ${installedPaths.length / 2} Revit version(s). Restart Revit — you will find the "Anarchy" tab with a "Send to Anarchy" button.`);
+        } else if (plugin.id === 'sketchup') {
+          setInstallMessage(`Installed successfully to ${installedPaths.length} SketchUp installation(s). Open or restart SketchUp — you will find the "Anarchy AI" Toolbar and Extensions menu.`);
         } else {
           setInstallMessage(`Installed to ${installedPaths.length} 3ds Max profile(s). Restart 3ds Max, then find it under Customize > Customize User Interface > Toolbars > Category: Anarchy.`);
         }
@@ -381,7 +387,7 @@ export const IntegrationsPage: React.FC = () => {
   };
 
   const handleRemoveOldPlugin = async (plugin: Plugin) => {
-    if (plugin.id !== '3dsmax' && plugin.id !== 'revit') return;
+    if (plugin.id !== '3dsmax' && plugin.id !== 'revit' && plugin.id !== 'sketchup') return;
 
     setInstallMessage(null);
 
@@ -401,7 +407,7 @@ export const IntegrationsPage: React.FC = () => {
       setInstallMessage(
         removedPaths.length > 0
           ? `Removed ${removedPaths.length} old ${plugin.name} plugin file(s). Restart ${plugin.name}.`
-          : `No old ${plugin.name} plugin files were found in the known Autodesk folders.`
+          : `No old ${plugin.name} plugin files were found in known folders.`
       );
     } catch (error) {
       setInstallMessage(error instanceof Error ? error.message : String(error));
@@ -703,7 +709,24 @@ export const IntegrationsPage: React.FC = () => {
               </details>
             )}
 
-            {installMessage && (selected.id === '3dsmax' || selected.id === 'revit') && (
+            {selected.id === 'sketchup' && (
+              <details className="int-modal-section int-doc-accordion" open={showInstructions}>
+                <summary onClick={(e) => { e.preventDefault(); setShowInstructions(prev => !prev); }}>
+                  <span>📘 SketchUp installation & usage</span>
+                  <span className="int-accordion-toggle">{showInstructions ? '▲' : '▼'}</span>
+                </summary>
+                <div className="int-doc-panel">
+                  <ol>
+                    <li>Select your SketchUp version(s) above and click <strong>Install</strong>.</li>
+                    <li>Launch SketchUp — the <strong>"Anarchy AI"</strong> toolbar and Extensions menu appear automatically.</li>
+                    <li>Click <strong>"Send Viewport"</strong> to stream active 3D view to Anarchy AI.</li>
+                    <li>Use <strong>"Instant AI Render"</strong> or <strong>"Batch Scenes Export"</strong> to render all scene tabs.</li>
+                  </ol>
+                </div>
+              </details>
+            )}
+
+            {installMessage && (selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'sketchup') && (
               <div className="int-modal-section">
                 <div className="int-install-message">
                   <AlertCircle size={13} />
@@ -717,7 +740,7 @@ export const IntegrationsPage: React.FC = () => {
                 <button 
                   className="int-btn primary"
                   onClick={() => handleInstall(selected)}
-                  disabled={(selected.id === '3dsmax' || selected.id === 'revit') && selectedVersions.length === 0}
+                  disabled={(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'sketchup') && selectedVersions.length === 0}
                 >
                   <Download size={13} />
                   Install
@@ -734,12 +757,12 @@ export const IntegrationsPage: React.FC = () => {
                   <button
                     className="int-btn secondary"
                     onClick={() => handleInstall(selected, true)}
-                    disabled={(selected.id === '3dsmax' || selected.id === 'revit') && selectedVersions.length === 0}
+                    disabled={(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'sketchup') && selectedVersions.length === 0}
                   >
                     <Settings size={13} />
                     Reinstall
                   </button>
-                  {(selected.id === '3dsmax' || selected.id === 'revit') && (
+                  {(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'sketchup') && (
                     <button className="int-btn danger" onClick={() => handleRemoveOldPlugin(selected)}>
                       <Trash2 size={13} />
                       Uninstall
@@ -760,7 +783,7 @@ export const IntegrationsPage: React.FC = () => {
                     <RefreshCw size={13} />
                     Update
                   </button>
-                  {(selected.id === '3dsmax' || selected.id === 'revit') && (
+                  {(selected.id === '3dsmax' || selected.id === 'revit' || selected.id === 'sketchup') && (
                     <button className="int-btn danger" onClick={() => handleRemoveOldPlugin(selected)}>
                       <Trash2 size={13} />
                       Uninstall

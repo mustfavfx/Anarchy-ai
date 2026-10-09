@@ -270,12 +270,76 @@ pub fn find_autocad_dll(base_path: &std::path::Path, dll_name: &str) -> Option<s
 }
 
 #[tauri::command]
+pub fn detect_sketchup_installs() -> Vec<AutodeskInstall> {
+    let mut installs = Vec::new();
+    let app_data = std::env::var("APPDATA").unwrap_or_default();
+    let sketchup_appdata = std::path::Path::new(&app_data).join("SketchUp");
+
+    // 1. Check %APPDATA%\SketchUp\SketchUp {YEAR}
+    if sketchup_appdata.exists() {
+        if let Ok(entries) = std::fs::read_dir(&sketchup_appdata) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() { continue; }
+                let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue; };
+                let digits: String = name.chars().filter(|c| c.is_ascii_digit()).collect();
+                if matches!(digits.as_str(), "2019" | "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "2028") {
+                    let plugins_dir = path.join("SketchUp").join("Plugins");
+                    installs.push(AutodeskInstall {
+                        version: digits,
+                        path: plugins_dir.to_string_lossy().to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // 2. Check Program Files across drives (C, D, E, F)
+    let drives = ["C", "D", "E", "F", "G"];
+    for d in drives {
+        let pf1 = format!("{}:\\Program Files\\SketchUp", d);
+        let pf2 = format!("{}:\\Program Files\\Trimble", d);
+        for base in [pf1, pf2] {
+            let p = std::path::PathBuf::from(&base);
+            if p.exists() {
+                if let Ok(entries) = std::fs::read_dir(&p) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if !path.is_dir() { continue; }
+                        let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue; };
+                        let digits: String = name.chars().filter(|c| c.is_ascii_digit()).collect();
+                        if matches!(digits.as_str(), "2019" | "2020" | "2021" | "2022" | "2023" | "2024" | "2025" | "2026" | "2027" | "2028") {
+                            if path.join("SketchUp.exe").exists() && !installs.iter().any(|i| i.version == digits) {
+                                let plugins_dir = std::path::Path::new(&app_data)
+                                    .join("SketchUp")
+                                    .join(format!("SketchUp {}", digits))
+                                    .join("SketchUp")
+                                    .join("Plugins");
+                                installs.push(AutodeskInstall {
+                                    version: digits,
+                                    path: plugins_dir.to_string_lossy().to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    installs.sort_by(|a, b| b.version.cmp(&a.version));
+    installs.dedup_by(|a, b| a.version == b.version);
+    installs
+}
+
+#[tauri::command]
 pub async fn detect_autodesk_installs(target: String) -> Result<Vec<AutodeskInstall>, String> {
     match target.as_str() {
         "3dsmax" => Ok(detect_3dsmax_installs()),
         "revit" => Ok(detect_revit_installs()),
         "autocad" => Ok(detect_autocad_installs()),
-        _ => Err("Unsupported Autodesk target".to_string()),
+        "sketchup" => Ok(detect_sketchup_installs()),
+        _ => Err("Unsupported target".to_string()),
     }
 }
 
@@ -310,6 +374,27 @@ pub async fn validate_custom_autodesk_path(target: String, path: String) -> Resu
             })
         }
         "revit" => {
+            let full_str = path.to_lowercase();
+            let mut detected_ver = "2024".to_string();
+            for v in ["2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028"] {
+                if full_str.contains(v) {
+                    detected_ver = v.to_string();
+                    break;
+                }
+            }
+
+            let install_dir = if p.is_file() {
+                p.parent().unwrap_or(&p).to_path_buf()
+            } else {
+                p
+            };
+
+            Ok(AutodeskInstall {
+                version: detected_ver,
+                path: install_dir.to_string_lossy().to_string(),
+            })
+        }
+        "sketchup" => {
             let full_str = path.to_lowercase();
             let mut detected_ver = "2024".to_string();
             for v in ["2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028"] {
@@ -389,6 +474,22 @@ pub async fn is_plugin_installed(target: String) -> bool {
             let pkg_path = bundle_dir.join("PackageContents.xml");
             let dll_path = bundle_dir.join("Contents").join("AnarchyAutoCad.dll");
             pkg_path.exists() && dll_path.exists()
+        }
+        "sketchup" => {
+            let su_root = std::path::Path::new(&app_data).join("SketchUp");
+            if su_root.exists() {
+                if let Ok(entries) = std::fs::read_dir(&su_root) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        let loader = path.join("SketchUp").join("Plugins").join("anarchy_sketchup.rb");
+                        let sub = path.join("SketchUp").join("Plugins").join("anarchy_sketchup");
+                        if loader.exists() || sub.exists() {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
         }
         _ => false,
     }

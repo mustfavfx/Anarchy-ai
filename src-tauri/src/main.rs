@@ -89,7 +89,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             http_post, http_get, upload_image, upload_to_replicate, url_to_base64,
             save_file, load_file, list_dir, delete_file, ensure_dir,
-            detect_autodesk_installs, install_3dsmax_plugin, install_revit_plugin, install_autocad_plugin,
+            detect_autodesk_installs, detect_sketchup_installs, install_3dsmax_plugin, install_revit_plugin, install_autocad_plugin, install_sketchup_plugin,
             remove_old_autodesk_plugins, get_app_data_dir, is_plugin_installed, validate_custom_autodesk_path,
             save_image_to_documents, save_image_to_path, read_local_image, read_clipboard_image,
             check_update, install_update, restart_app,
