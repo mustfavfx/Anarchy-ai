@@ -857,7 +857,7 @@ export const useBuilderWorkflow = (tabId?: string, hasInitialState = false) => {
 
     setNodes(nds => [...nds, newNode]);
     setEdges(eds => [...eds, createEdge(parentId, childId, {
-      animated: true,
+      animated: false,
       isDataFlow: true,
       packet,
     })]);

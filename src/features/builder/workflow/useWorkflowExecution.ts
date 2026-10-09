@@ -189,6 +189,9 @@ export const useWorkflowExecution = ({
           : n
       ));
 
+      // Animate connecting edge only during generation
+      setEdges(eds => eds.map(e => e.target === nodeId ? { ...e, animated: true } : e));
+
       const onStatusChange = (status: 'queued' | 'processing', predictionId?: string) => {
         useBuilderQueueStore.getState().updateJob(nodeId, {
           state: status,
@@ -823,10 +826,10 @@ export const useWorkflowExecution = ({
 
       pushHistory(nodesRef.current, edgesRef.current); // snapshot before result lands
 
-      // Update edges targeting this node: ghost handle 'ghost-target-0' -> BaseNode handle 'target'
+      // Update edges targeting this node: ghost handle 'ghost-target-0' -> BaseNode handle 'target', stop animation
       setEdges(eds => eds.map(e => 
         e.target === nodeId 
-          ? { ...e, targetHandle: 'target' } 
+          ? { ...e, targetHandle: 'target', animated: false } 
           : e
       ));
 
@@ -852,6 +855,12 @@ export const useWorkflowExecution = ({
               } 
             }
           : n
+      ));
+      // Stop edge animation on error
+      setEdges(eds => eds.map(e => 
+        e.target === nodeId 
+          ? { ...e, animated: false } 
+          : e
       ));
       // Update selected node state in Zustand if it is the currently selected node
       const currentSelected = useAIConfigStore.getState().selectedNode;

@@ -22,6 +22,7 @@ import { MarkupVerticalSlider } from './imageEditor/MarkupVerticalSlider';
 import { MarkupStudioToolbar } from './imageEditor/MarkupStudioToolbar';
 import { MarkupCanvasOverlay } from './imageEditor/MarkupCanvasOverlay';
 import { rasterizeMarkupToImage } from './imageEditor/markupUtils';
+import { createPaddedReframedImage } from './imageEditor/reframeUtils';
 import { ResizeSubtoolbar } from './imageEditor/ResizeSubtoolbar';
 import { CommentOverlay } from './imageEditor/CommentOverlay';
 import { EraseControls } from './imageEditor/EraseControls';
@@ -540,55 +541,79 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
 
   /**
    * Main OK / Confirm Handler for Resize:
-   * Dispatches to the chosen AI engine with a resize prompt and dimensions,
-   * creating a new child node connected to the node being edited.
+   * Non-destructively preserves the original design intact without distortion or modification,
+   * reframes the canvas to the requested aspect ratio, and dispatches to the chosen AI engine
+   * (e.g. Nano Banana with 'match_input_image') to seamlessly outpaint and fill the extended area.
    */
-  const handleApplyResize = () => {
-    const currentOpt = availableRatios.find((o) => o.id === aspectRatio) || availableRatios[0];
-    const chosenRatio = currentOpt ? currentOpt.ratio : aspectRatio;
-    const ratioName = currentOpt ? currentOpt.name : 'Custom Framing';
+  const handleApplyResize = async () => {
+    try {
+      const currentOpt = availableRatios.find((o) => o.id === aspectRatio) || availableRatios[0];
+      const chosenRatio = currentOpt ? currentOpt.ratio : aspectRatio;
+      const ratioName = currentOpt ? currentOpt.name : 'Custom Framing';
 
-    // Synchronize global AI config store with chosen aspect ratio
-    useAIConfigStore.getState().updateConfig({ aspectRatio: currentOpt ? currentOpt.id : aspectRatio });
+      // 1. Reframe image: preserve original building/design in center 100% intact, expand canvas to target ratio
+      const reframed = await createPaddedReframedImage(imageUrl, chosenRatio);
 
-    const basePrompt = prompt?.trim() || '';
-    const resizeInstruction = `resize framing to ${chosenRatio} (${ratioName}), architectural composition expansion, consistent materiality and lighting`;
-    const finalPrompt = basePrompt
-      ? `${basePrompt}, ${resizeInstruction}`
-      : `Architectural design, ${resizeInstruction}`;
+      // 2. Synchronize global AI config store with chosen aspect ratio
+      useAIConfigStore.getState().updateConfig({ aspectRatio: currentOpt ? currentOpt.id : aspectRatio });
 
-    const branchLabel = `Resize: ${ratioName} (${chosenRatio})`;
+      const isNanoBanana = (activeModel || '').includes('nano-banana');
 
-    if (nodeId) {
-      useAIConfigStore.getState().setLastSelectedNodeId(nodeId);
-      const childId = useAIConfigStore.getState().forkChildNode(
-        nodeId,
-        imageUrl,
-        branchLabel,
-        finalPrompt
-      );
+      // Prompt designed to strictly preserve original architectural design while seamlessly outpainting the expansion
+      const basePrompt = prompt?.trim() || '';
+      const outpaintInstruction = `seamlessly outpaint and expand the surroundings, sky, and foreground to fill the ${chosenRatio} framing, strictly preserve the original architecture, building design, materials, and lighting in the center without changes`;
+      const finalPrompt = basePrompt
+        ? `${basePrompt}, ${outpaintInstruction}`
+        : `Architectural design, ${outpaintInstruction}`;
 
-      if (childId) {
-        const executeFn = useAIConfigStore.getState().executeNode;
-        if (executeFn) {
-          executeFn(childId, finalPrompt, { aspectRatio: currentOpt ? currentOpt.id : aspectRatio }).catch((err) => {
-            console.warn('AI execution after resize failed:', err);
-          });
+      const branchLabel = `Resize: ${ratioName} (${chosenRatio})`;
+
+      if (nodeId) {
+        useAIConfigStore.getState().setLastSelectedNodeId(nodeId);
+        // Fork child node with the reframed design-preserving image
+        const childId = useAIConfigStore.getState().forkChildNode(
+          nodeId,
+          reframed.dataUrl,
+          branchLabel,
+          finalPrompt
+        );
+
+        if (childId) {
+          const executeFn = useAIConfigStore.getState().executeNode;
+          if (executeFn) {
+            // For Nano Banana (all versions), pass aspect_ratio: 'match_input_image' as required by user prompt:
+            // "والبرنامج يقهم نسبة الابعاد ويقوم بارسالها الى نانو بنانا بنسبة input image"
+            const targetAR = isNanoBanana ? 'match_input_image' : (currentOpt ? currentOpt.id : aspectRatio);
+            executeFn(childId, finalPrompt, {
+              aspectRatio: targetAR,
+              sourceWidth: reframed.width,
+              sourceHeight: reframed.height,
+            }).catch((err) => {
+              console.warn('AI execution after resize failed:', err);
+            });
+          }
         }
+      } else {
+        onImageUpdate?.(reframed.dataUrl);
       }
-    } else {
-      onImageUpdate?.(imageUrl);
+
+      setActiveTool(null);
+      onCloseLightbox();
+
+      addNotification({
+        type: 'success',
+        title: `🌿 AI Resize Node Created (${chosenRatio})`,
+        message: `Preserved architecture intact and expanded framing to ${ratioName} (${chosenRatio}).`,
+        duration: 3500,
+      });
+    } catch (err: any) {
+      addNotification({
+        type: 'error',
+        title: 'Resize Failed',
+        message: err?.message || 'Could not reframe image.',
+        duration: 3000,
+      });
     }
-
-    setActiveTool(null);
-    onCloseLightbox();
-
-    addNotification({
-      type: 'success',
-      title: `🌿 AI Resize Node Created (${chosenRatio})`,
-      message: `Dispatched to ${engineDisplayName} with ${ratioName} (${chosenRatio}) framing.`,
-      duration: 3500,
-    });
   };
 
   // Unified OK button click dispatcher for toolbar
