@@ -68,11 +68,24 @@
   padding: 0 4px 0 6px;
   color: #71717a;
   cursor: grab;
-  transition: color 0.15s ease;
+  user-select: none;
+  touch-action: none;
+  transition: color 0.15s ease, transform 0.15s ease;
 }
 
 .chatgpt-drag-handle:hover {
-  color: #e4e4e7;
+  color: #ff2a6d;
+}
+
+.chatgpt-drag-handle.grabbing {
+  cursor: grabbing !important;
+  color: #ff2a6d;
+  transform: scale(1.1);
+}
+
+.chatgpt-image-toolbar-container.dragging {
+  user-select: none;
+  transition: none !important;
 }
 
 .anarchy-brand-dot {
@@ -298,26 +311,27 @@
   cursor: pointer;
 }
 
-/* ── Anarchy AI Resize Aspect Ratio Popover Card (Matches Screenshot) ── */
+/* ── Anarchy AI Resize Aspect Ratio Popover Card (Engine-Aware & Non-Destructive) ── */
 .anarchy-resize-card {
   position: absolute;
   bottom: calc(100% + 14px);
   right: 0;
-  width: 250px;
-  background: rgba(14, 14, 20, 0.96);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(225, 29, 72, 0.3);
-  border-radius: 18px;
+  width: 320px;
+  max-width: 92vw;
+  background: rgba(13, 14, 21, 0.96);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 42, 109, 0.35);
+  border-radius: 20px;
   padding: 16px;
   box-shadow: 
-    0 20px 50px rgba(0, 0, 0, 0.85),
+    0 24px 60px rgba(0, 0, 0, 0.85),
     0 0 1px 1px rgba(255, 255, 255, 0.08),
-    0 0 30px rgba(225, 29, 72, 0.2);
+    0 0 34px rgba(255, 42, 109, 0.22);
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   animation: resizeCardFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 10010;
 }
@@ -333,19 +347,73 @@
   }
 }
 
-.anarchy-resize-title {
-  font-size: 13px;
-  font-weight: 500;
+.anarchy-resize-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.resize-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resize-main-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.resize-sub-hint {
+  font-size: 11px;
   color: #94a3b8;
-  line-height: 1.45;
-  margin-bottom: 8px;
-  padding: 0 4px;
+}
+
+.engine-active-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  background: rgba(255, 42, 109, 0.12);
+  border: 1px solid rgba(255, 42, 109, 0.35);
+  color: #fda4af;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.engine-cpu-icon {
+  color: #ff2a6d;
+}
+
+.engine-name-text {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ratio-items-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  max-height: 270px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ratio-items-list.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ratio-items-list.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
 }
 
 .ratio-item-row {
@@ -358,10 +426,12 @@
   transition: all 0.15s ease;
   user-select: none;
   border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .ratio-item-row:hover {
   background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .ratio-item-row.active {
@@ -369,18 +439,35 @@
   border-color: rgba(225, 29, 72, 0.45);
 }
 
-.ratio-name {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #f4f4f5;
+.ratio-text-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   flex: 1;
 }
 
+.ratio-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.ratio-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #f4f4f5;
+}
+
 .ratio-number {
-  font-size: 12.5px;
+  font-size: 12px;
   color: #71717a;
   font-weight: 400;
-  margin-left: 4px;
+}
+
+.ratio-res-hint {
+  font-size: 10.5px;
+  color: #71717a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .ratio-item-row.active .ratio-name {
@@ -390,6 +477,11 @@
 
 .ratio-item-row.active .ratio-number {
   color: #fca5a5;
+}
+
+.ratio-item-row.active .ratio-res-hint {
+  color: #fca5a5;
+  opacity: 0.85;
 }
 
 .ratio-check-icon {
@@ -436,6 +528,21 @@
   height: 12px;
 }
 
+.ratio-wireframe-box.wf-photo-land {
+  width: 19px;
+  height: 13px;
+}
+
+.ratio-wireframe-box.wf-poster {
+  width: 13px;
+  height: 19px;
+}
+
+.ratio-wireframe-box.wf-cinematic {
+  width: 22px;
+  height: 10px;
+}
+
 .ratio-item-row:hover .ratio-wireframe-box {
   border-color: #ff2a6d;
   box-shadow: 0 0 8px rgba(255, 42, 109, 0.45);
@@ -451,21 +558,41 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.subtool-action-btn.generate-ai {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+/* ── Prominent Toolbar OK Button (Point 2) ── */
+.chatgpt-tool-btn.chatgpt-ok-btn {
+  background: linear-gradient(135deg, #ff2a6d, #e11d48);
+  border-color: rgba(255, 255, 255, 0.25);
   color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 14px rgba(255, 42, 109, 0.5);
+  padding: 8px 16px;
+  animation: okBtnPulse 2s infinite ease-in-out;
 }
 
-.subtool-action-btn.generate-ai:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: #ff2a6d;
-  box-shadow: 0 0 10px rgba(255, 42, 109, 0.4);
+.chatgpt-tool-btn.chatgpt-ok-btn:hover {
+  background: linear-gradient(135deg, #ff3377, #f43f5e);
+  box-shadow: 0 0 22px rgba(255, 42, 109, 0.75);
+  transform: translateY(-1px);
+}
+
+@keyframes okBtnPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 42, 109, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(255, 42, 109, 0.8); }
+}
+
+.ok-check-icon {
+  color: #ffffff;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+}
+
+.ok-text {
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 /* ── Interactive Overlay Layers On Image ── */

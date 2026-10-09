@@ -1,19 +1,30 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import type { ActiveToolType } from './types';
 
 interface MainPillToolbarProps {
   activeTool: ActiveToolType;
   onToggleTool: (tool: ActiveToolType) => void;
+  onDragHandleMouseDown?: (e: React.MouseEvent) => void;
+  isDragging?: boolean;
+  onApplyCurrentTool?: () => void;
 }
 
 export const MainPillToolbar: React.FC<MainPillToolbarProps> = ({
   activeTool,
   onToggleTool,
+  onDragHandleMouseDown,
+  isDragging = false,
+  onApplyCurrentTool,
 }) => {
   return (
     <div className="chatgpt-pill-toolbar" role="toolbar" aria-label="Image Studio Tools">
-      {/* 0. 6-Dot Drag & Positioning Handle (ChatGPT Style) */}
-      <div className="chatgpt-drag-handle" title="Studio Controls Handle">
+      {/* 0. 6-Dot Drag & Positioning Handle */}
+      <div
+        className={`chatgpt-drag-handle ${isDragging ? 'grabbing' : ''}`}
+        title="Drag toolbar to reposition anywhere on screen"
+        onMouseDown={onDragHandleMouseDown}
+      >
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
           <circle cx="8" cy="6" r="1.6" />
           <circle cx="16" cy="6" r="1.6" />
@@ -59,25 +70,7 @@ export const MainPillToolbar: React.FC<MainPillToolbarProps> = ({
 
       <div className="chatgpt-pill-separator" />
 
-      {/* 3. Remove BG (Hatched Cutout Square) */}
-      <button
-        type="button"
-        className={`chatgpt-tool-btn ${activeTool === 'removeBg' ? 'active' : ''}`}
-        onClick={() => onToggleTool('removeBg')}
-        title="Remove BG — Background cutout"
-      >
-        <span className="chatgpt-tool-icon">
-          <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="4" />
-            <path d="m3 9 6-6M3 15l12-12M3 21l18-18M9 21l12-12M15 21l6-6" />
-          </svg>
-        </span>
-        <span>Remove BG</span>
-      </button>
-
-      <div className="chatgpt-pill-separator" />
-
-      {/* 4. Erase (Angled Eraser) */}
+      {/* 3. Erase (Angled Eraser) */}
       <button
         type="button"
         className={`chatgpt-tool-btn ${activeTool === 'erase' ? 'active' : ''}`}
@@ -96,12 +89,12 @@ export const MainPillToolbar: React.FC<MainPillToolbarProps> = ({
 
       <div className="chatgpt-pill-separator" />
 
-      {/* 5. Resize (Crop / Aspect Ratio) */}
+      {/* 4. Resize (Crop / Aspect Ratio) */}
       <button
         type="button"
         className={`chatgpt-tool-btn ${activeTool === 'resize' ? 'active' : ''}`}
         onClick={() => onToggleTool('resize')}
-        title="Resize — Aspect ratio & crop"
+        title="Resize — Aspect ratio & framing"
       >
         <span className="chatgpt-tool-icon">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -110,6 +103,22 @@ export const MainPillToolbar: React.FC<MainPillToolbarProps> = ({
         </span>
         <span>Resize</span>
       </button>
+
+      {/* 5. Prominent OK / Apply Button in Toolbar (For Resize & Tools) */}
+      {(activeTool === 'resize' || activeTool === 'markup') && onApplyCurrentTool && (
+        <>
+          <div className="chatgpt-pill-separator" />
+          <button
+            type="button"
+            className="chatgpt-tool-btn chatgpt-ok-btn"
+            onClick={onApplyCurrentTool}
+            title={activeTool === 'resize' ? 'OK — Send resize to selected AI engine & fork linked node' : 'OK — Apply markup & fork linked node'}
+          >
+            <Check size={14} className="ok-check-icon" />
+            <span className="ok-text">OK</span>
+          </button>
+        </>
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { loadImageElement } from '../../../services/export/modules/imageExportUtils';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { useAIConfigStore } from '../../../stores/aiConfigStore';
@@ -9,20 +9,19 @@ import {
   type ActiveToolType,
   type CommentPin,
   type ResizeRatioOption,
-  RESIZE_OPTIONS,
   PRESET_COLORS,
+  getEngineRatioOptions,
+  getEngineDisplayName,
 } from './imageEditor/types';
 import { inpaintMaskedArea } from './imageEditor/inpaintAlgorithm';
 import { MarkupSubtoolbar } from './imageEditor/MarkupSubtoolbar';
-import { RemoveBgSubtoolbar } from './imageEditor/RemoveBgSubtoolbar';
 import { ResizeSubtoolbar } from './imageEditor/ResizeSubtoolbar';
-import { CropOverlay } from './imageEditor/CropOverlay';
 import { CommentOverlay } from './imageEditor/CommentOverlay';
 import { EraseControls } from './imageEditor/EraseControls';
 import { MainPillToolbar } from './imageEditor/MainPillToolbar';
 
 export type { ActiveToolType, ResizeRatioOption, CommentPin };
-export { RESIZE_OPTIONS, PRESET_COLORS };
+export { PRESET_COLORS };
 
 interface ImageEditorToolbarProps {
   imageUrl: string;
@@ -37,16 +36,23 @@ interface ImageEditorToolbarProps {
 export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   imageUrl,
   imageElementRef,
-  containerRef,
+  containerRef: _containerRef,
   nodeId,
   prompt,
   onImageUpdate,
   onCloseLightbox,
 }) => {
-  const [activeTool, setActiveTool] = useState<ActiveToolType>(null);
   const addNotification = useNotificationStore((s) => s.addNotification);
 
-  // ── Markup / Erase Canvas State ──
+  // Active Tool state
+  const [activeTool, setActiveTool] = useState<ActiveToolType>(null);
+
+  // Active engine & model metadata from AI Config Store
+  const activeModel = useAIConfigStore((s) => s.aiConfig.model);
+  const availableRatios = useMemo(() => getEngineRatioOptions(activeModel), [activeModel]);
+  const engineDisplayName = useMemo(() => getEngineDisplayName(activeModel), [activeModel]);
+
+  // ── Overlay Drawing Canvas State (for Markup & Erase) ──
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [markupColor, setMarkupColor] = useState<string>('#ffffff');
@@ -55,12 +61,88 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   const [eraseSize, setEraseSize] = useState<number>(32);
   const [historyStack, setHistoryStack] = useState<ImageData[]>([]);
 
-  // ── Erase Specific State (ChatGPT Style) ──
+  // ── Erase Specific State ──
   const [hasEraseStrokes, setHasEraseStrokes] = useState<boolean>(false);
   const [eraseCursorPos, setEraseCursorPos] = useState<{ x: number; y: number } | null>(null);
   const sliderTrackRef = useRef<HTMLDivElement | null>(null);
   const [isDraggingSlider, setIsDraggingSlider] = useState<boolean>(false);
 
+  // ── Comments State ──
+  const [pins, setPins] = useState<CommentPin[]>([]);
+  const [activePinId, setActivePinId] = useState<string | null>(null);
+  const [commentInput, setCommentInput] = useState('');
+
+  // ── Non-Destructive Resize / Framing State ──
+  const [aspectRatio, setAspectRatio] = useState<string>(() => availableRatios[0]?.id || '1:1');
+
+  // Keep selected aspect ratio in sync when engine changes
+  useEffect(() => {
+    if (availableRatios.length > 0 && !availableRatios.some((r) => r.id === aspectRatio)) {
+      setAspectRatio(availableRatios[0].id);
+    }
+  }, [availableRatios, aspectRatio]);
+
+  // ── Draggable Toolbar State (Point 1) ──
+  const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingToolbar, setIsDraggingToolbar] = useState(false);
+  const toolbarContainerRef = useRef<HTMLDivElement | null>(null);
+  const dragStartRef = useRef<{ clientX: number; clientY: number; initialX: number; initialY: number }>({
+    clientX: 0,
+    clientY: 0,
+    initialX: 0,
+    initialY: 0,
+  });
+
+  const handleDragHandleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!toolbarContainerRef.current) return;
+
+    const rect = toolbarContainerRef.current.getBoundingClientRect();
+    dragStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      initialX: rect.left,
+      initialY: rect.top,
+    };
+    setIsDraggingToolbar(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDraggingToolbar) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - dragStartRef.current.clientX;
+      const deltaY = e.clientY - dragStartRef.current.clientY;
+
+      let newX = dragStartRef.current.initialX + deltaX;
+      let newY = dragStartRef.current.initialY + deltaY;
+
+      // Constrain within viewport padding
+      const pad = 12;
+      const w = toolbarContainerRef.current?.offsetWidth || 340;
+      const h = toolbarContainerRef.current?.offsetHeight || 50;
+
+      newX = Math.max(pad, Math.min(window.innerWidth - w - pad, newX));
+      newY = Math.max(pad, Math.min(window.innerHeight - h - pad, newY));
+
+      setToolbarPos({ x: newX, y: newY });
+    };
+
+    const onMouseUp = () => {
+      setIsDraggingToolbar(false);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isDraggingToolbar]);
+
+  // Erase slider logic
   const updateSliderFromClientY = useCallback((clientY: number) => {
     if (!sliderTrackRef.current) return;
     const rect = sliderTrackRef.current.getBoundingClientRect();
@@ -99,26 +181,6 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     setHasEraseStrokes(false);
     setEraseCursorPos(null);
   };
-
-  // ── Remove BG State ──
-  const [isRemovingBg, setIsRemovingBg] = useState(false);
-  const [removeBgPreviewUrl, setRemoveBgPreviewUrl] = useState<string | null>(null);
-  const [bgTolerance, setBgTolerance] = useState<number>(35);
-
-  // ── Comments State ──
-  const [pins, setPins] = useState<CommentPin[]>([]);
-  const [activePinId, setActivePinId] = useState<string | null>(null);
-  const [commentInput, setCommentInput] = useState('');
-
-  // ── Resize / Crop State ──
-  const [cropRect, setCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<string>('1:1');
-  const [isDraggingCrop, setIsDraggingCrop] = useState<string | null>(null);
-  const dragStartRef = useRef<{ mouseX: number; mouseY: number; rect: { x: number; y: number; w: number; h: number } }>({
-    mouseX: 0,
-    mouseY: 0,
-    rect: { x: 0, y: 0, w: 0, h: 0 },
-  });
 
   // Keep overlay canvas matched with display image layout
   const syncOverlayCanvasSize = useCallback(() => {
@@ -179,9 +241,10 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     if (!ctx) return;
     pushHistory();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasEraseStrokes(false);
   }, [pushHistory]);
 
-  // ── Drawing Events (Markup & Erase) ──
+  // Mouse drawing on canvas (Markup & Erase)
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = overlayCanvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -196,9 +259,8 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (activeTool !== 'markup' && activeTool !== 'erase') return;
-    e.stopPropagation();
-    pushHistory();
     setIsDrawing(true);
+    pushHistory();
 
     const canvas = overlayCanvasRef.current;
     if (!canvas) return;
@@ -210,30 +272,25 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     ctx.moveTo(x, y);
 
     if (activeTool === 'markup') {
-      ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = markupColor;
-      ctx.fillStyle = markupColor;
-      ctx.globalAlpha = markupType === 'highlighter' ? 0.38 : 1.0;
-      ctx.lineWidth = markupType === 'highlighter' ? brushSize * 2.5 : brushSize;
+      ctx.lineWidth = brushSize;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.arc(x, y, (ctx.lineWidth || 1) / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-    } else if (activeTool === 'erase') {
-      setHasEraseStrokes(true);
+      ctx.globalAlpha = markupType === 'highlighter' ? 0.45 : 1.0;
       ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    } else if (activeTool === 'erase') {
+      ctx.strokeStyle = '#ff2a6d';
+      ctx.fillStyle = '#ff2a6d';
       ctx.lineWidth = eraseSize;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.arc(x, y, eraseSize / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
+      ctx.globalAlpha = 0.65;
+      ctx.globalCompositeOperation = 'source-over';
+      setHasEraseStrokes(true);
     }
+
+    ctx.lineTo(x + 0.1, y + 0.1);
+    ctx.stroke();
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -247,8 +304,8 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         });
       }
     }
-    if (!isDrawing || (activeTool !== 'markup' && activeTool !== 'erase')) return;
-    e.stopPropagation();
+
+    if (!isDrawing) return;
     const canvas = overlayCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -257,16 +314,26 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     const { x, y } = getCanvasCoords(e);
     ctx.lineTo(x, y);
     ctx.stroke();
+
+    if (activeTool === 'erase') {
+      setHasEraseStrokes(true);
+    }
   };
 
   const handleMouseUp = () => {
-    if (isDrawing) {
-      setIsDrawing(false);
-    }
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.closePath();
+    ctx.globalAlpha = 1.0;
   };
 
   // ── Apply Markup & Branch to Connected Child Node ──
   const handleApplyMarkup = async (markupPrompt?: string) => {
+    if (!overlayCanvasRef.current) return;
     try {
       const img = await loadImageElement(imageUrl);
       const canvas = document.createElement('canvas');
@@ -275,19 +342,14 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Draw base image
       ctx.drawImage(img, 0, 0);
-
-      // Draw markup canvas on top
-      if (overlayCanvasRef.current) {
-        ctx.drawImage(overlayCanvasRef.current, 0, 0, canvas.width, canvas.height);
-      }
+      ctx.drawImage(overlayCanvasRef.current, 0, 0, canvas.width, canvas.height);
 
       const newUrl = canvas.toDataURL('image/png');
       const actionPrompt = markupPrompt?.trim() || prompt || '';
       const actionLabel = markupPrompt?.trim()
         ? `Markup: ${markupPrompt.trim().slice(0, 24)}`
-        : 'Markup: Sketch Annotation';
+        : 'Markup: Hand-Drawn Annotation';
 
       if (nodeId) {
         const childId = useAIConfigStore.getState().forkChildNode(
@@ -297,7 +359,6 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
           actionPrompt
         );
 
-        // If user gave a specific AI instruction, trigger execution on the new child node
         if (childId && markupPrompt?.trim()) {
           const executeFn = useAIConfigStore.getState().executeNode;
           if (executeFn) {
@@ -361,7 +422,6 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
           actionPrompt
         );
 
-        // If user entered a replacement prompt, dispatch generation to engine on the new child node
         if (childId && erasePrompt?.trim()) {
           const executeFn = useAIConfigStore.getState().executeNode;
           if (executeFn) {
@@ -396,154 +456,10 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     }
   };
 
-  // ── Remove BG Algorithm ──
-  const processRemoveBackground = useCallback(async (customTolerance?: number) => {
-    setIsRemovingBg(true);
-    try {
-      const tol = customTolerance !== undefined ? customTolerance : bgTolerance;
-      const img = await loadImageElement(imageUrl);
-      const canvas = document.createElement('canvas');
-      const w = (canvas.width = img.naturalWidth || img.width);
-      const h = (canvas.height = img.naturalHeight || img.height);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      ctx.drawImage(img, 0, 0);
-      const imgData = ctx.getImageData(0, 0, w, h);
-      const data = imgData.data;
-
-      // Sample perimeter corners & top edge to identify background color
-      const samplePoints = [
-        [0, 0],
-        [Math.floor(w / 2), 0],
-        [w - 1, 0],
-        [0, Math.floor(h * 0.25)],
-        [w - 1, Math.floor(h * 0.25)],
-      ];
-
-      let avgR = 0,
-        avgG = 0,
-        avgB = 0;
-      for (const [sx, sy] of samplePoints) {
-        const idx = (sy * w + sx) * 4;
-        avgR += data[idx];
-        avgG += data[idx + 1];
-        avgB += data[idx + 2];
-      }
-      avgR /= samplePoints.length;
-      avgG /= samplePoints.length;
-      avgB /= samplePoints.length;
-
-      // Flood fill from border perimeter
-      const visited = new Uint8Array(w * h);
-      const queue = new Int32Array(w * h * 2);
-      let qHead = 0;
-      let qTail = 0;
-
-      // Seed borders (top edge, left edge, right edge)
-      for (let x = 0; x < w; x++) {
-        queue[qTail++] = x;
-        queue[qTail++] = 0;
-        visited[x] = 1;
-      }
-      for (let y = 1; y < Math.floor(h * 0.85); y++) {
-        queue[qTail++] = 0;
-        queue[qTail++] = y;
-        visited[y * w] = 1;
-
-        queue[qTail++] = w - 1;
-        queue[qTail++] = y;
-        visited[y * w + (w - 1)] = 1;
-      }
-
-      const threshold = tol * 2.5;
-
-      while (qHead < qTail) {
-        const cx = queue[qHead++];
-        const cy = queue[qHead++];
-        const cIdx = (cy * w + cx) * 4;
-
-        const r = data[cIdx];
-        const g = data[cIdx + 1];
-        const b = data[cIdx + 2];
-
-        // Color Euclidean distance to sampled background
-        const dist = Math.sqrt(
-          (r - avgR) * (r - avgR) +
-          (g - avgG) * (g - avgG) +
-          (b - avgB) * (b - avgB)
-        );
-
-        if (dist <= threshold) {
-          data[cIdx + 3] = 0; // Make transparent
-
-          // 4-way neighbors
-          const neighbors = [
-            [cx + 1, cy],
-            [cx - 1, cy],
-            [cx, cy + 1],
-            [cx, cy - 1],
-          ];
-
-          for (const [nx, ny] of neighbors) {
-            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-              const nOffset = ny * w + nx;
-              if (!visited[nOffset]) {
-                visited[nOffset] = 1;
-                queue[qTail++] = nx;
-                queue[qTail++] = ny;
-              }
-            }
-          }
-        }
-      }
-
-      ctx.putImageData(imgData, 0, 0);
-      const resultDataUrl = canvas.toDataURL('image/png');
-      setRemoveBgPreviewUrl(resultDataUrl);
-    } catch (err: any) {
-      addNotification({
-        type: 'error',
-        title: 'Remove BG Failed',
-        message: err?.message || 'Could not process background removal.',
-        duration: 3000,
-      });
-    } finally {
-      setIsRemovingBg(false);
-    }
-  }, [imageUrl, bgTolerance, addNotification]);
-
-  const handleApplyRemoveBg = () => {
-    if (removeBgPreviewUrl) {
-      if (nodeId) {
-        useAIConfigStore.getState().forkChildNode(
-          nodeId,
-          removeBgPreviewUrl,
-          'Cutout: Transparent PNG',
-          prompt
-        );
-      } else {
-        onImageUpdate?.(removeBgPreviewUrl);
-      }
-      setActiveTool(null);
-      setRemoveBgPreviewUrl(null);
-      onCloseLightbox();
-      addNotification({
-        type: 'success',
-        title: '🌿 Cutout Node Created',
-        message: 'Background removed and branched to a new connected node.',
-        duration: 3500,
-      });
-    }
-  };
-
-  // ── Comment Pin Drop ──
+  // ── Comments Handling ──
   const handleCommentOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (activeTool !== 'comment') return;
-    const img = imageElementRef.current;
-    if (!img) return;
-
-    const rect = img.getBoundingClientRect();
+    if (activeTool !== 'comment' || !imageElementRef.current) return;
+    const rect = imageElementRef.current.getBoundingClientRect();
     const xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
     const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
 
@@ -560,7 +476,6 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     setCommentInput('');
   };
 
-  // ── Send Pin to AI Architect Agent & Branch to Connected Child Node ──
   const handleSendToAgent = (pin: CommentPin) => {
     if (!pin.text.trim()) return;
 
@@ -598,145 +513,70 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     });
   };
 
-  // ── Resize / Crop Setup ──
+  // ── Non-Destructive Resize / Ratio Selection (Point 2) ──
   const handleSelectAspectRatio = (opt: ResizeRatioOption) => {
     setAspectRatio(opt.id);
-    if (imageElementRef.current) {
-      const rect = imageElementRef.current.getBoundingClientRect();
-      const maxW = rect.width * 0.9;
-      const maxH = rect.height * 0.9;
-
-      let newW = maxW;
-      let newH = (newW * opt.hRatio) / opt.wRatio;
-
-      if (newH > maxH) {
-        newH = maxH;
-        newW = (newH * opt.wRatio) / opt.hRatio;
-      }
-
-      setCropRect({
-        x: Math.max(0, (rect.width - newW) / 2),
-        y: Math.max(0, (rect.height - newH) / 2),
-        w: newW,
-        h: newH,
-      });
-    }
   };
 
-  const handleGenerateWithRatio = (opt: ResizeRatioOption) => {
-    useAIConfigStore.getState().updateConfig({ aspectRatio: opt.id });
+  /**
+   * Main OK / Confirm Handler for Resize:
+   * Dispatches to the chosen AI engine with a resize prompt and dimensions,
+   * creating a new child node connected to the node being edited.
+   */
+  const handleApplyResize = () => {
+    const currentOpt = availableRatios.find((o) => o.id === aspectRatio) || availableRatios[0];
+    const chosenRatio = currentOpt ? currentOpt.ratio : aspectRatio;
+    const ratioName = currentOpt ? currentOpt.name : 'Custom Framing';
+
+    // Synchronize global AI config store with chosen aspect ratio
+    useAIConfigStore.getState().updateConfig({ aspectRatio: currentOpt ? currentOpt.id : aspectRatio });
+
+    const basePrompt = prompt?.trim() || '';
+    const resizeInstruction = `resize framing to ${chosenRatio} (${ratioName}), architectural composition expansion, consistent materiality and lighting`;
+    const finalPrompt = basePrompt
+      ? `${basePrompt}, ${resizeInstruction}`
+      : `Architectural design, ${resizeInstruction}`;
+
+    const branchLabel = `Resize: ${ratioName} (${chosenRatio})`;
+
     if (nodeId) {
       useAIConfigStore.getState().setLastSelectedNodeId(nodeId);
       const childId = useAIConfigStore.getState().forkChildNode(
         nodeId,
         imageUrl,
-        `AI Resize: ${opt.name} (${opt.ratio})`,
-        prompt
+        branchLabel,
+        finalPrompt
       );
 
       if (childId) {
         const executeFn = useAIConfigStore.getState().executeNode;
         if (executeFn) {
-          executeFn(childId, prompt || 'AI architectural expansion', { aspectRatio: opt.id }).catch((err) => {
-            console.warn('AI expansion failed:', err);
+          executeFn(childId, finalPrompt, { aspectRatio: currentOpt ? currentOpt.id : aspectRatio }).catch((err) => {
+            console.warn('AI execution after resize failed:', err);
           });
         }
       }
+    } else {
+      onImageUpdate?.(imageUrl);
     }
+
     setActiveTool(null);
     onCloseLightbox();
+
     addNotification({
       type: 'success',
-      title: `🌿 AI Expansion (${opt.ratio})`,
-      message: 'Created node and dispatched outpainting request.',
+      title: `🌿 AI Resize Node Created (${chosenRatio})`,
+      message: `Dispatched to ${engineDisplayName} with ${ratioName} (${chosenRatio}) framing.`,
       duration: 3500,
     });
   };
 
-  useEffect(() => {
+  // Unified OK button click dispatcher for toolbar
+  const handleApplyCurrentTool = () => {
     if (activeTool === 'resize') {
-      const img = imageElementRef.current;
-      if (img) {
-        const rect = img.getBoundingClientRect();
-        const currentOpt = RESIZE_OPTIONS.find((o) => o.id === aspectRatio) || RESIZE_OPTIONS[0];
-        const maxW = rect.width * 0.9;
-        const maxH = rect.height * 0.9;
-
-        let newW = maxW;
-        let newH = (newW * currentOpt.hRatio) / currentOpt.wRatio;
-
-        if (newH > maxH) {
-          newH = maxH;
-          newW = (newH * currentOpt.wRatio) / currentOpt.hRatio;
-        }
-
-        setCropRect({
-          x: Math.max(0, (rect.width - newW) / 2),
-          y: Math.max(0, (rect.height - newH) / 2),
-          w: newW,
-          h: newH,
-        });
-      }
-    } else {
-      setCropRect(null);
-    }
-  }, [activeTool, imageElementRef]);
-
-  // ── Apply Crop & Branch to Connected Child Node ──
-  const handleApplyCrop = async () => {
-    if (!cropRect || !imageElementRef.current) return;
-    try {
-      const img = await loadImageElement(imageUrl);
-      const displayRect = imageElementRef.current.getBoundingClientRect();
-      const scaleX = (img.naturalWidth || img.width) / displayRect.width;
-      const scaleY = (img.naturalHeight || img.height) / displayRect.height;
-
-      const sx = Math.max(0, cropRect.x * scaleX);
-      const sy = Math.max(0, cropRect.y * scaleY);
-      const sw = Math.min((img.naturalWidth || img.width) - sx, cropRect.w * scaleX);
-      const sh = Math.min((img.naturalHeight || img.height) - sy, cropRect.h * scaleY);
-
-      if (sw < 10 || sh < 10) return;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(sw);
-      canvas.height = Math.round(sh);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      const croppedUrl = canvas.toDataURL('image/png');
-
-      const currentOpt = RESIZE_OPTIONS.find((o) => o.id === aspectRatio) || RESIZE_OPTIONS[0];
-      const branchLabel = `Resize: ${currentOpt.name} (${currentOpt.ratio})`;
-
-      if (nodeId) {
-        useAIConfigStore.getState().forkChildNode(
-          nodeId,
-          croppedUrl,
-          branchLabel,
-          prompt
-        );
-      } else {
-        onImageUpdate?.(croppedUrl);
-      }
-
-      setActiveTool(null);
-      onCloseLightbox();
-
-      addNotification({
-        type: 'success',
-        title: '🌿 Cropped Node Created',
-        message: `Aspect ratio (${currentOpt.ratio}) applied to new connected node.`,
-        duration: 3500,
-      });
-    } catch (err: any) {
-      addNotification({
-        type: 'error',
-        title: 'Crop Failed',
-        message: err?.message || 'Could not crop image.',
-        duration: 3000,
-      });
+      handleApplyResize();
+    } else if (activeTool === 'markup') {
+      handleApplyMarkup();
     }
   };
 
@@ -744,12 +584,8 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   const handleToggleTool = (tool: ActiveToolType) => {
     if (activeTool === tool) {
       setActiveTool(null);
-      setRemoveBgPreviewUrl(null);
     } else {
       setActiveTool(tool);
-      if (tool === 'removeBg') {
-        processRemoveBackground();
-      }
     }
   };
 
@@ -791,26 +627,7 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         }}
       />
 
-      {/* 2. Remove BG Cutout Preview */}
-      {activeTool === 'removeBg' && removeBgPreviewUrl && (
-        <img
-          src={removeBgPreviewUrl}
-          alt="Cutout Preview"
-          className="checkered-transparent-bg"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            borderRadius: '10px',
-            zIndex: 10002,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-
-      {/* 3. Comment Click Layer & Pins */}
+      {/* 2. Comment Click Layer & Pins */}
       {activeTool === 'comment' && (
         <CommentOverlay
           pins={pins}
@@ -824,22 +641,21 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         />
       )}
 
-      {/* 4. Interactive Crop & Resize Overlay */}
-      {activeTool === 'resize' && cropRect && (
-        <CropOverlay
-          cropRect={cropRect}
-          setCropRect={setCropRect}
-          isDraggingCrop={isDraggingCrop}
-          setIsDraggingCrop={setIsDraggingCrop}
-          dragStartRef={dragStartRef}
-          containerRef={containerRef}
-        />
-      )}
-
-      {/* ── Floating Toolbar Container (Markup / Comment / RemoveBg / Resize) ── */}
+      {/* ── Draggable Floating Toolbar Container ── */}
       <div
-        className="chatgpt-image-toolbar-container"
-        style={{ display: activeTool === 'erase' ? 'none' : 'flex' }}
+        ref={toolbarContainerRef}
+        className={`chatgpt-image-toolbar-container ${isDraggingToolbar ? 'dragging' : ''}`}
+        style={{
+          display: activeTool === 'erase' ? 'none' : 'flex',
+          ...(toolbarPos
+            ? {
+                left: `${toolbarPos.x}px`,
+                top: `${toolbarPos.y}px`,
+                bottom: 'auto',
+                transform: 'none',
+              }
+            : {}),
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Floating Subtoolbar Card for the Active Tool */}
@@ -861,35 +677,24 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
           />
         )}
 
-        {activeTool === 'removeBg' && (
-          <RemoveBgSubtoolbar
-            isRemovingBg={isRemovingBg}
-            bgTolerance={bgTolerance}
-            setBgTolerance={setBgTolerance}
-            onProcessTolerance={processRemoveBackground}
-            removeBgPreviewUrl={removeBgPreviewUrl}
-            onApply={handleApplyRemoveBg}
-            onCancel={() => {
-              setActiveTool(null);
-              setRemoveBgPreviewUrl(null);
-            }}
-          />
-        )}
-
         {activeTool === 'resize' && (
           <ResizeSubtoolbar
+            modelName={activeModel}
             aspectRatio={aspectRatio}
+            options={availableRatios}
             onSelectAspectRatio={handleSelectAspectRatio}
-            onApplyCrop={handleApplyCrop}
-            onGenerateWithRatio={handleGenerateWithRatio}
+            onConfirmResize={handleApplyResize}
             onCancel={() => setActiveTool(null)}
           />
         )}
 
-        {/* The Main Pill Toolbar */}
+        {/* The Main Pill Toolbar with Drag Handle & OK Button */}
         <MainPillToolbar
           activeTool={activeTool}
           onToggleTool={handleToggleTool}
+          onDragHandleMouseDown={handleDragHandleMouseDown}
+          isDragging={isDraggingToolbar}
+          onApplyCurrentTool={handleApplyCurrentTool}
         />
       </div>
 

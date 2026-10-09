@@ -1,69 +1,85 @@
 import React from 'react';
-import { Check, Sparkles } from 'lucide-react';
-import { RESIZE_OPTIONS, type ResizeRatioOption } from './types';
+import { Check, Cpu, Sparkles, X } from 'lucide-react';
+import type { ResizeRatioOption } from './types';
+import { getEngineDisplayName } from './types';
 
 interface ResizeSubtoolbarProps {
+  modelName?: string;
   aspectRatio: string;
+  options: ResizeRatioOption[];
   onSelectAspectRatio: (option: ResizeRatioOption) => void;
-  onApplyCrop: () => void;
-  onGenerateWithRatio: (option: ResizeRatioOption) => void;
+  onConfirmResize: () => void;
   onCancel: () => void;
 }
 
 export const ResizeSubtoolbar: React.FC<ResizeSubtoolbarProps> = ({
+  modelName,
   aspectRatio,
+  options,
   onSelectAspectRatio,
-  onApplyCrop,
-  onGenerateWithRatio,
+  onConfirmResize,
   onCancel,
 }) => {
+  const engineDisplayName = getEngineDisplayName(modelName);
+
   return (
-    <div className="anarchy-resize-card">
-      <div className="anarchy-resize-title">
-        Aspect Ratio & Framing
+    <div className="anarchy-resize-card" role="dialog" aria-label="Resize Framing & Dimensions">
+      {/* ── Top Header with Active Engine Chip ── */}
+      <div className="anarchy-resize-card-header">
+        <div className="resize-header-left">
+          <span className="resize-main-title">Aspect Ratio & Dimensions</span>
+          <span className="resize-sub-hint">Non-destructive AI framing</span>
+        </div>
+        <div className="engine-active-pill" title={`Active generation engine: ${engineDisplayName}`}>
+          <Cpu size={12} className="engine-cpu-icon" />
+          <span className="engine-name-text">{engineDisplayName}</span>
+        </div>
       </div>
 
-      <div className="ratio-items-list">
-        {RESIZE_OPTIONS.map((opt) => {
+      {/* ── Engine Supported Aspect Ratios List ── */}
+      <div className="ratio-items-list custom-scrollbar">
+        {options.map((opt) => {
           const isSelected = aspectRatio === opt.id;
           return (
             <div
               key={opt.id}
               className={`ratio-item-row ${isSelected ? 'active' : ''}`}
               onClick={() => onSelectAspectRatio(opt)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelectAspectRatio(opt);
+                }
+              }}
             >
               <div className={`ratio-wireframe-box ${opt.wireframeClass}`} />
-              <span className="ratio-name">
-                {opt.name} <span className="ratio-number">{opt.ratio}</span>
-              </span>
+              <div className="ratio-text-column">
+                <div className="ratio-name-row">
+                  <span className="ratio-name">{opt.name}</span>
+                  <span className="ratio-number">{opt.ratio}</span>
+                </div>
+                {opt.resolutionHint && (
+                  <span className="ratio-res-hint">{opt.resolutionHint}</span>
+                )}
+              </div>
               {isSelected && <Check size={14} className="ratio-check-icon" />}
             </div>
           );
         })}
       </div>
 
+      {/* ── Bottom Action Buttons ── */}
       <div className="resize-card-actions">
         <button
           type="button"
           className="subtool-action-btn apply"
-          onClick={onApplyCrop}
-          title="Apply crop and create connected node"
+          onClick={onConfirmResize}
+          title="Dispatch resize request to AI engine & fork new linked node"
         >
           <Check size={13} />
-          <span>Confirm Crop</span>
-        </button>
-
-        <button
-          type="button"
-          className="subtool-action-btn generate-ai"
-          onClick={() => {
-            const currentOpt = RESIZE_OPTIONS.find((o) => o.id === aspectRatio) || RESIZE_OPTIONS[0];
-            onGenerateWithRatio(currentOpt);
-          }}
-          title="AI Outpainting & Expand ratio with active model"
-        >
-          <Sparkles size={13} style={{ color: '#ff2a6d' }} />
-          <span>AI Expand</span>
+          <span>OK (Apply to Engine)</span>
         </button>
 
         <button
@@ -72,7 +88,8 @@ export const ResizeSubtoolbar: React.FC<ResizeSubtoolbarProps> = ({
           onClick={onCancel}
           title="Cancel"
         >
-          Cancel
+          <X size={13} />
+          <span>Cancel</span>
         </button>
       </div>
     </div>
