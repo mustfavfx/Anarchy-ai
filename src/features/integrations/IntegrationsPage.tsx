@@ -85,7 +85,9 @@ const PLUGINS: Plugin[] = [
     supportedVersions: '24, 25, 26, 27',
     features: ['3D Document export', 'BIMx integration', 'Surface sync', 'MEP support'],
     comingSoon: true
-  },
+  }
+  /*
+  // Hidden temporarily per user request
   {
     id: 'video-converter',
     name: 'Video Converter Plugin',
@@ -98,6 +100,7 @@ const PLUGINS: Plugin[] = [
     supportedVersions: 'Windows x64',
     features: ['H.264 & ProRes GPU acceleration', '1080p / 4K camera orbits', 'Autonomous interpolation', 'Direct Builder Timeline sync']
   }
+  */
 ];
 
 // All versions supported for each Autodesk product
@@ -314,7 +317,7 @@ export const IntegrationsPage: React.FC = () => {
   const openPluginDetails = (plugin: Plugin) => {
     setSelected(plugin);
     setInstallMessage(null);
-    setShowInstructions(plugin.status === 'installed');
+    setShowInstructions(false);
     loadDetectedInstalls(plugin);
   };
 
@@ -454,76 +457,6 @@ export const IntegrationsPage: React.FC = () => {
             <span className="int-stat-label">Updates</span>
           </div>
         )}
-      </div>
-
-      {/* 3ds Max Plugin Tip Card (Screenshots 1 & 2 Parity) */}
-      <div className="int-max-tip-card">
-        <div className="int-max-tip-badge-row">
-          <div className="int-max-tip-badge">
-            <Sparkles size={14} />
-            <span>ⓘ 3ds Max Plugin Tip</span>
-          </div>
-          <span className="int-max-tip-note">If you don't see the plugin, please restart 3ds Max.</span>
-        </div>
-
-        <div className="int-max-tip-body">
-          {/* Mockup Toolbar Graphic (Screenshot 1) */}
-          <div className="int-max-tip-visual">
-            <div className="int-max-toolbar-box">
-              <div className="int-max-tool-item">
-                <span className="int-max-icon-cell">👁</span>
-                <span className="int-max-num-cell">1</span>
-              </div>
-              <div className="int-max-tool-item">
-                <span className="int-max-icon-cell">🫖</span>
-                <span className="int-max-num-cell">2</span>
-              </div>
-              <div className="int-max-tool-item">
-                <span className="int-max-icon-cell">⚡</span>
-                <span className="int-max-num-cell">3</span>
-              </div>
-              <div className="int-max-tool-item">
-                <span className="int-max-icon-cell">📹</span>
-                <span className="int-max-num-cell">4</span>
-              </div>
-              <div className="int-max-tool-item">
-                <span className="int-max-icon-cell">⚙</span>
-                <span className="int-max-num-cell">5</span>
-              </div>
-            </div>
-            {/* White pointer arrow */}
-            <div className="int-max-arrow-wrap">
-              <ArrowLeft size={42} strokeWidth={3.5} className="int-max-arrow-svg" />
-            </div>
-          </div>
-
-          {/* Explanation Text (Screenshot 2) */}
-          <div className="int-max-tip-desc">
-            <div className="int-max-tip-lead">The Anarchy AI toolbar provides five tools:</div>
-            <div className="int-max-tool-guide">
-              <div className="int-guide-row">
-                <span className="int-guide-title">1. Send Viewport:</span>
-                <span className="int-guide-text">Send the current viewport to Anarchy AI to create realistic visualizations and animations.</span>
-              </div>
-              <div className="int-guide-row">
-                <span className="int-guide-title">2. Send VFB:</span>
-                <span className="int-guide-text">Send your current render directly from the VFB to Anarchy AI, then continue working on it by editing the visualization and creating animations.</span>
-              </div>
-              <div className="int-guide-row">
-                <span className="int-guide-title">3. Instant Render:</span>
-                <span className="int-guide-text">Generate an instant AI render with a single click.</span>
-              </div>
-              <div className="int-guide-row">
-                <span className="int-guide-title">4. Batch Render:</span>
-                <span className="int-guide-text">Send views from all cameras in the scene with a single click and render them with AI in Anarchy AI.</span>
-              </div>
-              <div className="int-guide-row">
-                <span className="int-guide-title">5. Plugin Settings:</span>
-                <span className="int-guide-text">Configure Instant Render and viewport export optimization settings.</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Filters */}
@@ -666,70 +599,25 @@ export const IntegrationsPage: React.FC = () => {
             >
               ×
             </button>
-            
-            <div className="int-modal-header">
+               <div className="int-modal-header">
               <div className="int-modal-icon"><SoftwareLogo id={selected.icon} /></div>
               <div className="int-modal-info">
-                <h2>{selected.name}</h2>
-                <div className="int-modal-badges">
-                  {selected.status === 'installed' && (
-                    <span className="int-badge installed"><Check size={10} /> Installed v{selected.version}</span>
-                  )}
-                  {selected.status === 'update' && (
-                    <span className="int-badge update">v{selected.version} → v{selected.latestVersion}</span>
-                  )}
-                  {selected.status === 'available' && (
-                    <span className="int-badge available">v{selected.latestVersion}</span>
-                  )}
+                <div className="int-modal-title-row">
+                  <h2>{selected.name}</h2>
+                  <div className="int-modal-badges">
+                    {selected.status === 'installed' && (
+                      <span className="int-badge installed"><Check size={10} /> Installed v{selected.version}</span>
+                    )}
+                    {selected.status === 'update' && (
+                      <span className="int-badge update">v{selected.version} → v{selected.latestVersion}</span>
+                    )}
+                    {selected.status === 'available' && (
+                      <span className="int-badge available">v{selected.latestVersion}</span>
+                    )}
+                  </div>
                 </div>
+                <p className="int-modal-desc-inline">{selected.description}</p>
               </div>
-            </div>
-
-            <p className="int-modal-desc">{selected.description}</p>
-
-            {showInstructions && selected.id === '3dsmax' && (
-              <div className="int-modal-section">
-                <div className="int-doc-panel">
-                  <h4>How to use inside 3ds Max</h4>
-                  <ol>
-                    <li>Restart 3ds Max after installation (or launch it if it was closed).</li>
-                    <li>A floating toolbar <strong>"Anarchy AI"</strong> and a top menu bar <strong>"Anarchy AI"</strong> will automatically appear on your screen!</li>
-                    <li>You can also find it under <em>Customize → Customize User Interface → Toolbars → Category: Anarchy</em>.</li>
-                    <li>Open Anarchy AI Builder, then click <strong>"⚡ Send to Anarchy"</strong> in 3ds Max.</li>
-                  </ol>
-                  <p>The active viewport image will immediately arrive as a Source Node in your Builder canvas.</p>
-                </div>
-              </div>
-            )}
-
-            {showInstructions && selected.id === 'revit' && (
-              <div className="int-modal-section">
-                <div className="int-doc-panel">
-                  <h4>Revit installation & usage</h4>
-                  <ol>
-                    <li>Close Revit completely before installing (to ensure files are not locked).</li>
-                    <li>Select your Revit version(s) below and click <strong>Install</strong>.</li>
-                    <li>Installation is instant and 100% offline (prebuilt native DLLs deployed directly to Revit Addins).</li>
-                    <li>Open Revit — a new <strong>Anarchy</strong> tab will appear in the ribbon.</li>
-                    <li>Open any 3D view or sheet, then click <strong>Send to Anarchy</strong>.</li>
-                  </ol>
-                  <p><strong>Supported:</strong> Revit 2020 through 2028. Works on all drives (C:, D:, E:, etc.) with zero SDK setup needed.</p>
-                </div>
-              </div>
-            )}
-
-            <div className="int-modal-section">
-              <h4>Features</h4>
-              <div className="int-features">
-                {selected.features.map((f) => (
-                  <span key={f} className="int-feature">{f}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="int-modal-section">
-              <h4>Compatibility</h4>
-              <p className="int-compat">{selected.name} {selected.supportedVersions}</p>
             </div>
 
             {(selected.id === '3dsmax' || selected.id === 'revit') && (() => {
@@ -739,10 +627,10 @@ export const IntegrationsPage: React.FC = () => {
               return (
                 <div className="int-modal-section">
                   <div className="int-section-header-row">
-                    <h4>
-                      Select Versions to Install
+                    <h4 className="int-section-title">
+                      Target Versions
                       {detectedInstalls.length > 0 && (
-                        <span className="int-section-hint"> — {detectedInstalls.length} detected</span>
+                        <span className="int-section-hint">({detectedInstalls.length} detected)</span>
                       )}
                     </h4>
                     <button
@@ -751,59 +639,74 @@ export const IntegrationsPage: React.FC = () => {
                       onClick={() => handleBrowseCustomPath(selected)}
                       title="Browse custom installation folder"
                     >
-                      <FolderOpen size={13} />
-                      <span>Browse Custom Folder...</span>
+                      <FolderOpen size={12} />
+                      <span>Custom Folder</span>
                     </button>
                   </div>
-                  <div className="int-version-grid">
+
+                  <div className="int-version-chips-grid">
                     {allVersions.map(ver => {
                       const installPath = detectedMap.get(ver);
                       const isDetected = !!installPath;
                       const isSelected = selectedVersions.includes(ver);
                       return (
-                        <label
+                        <button
+                          type="button"
                           key={ver}
-                          className={`int-version-option ${isDetected ? 'detected' : ''} ${isSelected ? 'checked' : ''}`}
-                          aria-label={`${selected.name} ${ver}`}
+                          className={`int-ver-chip ${isDetected ? 'detected' : ''} ${isSelected ? 'selected' : ''}`}
+                          onClick={() => toggleSelectedVersion(ver)}
+                          title={installPath ? `${selected.name} ${ver} detected: ${installPath}` : `${selected.name} ${ver}`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelectedVersion(ver)}
-                            aria-label={`Select ${selected.name} ${ver}`}
-                          />
-                          <div className="int-version-info">
-                            <div className="int-version-title-row">
-                              <strong className="int-version-name">{selected.name} {ver}</strong>
-                              {isDetected && (
-                                <span className="int-version-detected" title={`Detected at: ${installPath}`}>
-                                  <Check size={10} />
-                                </span>
-                              )}
-                            </div>
-                            {installPath && installPath !== 'Custom / Standard Drive' && (
-                              <span className="int-version-path" title={installPath}>
-                                {installPath.length > 32 ? '...' + installPath.slice(-28) : installPath}
-                              </span>
-                            )}
-                          </div>
-                        </label>
+                          <span className="int-ver-chip-box">
+                            {isSelected && <Check size={10} strokeWidth={3} />}
+                          </span>
+                          <span className="int-ver-chip-year">{ver}</span>
+                          {isDetected && <span className="int-ver-chip-dot" title="Auto-detected on system" />}
+                        </button>
                       );
                     })}
                   </div>
-                  {detectedInstalls.length === 0 && (
-                    <p className="int-compat-hint">No versions auto-detected. Select checkboxes or click "Browse Custom Folder" above.</p>
-                  )}
                 </div>
               );
             })()}
 
-            {/* AutoCAD instructions removed */}
+            {/* Collapsible Guide Accordion (Only expands if user clicks) */}
+            {selected.id === '3dsmax' && (
+              <details className="int-modal-section int-doc-accordion" open={showInstructions}>
+                <summary onClick={(e) => { e.preventDefault(); setShowInstructions(prev => !prev); }}>
+                  <span>📘 How to use inside 3ds Max</span>
+                  <span className="int-accordion-toggle">{showInstructions ? '▲' : '▼'}</span>
+                </summary>
+                <div className="int-doc-panel">
+                  <ol>
+                    <li>Restart 3ds Max after installation (or launch it if closed).</li>
+                    <li>The <strong>"Anarchy AI"</strong> toolbar and menu bar will appear automatically.</li>
+                    <li>Click <strong>"⚡ Send to Anarchy"</strong> to stream active viewport into Builder canvas.</li>
+                  </ol>
+                </div>
+              </details>
+            )}
+
+            {selected.id === 'revit' && (
+              <details className="int-modal-section int-doc-accordion" open={showInstructions}>
+                <summary onClick={(e) => { e.preventDefault(); setShowInstructions(prev => !prev); }}>
+                  <span>📘 Revit installation & usage</span>
+                  <span className="int-accordion-toggle">{showInstructions ? '▲' : '▼'}</span>
+                </summary>
+                <div className="int-doc-panel">
+                  <ol>
+                    <li>Close Revit completely before installing.</li>
+                    <li>Select Revit versions above and click <strong>Install</strong>.</li>
+                    <li>Open Revit — find the new <strong>Anarchy</strong> tab in the ribbon.</li>
+                  </ol>
+                </div>
+              </details>
+            )}
 
             {installMessage && (selected.id === '3dsmax' || selected.id === 'revit') && (
               <div className="int-modal-section">
                 <div className="int-install-message">
-                  <AlertCircle size={14} />
+                  <AlertCircle size={13} />
                   <span>{renderInstallMessage(installMessage)}</span>
                 </div>
               </div>
@@ -816,13 +719,13 @@ export const IntegrationsPage: React.FC = () => {
                   onClick={() => handleInstall(selected)}
                   disabled={(selected.id === '3dsmax' || selected.id === 'revit') && selectedVersions.length === 0}
                 >
-                  <Download size={14} />
+                  <Download size={13} />
                   Install
                 </button>
               )}
               {selected.status === 'installing' && (
                 <button className="int-btn primary" disabled>
-                  <RefreshCw size={14} className="spin" />
+                  <RefreshCw size={13} className="spin" />
                   Installing...
                 </button>
               )}
@@ -833,18 +736,18 @@ export const IntegrationsPage: React.FC = () => {
                     onClick={() => handleInstall(selected, true)}
                     disabled={(selected.id === '3dsmax' || selected.id === 'revit') && selectedVersions.length === 0}
                   >
-                    <Settings size={14} />
+                    <Settings size={13} />
                     Reinstall
                   </button>
                   {(selected.id === '3dsmax' || selected.id === 'revit') && (
                     <button className="int-btn danger" onClick={() => handleRemoveOldPlugin(selected)}>
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                       Uninstall
                     </button>
                   )}
-                  <button className="int-btn secondary" onClick={() => setShowInstructions(prev => !prev)}>
-                    <ExternalLink size={14} />
-                    {showInstructions ? 'Hide' : 'Docs'}
+                  <button className="int-btn ghost" onClick={() => setShowInstructions(prev => !prev)}>
+                    <ExternalLink size={13} />
+                    {showInstructions ? 'Hide Guide' : 'Guide'}
                   </button>
                 </>
               )}
@@ -854,12 +757,12 @@ export const IntegrationsPage: React.FC = () => {
                     className="int-btn primary"
                     onClick={() => handleInstall(selected)}
                   >
-                    <RefreshCw size={14} />
+                    <RefreshCw size={13} />
                     Update
                   </button>
                   {(selected.id === '3dsmax' || selected.id === 'revit') && (
                     <button className="int-btn danger" onClick={() => handleRemoveOldPlugin(selected)}>
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                       Uninstall
                     </button>
                   )}
