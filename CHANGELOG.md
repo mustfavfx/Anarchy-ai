@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.99] - 2026-10-09
+
+### Hotfix & Editor Stabilization
+- **Mask Adjustment Layer Runtime Fix**:
+  - Resolved `ReferenceError: isAr is not defined` in `useMaskAdjustments.ts` that caused an unexpected error screen on canvas adjustment layer initialization.
+  - Hardened scope parameter resolution and dependency arrays across all adjustment action hooks.
+
+---
+
 ## [0.3.98] - 2026-10-09
 
 ### AI Resize & Outpainting Overhaul
