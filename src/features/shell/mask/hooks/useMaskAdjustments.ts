@@ -45,7 +45,7 @@ export function useMaskAdjustments({
   clearMask,
   pushHistory,
   updateMaskPreview,
-  isAr: _isAr = false,
+  isAr = false,
 }: UseMaskAdjustmentsProps) {
   const adjustmentSnapshotRef = useRef<{
     targetType: 'mask' | 'layer' | 'base';
