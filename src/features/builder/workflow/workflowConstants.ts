@@ -412,6 +412,9 @@ export interface GenerationConfig {
   // Anarchy Upscale settings
   anarchyUpscaleScale?: number;
   anarchyUpscaleCreativity?: number;
+  sourceImage?: string;
+  sourceWidth?: number;
+  sourceHeight?: number;
 }
 
 // Re-export types for backward compatibility

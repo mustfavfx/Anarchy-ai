@@ -102,6 +102,17 @@ export const useWorkflowExecution = ({
         });
 
       const allParentImages: string[] = [];
+
+      // 1. Tool-specified sourceImage override (e.g., visual markup annotations or reframed image)
+      if (config?.sourceImage && typeof config.sourceImage === 'string') {
+        allParentImages.push(config.sourceImage);
+      } else if (nodeData.label?.toLowerCase().includes('markup') && (nodeData.image || nodeData.previewUrl)) {
+        // If this is a markup node, its own image carries the drawn annotations / red boxes
+        const markupImg = (nodeData.image || nodeData.previewUrl) as string;
+        allParentImages.push(markupImg);
+      }
+
+      // 2. Fetch parent images from connected incoming edges
       incomingEdges.forEach(edge => {
         const parentNode = nodesRef.current.find(n => n.id === edge.source);
         if (parentNode) {

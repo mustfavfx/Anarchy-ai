@@ -380,7 +380,10 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         if (childId && actionPrompt) {
           const executeFn = useAIConfigStore.getState().executeNode;
           if (executeFn) {
-            executeFn(childId, actionPrompt).catch((err) => {
+            executeFn(childId, actionPrompt, {
+              sourceImage: newUrl,
+              aspectRatio: 'match_input_image',
+            }).catch((err) => {
               console.warn('AI execution after markup failed:', err);
             });
           }

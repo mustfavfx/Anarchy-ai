@@ -665,20 +665,20 @@ export const MarkupCanvasOverlay: React.FC<MarkupCanvasOverlayProps> = ({
         {/* ── SELECTION BOUNDING BOX & 8 HANDLES (Screenshot 3) ── */}
         {activeSubtool === 'select' && selectedEl && (
           <g className="markup-selection-box-group">
-            {/* Dashed Blue Outline */}
+            {/* Dashed Crimson Brand Outline */}
             <rect
               x={selectedEl.x - 4}
               y={selectedEl.y - 4}
               width={Math.max(12, selectedEl.width + 8)}
               height={Math.max(12, selectedEl.height + 8)}
               fill="none"
-              stroke="#2563eb"
+              stroke="#e11d48"
               strokeWidth="2"
               strokeDasharray="5,5"
               pointerEvents="none"
             />
 
-            {/* 8 Square White Handles with Blue Border */}
+            {/* 8 Square White Handles with Crimson Border */}
             {(
               [
                 { id: 'nw', x: selectedEl.x - 8, y: selectedEl.y - 8, cursor: 'nwse-resize' },
@@ -698,7 +698,7 @@ export const MarkupCanvasOverlay: React.FC<MarkupCanvasOverlayProps> = ({
                 width="8"
                 height="8"
                 fill="#ffffff"
-                stroke="#2563eb"
+                stroke="#e11d48"
                 strokeWidth="2"
                 style={{ cursor: h.cursor }}
                 onMouseDown={(e) => handleResizeHandleMouseDown(e, h.id)}
