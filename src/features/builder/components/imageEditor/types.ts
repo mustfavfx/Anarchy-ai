@@ -2,6 +2,38 @@ import { MODEL_META } from '../../../../services/replicate/ReplicateService';
 
 export type ActiveToolType = 'markup' | 'comment' | 'erase' | 'resize' | null;
 
+export type MarkupToolType = 'select' | 'brush' | 'text' | 'shape' | 'eraser';
+
+export type MarkupShapeType =
+  | 'line'
+  | 'arrow'
+  | 'rect'
+  | 'circle'
+  | 'triangle'
+  | 'diamond'
+  | 'star'
+  | 'heart';
+
+export interface MarkupPoint {
+  x: number;
+  y: number;
+}
+
+export interface MarkupElement {
+  id: string;
+  type: 'path' | 'shape' | 'text';
+  color: string;
+  strokeWidth: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  points?: MarkupPoint[];
+  shapeType?: MarkupShapeType;
+  text?: string;
+  fontSize?: number;
+}
+
 export interface CommentPin {
   id: string;
   xPct: number; // 0 - 100
@@ -10,14 +42,26 @@ export interface CommentPin {
   num: number;
 }
 
-export const PRESET_COLORS = [
-  '#ffffff', // White
-  '#ef4444', // Red
-  '#f59e0b', // Yellow
-  '#10b981', // Green
-  '#3b82f6', // Blue
+// 14 Preset Colors matching Screenshot 5 exactly
+export const MARKUP_PALETTE_COLORS = [
+  // Row 1
   '#000000', // Black
+  '#505664', // Slate
+  '#7c3f1d', // Brown
+  '#e52b2b', // Red (Default active)
+  '#f26b1d', // Orange
+  '#f5a623', // Amber / Gold
+  // Row 2
+  '#16a34a', // Green
+  '#0d9488', // Teal
+  '#06b6d4', // Cyan
+  '#2563eb', // Blue
+  '#4f46e5', // Indigo
+  '#9333ea', // Purple
+  '#db2777', // Magenta / Pink
 ];
+
+export const PRESET_COLORS = MARKUP_PALETTE_COLORS;
 
 export interface ResizeRatioOption {
   id: string;

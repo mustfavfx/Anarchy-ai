@@ -9,19 +9,26 @@ import {
   type ActiveToolType,
   type CommentPin,
   type ResizeRatioOption,
+  type MarkupToolType,
+  type MarkupShapeType,
+  type MarkupElement,
   PRESET_COLORS,
+  MARKUP_PALETTE_COLORS,
   getEngineRatioOptions,
   getEngineDisplayName,
 } from './imageEditor/types';
 import { inpaintMaskedArea } from './imageEditor/inpaintAlgorithm';
-import { MarkupSubtoolbar } from './imageEditor/MarkupSubtoolbar';
+import { MarkupVerticalSlider } from './imageEditor/MarkupVerticalSlider';
+import { MarkupStudioToolbar } from './imageEditor/MarkupStudioToolbar';
+import { MarkupCanvasOverlay } from './imageEditor/MarkupCanvasOverlay';
+import { rasterizeMarkupToImage } from './imageEditor/markupUtils';
 import { ResizeSubtoolbar } from './imageEditor/ResizeSubtoolbar';
 import { CommentOverlay } from './imageEditor/CommentOverlay';
 import { EraseControls } from './imageEditor/EraseControls';
 import { MainPillToolbar } from './imageEditor/MainPillToolbar';
 
-export type { ActiveToolType, ResizeRatioOption, CommentPin };
-export { PRESET_COLORS };
+export type { ActiveToolType, ResizeRatioOption, CommentPin, MarkupToolType, MarkupShapeType, MarkupElement };
+export { PRESET_COLORS, MARKUP_PALETTE_COLORS };
 
 interface ImageEditorToolbarProps {
   imageUrl: string;
@@ -48,16 +55,48 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   const [activeTool, setActiveTool] = useState<ActiveToolType>(null);
 
   // Active engine & model metadata from AI Config Store
-  const activeModel = useAIConfigStore((s) => s.aiConfig.model);
+  const activeModel = useAIConfigStore((s) => s.config?.model || 'google/nano-banana-2');
   const availableRatios = useMemo(() => getEngineRatioOptions(activeModel), [activeModel]);
   const engineDisplayName = useMemo(() => getEngineDisplayName(activeModel), [activeModel]);
 
-  // ── Overlay Drawing Canvas State (for Markup & Erase) ──
+  // ── Markup Studio State (9 Tools + Vector Canvas) ──
+  const [markupSubtool, setMarkupSubtool] = useState<MarkupToolType>('brush');
+  const [markupShape, setMarkupShape] = useState<MarkupShapeType>('rect');
+  const [markupColor, setMarkupColor] = useState<string>('#e52b2b'); // Default red from screenshot
+  const [markupSize, setMarkupSize] = useState<number>(14); // Controlled by left vertical slider
+  const [markupElements, setMarkupElements] = useState<MarkupElement[]>([]);
+  const [markupHistory, setMarkupHistory] = useState<MarkupElement[][]>([]);
+  const [markupRedoStack, setMarkupRedoStack] = useState<MarkupElement[][]>([]);
+  const [selectedMarkupElementId, setSelectedMarkupElementId] = useState<string | null>(null);
+  const overlaySvgRef = useRef<SVGSVGElement | null>(null);
+
+  const handleMarkupElementsChange = (newElements: MarkupElement[]) => {
+    setMarkupHistory((prev) => [...prev, markupElements]);
+    setMarkupRedoStack([]);
+    setMarkupElements(newElements);
+  };
+
+  const handleMarkupUndo = () => {
+    if (markupHistory.length === 0) return;
+    const prev = markupHistory[markupHistory.length - 1];
+    setMarkupRedoStack((r) => [markupElements, ...r]);
+    setMarkupElements(prev);
+    setMarkupHistory((h) => h.slice(0, -1));
+    setSelectedMarkupElementId(null);
+  };
+
+  const handleMarkupRedo = () => {
+    if (markupRedoStack.length === 0) return;
+    const next = markupRedoStack[0];
+    setMarkupHistory((h) => [...h, markupElements]);
+    setMarkupElements(next);
+    setMarkupRedoStack((r) => r.slice(1));
+    setSelectedMarkupElementId(null);
+  };
+
+  // ── Overlay Drawing Canvas State (for Erase mode) ──
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [markupColor, setMarkupColor] = useState<string>('#ffffff');
-  const [markupType, setMarkupType] = useState<'pen' | 'highlighter'>('pen');
-  const [brushSize, setBrushSize] = useState<number>(6);
   const [eraseSize, setEraseSize] = useState<number>(32);
   const [historyStack, setHistoryStack] = useState<ImageData[]>([]);
 
@@ -258,7 +297,7 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (activeTool !== 'markup' && activeTool !== 'erase') return;
+    if (activeTool !== 'erase') return;
     setIsDrawing(true);
     pushHistory();
 
@@ -271,23 +310,14 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     ctx.beginPath();
     ctx.moveTo(x, y);
 
-    if (activeTool === 'markup') {
-      ctx.strokeStyle = markupColor;
-      ctx.lineWidth = brushSize;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalAlpha = markupType === 'highlighter' ? 0.45 : 1.0;
-      ctx.globalCompositeOperation = 'source-over';
-    } else if (activeTool === 'erase') {
-      ctx.strokeStyle = '#ff2a6d';
-      ctx.fillStyle = '#ff2a6d';
-      ctx.lineWidth = eraseSize;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalAlpha = 0.65;
-      ctx.globalCompositeOperation = 'source-over';
-      setHasEraseStrokes(true);
-    }
+    ctx.strokeStyle = '#ff2a6d';
+    ctx.fillStyle = '#ff2a6d';
+    ctx.lineWidth = eraseSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.65;
+    ctx.globalCompositeOperation = 'source-over';
+    setHasEraseStrokes(true);
 
     ctx.lineTo(x + 0.1, y + 0.1);
     ctx.stroke();
@@ -305,7 +335,7 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
       }
     }
 
-    if (!isDrawing) return;
+    if (!isDrawing || activeTool !== 'erase') return;
     const canvas = overlayCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -314,10 +344,7 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
     const { x, y } = getCanvasCoords(e);
     ctx.lineTo(x, y);
     ctx.stroke();
-
-    if (activeTool === 'erase') {
-      setHasEraseStrokes(true);
-    }
+    setHasEraseStrokes(true);
   };
 
   const handleMouseUp = () => {
@@ -333,25 +360,15 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
 
   // ── Apply Markup & Branch to Connected Child Node ──
   const handleApplyMarkup = async (markupPrompt?: string) => {
-    if (!overlayCanvasRef.current) return;
     try {
-      const img = await loadImageElement(imageUrl);
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      ctx.drawImage(img, 0, 0);
-      ctx.drawImage(overlayCanvasRef.current, 0, 0, canvas.width, canvas.height);
-
-      const newUrl = canvas.toDataURL('image/png');
+      const newUrl = await rasterizeMarkupToImage(imageUrl, overlaySvgRef.current);
       const actionPrompt = markupPrompt?.trim() || prompt || '';
       const actionLabel = markupPrompt?.trim()
         ? `Markup: ${markupPrompt.trim().slice(0, 24)}`
         : 'Markup: Hand-Drawn Annotation';
 
       if (nodeId) {
+        useAIConfigStore.getState().setLastSelectedNodeId(nodeId);
         const childId = useAIConfigStore.getState().forkChildNode(
           nodeId,
           newUrl,
@@ -359,7 +376,7 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
           actionPrompt
         );
 
-        if (childId && markupPrompt?.trim()) {
+        if (childId && actionPrompt) {
           const executeFn = useAIConfigStore.getState().executeNode;
           if (executeFn) {
             executeFn(childId, actionPrompt).catch((err) => {
@@ -371,20 +388,23 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         onImageUpdate?.(newUrl);
       }
 
-      handleClearDrawing();
+      setMarkupElements([]);
+      setMarkupHistory([]);
+      setMarkupRedoStack([]);
       setActiveTool(null);
+      setSelectedMarkupElementId(null);
       onCloseLightbox();
 
       addNotification({
         type: 'success',
         title: '🌿 Child Node Created',
-        message: 'Saved markup to a new connected child branch.',
-        duration: 3500,
+        message: 'Dispatched markup modification to target AI engine and connected new node.',
+        duration: 4000,
       });
     } catch (err: any) {
       addNotification({
         type: 'error',
-        title: 'Failed to Save',
+        title: 'Failed to Save Markup',
         message: err?.message || 'Could not apply markup.',
         duration: 3000,
       });
@@ -592,24 +612,46 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
   return (
     <>
       {/* ── Visual Overlays Mounted Directly Over the Image ── */}
-      {/* 1. Markup & Erase Overlay Canvas */}
-      <canvas
-        ref={overlayCanvasRef}
-        className={`image-editor-canvas-layer ${
-          activeTool === 'markup'
-            ? 'cursor-pen'
-            : activeTool === 'erase'
-            ? 'cursor-eraser'
-            : ''
-        }`}
-        style={{
-          display: activeTool === 'markup' || activeTool === 'erase' ? 'block' : 'none',
-          zIndex: 10002,
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseEnter={(e) => {
-          if (activeTool === 'erase') {
+
+      {/* 1. Left Vertical Slider Pill (Screenshot 1: Active in Markup Mode) */}
+      {activeTool === 'markup' && (
+        <MarkupVerticalSlider
+          value={markupSize}
+          onChange={setMarkupSize}
+          min={2}
+          max={72}
+          label={markupSubtool === 'text' ? 'Font Size' : 'Stroke Size'}
+        />
+      )}
+
+      {/* 2. Professional Vector Markup Overlay (Freehand, Shapes, Text, Selection Handles, Eraser) */}
+      {activeTool === 'markup' && (
+        <MarkupCanvasOverlay
+          imageElementRef={imageElementRef}
+          activeSubtool={markupSubtool}
+          activeShape={markupShape}
+          activeColor={markupColor}
+          strokeWidth={markupSize}
+          elements={markupElements}
+          onElementsChange={handleMarkupElementsChange}
+          selectedElementId={selectedMarkupElementId}
+          onSelectElementId={setSelectedMarkupElementId}
+          overlaySvgRef={overlaySvgRef}
+        />
+      )}
+
+      {/* 3. Erase Overlay Canvas (Active in Erase Mode for smart inpaint) */}
+      {activeTool === 'erase' && (
+        <canvas
+          ref={overlayCanvasRef}
+          className="image-editor-canvas-layer cursor-eraser"
+          style={{
+            display: 'block',
+            zIndex: 10002,
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseEnter={(e) => {
             const canvas = overlayCanvasRef.current;
             if (canvas) {
               const rect = canvas.getBoundingClientRect();
@@ -618,16 +660,16 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
                 y: e.clientY - rect.top,
               });
             }
-          }
-        }}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={() => {
-          handleMouseUp();
-          setEraseCursorPos(null);
-        }}
-      />
+          }}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={() => {
+            handleMouseUp();
+            setEraseCursorPos(null);
+          }}
+        />
+      )}
 
-      {/* 2. Comment Click Layer & Pins */}
+      {/* 4. Comment Click Layer & Pins */}
       {activeTool === 'comment' && (
         <CommentOverlay
           pins={pins}
@@ -658,44 +700,52 @@ export const ImageEditorToolbar: React.FC<ImageEditorToolbarProps> = ({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Floating Subtoolbar Card for the Active Tool */}
-        {activeTool === 'markup' && (
-          <MarkupSubtoolbar
-            markupColor={markupColor}
-            setMarkupColor={setMarkupColor}
-            markupType={markupType}
-            setMarkupType={setMarkupType}
-            brushSize={brushSize}
-            setBrushSize={setBrushSize}
-            onUndo={handleUndo}
-            onClear={handleClearDrawing}
+        {/* If in Markup Mode: Display Dedicated 9-Tool Charcoal Suite + Prompt Bar (Screenshot 2) */}
+        {activeTool === 'markup' ? (
+          <MarkupStudioToolbar
+            activeSubtool={markupSubtool}
+            setActiveSubtool={setMarkupSubtool}
+            activeShape={markupShape}
+            setActiveShape={setMarkupShape}
+            activeColor={markupColor}
+            setActiveColor={setMarkupColor}
+            canUndo={markupHistory.length > 0}
+            canRedo={markupRedoStack.length > 0}
+            onUndo={handleMarkupUndo}
+            onRedo={handleMarkupRedo}
+            onDragHandleMouseDown={handleDragHandleMouseDown}
+            isDragging={isDraggingToolbar}
+            engineDisplayName={engineDisplayName}
             onApply={handleApplyMarkup}
-            onCancel={() => {
+            onExit={() => {
               setActiveTool(null);
-              handleClearDrawing();
+              setSelectedMarkupElementId(null);
             }}
           />
-        )}
+        ) : (
+          <>
+            {/* Non-Destructive Resize Subtoolbar */}
+            {activeTool === 'resize' && (
+              <ResizeSubtoolbar
+                modelName={activeModel}
+                aspectRatio={aspectRatio}
+                options={availableRatios}
+                onSelectAspectRatio={handleSelectAspectRatio}
+                onConfirmResize={handleApplyResize}
+                onCancel={() => setActiveTool(null)}
+              />
+            )}
 
-        {activeTool === 'resize' && (
-          <ResizeSubtoolbar
-            modelName={activeModel}
-            aspectRatio={aspectRatio}
-            options={availableRatios}
-            onSelectAspectRatio={handleSelectAspectRatio}
-            onConfirmResize={handleApplyResize}
-            onCancel={() => setActiveTool(null)}
-          />
+            {/* The Main Pill Toolbar with Drag Handle & OK Button */}
+            <MainPillToolbar
+              activeTool={activeTool}
+              onToggleTool={handleToggleTool}
+              onDragHandleMouseDown={handleDragHandleMouseDown}
+              isDragging={isDraggingToolbar}
+              onApplyCurrentTool={handleApplyCurrentTool}
+            />
+          </>
         )}
-
-        {/* The Main Pill Toolbar with Drag Handle & OK Button */}
-        <MainPillToolbar
-          activeTool={activeTool}
-          onToggleTool={handleToggleTool}
-          onDragHandleMouseDown={handleDragHandleMouseDown}
-          isDragging={isDraggingToolbar}
-          onApplyCurrentTool={handleApplyCurrentTool}
-        />
       </div>
 
       {/* ── Top Floating Erase Capsule & Controls (ChatGPT Style) ── */}

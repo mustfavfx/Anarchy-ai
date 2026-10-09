@@ -25,4 +25,12 @@ describe('ImageEditorToolbar Engine-Aware Ratio Options', () => {
     expect(widescreen.wireframeClass).toBe('wf-widescreen');
     expect(widescreen.resolutionHint).toBe('1344 × 768');
   });
+
+  it('provides the exact 13 palette colors + default red for the markup suite', async () => {
+    const { MARKUP_PALETTE_COLORS } = await import('./types');
+    expect(MARKUP_PALETTE_COLORS).toHaveLength(13);
+    expect(MARKUP_PALETTE_COLORS).toContain('#e52b2b'); // Default red
+    expect(MARKUP_PALETTE_COLORS).toContain('#000000'); // Black
+    expect(MARKUP_PALETTE_COLORS).toContain('#2563eb'); // Blue
+  });
 });
