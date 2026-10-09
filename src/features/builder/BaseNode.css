@@ -430,6 +430,7 @@
 .node-image-region.has-image {
   background: transparent;
   min-height: unset;
+  aspect-ratio: auto;
 }
 
 .node-image-region.has-image img,

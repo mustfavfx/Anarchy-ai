@@ -633,7 +633,7 @@ export const BaseNode = memo(({ id, data, selected = false }: BaseNodeProps) => 
                       referrerPolicy="no-referrer"
                       onLoad={(e) => {
                         const img = e.currentTarget;
-                        if (!nodeData.dimensions && !nodeData.outputData?.dimensions) {
+                        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
                           setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
                           nodeData.dimensions = { width: img.naturalWidth, height: img.naturalHeight };
                           if (nodeData.outputData) {

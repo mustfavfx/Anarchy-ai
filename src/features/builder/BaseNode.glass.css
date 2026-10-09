@@ -191,6 +191,7 @@
 .node-image-region.has-image {
   border-color: rgba(255, 255, 255, 0.08);
   min-height: unset;
+  aspect-ratio: auto;
 }
 
 .node-image-region img,

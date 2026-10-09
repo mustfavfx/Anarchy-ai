@@ -468,6 +468,16 @@ export const useWorkflowExecution = ({
         }
       }
 
+      // Measure actual dimensions of finalImage
+      let measuredDims: { width: number; height: number } | null = null;
+      if (finalImage && !isVideo) {
+        try {
+          measuredDims = await getImageDimensions(finalImage);
+        } catch (dimErr) {
+          logger.warn('[WorkflowExecution] Failed to measure output image dimensions:', dimErr);
+        }
+      }
+
       const isGptModel = model === 'openai/gpt-image-2' ||
         model === 'openai/gpt-image-2.5-flare' ||
         model === 'openai/gpt-image-2.5-sunburst';
@@ -479,8 +489,8 @@ export const useWorkflowExecution = ({
         (isGptModel || config?.aspectRatio === 'match_input_image')
       );
 
-      const finalWidth = (shouldPreserveSourceDims && sourceDims) ? sourceDims.width : result.metadata.width;
-      const finalHeight = (shouldPreserveSourceDims && sourceDims) ? sourceDims.height : result.metadata.height;
+      const finalWidth = measuredDims?.width || ((shouldPreserveSourceDims && sourceDims) ? sourceDims.width : result.metadata.width);
+      const finalHeight = measuredDims?.height || ((shouldPreserveSourceDims && sourceDims) ? sourceDims.height : result.metadata.height);
 
       const cleanUuid = crypto.randomUUID();
       const imageKey = `idb://${cleanUuid}`;
