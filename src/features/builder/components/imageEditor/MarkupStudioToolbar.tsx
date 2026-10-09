@@ -83,7 +83,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
 
   return (
     <div className="markup-studio-wrapper" onClick={(e) => e.stopPropagation()}>
-      {/* ── Prompt Bar (Visible from the start) ── */}
+      {/* ── Prompt Bar (Static, sleek, professional English) ── */}
       <form className="markup-prompt-bar" onSubmit={handleSubmitPrompt}>
         <div className="markup-prompt-sparkle-icon">
           <Sparkles size={16} />
@@ -92,7 +92,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
         <input
           type="text"
           className="markup-prompt-input"
-          placeholder="صف التعديل المطلوب حسب الرسم... / Describe modification from markup..."
+          placeholder="Describe your edit based on the markup..."
           value={markupPrompt}
           onChange={(e) => setMarkupPrompt(e.target.value)}
         />
@@ -107,7 +107,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           className="markup-prompt-submit-btn"
           title="Send to engine & generate linked child node"
         >
-          <span>تطبيق وتوليد</span>
+          <span>Generate</span>
           <ArrowRight size={14} />
         </button>
       </form>
@@ -141,7 +141,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
         {/* 1. Drag & Move Handle (Grip Dots :::) */}
         <div
           className={`markup-toolbar-btn markup-drag-handle ${isDragging ? 'grabbing' : ''}`}
-          title="1. اسحب الشريط لتحريكه حسب الرغبة"
+          title="Drag to reposition toolbar"
           onMouseDown={onDragHandleMouseDown}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -159,7 +159,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           type="button"
           className={`markup-toolbar-btn ${activeSubtool === 'select' ? 'active' : ''}`}
           onClick={() => handleSelectSubtool('select')}
-          title="2. سهم التحديد والتحكم بالرسومات (تحريك وتكبير/تصغير)"
+          title="Select & Transform (Move / Resize)"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 4l7 17 2.8-6.2L20 12z" />
@@ -171,7 +171,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           type="button"
           className={`markup-toolbar-btn ${activeSubtool === 'brush' ? 'active' : ''}`}
           onClick={() => handleSelectSubtool('brush')}
-          title="3. الفرشاة للرسم الحر"
+          title="Brush (Freehand)"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 16c2-4 4-4 6-1s4 4 6 1 4-4 6-1" />
@@ -183,7 +183,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           type="button"
           className={`markup-toolbar-btn ${activeSubtool === 'text' ? 'active' : ''}`}
           onClick={() => handleSelectSubtool('text')}
-          title="4. الكتابة وإضافة نصوص لتحديد مكان التعديل"
+          title="Text Label"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 6h14" />
@@ -197,7 +197,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           type="button"
           className={`markup-toolbar-btn ${activeSubtool === 'shape' ? 'active' : ''}`}
           onClick={handleToggleShapes}
-          title="5. الأشكال الهندسية لتحديد أو إضافة عناصر"
+          title="Geometric Shapes"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="11" height="11" rx="2" />
@@ -210,7 +210,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           type="button"
           className={`markup-toolbar-btn markup-color-indicator-btn ${showColorPopover ? 'open' : ''}`}
           onClick={handleToggleColor}
-          title="6. اختيار الألوان"
+          title="Color Palette"
         >
           <div
             className="markup-active-color-circle"
@@ -223,7 +223,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           type="button"
           className={`markup-toolbar-btn ${activeSubtool === 'eraser' ? 'active' : ''}`}
           onClick={() => handleSelectSubtool('eraser')}
-          title="7. ممحاة احترافية لحذف الرسومات والأشكال والنصوص"
+          title="Eraser"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
@@ -241,7 +241,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           className={`markup-toolbar-btn ${!canUndo ? 'disabled' : ''}`}
           onClick={onUndo}
           disabled={!canUndo}
-          title="8. تراجع (Undo)"
+          title="Undo"
         >
           <RotateCcw size={18} />
         </button>
@@ -252,7 +252,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           className={`markup-toolbar-btn ${!canRedo ? 'disabled' : ''}`}
           onClick={onRedo}
           disabled={!canRedo}
-          title="8. إعادة (Redo)"
+          title="Redo"
         >
           <RotateCw size={18} />
         </button>
@@ -265,7 +265,7 @@ export const MarkupStudioToolbar: React.FC<MarkupStudioToolbarProps> = ({
           type="button"
           className="markup-toolbar-btn markup-exit-btn"
           onClick={onExit}
-          title="9. الخروج من وضع Markup"
+          title="Exit Markup Mode"
         >
           <X size={20} />
         </button>

@@ -24,56 +24,56 @@ describe('MarkupStudioToolbar 9-Tool Suite', () => {
     render(<MarkupStudioToolbar {...defaultProps} />);
 
     // 1. Drag handle
-    expect(screen.getByTitle(/1\. اسحب الشريط/)).toBeDefined();
+    expect(screen.getByTitle(/Drag to reposition/i)).toBeDefined();
 
     // 2. Select tool
-    expect(screen.getByTitle(/2\. سهم التحديد/)).toBeDefined();
+    expect(screen.getByTitle(/Select & Transform/i)).toBeDefined();
 
     // 3. Brush tool
-    expect(screen.getByTitle(/3\. الفرشاة/)).toBeDefined();
+    expect(screen.getByTitle(/Brush/i)).toBeDefined();
 
     // 4. Text tool
-    expect(screen.getByTitle(/4\. الكتابة/)).toBeDefined();
+    expect(screen.getByTitle(/Text Label/i)).toBeDefined();
 
     // 5. Shapes tool
-    expect(screen.getByTitle(/5\. الأشكال الهندسية/)).toBeDefined();
+    expect(screen.getByTitle(/Geometric Shapes/i)).toBeDefined();
 
     // 6. Color indicator
-    expect(screen.getByTitle(/6\. اختيار الألوان/)).toBeDefined();
+    expect(screen.getByTitle(/Color Palette/i)).toBeDefined();
 
     // 7. Eraser tool
-    expect(screen.getByTitle(/7\. ممحاة احترافية/)).toBeDefined();
+    expect(screen.getByTitle(/Eraser/i)).toBeDefined();
 
     // 8. Undo & Redo
-    expect(screen.getByTitle(/8\. تراجع/)).toBeDefined();
-    expect(screen.getByTitle(/8\. إعادة/)).toBeDefined();
+    expect(screen.getByTitle(/^Undo$/i)).toBeDefined();
+    expect(screen.getByTitle(/^Redo$/i)).toBeDefined();
 
     // 9. Exit
-    expect(screen.getByTitle(/9\. الخروج من وضع Markup/)).toBeDefined();
+    expect(screen.getByTitle(/Exit Markup Mode/i)).toBeDefined();
 
     // Prompt bar & target engine indicator
     expect(screen.getByText('Nano Banana 2')).toBeDefined();
-    expect(screen.getByText('تطبيق وتوليد')).toBeDefined();
+    expect(screen.getByText('Generate')).toBeDefined();
   });
 
   it('submits prompt instruction and calls onApply with input text', () => {
     const onApply = vi.fn();
     render(<MarkupStudioToolbar {...defaultProps} onApply={onApply} />);
 
-    const input = screen.getByPlaceholderText(/صف التعديل المطلوب حسب الرسم/);
-    fireEvent.change(input, { target: { value: 'إضافة نافذة مقوسة كلاسيكية' } });
+    const input = screen.getByPlaceholderText(/Describe your edit based on the markup/i);
+    fireEvent.change(input, { target: { value: 'Add arched balcony windows' } });
 
-    const submitBtn = screen.getByTitle(/Send to engine/);
+    const submitBtn = screen.getByTitle(/Send to engine/i);
     fireEvent.click(submitBtn);
 
-    expect(onApply).toHaveBeenCalledWith('إضافة نافذة مقوسة كلاسيكية');
+    expect(onApply).toHaveBeenCalledWith('Add arched balcony windows');
   });
 
   it('calls onExit when clicking exit button', () => {
     const onExit = vi.fn();
     render(<MarkupStudioToolbar {...defaultProps} onExit={onExit} />);
 
-    const exitBtn = screen.getByTitle(/9\. الخروج من وضع Markup/);
+    const exitBtn = screen.getByTitle(/Exit Markup Mode/i);
     fireEvent.click(exitBtn);
 
     expect(onExit).toHaveBeenCalled();

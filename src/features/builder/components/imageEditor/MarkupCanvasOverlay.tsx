@@ -192,13 +192,13 @@ export const MarkupCanvasOverlay: React.FC<MarkupCanvasOverlayProps> = ({
         y: pt.y,
         width: 120,
         height: 36,
-        text: 'نص توضيحي',
+        text: 'Annotation',
         fontSize: Math.max(16, strokeWidth * 2),
       };
       onElementsChange([...elements, newTextEl]);
       onSelectElementId(newId);
       setEditingTextId(newId);
-      setEditingTextVal('نص توضيحي');
+      setEditingTextVal('Annotation');
       return;
     }
   };
