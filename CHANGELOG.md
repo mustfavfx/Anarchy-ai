@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.103] - 2026-10-10
+
+### Instant Autonomous Visual CUA Auto-Trigger & UI Unification
+- **Zero Theoretical Stall & Immediate Action Execution**:
+  - Eliminated theoretical text-only responses when commanding architectural modeling or drawing in Autodesk Revit.
+  - In `ArchitectCopilotDock.tsx`, chatting with the agent now automatically activates the CUA engine, switches to the live execution view, and dispatches the task immediately.
+  - Cleaned all internal `[AutodeskAction: ...]` and `[CanvasAction: ...]` action tags from display previews.
+- **Bypassed Connector Heartbeat Blocking for Visual Tasks**:
+  - In `useAgentChat.ts`, visual CUA operations no longer wait for the background C# plugin heartbeat (which caused 55-second timeouts when uninstalled).
+  - Visual CUA tasks now execute immediately through native OS window focusing, Set-of-Marks grounding, mouse movement, and keyboard shortcuts.
+- **Unified Modeling Intent Routing**:
+  - All natural language commands targeting Revit (creating villas, building walls, placing openings, opening the app) now map directly to `cua_task` with visual CUA execution.
+
+---
+
 ## [0.3.102] - 2026-10-10
 
 ### Autodesk Revit Visual Computer-Use Agent (CUA)

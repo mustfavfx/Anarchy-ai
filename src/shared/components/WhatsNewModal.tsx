@@ -45,10 +45,10 @@ export interface UpdateSlide {
 
 const UPDATE_SLIDES: UpdateSlide[] = [
   {
-    id: 'revit-cua-v03102',
-    badge: 'Latest Release v0.3.102 | Revit Visual Computer-Use Agent',
-    title: 'Visual Computer-Use Agent (CUA) for Autodesk Revit',
-    subtitle: 'Human-like visual interaction: Autonomous mouse navigation, keyboard shortcuts (WA, DR, WN, ZE), and live drawing on Revit canvas.',
+    id: 'revit-cua-v03103',
+    badge: 'Latest Release v0.3.103 | Autonomous Revit Visual CUA Engine',
+    title: 'Instant Visual Computer-Use Execution for Autodesk Revit',
+    subtitle: 'Full pipeline auto-trigger: Direct mouse control, menu navigation, and canvas drawing without theoretical text stalls.',
     description: 'Version 0.3.102 evolves the Revit agent into a true visual Computer-Use Agent (CUA). Operating like a real architect seated in front of Revit, the agent focuses the window, visually grounds UI elements with Set-of-Marks, clicks ribbon tools, activates keyboard shortcuts, and draws geometry directly on the viewport canvas with real-time visual progress streaming.',
     features: [
       '1. Autonomous Visual Interaction: Operates Revit directly through visual mouse movements, clicks, drags, and keyboard input',

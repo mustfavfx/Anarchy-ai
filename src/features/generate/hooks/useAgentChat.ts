@@ -776,19 +776,23 @@ export function useAgentChat() {
 
           // Batch pre-flight: ensure software is launched and connector is online ONCE for the batch
           const primarySoftware = autodeskActions[0]?.software || '3dsmax';
+          const isVisualTask = autodeskActions.some(a => a.action === 'cua_task' || a.software === 'revit');
           let preflightConnected = true;
-          try {
-            const isOnline = await invoke<boolean>('cua_is_connector_online', { software: primarySoftware });
-            if (!isOnline) {
-              logger.log(`[AgentChat] Preflight: ${primarySoftware} not online. Launching app and waiting for connector heartbeat...`);
-              await invoke('cua_launch_app', { appName: primarySoftware });
-              preflightConnected = await invoke<boolean>('cua_wait_for_connector', { software: primarySoftware, timeoutSecs: 55 });
+
+          if (!isVisualTask) {
+            try {
+              const isOnline = await invoke<boolean>('cua_is_connector_online', { software: primarySoftware });
+              if (!isOnline) {
+                logger.log(`[AgentChat] Preflight: ${primarySoftware} not online. Launching app and waiting for connector heartbeat...`);
+                await invoke('cua_launch_app', { appName: primarySoftware });
+                preflightConnected = await invoke<boolean>('cua_wait_for_connector', { software: primarySoftware, timeoutSecs: 55 });
+              }
+            } catch (preflightErr) {
+              logger.warn('[AgentChat] Preflight connector check notice:', preflightErr);
             }
-          } catch (preflightErr) {
-            logger.warn('[AgentChat] Preflight connector check notice:', preflightErr);
           }
 
-          if (!preflightConnected) {
+          if (!preflightConnected && !isVisualTask) {
             allSuccess = false;
             actionTitles = autodeskActions.map(a => a.tool_name || a.description || a.action);
             executedOutputs.push(`${primarySoftware} connector did not respond within timeout. Please ensure ${primarySoftware} is running with the Anarchy AI plugin active.`);

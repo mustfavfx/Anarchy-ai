@@ -2074,26 +2074,36 @@ export function detectAutodeskIntent(text: string): DetectedAutodeskIntent | nul
     }
   }
 
-  // 3. Explicit Revit Parametric Modeling / BIM intent
+  // 3. Explicit Revit Modeling / Drawing / BIM intent -> Always Visual CUA by user requirement
   if (software === 'revit') {
-    // Villa / Building generation
+    // Villa / Building generation -> Visual CUA
     if (/(?:انشئ|أنشئ|ابني|ابنِ|سوي|اصنع|create|build|make)\s*(?:فيلا|بيت|منزل|مبنى|villa|house|building)/i.test(t)) {
       return {
         isAutodeskCommand: true,
         software: 'revit',
-        action: 'execute_script',
-        script: 'create_architectural_villa',
-        description: 'Generate parametric architectural villa with levels, walls, and openings in Revit',
+        action: 'cua_task',
+        description: 'Autonomous Visual Architect: Operating Revit UI & Drawing Villa via Mouse and Shortcuts',
+        isVisualCua: true,
       };
     }
-    // Wall creation
-    if (/(?:انشئ|أنشئ|ابني|ابنِ|ارسم|ضع|create|build|draw)\s*(?:جدران|حائط|جدار|walls|wall)/i.test(t)) {
+    // Wall / Plan creation -> Visual CUA
+    if (/(?:انشئ|أنشئ|ابني|ابنِ|ارسم|ضع|نفذ|create|build|draw)\s*(?:جدران|حائط|جدار|مخطط|walls|wall|plan)/i.test(t)) {
       return {
         isAutodeskCommand: true,
         software: 'revit',
-        action: 'execute_script',
-        script: 'create_walls',
-        description: 'Create parametric architectural walls in Revit',
+        action: 'cua_task',
+        description: 'Autonomous Visual Architect: Drawing Walls in Revit Canvas via WA Shortcut & Mouse',
+        isVisualCua: true,
+      };
+    }
+    // Camera / 3D Perspective -> Visual CUA
+    if (/(?:كاميرا|كامرا|منظور|camera|perspective|view|3d)/i.test(t)) {
+      return {
+        isAutodeskCommand: true,
+        software: 'revit',
+        action: 'cua_task',
+        description: 'Autonomous Visual Architect: Switching to 3D View and Framing via ZE in Revit',
+        isVisualCua: true,
       };
     }
     // BIM data extraction
@@ -2106,16 +2116,6 @@ export function detectAutodeskIntent(text: string): DetectedAutodeskIntent | nul
         description: 'Extract BIM project metadata, rooms, areas, and element counts from Revit',
       };
     }
-    // Camera / 3D Perspective
-    if (/(?:كاميرا|كامرا|منظور|camera|perspective|view)/i.test(t)) {
-      return {
-        isAutodeskCommand: true,
-        software: 'revit',
-        action: 'execute_script',
-        script: 'set_camera',
-        description: 'Configure Revit 3D perspective camera at human eye level',
-      };
-    }
   }
 
   // 4. Explicit Open / Launch intent (e.g. "افتح الماكس", "open 3ds max", "launch revit")
@@ -2123,8 +2123,9 @@ export function detectAutodeskIntent(text: string): DetectedAutodeskIntent | nul
     return {
       isAutodeskCommand: true,
       software,
-      action: 'viewport_sync',
+      action: software === 'revit' ? 'cua_task' : 'viewport_sync',
       description: `Launch and bring ${software} to front`,
+      isVisualCua: software === 'revit',
     };
   }
 

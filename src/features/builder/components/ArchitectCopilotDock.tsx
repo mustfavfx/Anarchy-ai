@@ -25,6 +25,7 @@ import { canvasBridge } from '../../../services/agent/CanvasBridgeService';
 import type { CanvasAction } from '../../../services/agent/ArchitecturalUnderstanding';
 import {
   computerUseAgent,
+  detectAutodeskIntent,
   type CUAStepRecord,
   type CUAStatus,
   type CUAObservation,
@@ -224,16 +225,41 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
         nodeId: selectedNode?.id || undefined,
       });
 
+      const displayContent = res.response
+        .replace(/\[CanvasAction:[\s\S]*?\]/gi, '')
+        .replace(/CanvasAction:\s*\{[\s\S]*?\}/gi, '')
+        .replace(/\[AutodeskAction:[\s\S]*?\]/gi, '')
+        .replace(/AutodeskAction:\s*\{[\s\S]*?\}/gi, '')
+        .trim();
+
       const assistantMsg: CopilotChatMessage = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
-        content: res.response.replace(/\[CanvasAction:[\s\S]*?\]/gi, '').trim(),
+        content: displayContent,
         enhancedPrompt: res.enhancedPrompt,
         actions: res.actions,
         timestamp: Date.now(),
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Check if user request or model output warrants autonomous visual CUA execution
+      const autodeskIntent = detectAutodeskIntent(query);
+      const hasCuaAction = (res.autodeskActions || []).some((a) => a.action === 'cua_task' || a.software === 'revit');
+
+      if (autodeskIntent?.action === 'cua_task' || autodeskIntent?.isVisualCua || hasCuaAction) {
+        setActiveTab('cua');
+        setCuaGoal(query);
+        addNotification({
+          type: 'info',
+          title: 'Autonomous CUA Activated',
+          message: 'Engaging Autodesk Revit UI control: moving mouse, activating tools, and drawing...',
+          duration: 4000,
+        });
+        setTimeout(() => {
+          handleStartCuaTask(query);
+        }, 150);
+      }
     } catch (err: any) {
       addNotification({
         type: 'error',

@@ -87,33 +87,21 @@ Core Tenets of your Architectural Genius:
        [AutodeskAction: {"software": "3dsmax", "action": "tool_call", "tool_name": "render_preview", "params": {}}]
      * Provide the photorealistic render prompt on its own line [Prompt: ...] if relevant.
 
-   - FOR AUTODESK REVIT (e.g. "ابني فيلا بالرفت", "انشئ جدران بالرفت", "ارسم مخطط بالريفيت", "اضبط كاميرا الرفت", "التقط فيو بورت الرفت", "استخرج بيانات الـ BIM", "صدر ريفيت"):
-     * Full Villa Modeling in Revit:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "create_architectural_villa", "params": {"style": "modern", "width": 14, "length": 16, "height": 3.5}}]
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "export_active_view", "params": {}}]
-     * Parametric Walls in Revit:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "create_walls", "params": {"width": 12, "length": 14, "height": 3.2}}]
-     * Levels Creation in Revit:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "create_levels", "params": {"name": "First Floor", "elevation": 3.5}}]
-     * Floors / Slabs in Revit:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "create_floors", "params": {"width": 14, "length": 16}}]
-     * Doors & Windows in Revit:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "place_doors_windows", "params": {}}]
-     * 3D Perspective Eye-Level Camera in Revit:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "set_camera", "params": {"eye_level": true, "yaw": 35, "distance": 22}}]
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "export_active_view", "params": {}}]
-     * Active Viewport Capture to Anarchy Canvas:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "export_active_view", "params": {}}]
-     * BIM Project & Room Metadata Extraction:
+   - FOR AUTODESK REVIT (e.g. "ابني فيلا بالرفت", "انشئ جدران بالرفت", "ارسم مخطط بالريفيت", "سوي فيلا بالرفت", "ارسم بالرفت", "تحكم بالرفت بالماوس", "افتح ريفيت وارسم"):
+     * THE MANDATORY DEFAULT FOR ALL REVIT MODELING & DRAWING IS AUTONOMOUS VISUAL CUA (Computer-Use Agent):
+     * When the user asks to draw, build, model, or create anything in Revit:
+       State a 1-sentence decisive architectural confirmation (e.g. "جاري التركيز على نافذة Autodesk Revit والبدء برسم المخطط والجدران بالماوس ولوحة المفاتيح.") and emit:
+       [AutodeskAction: {"software": "revit", "action": "cua_task", "description": "Autonomous Visual Operator: Operating Revit UI & Drawing Canvas via Mouse, Keyboard, and Vision"}]
+     * For camera framing or viewport capture:
+       [AutodeskAction: {"software": "revit", "action": "cua_task", "description": "Autonomous Visual Operator: Framing 3D View and Zooming Extents in Revit"}]
+     * For BIM metadata extraction:
        [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "extract_bim_data", "params": {}}]
-     * Export to DWG / IFC:
-       [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "export_model", "params": {"format": "ifc"}}]
 
-    - FOR AUTONOMOUS VISUAL CUA (MOUSE & KEYBOARD IN REVIT / 3DS MAX):
-      * When the user requests visual mouse/keyboard control, drawing via GUI, or human operator workflow:
-        (e.g. "تحكم بالرفت بالماوس", "ارسم بالماوس في ريفيت", "تحكم بالماوس والكيبورد في ريفيت", "افتح القوائم وارسم", "click with mouse in revit"):
-        State a decisive architectural confirmation and emit:
-        [AutodeskAction: {"software": "revit", "action": "cua_task", "description": "Autonomous Visual Operator: Drawing in Revit via Mouse, Keyboard, and Vision"}]
+   - FOR AUTONOMOUS VISUAL CUA (MOUSE & KEYBOARD IN REVIT / 3DS MAX):
+     * When the user requests visual mouse/keyboard control, drawing via GUI, or human operator workflow:
+       (e.g. "تحكم بالرفت بالماوس", "ارسم بالماوس في ريفيت", "تحكم بالماوس والكيبورد في ريفيت", "افتح القوائم وارسم", "click with mouse in revit"):
+       State a decisive architectural confirmation and emit:
+       [AutodeskAction: {"software": "revit", "action": "cua_task", "description": "Autonomous Visual Operator: Drawing in Revit via Mouse, Keyboard, and Vision"}]
 
    - Never output arbitrary multiline scripts in JSON; always use the verified atomic tools.`;
 
