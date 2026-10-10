@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { computerUseAgent, type CUAAction } from './ComputerUseAgentService';
+import { computerUseAgent, detectAutodeskIntent, type CUAAction } from './ComputerUseAgentService';
 import { canvasBridge } from './CanvasBridgeService';
 import * as tauriApi from '@tauri-apps/api/core';
 
@@ -691,6 +691,67 @@ describe('ComputerUseAgentService (CUA Engine)', () => {
 
     const solarCall = parseUITARSAction("Action: analyze_solar()");
     expect(solarCall?.action?.type).toBe('analyze_solar');
+  });
+
+  it('detects visual CUA intent for Revit when user mentions mouse/keyboard/menus/drawing', () => {
+    const visualQuery = 'اريد تحكما بصريا بالماوس ولوحة المفاتيح في واجهة ريفيت وارسم جدران';
+    const detected = detectAutodeskIntent(visualQuery);
+
+    expect(detected).not.toBeNull();
+    expect(detected?.software).toBe('revit');
+    expect(detected?.action).toBe('cua_task');
+    expect(detected?.isVisualCua).toBe(true);
+    expect(detected?.description).toContain('Revit');
+  });
+
+  it('generates Revit-specific Set-of-Marks anchors when Autodesk Revit window is active', () => {
+    const windows = [
+      {
+        id: 42,
+        title: 'Autodesk Revit 2026 - Modern Villa.rvt - Floor Plan: Level 1',
+        process_id: 8840,
+        rect: { x: 0, y: 0, width: 1920, height: 1080 },
+        is_autodesk: true,
+        is_minimized: false,
+      },
+    ];
+    const screen = {
+      image: 'mock',
+      width: 1920,
+      height: 1080,
+    };
+
+    const marks = computerUseAgent.generateSetOfMarks(windows, screen, undefined);
+    expect(marks.some((m) => m.label.includes('Wall Tool (WA)'))).toBe(true);
+    expect(marks.some((m) => m.label.includes('Door Tool (DR)'))).toBe(true);
+    expect(marks.some((m) => m.label.includes('Window Tool (WN)'))).toBe(true);
+    expect(marks.some((m) => m.label.includes('Default 3D View (House)'))).toBe(true);
+    expect(marks.some((m) => m.label.includes('Drawing Canvas Point 1 (NW)'))).toBe(true);
+    expect(marks.some((m) => m.label.includes('Drawing Canvas Point 3 (SE)'))).toBe(true);
+  });
+
+  it('executes mouse_drag CUA action via Tauri cua_mouse_drag', async () => {
+    (tauriApi.invoke as any).mockResolvedValue(undefined);
+
+    const dragAction: CUAAction = {
+      type: 'mouse_drag',
+      x: 200,
+      y: 300,
+      endX: 600,
+      endY: 700,
+      isNormalized: false,
+      button: 'left',
+    };
+
+    const res = await computerUseAgent.executeAction(dragAction);
+    expect(res.success).toBe(true);
+    expect(tauriApi.invoke).toHaveBeenCalledWith('cua_mouse_drag', expect.objectContaining({
+      fromX: 200,
+      fromY: 300,
+      toX: 600,
+      toY: 700,
+      steps: 25,
+    }));
   });
 });
 

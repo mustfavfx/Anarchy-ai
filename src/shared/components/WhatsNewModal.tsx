@@ -45,8 +45,46 @@ export interface UpdateSlide {
 
 const UPDATE_SLIDES: UpdateSlide[] = [
   {
+    id: 'revit-cua-v03102',
+    badge: 'Latest Release v0.3.102 | Revit Visual Computer-Use Agent',
+    title: 'Visual Computer-Use Agent (CUA) for Autodesk Revit',
+    subtitle: 'Human-like visual interaction: Autonomous mouse navigation, keyboard shortcuts (WA, DR, WN, ZE), and live drawing on Revit canvas.',
+    description: 'Version 0.3.102 evolves the Revit agent into a true visual Computer-Use Agent (CUA). Operating like a real architect seated in front of Revit, the agent focuses the window, visually grounds UI elements with Set-of-Marks, clicks ribbon tools, activates keyboard shortcuts, and draws geometry directly on the viewport canvas with real-time visual progress streaming.',
+    features: [
+      '1. Autonomous Visual Interaction: Operates Revit directly through visual mouse movements, clicks, drags, and keyboard input',
+      '2. Revit Set-of-Marks Grounding: Deterministic visual anchors for Architecture Tab, Wall Tool (WA), Door (DR), Window (WN), and Canvas Points',
+      '3. Keyboard Shortcuts & Workflow: Activates native shortcuts (WA for Wall, DR for Door, WN for Window, ZE for Zoom Extents, Escape to reset)',
+      '4. Visual Step Streaming: Real-time execution logs and viewport screenshot feedback streamed straight to the user copilot interface',
+      '5. Architectural Presets: One-click visual tasks in the Copilot Dock for walls, openings, 3D views, and full layouts',
+    ],
+    featureCards: [
+      {
+        icon: 'lightning',
+        title: '1. Human-Like UI Control',
+        description: 'Moves the mouse, activates tools in the Revit ribbon, and clicks on the drawing canvas just like a real architect.',
+      },
+      {
+        icon: 'camera',
+        title: '2. Set-of-Marks Anchors',
+        description: 'Deterministic bounding-box anchors identify ribbon buttons, drawing canvas centers, and project browser panels.',
+      },
+      {
+        icon: 'keyboard',
+        title: '3. Architectural Shortcuts',
+        description: 'Instantly fires shortcuts like WA, DR, WN, and ZE with automated escape sequences between actions.',
+      },
+      {
+        icon: 'agent',
+        title: '4. Visual Step Streaming',
+        description: 'Each thought, mouse action, and screenshot is logged live into the agent chat interface.',
+      },
+    ],
+    graphicType: 'agent',
+    accentColor: '#38bdf8',
+  },
+  {
     id: 'revit-copilot-v03101',
-    badge: 'Latest Release v0.3.101 | Autodesk Revit AI Copilot',
+    badge: 'Previous Release v0.3.101 | Autodesk Revit AI Copilot',
     title: 'Autonomous Autodesk Revit BIM Copilot',
     subtitle: 'Full parametric modeling, architectural villa generation, BIM schedule inspection, and direct canvas viewport sync.',
     description: 'Version 0.3.101 empowers Anarchy AI Agent with full native integration inside Autodesk Revit. Built on thread-safe ExternalEvent architecture and live HTTP polling, the agent executes parametric modeling, camera positioning, and BIM data extractions directly.',

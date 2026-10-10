@@ -137,6 +137,8 @@ export interface CUAAction {
   fromY?: number;
   toX?: number;
   toY?: number;
+  endX?: number;
+  endY?: number;
   scrollDirection?: 'up' | 'down';
   scrollAmount?: number;
   text?: string;
@@ -350,12 +352,12 @@ export class ComputerUseAgentService {
     screen?: ScreenCaptureResult,
     isNormalized = true
   ): { x: number; y: number } {
-    if (!screen) {
+    if (!screen || (!screen.width && !screen.original_width)) {
       return { x: Math.round(x), y: Math.round(y) };
     }
 
-    const origW = screen.original_width || screen.width;
-    const origH = screen.original_height || screen.height;
+    const origW = screen.original_width || screen.width || 1920;
+    const origH = screen.original_height || screen.height || 1080;
     const originX = screen.origin_x || 0;
     const originY = screen.origin_y || 0;
 
@@ -470,7 +472,43 @@ export class ComputerUseAgentService {
         screenCenter: { x: screenCenterX, y: screenCenterY },
       });
 
-      if (isAutodesk && win.rect.width > 400 && win.rect.height > 300) {
+      const isRevit = win.title.toLowerCase().includes('revit');
+      if (isRevit && win.rect.width > 400 && win.rect.height > 300) {
+        const addRevitMark = (label: string, rx: number, ry: number, type: UIElementMark['type'] = 'button', w = 60, h = 40) => {
+          const sx = Math.round(win.rect.x + (rx <= 1 ? win.rect.width * rx : rx));
+          const sy = Math.round(win.rect.y + (ry <= 1 ? win.rect.height * ry : ry));
+          marks.push({
+            id: `#${markIndex++}`,
+            type,
+            label: `Revit: ${label}`,
+            normalizedBbox: {
+              x: Math.max(0, Math.round(((sx - originX) / origW) * 1000) - Math.round(w / 2)),
+              y: Math.max(0, Math.round(((sy - originY) / origH) * 1000) - Math.round(h / 2)),
+              width: w,
+              height: h,
+            },
+            normalizedCenter: {
+              x: Math.max(0, Math.min(1000, Math.round(((sx - originX) / origW) * 1000))),
+              y: Math.max(0, Math.min(1000, Math.round(((sy - originY) / origH) * 1000))),
+            },
+            screenCenter: { x: sx, y: sy },
+          });
+        };
+
+        addRevitMark('Architecture Tab', 0.08, 65, 'menu');
+        addRevitMark('Wall Tool (WA)', 0.055, 110, 'button');
+        addRevitMark('Door Tool (DR)', 0.085, 110, 'button');
+        addRevitMark('Window Tool (WN)', 0.115, 110, 'button');
+        addRevitMark('Floor Tool', 0.20, 110, 'button');
+        addRevitMark('Default 3D View (House)', 0.25, 36, 'button');
+        addRevitMark('Drawing Canvas Center', 0.58, 0.55, 'viewport_control', 200, 200);
+        addRevitMark('Drawing Canvas Point 1 (NW)', 0.45, 0.45, 'viewport_control', 30, 30);
+        addRevitMark('Drawing Canvas Point 2 (NE)', 0.65, 0.45, 'viewport_control', 30, 30);
+        addRevitMark('Drawing Canvas Point 3 (SE)', 0.65, 0.65, 'viewport_control', 30, 30);
+        addRevitMark('Drawing Canvas Point 4 (SW)', 0.45, 0.65, 'viewport_control', 30, 30);
+        addRevitMark('Properties Palette', 0.12, 0.32, 'panel', 100, 150);
+        addRevitMark('Project Browser', 0.12, 0.72, 'panel', 100, 150);
+      } else if (isAutodesk && win.rect.width > 400 && win.rect.height > 300) {
         const vpScreenX = Math.round(win.rect.x + win.rect.width * 0.45);
         const vpScreenY = Math.round(win.rect.y + win.rect.height * 0.52);
         marks.push({
@@ -938,18 +976,23 @@ export class ComputerUseAgentService {
       }
 
       case 'mouse_drag': {
+        const startX = action.fromX !== undefined ? action.fromX : action.x;
+        const startY = action.fromY !== undefined ? action.fromY : action.y;
+        const endX = action.toX !== undefined ? action.toX : action.endX;
+        const endY = action.toY !== undefined ? action.toY : action.endY;
+
         if (
-          action.fromX === undefined ||
-          action.fromY === undefined ||
-          action.toX === undefined ||
-          action.toY === undefined
+          startX === undefined ||
+          startY === undefined ||
+          endX === undefined ||
+          endY === undefined
         ) {
           return { success: false, message: 'Missing drag coordinates' };
         }
         try {
-          const isNorm = action.isNormalized !== undefined ? action.isNormalized : true;
-          const from = this.transformCoordinates(action.fromX, action.fromY, this.lastObservation?.screen, isNorm);
-          const to = this.transformCoordinates(action.toX, action.toY, this.lastObservation?.screen, isNorm);
+          const isNorm = action.isNormalized !== undefined ? action.isNormalized : (this.plannerProvider === 'gemini');
+          const from = this.transformCoordinates(startX, startY, this.lastObservation?.screen, isNorm);
+          const to = this.transformCoordinates(endX, endY, this.lastObservation?.screen, isNorm);
           const targetWindow = this.lastObservation?.screen?.window_title;
           await invoke('cua_mouse_drag', {
             fromX: from.x,
@@ -1577,15 +1620,35 @@ AVAILABLE ACTIONS:
 28. ${this.plannerProvider === 'gemini'
     ? '{"type": "mouse_click", "x": 500, "y": 500, "button": "left"} -> Click at screen coordinates. Output normalized coordinates strictly in range [0, 1000].'
     : `{"type": "mouse_click", "x": 640, "y": 360, "button": "left"} -> Click at screen pixel coordinates strictly in range [0, ${obs.screen?.width || 1280}] for X and [0, ${obs.screen?.height || 720}] for Y.`}
-29. {"type": "send_keys", "text": "...", "keyCombo": ["ctrl", "s"]} -> Type text or hotkeys.
-30. {"type": "focus_window", "windowTitlePattern": "3ds max"} -> Bring target window to front.
-31. {"type": "canvas_action", "canvasAction": {"type": "fork_node", "label": "<Branch Label>", "prompt": "<architectural prompt>"}} -> Branch node on canvas with new design prompt.
-32. {"type": "canvas_action", "canvasAction": {"type": "update_prompt", "prompt": "<refined architectural prompt>"}} -> Update prompt on active node.
-33. {"type": "canvas_action", "canvasAction": {"type": "focus_node", "nodeId": "<nodeId>"}} -> Focus canvas camera on node.
-34. {"type": "fetch_web_reference", "webQuery": "modern villa facade"} -> Fetch online reference image to canvas.
-35. {"type": "wait", "durationMs": 1500} -> Wait for rendering or processing.
-36. {"type": "complete", "completionSummary": "<Summary of what was achieved>"} -> Finish execution successfully.
-37. {"type": "fail", "failureReason": "<Reason why goal cannot be achieved>"} -> Terminate execution with failure notice.
+29. {"type": "mouse_drag", "fromX": 500, "fromY": 400, "toX": 700, "toY": 400} -> Drag mouse between points to draw wall lines, pan, or box-select.
+30. {"type": "send_keys", "text": "WA"} -> Type text or Revit shortcuts directly ('WA' Wall, 'DR' Door, 'WN' Window, 'ZE' Zoom Extents).
+31. {"type": "send_keys", "keyCombo": ["escape"]} -> Press keyboard keys ('escape', 'enter', 'tab', 'ctrl+s'). Double-escape cancels active tool.
+32. {"type": "focus_window", "windowTitlePattern": "Revit"} -> Bring target window (Revit / 3ds Max / AutoCAD) to front.
+33. {"type": "canvas_action", "canvasAction": {"type": "fork_node", "label": "<Branch Label>", "prompt": "<architectural prompt>"}} -> Branch node on canvas with new design prompt.
+34. {"type": "canvas_action", "canvasAction": {"type": "update_prompt", "prompt": "<refined architectural prompt>"}} -> Update prompt on active node.
+35. {"type": "canvas_action", "canvasAction": {"type": "focus_node", "nodeId": "<nodeId>"}} -> Focus canvas camera on node.
+36. {"type": "fetch_web_reference", "webQuery": "modern villa facade"} -> Fetch online reference image to canvas.
+37. {"type": "wait", "durationMs": 1500} -> Wait for rendering or processing.
+38. {"type": "complete", "completionSummary": "<Summary of what was achieved>"} -> Finish execution successfully.
+39. {"type": "fail", "failureReason": "<Reason why goal cannot be achieved>"} -> Terminate execution with failure notice.
+
+--- AUTODESK REVIT AUTONOMOUS VISUAL ARCHITECT GUIDELINES ---
+When commanded to draw, model, or operate Autodesk Revit visually via mouse and keyboard:
+1. FOCUS WINDOW: {"type": "focus_window", "windowTitlePattern": "Revit"}
+2. DRAW WALLS VIA GUI (WA):
+   - Send shortcut: {"type": "send_keys", "text": "WA"} OR click "Revit: Wall Tool (WA)" Mark on Ribbon.
+   - Click start point on drawing canvas: {"type": "mouse_click", "x": 550, "y": 420} (or click #Drawing Canvas Point 1).
+   - Click second point: {"type": "mouse_click", "x": 750, "y": 420} (or click #Drawing Canvas Point 2).
+   - Click subsequent points to form enclosed rectangular room or villa perimeter.
+   - Exit tool / Reset to Modify: {"type": "send_keys", "keyCombo": ["escape"]} twice.
+3. PLACE DOORS & WINDOWS (DR / WN):
+   - Door: {"type": "send_keys", "text": "DR"}, then click on a drawn wall.
+   - Window: {"type": "send_keys", "text": "WN"}, then click on another wall.
+   - Reset: {"type": "send_keys", "keyCombo": ["escape"]}.
+4. 3D PERSPECTIVE & ZOOM:
+   - Click Default 3D View House icon on Ribbon / Quick Access.
+   - Zoom to extents: {"type": "send_keys", "text": "ZE"}.
+5. FINISH: {"type": "complete", "completionSummary": "Successfully operated Revit via mouse and keyboard to complete the architectural model."}
 
 Decide the SINGLE next best action to advance towards the active sub-goal and user objective.
 Respond strictly in JSON format:
@@ -1918,9 +1981,10 @@ export const computerUseAgent = ComputerUseAgentService.getInstance();
 export interface DetectedAutodeskIntent {
   isAutodeskCommand: boolean;
   software: '3dsmax' | 'autocad' | 'revit';
-  action: 'viewport_sync' | 'execute_script';
+  action: 'viewport_sync' | 'execute_script' | 'cua_task';
   script?: string;
   description: string;
+  isVisualCua?: boolean;
 }
 
 export function detectAutodeskIntent(text: string): DetectedAutodeskIntent | null {
@@ -1946,7 +2010,19 @@ export function detectAutodeskIntent(text: string): DetectedAutodeskIntent | nul
     return null;
   }
 
-  // 1. Viewport sync intent (e.g. "سينك الماكس", "sync 3ds max viewport", "اسحب المشهد")
+  // 1. Autonomous Visual CUA Intent (e.g. "تحكم بالماوس في ريفيت", "ارسم بالماوس في الرفت", "افتح القوائم وارسم", "click/drag/draw with mouse")
+  const hasVisualCuaDirective = /(?:بالماوس|ماوس|mouse|كيبورد|لوحة المفاتيح|keyboard|شاش|واجه|نافذ|انقر|اضغط|قوائم|menu|click|drag|ارسم بالماوس|تحكم|operator|visual)/i.test(t);
+  if (hasVisualCuaDirective) {
+    return {
+      isAutodeskCommand: true,
+      software,
+      action: 'cua_task',
+      description: `Autonomous Visual Operator: Control Autodesk ${software === 'revit' ? 'Revit' : software === 'autocad' ? 'AutoCAD' : '3ds Max'} UI via Mouse, Keyboard, and Screen Vision`,
+      isVisualCua: true,
+    };
+  }
+
+  // 2. Viewport sync intent (e.g. "سينك الماكس", "sync 3ds max viewport", "اسحب المشهد")
   if (/سينك|مزامنة|اسحب المشهد|\bviewport\b|\bsync viewport\b/i.test(t)) {
     return {
       isAutodeskCommand: true,

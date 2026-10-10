@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.102] - 2026-10-10
+
+### Autodesk Revit Visual Computer-Use Agent (CUA)
+- **True Visual Human-Like Interaction**:
+  - Transformed the Revit agent into an autonomous visual Computer-Use Agent (CUA) that controls Revit like a human architect sitting at the screen.
+  - Automatically brings Autodesk Revit window into focus via Windows OS API (`cua_focus_window`).
+  - Visually grounds UI elements using Set-of-Marks (SoM) anchors targeting the Revit Ribbon Architecture Tab, Wall Tool (`WA`), Door Tool (`DR`), Window Tool (`WN`), Floor Tool, Default 3D View House Icon, Drawing Canvas Center and Cardinal Drawing Points (NW, NE, SE, SW), Properties Palette, and Project Browser.
+- **Architectural Keyboard Shortcuts & Canvas Drawing**:
+  - Fires native Revit shortcuts (`WA` for Wall, `DR` for Door, `WN` for Window, `ZE` for Zoom Extents, `escape` sequences to reset active tool) with precise millisecond keypress dispatch.
+  - Implemented continuous `mouse_drag` support in Tauri and CUA engine for drawing continuous wall perimeters and navigation.
+- **Visual Intent Routing & Copilot Integration**:
+  - Automatically classifies natural language requests mentioning visual mouse, keyboard, clicking, dragging, or menus into `cua_task` actions (`isVisualCua: true`).
+  - Emits real-time visual step streaming with viewport capture screenshots directly to the chat interface.
+  - Added visual CUA preset shortcuts to `ArchitectCopilotDock`: Wall drawing via GUI (`WA`), Openings (`DR / WN`), 3D Zoom All (`ZE`), and Full Villa Layout via GUI.
+
+---
+
 ## [0.3.101] - 2026-10-10
 
 ### Autodesk Revit Live AI Copilot & BIM Automation

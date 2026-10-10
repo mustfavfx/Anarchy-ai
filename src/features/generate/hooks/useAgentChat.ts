@@ -644,12 +644,19 @@ export function useAgentChat() {
         let cuaResult: { success: boolean; message: string; output?: string } | null = null;
         if (autodeskIntent) {
           try {
-            cuaResult = await computerUseAgent.executeAutodeskCommand({
-              software: autodeskIntent.software,
-              action: autodeskIntent.action,
-              script: autodeskIntent.script,
-              autoLaunch: true,
-            });
+            if (autodeskIntent.action === 'cua_task' || autodeskIntent.isVisualCua) {
+              const outcome = await computerUseAgent.executeAutonomousTask(content, {
+                maxSteps: 25,
+              });
+              cuaResult = { success: outcome.success, message: outcome.message, output: outcome.message };
+            } else {
+              cuaResult = await computerUseAgent.executeAutodeskCommand({
+                software: autodeskIntent.software,
+                action: autodeskIntent.action as any,
+                script: autodeskIntent.script,
+                autoLaunch: true,
+              });
+            }
           } catch (cuaErr) {
             logger.warn('[AgentChat] CUA execution error:', cuaErr);
           }
@@ -790,7 +797,15 @@ export function useAgentChat() {
               actionTitles.push(act.tool_name || act.description || act.action);
               try {
                 let res: { success: boolean; message: string; output?: string };
-                if (act.action === 'tool_call' && act.tool_name) {
+                if (act.action === 'cua_task') {
+                  const outcome = await computerUseAgent.executeAutonomousTask(content, {
+                    maxSteps: 25,
+                    onStep: (stepRecord) => {
+                      logger.log('[AgentChat] CUA live step:', stepRecord.step, stepRecord.thought);
+                    },
+                  });
+                  res = { success: outcome.success, message: outcome.message, output: outcome.message };
+                } else if (act.action === 'tool_call' && act.tool_name) {
                   res = await computerUseAgent.executeAction({
                     type: 'tool_call',
                     autodeskSoftware: act.software,
@@ -818,14 +833,25 @@ export function useAgentChat() {
           autodeskRan = true;
           actionTitles.push(autodeskIntent.description);
           try {
-            const res = await computerUseAgent.executeAutodeskCommand({
-              software: autodeskIntent.software,
-              action: autodeskIntent.action,
-              script: autodeskIntent.script,
-              autoLaunch: true,
-            });
-            allSuccess = res.success;
-            if (res.output || res.message) executedOutputs.push(res.output || res.message);
+            if (autodeskIntent.action === 'cua_task' || autodeskIntent.isVisualCua) {
+              const outcome = await computerUseAgent.executeAutonomousTask(content, {
+                maxSteps: 25,
+                onStep: (stepRecord) => {
+                  logger.log('[AgentChat] CUA live step:', stepRecord.step, stepRecord.thought);
+                },
+              });
+              allSuccess = outcome.success;
+              if (outcome.message) executedOutputs.push(outcome.message);
+            } else {
+              const res = await computerUseAgent.executeAutodeskCommand({
+                software: autodeskIntent.software,
+                action: autodeskIntent.action as any,
+                script: autodeskIntent.script,
+                autoLaunch: true,
+              });
+              allSuccess = res.success;
+              if (res.output || res.message) executedOutputs.push(res.output || res.message);
+            }
           } catch (err: any) {
             allSuccess = false;
             executedOutputs.push(`Failed executing Autodesk command: ${err?.message || err}`);

@@ -618,7 +618,7 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
               style={{ display: 'flex', alignItems: 'center', gap: 8 }}
             >
               <Compass size={15} className="spin-slow" style={{ color: '#34d399' }} />
-              <span>Analyzing spatial composition & canvas graph topology...</span>
+              <span>Analyzing spatial composition and canvas graph topology...</span>
             </div>
           </div>
         )}
@@ -807,6 +807,42 @@ export const ArchitectCopilotDock: React.FC<ArchitectCopilotDockProps> = ({ onCl
           >
             <Brain size={12} style={{ color: '#38bdf8' }} />
             <span>Presentation Deck (PowerPoint)</span>
+          </button>
+          <button
+            type="button"
+            className="cua-preset-btn"
+            disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
+            onClick={() => handleStartCuaTask('Focus Autodesk Revit, activate Wall tool using keyboard shortcut WA, click on the drawing canvas to draw 4 connected exterior walls in a rectangle, press Escape twice to exit tool, and zoom extents ZE')}
+          >
+            <Building2 size={12} style={{ color: '#0ea5e9' }} />
+            <span>Revit: Draw Walls via GUI (WA)</span>
+          </button>
+          <button
+            type="button"
+            className="cua-preset-btn"
+            disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
+            onClick={() => handleStartCuaTask('Focus Autodesk Revit, activate Door tool using shortcut DR, click on front wall to place door, activate Window tool using shortcut WN, click on walls to insert windows, and press Escape twice')}
+          >
+            <Box size={12} style={{ color: '#38bdf8' }} />
+            <span>Revit: Place Doors & Windows (DR / WN)</span>
+          </button>
+          <button
+            type="button"
+            className="cua-preset-btn"
+            disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
+            onClick={() => handleStartCuaTask('Focus Autodesk Revit, click Default 3D View house icon in quick access toolbar or ribbon, and press ZE to zoom to extents')}
+          >
+            <Eye size={12} style={{ color: '#06b6d4' }} />
+            <span>Revit: 3D View & Zoom All (ZE)</span>
+          </button>
+          <button
+            type="button"
+            className="cua-preset-btn"
+            disabled={cuaStatus === 'acting' || cuaStatus === 'thinking' || cuaStatus === 'observing'}
+            onClick={() => handleStartCuaTask('Focus Autodesk Revit, activate Wall tool WA, draw four connected perimeter walls forming an enclosed building layout, place front entrance door DR, place two windows WN, switch to 3D perspective view, and zoom extents ZE')}
+          >
+            <Sparkles size={12} style={{ color: '#0ea5e9' }} />
+            <span>Revit: Full Villa Layout via GUI</span>
           </button>
           <button
             type="button"

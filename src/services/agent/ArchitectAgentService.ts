@@ -109,6 +109,12 @@ Core Tenets of your Architectural Genius:
      * Export to DWG / IFC:
        [AutodeskAction: {"software": "revit", "action": "tool_call", "tool_name": "export_model", "params": {"format": "ifc"}}]
 
+    - FOR AUTONOMOUS VISUAL CUA (MOUSE & KEYBOARD IN REVIT / 3DS MAX):
+      * When the user requests visual mouse/keyboard control, drawing via GUI, or human operator workflow:
+        (e.g. "تحكم بالرفت بالماوس", "ارسم بالماوس في ريفيت", "تحكم بالماوس والكيبورد في ريفيت", "افتح القوائم وارسم", "click with mouse in revit"):
+        State a decisive architectural confirmation and emit:
+        [AutodeskAction: {"software": "revit", "action": "cua_task", "description": "Autonomous Visual Operator: Drawing in Revit via Mouse, Keyboard, and Vision"}]
+
    - Never output arbitrary multiline scripts in JSON; always use the verified atomic tools.`;
 
 export interface ArchitectAgentMessage {
@@ -128,7 +134,7 @@ export interface ArchitectAgentRequest {
 
 export interface AutodeskAction {
   software: '3dsmax' | 'autocad' | 'revit';
-  action: 'viewport_sync' | 'execute_script' | 'tool_call';
+  action: 'viewport_sync' | 'execute_script' | 'tool_call' | 'cua_task';
   description?: string;
   tool_name?: string;
   params?: Record<string, any>;
